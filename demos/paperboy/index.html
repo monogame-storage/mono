@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -573,12 +573,12 @@
   );
 
   // --- Game Constants ---
-  const LANE_Y = [100, 140, 180, 220]; // 4 lanes: top sidewalk, upper road, lower road, bottom sidewalk
+  const LANE_Y = [75, 105, 135, 165]; // 4 lanes: top sidewalk, upper road, lower road, bottom sidewalk
   const SCROLL_SPEED = 2;
-  const HOUSE_SPACING = 80; // distance between houses
+  const HOUSE_SPACING = 53; // distance between houses
   const HOUSES_PER_DAY = 8;
   const PAPERS_PER_DAY = 12;
-  const DAY_LENGTH = HOUSES_PER_DAY * HOUSE_SPACING + 200; // pixels per day
+  const DAY_LENGTH = HOUSES_PER_DAY * HOUSE_SPACING + 133; // pixels per day
 
   // --- Game State ---
   let state = "title";
@@ -605,7 +605,7 @@
   }
 
   function startDay() {
-    player = { x: 60, y: LANE_Y[1], lane: 1, targetY: LANE_Y[1] };
+    player = { x: 40, y: LANE_Y[1], lane: 1, targetY: LANE_Y[1] };
     papers = [];
     obstacles = [];
     houses = [];
@@ -632,7 +632,7 @@
 
     // Generate houses along the route
     for (let i = 0; i < HOUSES_PER_DAY; i++) {
-      const hx = 200 + i * HOUSE_SPACING;
+      const hx = 133 + i * HOUSE_SPACING;
       // Alternate top and bottom side of street
       const side = i % 2 === 0 ? "top" : "bottom";
       houses.push({
@@ -654,7 +654,7 @@
     const numObs = 6 + day * 2;
     for (let i = 0; i < numObs; i++) {
       const type = flr(rnd(4)); // 0:dog, 1:car, 2:skater, 3:mower
-      const ox = 300 + flr(rnd(dayLength - 300));
+      const ox = 200 + flr(rnd(dayLength - 200));
       let lane;
       if (type === 1) { // cars on road lanes
         lane = flr(rnd(2)) + 1; // lanes 1 or 2
@@ -840,8 +840,8 @@
       for (const h of houses) {
         if (h.delivered || h.broken) continue;
         const hsx = worldToScreen(h.x);
-        const hy = h.side === "top" ? 70 : 250;
-        const mailboxY = h.side === "top" ? 95 : 235;
+        const hy = h.side === "top" ? 52 : 188;
+        const mailboxY = h.side === "top" ? 71 : 176;
 
         // Mailbox hit zone
         if (sx > hsx - 4 && sx < hsx + 16 && p.y > mailboxY - 8 && p.y < mailboxY + 8) {
@@ -890,7 +890,7 @@
       }
 
       // Remove if off screen or hit ground
-      if (p.y > 280 || sx > W + 20 || sx < -20) {
+      if (p.y > 210 || sx > W + 20 || sx < -20) {
         papers.splice(i, 1);
       }
     }
@@ -961,51 +961,51 @@
 
     if (state === "title") {
       // Sky
-      rectf(0, 0, W, 80, 0);
+      rectf(0, 0, W, 60, 0);
       // Grass
-      rectf(0, 80, W, 120, 0);
+      rectf(0, 60, W, 90, 0);
       // Road
-      rectf(0, 130, W, 60, 1);
+      rectf(0, 98, W, 45, 1);
       // Bottom grass
-      rectf(0, 190, W, 130, 0);
+      rectf(0, 143, W, 97, 0);
 
       // Draw some houses
       for (let i = 0; i < 6; i++) {
-        const hx = 30 + i * 75;
-        spr(5, hx, 68);
-        spr(5, hx + 8, 68);
-        spr(7, hx + 4, 88);
+        const hx = 20 + i * 50;
+        spr(5, hx, 51);
+        spr(5, hx + 8, 51);
+        spr(7, hx + 4, 66);
       }
 
       // Road markings
       for (let i = 0; i < 20; i++) {
-        const lx = (i * 30 + flr(API.frame * 0.5)) % (W + 30) - 15;
-        rectf(lx, 158, 12, 2, 2);
+        const lx = (i * 20 + flr(API.frame * 0.5)) % (W + 20) - 10;
+        rectf(lx, 119, 12, 2, 2);
       }
 
       // Animated paperboy riding across
       const bikeX = ((API.frame * 2) % (W + 40)) - 20;
-      const bikeY = 142 + sin(API.frame * 0.1) * 2;
+      const bikeY = 107 + sin(API.frame * 0.1) * 2;
       const bikeFrame = flr(API.frame / 4) % 2 === 0 ? 1 : 2;
       sprExt(bikeFrame, bikeX, bikeY, false, false, 0);
 
       // Title text
-      const ty = 20 + flr(titleBounce);
-      drawText("PAPERBOY", 185, ty, 3);
-      drawText("PAPERBOY", 186, ty + 1, 1);
-      rectf(170, ty + 10, 140, 1, 2);
+      const ty = 15 + flr(titleBounce);
+      drawText("PAPERBOY", 140, ty, 3);
+      drawText("PAPERBOY", 141, ty + 1, 1);
+      rectf(113, ty + 10, 93, 1, 2);
 
-      drawText("GRAYBOX EDITION", 178, ty + 18, 2);
+      drawText("GRAYBOX EDITION", 123, ty + 18, 2);
 
       if (flr(API.frame / 20) % 2 === 0) {
-        drawText("PRESS START", 198, 230, 3);
+        drawText("PRESS START", 133, 173, 3);
       }
 
       // Controls
-      drawText("UP/DOWN  CHANGE LANE", 150, 260, 2);
-      drawText("Z  THROW NEWSPAPER", 158, 272, 2);
-      drawText("X  JUMP OBSTACLE", 165, 284, 2);
-      drawText("7 DAYS TO DELIVER!", 162, 300, 1);
+      drawText("UP/DOWN  CHANGE LANE", 111, 195, 2);
+      drawText("Z  THROW NEWSPAPER", 113, 204, 2);
+      drawText("X  JUMP OBSTACLE", 118, 213, 2);
+      drawText("7 DAYS TO DELIVER!", 113, 225, 1);
 
       return;
     }
@@ -1015,62 +1015,62 @@
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
       if (day >= 7 && lives > 0) {
-        drawText("CONGRATULATIONS!", 172, 100, 3);
-        drawText("YOU SURVIVED THE WEEK!", 152, 120, 2);
+        drawText("CONGRATULATIONS!", 121, 75, 3);
+        drawText("YOU SURVIVED THE WEEK!", 106, 90, 2);
       } else {
-        drawText("GAME OVER", 198, 100, 3);
+        drawText("GAME OVER", 138, 75, 3);
       }
-      drawText("FINAL SCORE: " + score, 175, 145, 2);
-      drawText("DAYS COMPLETED: " + (day >= 7 ? 7 : day - 1), 160, 160, 2);
+      drawText("FINAL SCORE: " + score, 115, 109, 2);
+      drawText("DAYS COMPLETED: " + (day >= 7 ? 7 : day - 1), 113, 120, 2);
 
       if (flr(API.frame / 20) % 2 === 0) {
-        drawText("PRESS START", 198, 210, 3);
+        drawText("PRESS START", 133, 158, 3);
       }
       return;
     }
 
     if (state === "dayresult") {
       cls(0);
-      drawText("DAY " + day + " COMPLETE!", 180, 60, 3);
+      drawText("DAY " + day + " COMPLETE!", 123, 45, 3);
 
-      rectf(140, 85, 200, 1, 2);
+      rectf(93, 64, 133, 1, 2);
 
-      drawText("DELIVERED: " + dayResults.delivered, 180, 100, 3);
-      drawText("MISSED: " + dayResults.missed, 192, 118, dayResults.missed > 0 ? 1 : 2);
-      drawText("WINDOWS: " + dayResults.broken, 183, 136, 2);
+      drawText("DELIVERED: " + dayResults.delivered, 131, 75, 3);
+      drawText("MISSED: " + dayResults.missed, 138, 89, dayResults.missed > 0 ? 1 : 2);
+      drawText("WINDOWS: " + dayResults.broken, 136, 102, 2);
 
       if (dayResults.missed === 0) {
-        drawText("PERFECT BONUS +500!", 165, 165, 3);
+        drawText("PERFECT BONUS +500!", 111, 124, 3);
       }
       if (dayResults.missed > 0) {
-        drawText("LOST " + dayResults.missed + " SUBSCRIBER" + (dayResults.missed > 1 ? "S" : "") + "!", 160, 165, 1);
+        drawText("LOST " + dayResults.missed + " SUBSCRIBER" + (dayResults.missed > 1 ? "S" : "") + "!", 106, 124, 1);
       }
 
-      drawText("SCORE: " + score, 195, 195, 2);
+      drawText("SCORE: " + score, 131, 146, 2);
 
       // Count remaining subscribers
       let subCount = 0;
       for (let i = 0; i < subscribers.length; i++) {
         if (subscribers[i]) subCount++;
       }
-      drawText("SUBSCRIBERS: " + subCount + "/" + HOUSES_PER_DAY, 160, 215, 2);
+      drawText("SUBSCRIBERS: " + subCount + "/" + HOUSES_PER_DAY, 121, 161, 2);
 
       if (subCount === 0) {
-        drawText("NO SUBSCRIBERS LEFT!", 162, 240, 1);
-        drawText("YOU ARE FIRED!", 185, 255, 3);
+        drawText("NO SUBSCRIBERS LEFT!", 108, 180, 1);
+        drawText("YOU ARE FIRED!", 126, 191, 3);
         // Force game over
         if (resultTimer > 120 && (btnp("a") || btnp("start"))) {
           state = "gameover";
           return;
         }
       } else if (day >= 7) {
-        drawText("WEEK COMPLETE!", 182, 240, 3);
+        drawText("WEEK COMPLETE!", 126, 180, 3);
       } else {
-        drawText("DAY " + (day + 1) + " NEXT...", 190, 240, 2);
+        drawText("DAY " + (day + 1) + " NEXT...", 128, 180, 2);
       }
 
       if (resultTimer > 120 && flr(API.frame / 15) % 2 === 0) {
-        drawText("PRESS START", 198, 280, 3);
+        drawText("PRESS START", 133, 210, 3);
       }
       return;
     }
@@ -1080,51 +1080,51 @@
     const oy = shakeY;
 
     // Sky gradient (top area)
-    rectf(ox, oy, W, 65, 0);
+    rectf(ox, oy, W, 49, 0);
 
     // Top houses area (lawn)
-    rectf(ox, 65 + oy, W, 30, 0);
+    rectf(ox, 49 + oy, W, 23, 0);
     // Top sidewalk
-    for (let tx = -1; tx < 62; tx++) {
+    for (let tx = -1; tx < 41; tx++) {
       const tileX = tx * 8 - (scrollX % 8) + ox;
-      rectf(tileX, 95 + oy, 8, 10, 2);
+      rectf(tileX, 72 + oy, 8, 8, 2);
     }
     // Curb
-    rectf(ox, 105 + oy, W, 2, 1);
+    rectf(ox, 80 + oy, W, 2, 1);
 
     // Road
-    rectf(ox, 107 + oy, W, 100, 1);
+    rectf(ox, 82 + oy, W, 75, 1);
 
     // Road lane markings (dashed center line)
     for (let i = 0; i < 30; i++) {
       const lx = (i * 24 - (scrollX % 24)) + ox;
-      rectf(lx, 155 + oy, 12, 2, 2);
+      rectf(lx, 118 + oy, 12, 2, 2);
     }
 
     // Bottom curb
-    rectf(ox, 207 + oy, W, 2, 1);
+    rectf(ox, 157 + oy, W, 2, 1);
     // Bottom sidewalk
-    for (let tx = -1; tx < 62; tx++) {
+    for (let tx = -1; tx < 41; tx++) {
       const tileX = tx * 8 - (scrollX % 8) + ox;
-      rectf(tileX, 209 + oy, 8, 10, 2);
+      rectf(tileX, 159 + oy, 8, 8, 2);
     }
     // Bottom houses area (lawn)
-    rectf(ox, 219 + oy, W, 50, 0);
+    rectf(ox, 167 + oy, W, 38, 0);
 
     // Bottom strip
-    rectf(ox, 269 + oy, W, 51, 0);
+    rectf(ox, 205 + oy, W, 35, 0);
 
     // Draw grass details
-    for (let tx = -1; tx < 62; tx++) {
+    for (let tx = -1; tx < 41; tx++) {
       const tileX = tx * 8 - (scrollX % 8) + ox;
       // Top grass
       const seed1 = ((tx * 7 + flr(scrollX / 8)) * 13) % 37;
-      if (seed1 % 5 === 0) pix(tileX + 3, 72 + oy, 1);
-      if (seed1 % 7 === 0) pix(tileX + 6, 78 + oy, 1);
+      if (seed1 % 5 === 0) pix(tileX + 3, 54 + oy, 1);
+      if (seed1 % 7 === 0) pix(tileX + 6, 59 + oy, 1);
       // Bottom grass
       const seed2 = ((tx * 11 + flr(scrollX / 8)) * 17) % 41;
-      if (seed2 % 5 === 0) pix(tileX + 2, 225 + oy, 1);
-      if (seed2 % 7 === 0) pix(tileX + 5, 235 + oy, 1);
+      if (seed2 % 5 === 0) pix(tileX + 2, 169 + oy, 1);
+      if (seed2 % 7 === 0) pix(tileX + 5, 176 + oy, 1);
     }
 
     // Draw houses
@@ -1132,8 +1132,8 @@
       const hsx = worldToScreen(h.x) + ox;
       if (hsx < -20 || hsx > W + 20) continue;
 
-      const hy = h.side === "top" ? 62 + oy : 230 + oy;
-      const mailboxY = h.side === "top" ? 88 + oy : 215 + oy;
+      const hy = h.side === "top" ? 47 + oy : 173 + oy;
+      const mailboxY = h.side === "top" ? 66 + oy : 161 + oy;
 
       if (h.subscriber) {
         // Subscriber house - brighter
@@ -1160,11 +1160,11 @@
 
     // Draw trees (decorative, between houses)
     for (let i = 0; i < HOUSES_PER_DAY - 1; i++) {
-      const tx = 240 + i * HOUSE_SPACING + ox;
+      const tx = 160 + i * HOUSE_SPACING + ox;
       const tsx = worldToScreen(tx);
       if (tsx > -10 && tsx < W + 10) {
-        sprExt(14, tsx, 58 + oy, false, false, 0);
-        sprExt(14, tsx, 232 + oy, false, false, 0);
+        sprExt(14, tsx, 44 + oy, false, false, 0);
+        sprExt(14, tsx, 174 + oy, false, false, 0);
       }
     }
 
@@ -1227,12 +1227,12 @@
     drawText("DAY " + day + "/7", W / 2 - 20, 4, 2);
 
     // Papers remaining
-    sprExt(17, W - 100, 2, false, false, 0);
-    drawText("X" + papersLeft, W - 90, 4, 3);
+    sprExt(17, W - 67, 2, false, false, 0);
+    drawText("X" + papersLeft, W - 57, 4, 3);
 
     // Lives
     for (let i = 0; i < lives; i++) {
-      sprExt(16, W - 36 + i * 10, 3, false, false, 0);
+      sprExt(16, W - 24 + i * 10, 3, false, false, 0);
     }
 
     // Progress bar at bottom

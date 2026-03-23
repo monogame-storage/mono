@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -297,9 +297,9 @@
 
   // --- Constants ---
   const CELL = 16; // grid cell size
-  const GRID_W = 30; // 480 / 16
-  const GRID_H = 17; // 272 / 16 (leave room for HUD at top and bottom)
-  const HUD_TOP = 12;
+  const GRID_W = 20; // 320 / 16
+  const GRID_H = 13; // 208 / 16 (leave room for HUD at top and bottom)
+  const HUD_TOP = 9;
   const GRID_OX = 0;
   const GRID_OY = HUD_TOP;
   const MAX_WAVES = 20;
@@ -314,15 +314,15 @@
   // --- Path definition (grid coords) ---
   // A winding path from left to right
   const PATH = [
-    {x:0,y:4},{x:1,y:4},{x:2,y:4},{x:3,y:4},{x:4,y:4},{x:5,y:4},{x:6,y:4},{x:7,y:4},
-    {x:7,y:5},{x:7,y:6},{x:7,y:7},{x:7,y:8},
-    {x:8,y:8},{x:9,y:8},{x:10,y:8},{x:11,y:8},{x:12,y:8},{x:13,y:8},
-    {x:13,y:7},{x:13,y:6},{x:13,y:5},{x:13,y:4},{x:13,y:3},{x:13,y:2},
-    {x:14,y:2},{x:15,y:2},{x:16,y:2},{x:17,y:2},{x:18,y:2},{x:19,y:2},
-    {x:19,y:3},{x:19,y:4},{x:19,y:5},{x:19,y:6},{x:19,y:7},{x:19,y:8},{x:19,y:9},{x:19,y:10},{x:19,y:11},{x:19,y:12},
-    {x:20,y:12},{x:21,y:12},{x:22,y:12},{x:23,y:12},
-    {x:23,y:11},{x:23,y:10},{x:23,y:9},{x:23,y:8},{x:23,y:7},{x:23,y:6},
-    {x:24,y:6},{x:25,y:6},{x:26,y:6},{x:27,y:6},{x:28,y:6},{x:29,y:6},
+    {x:0,y:3},{x:1,y:3},{x:2,y:3},{x:3,y:3},{x:4,y:3},{x:5,y:3},
+    {x:5,y:4},{x:5,y:5},{x:5,y:6},{x:5,y:7},
+    {x:6,y:7},{x:7,y:7},{x:8,y:7},{x:9,y:7},
+    {x:9,y:6},{x:9,y:5},{x:9,y:4},{x:9,y:3},{x:9,y:2},
+    {x:10,y:2},{x:11,y:2},{x:12,y:2},{x:13,y:2},
+    {x:13,y:3},{x:13,y:4},{x:13,y:5},{x:13,y:6},{x:13,y:7},{x:13,y:8},{x:13,y:9},{x:13,y:10},
+    {x:14,y:10},{x:15,y:10},{x:16,y:10},
+    {x:16,y:9},{x:16,y:8},{x:16,y:7},{x:16,y:6},{x:16,y:5},
+    {x:17,y:5},{x:18,y:5},{x:19,y:5},
   ];
 
   // Build a set for fast path lookup
@@ -453,8 +453,8 @@
     enemies = [];
     bullets = [];
     particles = [];
-    cursorX = 15;
-    cursorY = 8;
+    cursorX = 10;
+    cursorY = 6;
     selectedType = 0;
     gold = 40;
     score = 0;
@@ -762,35 +762,35 @@
 
     if (state === "title") {
       // Title screen
-      const ty = 50 + sin(API.frame * 0.04) * 4;
+      const ty = 37 + sin(API.frame * 0.04) * 3;
 
-      text("TOWER DEFENSE", 168, flr(ty), 3);
-      rectf(160, flr(ty) + 9, 160, 1, 2);
+      text("TOWER DEFENSE", 112, flr(ty), 3);
+      rectf(107, flr(ty) + 9, 107, 1, 2);
 
       // Animated towers on title
-      const bx = 170;
-      const by = flr(ty) + 28;
+      const bx = 113;
+      const by = flr(ty) + 21;
       spr(20, bx, by + sin(API.frame * 0.06) * 2);
-      spr(21, bx + 50, by + sin(API.frame * 0.06 + 1.5) * 2);
-      spr(22, bx + 100, by + sin(API.frame * 0.06 + 3) * 2);
+      spr(21, bx + 33, by + sin(API.frame * 0.06 + 1.5) * 2);
+      spr(22, bx + 67, by + sin(API.frame * 0.06 + 3) * 2);
 
       // Animated enemies marching
       for (let i = 0; i < 5; i++) {
-        const ex = 140 + i * 45 + sin(API.frame * 0.05 + i) * 8;
-        const ey = flr(ty) + 60 + sin(API.frame * 0.08 + i * 0.7) * 3;
+        const ex = 93 + i * 30 + sin(API.frame * 0.05 + i) * 6;
+        const ey = flr(ty) + 45 + sin(API.frame * 0.08 + i * 0.7) * 3;
         spr(30 + (i % 3), flr(ex), flr(ey));
       }
 
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", 170, 180, 3);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", 113, 135, 3);
 
       // Tower info
-      text("-- TOWERS --", 186, 205, 2);
-      spr(20, 170, 218); text("BASIC   10G  MED RANGE", 182, 220, 2);
-      spr(21, 170, 232); text("SNIPER  20G  LONG RANGE", 182, 234, 2);
-      spr(22, 170, 246); text("RAPID   15G  SHORT RANGE", 182, 248, 2);
+      text("-- TOWERS --", 124, 154, 2);
+      spr(20, 113, 164); text("BASIC   10G  MED RANGE", 121, 165, 2);
+      spr(21, 113, 174); text("SNIPER  20G  LONG RANGE", 121, 176, 2);
+      spr(22, 113, 184); text("RAPID   15G  SHORT RANGE", 121, 186, 2);
 
-      text("SURVIVE 20 WAVES!", 175, 275, 3);
-      text("GRAYBOX DEMO V0.1", 168, 305, 1);
+      text("SURVIVE 20 WAVES!", 117, 206, 3);
+      text("GRAYBOX DEMO V0.1", 112, 229, 1);
       return;
     }
 
@@ -799,15 +799,15 @@
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
       if (gameWon) {
-        text("VICTORY!", 200, 100, 3);
-        text("ALL 20 WAVES CLEARED!", 162, 125, 2);
+        text("VICTORY!", 133, 75, 3);
+        text("ALL 20 WAVES CLEARED!", 108, 94, 2);
       } else {
-        text("GAME OVER", 195, 100, 3);
-        text("REACHED WAVE " + wave, 183, 125, 2);
+        text("GAME OVER", 130, 75, 3);
+        text("REACHED WAVE " + wave, 122, 94, 2);
       }
-      text("SCORE: " + score, 195, 150, 2);
-      text("TOWERS BUILT: " + towers.length, 175, 165, 1);
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 158, 210, 3);
+      text("SCORE: " + score, 130, 113, 2);
+      text("TOWERS BUILT: " + towers.length, 117, 124, 1);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 105, 158, 3);
       return;
     }
 
@@ -942,64 +942,64 @@
     line(0, HUD_TOP - 1, W, HUD_TOP - 1, 1);
 
     // Gold
-    text("GOLD:" + gold, 4, 3, 3);
+    text("GOLD:" + gold, 3, 2, 3);
 
     // Score
-    text("SCORE:" + score, 100, 3, 2);
+    text("SCORE:" + score, 67, 2, 2);
 
     // Wave
-    text("WAVE:" + wave + "/" + MAX_WAVES, 210, 3, 2);
+    text("WAVE:" + wave + "/" + MAX_WAVES, 140, 2, 2);
 
     // Lives
     for (let i = 0; i < min(lives, 10); i++) {
-      spr(35, W - 12 - i * 10, 1);
+      spr(35, W - 10 - i * 9, 0);
     }
 
     // Bottom bar: selected tower info
-    const bottomY = H - 24;
-    rectf(0, bottomY, W, 24, 0);
+    const bottomY = H - 18;
+    rectf(0, bottomY, W, 18, 0);
     line(0, bottomY, W, bottomY, 1);
 
     const st = TOWER_TYPES[selectedType];
     // Tower type selector
     for (let i = 0; i < TOWER_TYPES.length; i++) {
-      const tx = 8 + i * 80;
-      const ty = bottomY + 4;
+      const tx = 5 + i * 53;
+      const ty = bottomY + 3;
       if (i === selectedType) {
-        rect(tx - 2, ty - 2, 76, 20, 3);
+        rect(tx - 2, ty - 2, 51, 15, 3);
       }
-      spr(TOWER_TYPES[i].sprId, tx, ty + 2);
-      text(TOWER_TYPES[i].name, tx + 12, ty + 1, i === selectedType ? 3 : 1);
-      text(TOWER_TYPES[i].cost + "G", tx + 12, ty + 9, i === selectedType ? 2 : 1);
+      spr(TOWER_TYPES[i].sprId, tx, ty + 1);
+      text(TOWER_TYPES[i].name, tx + 10, ty, i === selectedType ? 3 : 1);
+      text(TOWER_TYPES[i].cost + "G", tx + 10, ty + 8, i === selectedType ? 2 : 1);
     }
 
     // Controls hint
-    text("A:PLACE  B:CYCLE", 340, bottomY + 4, 1);
+    text("A:PLACE B:CYCLE", 227, bottomY + 3, 1);
     // Range info
-    text("RNG:" + st.range + " DMG:" + st.dmg, 340, bottomY + 13, 1);
+    text("RNG:" + st.range + " DMG:" + st.dmg, 227, bottomY + 10, 1);
 
     // Can't afford indicator
     if (gold < st.cost) {
-      text("NOT ENOUGH GOLD!", 340, bottomY + 4, 2);
+      text("NOT ENOUGH GOLD!", 227, bottomY + 3, 2);
     }
 
     // Wave announcement
     if (waveMessageTimer > 0) {
-      const msgY = 140 + sin(waveMessageTimer * 0.1) * 3;
-      const msgX = 200;
-      rectf(msgX - 30, flr(msgY) - 4, 140, 18, 0);
-      rect(msgX - 30, flr(msgY) - 4, 140, 18, 2);
+      const msgY = 105 + sin(waveMessageTimer * 0.1) * 3;
+      const msgX = 133;
+      rectf(msgX - 20, flr(msgY) - 4, 93, 14, 0);
+      rect(msgX - 20, flr(msgY) - 4, 93, 14, 2);
       text(waveMessage, msgX, flr(msgY), 3);
       if (waveMessageTimer > 30) {
-        text("GET READY!", msgX - 8, flr(msgY) + 9, 2);
+        text("GET READY!", msgX - 5, flr(msgY) + 9, 2);
       }
     }
 
     // Wave countdown between waves
     if (!waveActive && waveTimer > 0 && enemies.length === 0 && wave < MAX_WAVES) {
       const sec = flr(waveTimer / 30) + 1;
-      text("NEXT WAVE IN " + sec, 183, 140, 2);
-      text("BONUS: +" + (5 + wave * 2) + "G", 192, 152, 1);
+      text("NEXT WAVE IN " + sec, 122, 105, 2);
+      text("BONUS: +" + (5 + wave * 2) + "G", 128, 114, 1);
     }
   };
 

@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -491,12 +491,12 @@
 
   // --- Constants ---
   const WORLD_W = 4800; // world width in pixels (10 screens wide)
-  const GROUND_Y = 280; // ground level on screen
+  const GROUND_Y = 210; // ground level on screen
   const MINIMAP_Y = 2;
-  const MINIMAP_H = 16;
+  const MINIMAP_H = 12;
   const MINIMAP_W = W - 8;
-  const HUD_Y = 22;
-  const PLAY_TOP = 30;
+  const HUD_Y = 17;
+  const PLAY_TOP = 23;
 
   // --- Game state ---
   let state = "title";
@@ -509,16 +509,16 @@
   function genTerrain() {
     terrain = [];
     const segs = WORLD_W / 8;
-    let h = 20;
+    let h = 15;
     for (let i = 0; i < segs; i++) {
       h += (rnd(6) - 3);
-      h = _max(8, min(50, h));
+      h = _max(6, min(38, h));
       terrain.push(flr(h));
     }
   }
 
   function resetGame() {
-    player = { x: WORLD_W / 2, y: 160, dir: 1, speed: 0, vy: 0 };
+    player = { x: WORLD_W / 2, y: 120, dir: 1, speed: 0, vy: 0 };
     lasers = [];
     eBullets = [];
     aliens = [];
@@ -562,7 +562,7 @@
     for (let i = 0; i < numLanders; i++) {
       const ax = (player.x + 300 + flr(rnd(WORLD_W - 600))) % WORLD_W;
       aliens.push({
-        type: "lander", x: ax, y: PLAY_TOP + 20 + flr(rnd(100)),
+        type: "lander", x: ax, y: PLAY_TOP + 15 + flr(rnd(75)),
         vx: (rnd(2) - 1) * (1 + wave * 0.1), vy: 0,
         hp: 1, pts: 150, state: "roam",
         targetHuman: -1, shootTimer: 60 + flr(rnd(90)),
@@ -573,7 +573,7 @@
     for (let i = 0; i < numBombers; i++) {
       const ax = (player.x + 400 + flr(rnd(WORLD_W - 800))) % WORLD_W;
       aliens.push({
-        type: "bomber", x: ax, y: PLAY_TOP + 30 + flr(rnd(80)),
+        type: "bomber", x: ax, y: PLAY_TOP + 23 + flr(rnd(60)),
         vx: (rnd(1) > 0.5 ? 1 : -1) * (0.8 + rnd(0.5)), vy: sin(rnd(6)) * 0.3,
         hp: 1, pts: 250, state: "roam",
         targetHuman: -1, shootTimer: 40 + flr(rnd(60)),
@@ -584,7 +584,7 @@
     for (let i = 0; i < numBaiters; i++) {
       const ax = (player.x + 500 + flr(rnd(WORLD_W - 600))) % WORLD_W;
       aliens.push({
-        type: "baiter", x: ax, y: PLAY_TOP + 20 + flr(rnd(60)),
+        type: "baiter", x: ax, y: PLAY_TOP + 15 + flr(rnd(45)),
         vx: 0, vy: 0,
         hp: 2, pts: 500, state: "chase",
         targetHuman: -1, shootTimer: 30 + flr(rnd(40)),
@@ -595,8 +595,8 @@
 
   function getGroundY(wx) {
     const seg = flr(((wx % WORLD_W) + WORLD_W) % WORLD_W / 8);
-    const h = terrain[seg] || 20;
-    return GROUND_Y - h + 16;
+    const h = terrain[seg] || 15;
+    return GROUND_Y - h + 12;
   }
 
   function wrapX(x) {
@@ -1015,41 +1015,41 @@
         if (sx >= 0 && sx < W) pix(sx, s.y, s.bright);
       }
 
-      const ty = 60 + sin(API.frame * 0.05) * 5;
-      text("DEFENDER", 190, flr(ty), 3);
-      text("DEFENDER", 191, flr(ty) + 1, 1);
-      rectf(170, flr(ty) + 12, 140, 1, 2);
+      const ty = 45 + sin(API.frame * 0.05) * 5;
+      text("DEFENDER", 127, flr(ty), 3);
+      text("DEFENDER", 128, flr(ty) + 1, 1);
+      rectf(113, flr(ty) + 12, 93, 1, 2);
 
       // Show ship
-      spr(1, W / 2 - 4, flr(ty) + 30 + sin(API.frame * 0.08) * 3);
+      spr(1, W / 2 - 4, flr(ty) + 23 + sin(API.frame * 0.08) * 3);
 
       // Show aliens
       const bx = W / 2 - 40;
-      spr(2, bx, flr(ty) + 50 + sin(API.frame * 0.07) * 2);
-      spr(3, bx + 20, flr(ty) + 52 + sin(API.frame * 0.07 + 1) * 2);
-      spr(5, bx + 40, flr(ty) + 50 + sin(API.frame * 0.07 + 2) * 2);
-      spr(4, bx + 60, flr(ty) + 52 + sin(API.frame * 0.07 + 3) * 2);
-      spr(2, bx + 80, flr(ty) + 50 + sin(API.frame * 0.07 + 4) * 2);
+      spr(2, bx, flr(ty) + 38 + sin(API.frame * 0.07) * 2);
+      spr(3, bx + 20, flr(ty) + 39 + sin(API.frame * 0.07 + 1) * 2);
+      spr(5, bx + 40, flr(ty) + 38 + sin(API.frame * 0.07 + 2) * 2);
+      spr(4, bx + 60, flr(ty) + 39 + sin(API.frame * 0.07 + 3) * 2);
+      spr(2, bx + 80, flr(ty) + 38 + sin(API.frame * 0.07 + 4) * 2);
 
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS Z TO START", 170, 190, 3);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS Z TO START", 118, 143, 3);
 
-      text("-SCORE TABLE-", 185, 220, 2);
-      spr(2, 190, 234); text("  LANDER  150 PTS", 200, 236, 2);
-      spr(3, 190, 248); text("  MUTANT  400 PTS", 200, 250, 2);
-      spr(5, 190, 262); text("  BOMBER  250 PTS", 200, 264, 2);
-      spr(4, 190, 276); text("  BAITER  500 PTS", 200, 278, 2);
-      text("RESCUE HUMANS  500 PTS", 182, 295, 2);
+      text("-SCORE TABLE-", 126, 165, 2);
+      spr(2, 127, 176); text("  LANDER  150 PTS", 133, 177, 2);
+      spr(3, 127, 186); text("  MUTANT  400 PTS", 133, 188, 2);
+      spr(5, 127, 197); text("  BOMBER  250 PTS", 133, 198, 2);
+      spr(4, 127, 207); text("  BAITER  500 PTS", 133, 209, 2);
+      text("RESCUE HUMANS  500 PTS", 106, 221, 2);
 
-      text("GRAYBOX DEMO V0.1", 168, 310, 1);
+      text("GRAYBOX DEMO V0.1", 116, 233, 1);
       return;
     }
 
     if (state === "gameover") {
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-      text("GAME OVER", 195, 120, 3);
-      text("SCORE: " + score, 190, 145, 2);
-      text("WAVE: " + wave, 205, 160, 2);
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS Z TO CONTINUE", 155, 210, 3);
+      text("GAME OVER", 138, 90, 3);
+      text("SCORE: " + score, 127, 109, 2);
+      text("WAVE: " + wave, 137, 120, 2);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS Z TO CONTINUE", 111, 158, 3);
       return;
     }
 
@@ -1066,10 +1066,10 @@
     for (let px = 0; px < W; px++) {
       const wx = wrapX(scrollX + px);
       const seg = flr(wx / 8);
-      const h = terrain[seg] || 20;
-      const gy = GROUND_Y - h + 16;
+      const h = terrain[seg] || 15;
+      const gy = GROUND_Y - h + 12;
       // Draw mountain line
-      for (let py = gy + shakeY; py < GROUND_Y + 16 + shakeY; py++) {
+      for (let py = gy + shakeY; py < GROUND_Y + 12 + shakeY; py++) {
         if (py >= 0 && py < H) {
           const depth = py - gy - shakeY;
           const c = depth < 2 ? 2 : (depth < h / 2 ? 1 : 0);
@@ -1171,8 +1171,8 @@
     for (let mx = 0; mx < MINIMAP_W - 2; mx++) {
       const wx = flr(mx / (MINIMAP_W - 2) * WORLD_W);
       const seg = flr(wx / 8);
-      const h = terrain[seg] || 20;
-      const mh = flr(h * MINIMAP_H / 80);
+      const h = terrain[seg] || 15;
+      const mh = flr(h * MINIMAP_H / 60);
       for (let my = 0; my < mh; my++) {
         pix(5 + mx, MINIMAP_Y + MINIMAP_H - 2 - my, 1);
       }
@@ -1206,14 +1206,14 @@
     // --- HUD ---
     rectf(0, HUD_Y - 2, W, 10, 0);
     text("SCORE:" + score, 4, HUD_Y, 3);
-    text("WAVE:" + wave, W / 2 - 25, HUD_Y, 2);
+    text("WAVE:" + wave, W / 2 - 17, HUD_Y, 2);
 
     // Lives
-    for (let i = 0; i < lives; i++) spr(11, W - 80 + i * 10, HUD_Y - 1);
+    for (let i = 0; i < lives; i++) spr(11, W - 53 + i * 10, HUD_Y - 1);
 
     // Bombs
     for (let i = 0; i < bombs; i++) {
-      const bx = W - 38 + i * 8;
+      const bx = W - 25 + i * 8;
       rectf(bx, HUD_Y, 6, 6, 2);
       pix(bx + 2, HUD_Y + 1, 3);
       pix(bx + 3, HUD_Y + 1, 3);
@@ -1222,14 +1222,14 @@
 
     // Humans alive count
     const humansAlive = humans.filter(h => h.state !== "dead").length;
-    text(humansAlive + " ", W / 2 + 30, HUD_Y, humansAlive > 3 ? 2 : 3);
-    spr(6, W / 2 + 40, HUD_Y - 1);
+    text(humansAlive + " ", W / 2 + 20, HUD_Y, humansAlive > 3 ? 2 : 3);
+    spr(6, W / 2 + 27, HUD_Y - 1);
 
     // Wave announcement
     if (waveMessage > 0) {
-      const msgY = 150 + sin(waveMessage * 0.1) * 3;
-      text("WAVE " + wave, 210, flr(msgY), 3);
-      if (waveMessage > 60) text("GET READY!", 195, flr(msgY) + 14, 2);
+      const msgY = 113 + sin(waveMessage * 0.1) * 3;
+      text("WAVE " + wave, 140, flr(msgY), 3);
+      if (waveMessage > 60) text("GET READY!", 130, flr(msgY) + 14, 2);
     }
   };
 

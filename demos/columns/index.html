@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -298,9 +298,9 @@
   // --- Constants ---
   const COLS = 6;
   const ROWS = 13;
-  const CELL = 20;
-  const BOARD_X = 180;
-  const BOARD_Y = 22;
+  const CELL = 15;
+  const BOARD_X = 120;
+  const BOARD_Y = 16;
   const BOARD_W = COLS * CELL;
   const BOARD_H = ROWS * CELL;
   const NUM_JEWELS = 4;
@@ -588,27 +588,23 @@
   function drawJewelInner(px, py, type) {
     const s = sprites[type];
     if (!s) return;
-    // Draw 8x8 sprite scaled 2x, centered in CELL
-    const ox = px + (CELL - 16) / 2;
-    const oy = py + (CELL - 16) / 2;
+    // Draw 8x8 sprite at 1x, centered in CELL
+    const ox = px + (CELL - 8) / 2;
+    const oy = py + (CELL - 8) / 2;
     for (let sy = 0; sy < 8; sy++) {
       for (let sx = 0; sx < 8; sx++) {
         const c = s[sy * 8 + sx];
-        const dx = ox + sx * 2;
-        const dy = oy + sy * 2;
-        for (let a = 0; a < 2; a++)
-          for (let b = 0; b < 2; b++) {
-            const fx = dx + a, fy = dy + b;
-            if (fx >= 0 && fx < W && fy >= 0 && fy < H)
-              buf32[fy * W + fx] = COLOR_U32[c];
-          }
+        const fx = ox + sx;
+        const fy = oy + sy;
+        if (fx >= 0 && fx < W && fy >= 0 && fy < H)
+          buf32[fy * W + fx] = COLOR_U32[c];
       }
     }
   }
 
   function drawBoard() {
     // Border
-    rectf(BOARD_X - 3, BOARD_Y - 3, BOARD_W + 6, BOARD_H + 6, 1);
+    rectf(BOARD_X - 2, BOARD_Y - 2, BOARD_W + 4, BOARD_H + 4, 1);
     rectf(BOARD_X - 1, BOARD_Y - 1, BOARD_W + 2, BOARD_H + 2, 0);
 
     // Subtle grid dots
@@ -654,15 +650,15 @@
       if (r >= 0 && r < ROWS) {
         const px = BOARD_X + piece.col * CELL;
         const py = BOARD_Y + r * CELL;
-        rect(px + 3, py + 3, CELL - 6, CELL - 6, 1);
+        rect(px + 2, py + 2, CELL - 4, CELL - 4, 1);
       }
     }
   }
 
   function drawNextPreview() {
-    const nx = BOARD_X + BOARD_W + 28;
-    const ny = BOARD_Y + 16;
-    text("NEXT", nx + 4, ny - 12, 2);
+    const nx = BOARD_X + BOARD_W + 19;
+    const ny = BOARD_Y + 12;
+    text("NEXT", nx + 3, ny - 10, 2);
     rectf(nx - 2, ny - 2, CELL + 4, CELL * 3 + 4, 1);
     rectf(nx, ny, CELL, CELL * 3, 0);
     for (let i = 0; i < 3; i++) {
@@ -674,31 +670,31 @@
   }
 
   function drawHUD() {
-    const lx = 22;
-    text("SCORE", lx, BOARD_Y + 4, 2);
-    text(String(score), lx, BOARD_Y + 14, 3);
+    const lx = 15;
+    text("SCORE", lx, BOARD_Y + 3, 2);
+    text(String(score), lx, BOARD_Y + 12, 3);
 
-    text("HI-SCORE", lx, BOARD_Y + 36, 2);
-    text(String(hiScore), lx, BOARD_Y + 46, 3);
+    text("HI-SCORE", lx, BOARD_Y + 27, 2);
+    text(String(hiScore), lx, BOARD_Y + 36, 3);
 
-    text("LEVEL", lx, BOARD_Y + 74, 2);
-    text(String(level), lx, BOARD_Y + 84, 3);
+    text("LEVEL", lx, BOARD_Y + 56, 2);
+    text(String(level), lx, BOARD_Y + 65, 3);
 
-    text("LINES", lx, BOARD_Y + 106, 2);
-    text(String(linesCleared), lx, BOARD_Y + 116, 3);
+    text("LINES", lx, BOARD_Y + 80, 2);
+    text(String(linesCleared), lx, BOARD_Y + 89, 3);
 
     if (chain > 1 && gravityPhase) {
-      text("CHAIN", lx, BOARD_Y + 148, 2);
-      text("X" + String(chain), lx, BOARD_Y + 158, 3);
+      text("CHAIN", lx, BOARD_Y + 111, 2);
+      text("X" + String(chain), lx, BOARD_Y + 120, 3);
     }
 
     // Jewel legend on right side
-    const rx = BOARD_X + BOARD_W + 28;
-    const ry = BOARD_Y + 110;
+    const rx = BOARD_X + BOARD_W + 19;
+    const ry = BOARD_Y + 82;
     text("JEWELS", rx, ry, 2);
     for (let i = 0; i < NUM_JEWELS; i++) {
       const px = rx + 2;
-      const py = ry + 12 + i * 22;
+      const py = ry + 10 + i * 16;
       drawJewelInner(px, py, i + 1);
     }
   }
@@ -831,32 +827,32 @@
 
     // Title text
     const cx = W / 2;
-    text("C O L U M N S", cx - 50, 70, 3);
+    text("C O L U M N S", cx - 50, 52, 3);
 
     // Animated jewels row
     for (let i = 0; i < NUM_JEWELS; i++) {
-      const ax = cx - 46 + i * 24;
-      const ay = 100 + sin(t * 0.08 + i * 1.5) * 5;
+      const ax = cx - 30 + i * 16;
+      const ay = 75 + sin(t * 0.08 + i * 1.5) * 4;
       drawJewelInner(flr(ax), flr(ay), i + 1);
     }
 
     // Separator line
-    line(cx - 70, 130, cx + 70, 130, 1);
+    line(cx - 47, 97, cx + 47, 97, 1);
 
-    text("MATCH 3 OR MORE", cx - 52, 145, 2);
-    text("IN ANY DIRECTION!", cx - 55, 157, 2);
+    text("MATCH 3 OR MORE", cx - 52, 109, 2);
+    text("IN ANY DIRECTION!", cx - 55, 119, 2);
 
     if (flr(t / 18) % 2 === 0) {
-      text("PRESS ENTER TO START", cx - 65, 195, 3);
+      text("PRESS ENTER TO START", cx - 65, 146, 3);
     }
 
     if (hiScore > 0) {
-      text("HI-SCORE: " + hiScore, cx - 40, 230, 2);
+      text("HI-SCORE: " + hiScore, cx - 40, 172, 2);
     }
 
-    text("ARROWS: MOVE / DROP", cx - 60, 268, 1);
-    text("Z: CYCLE JEWEL ORDER", cx - 63, 280, 1);
-    text("UP: HARD DROP", cx - 43, 292, 1);
+    text("ARROWS: MOVE / DROP", cx - 60, 201, 1);
+    text("Z: CYCLE JEWEL ORDER", cx - 63, 213, 1);
+    text("UP: HARD DROP", cx - 43, 225, 1);
   }
 
   function drawPlay() {
@@ -884,14 +880,14 @@
           if ((px + py) % 2 === 0) buf32[py * W + px] = COLOR_U32[0];
         }
       }
-      const gx = BOARD_X + BOARD_W / 2 - 32;
-      const gy = BOARD_Y + BOARD_H / 2 - 20;
-      rectf(gx - 6, gy - 6, 75, 46, 0);
-      rect(gx - 6, gy - 6, 75, 46, 2);
+      const gx = BOARD_X + BOARD_W / 2 - 22;
+      const gy = BOARD_Y + BOARD_H / 2 - 15;
+      rectf(gx - 4, gy - 4, 60, 38, 0);
+      rect(gx - 4, gy - 4, 60, 38, 2);
       text("GAME OVER", gx, gy, 3);
-      text("SCORE: " + score, gx - 2, gy + 14, 2);
+      text("SCORE: " + score, gx - 2, gy + 10, 2);
       if (flr(API.frame / 18) % 2 === 0) {
-        text("PRESS ENTER", gx - 2, gy + 28, 2);
+        text("PRESS ENTER", gx - 2, gy + 21, 2);
       }
     }
   }

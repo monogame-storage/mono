@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -296,10 +296,10 @@
           min, max: _max, sin, cos } = API;
 
   // --- Play area bounds ---
-  const ARENA_X = 16;
-  const ARENA_Y = 16;
-  const ARENA_W = W - 32;
-  const ARENA_H = H - 32;
+  const ARENA_X = 11;
+  const ARENA_Y = 12;
+  const ARENA_W = W - 22;
+  const ARENA_H = H - 24;
   const ARENA_R = ARENA_X + ARENA_W;
   const ARENA_B = ARENA_Y + ARENA_H;
 
@@ -576,10 +576,10 @@
     const humanCount = min(3 + wave, 12);
     for (let i = 0; i < humanCount; i++) {
       const htype = flr(rnd(3)); // 0=dad, 1=mom, 2=kid
-      const hx = ARENA_X + 30 + rnd(ARENA_W - 60);
-      const hy = ARENA_Y + 30 + rnd(ARENA_H - 60);
+      const hx = ARENA_X + 20 + rnd(ARENA_W - 40);
+      const hy = ARENA_Y + 22 + rnd(ARENA_H - 44);
       // Don't spawn too close to player
-      if (_abs(hx - player.x) < 50 && _abs(hy - player.y) < 50) continue;
+      if (_abs(hx - player.x) < 34 && _abs(hy - player.y) < 38) continue;
       humans.push({
         x: hx, y: hy, type: htype,
         dx: (rnd(1) - 0.5) * 0.5, dy: (rnd(1) - 0.5) * 0.5,
@@ -590,9 +590,9 @@
     // Electrodes
     const elecCount = min(2 + wave, 10);
     for (let i = 0; i < elecCount; i++) {
-      const ex = ARENA_X + 20 + rnd(ARENA_W - 40);
-      const ey = ARENA_Y + 20 + rnd(ARENA_H - 40);
-      if (_abs(ex - player.x) < 40 && _abs(ey - player.y) < 40) continue;
+      const ex = ARENA_X + 14 + rnd(ARENA_W - 28);
+      const ey = ARENA_Y + 15 + rnd(ARENA_H - 30);
+      if (_abs(ex - player.x) < 27 && _abs(ey - player.y) < 30) continue;
       electrodes.push({ x: ex, y: ey });
     }
   }
@@ -1052,50 +1052,50 @@
       const blink = (titlePulse % 40) < 25;
 
       // Big title
-      text("ROBOTRON", W / 2 - 40, 60, 3);
-      text("2084", W / 2 - 18, 75, 2);
+      text("ROBOTRON", W / 2 - 20, 45, 3);
+      text("2084", W / 2 - 10, 56, 2);
 
       // Flashing robots
       if ((titlePulse % 20) < 10) {
-        spr(2, W / 2 - 50, 100);
-        spr(3, W / 2 - 36, 100);
-        spr(4, W / 2 - 22, 100);
-        spr(16, W / 2 + 10, 100);
-        spr(5, W / 2 + 24, 100);
-        spr(13, W / 2 + 38, 100);
+        spr(2, W / 2 - 33, 75);
+        spr(3, W / 2 - 24, 75);
+        spr(4, W / 2 - 15, 75);
+        spr(16, W / 2 + 7, 75);
+        spr(5, W / 2 + 16, 75);
+        spr(13, W / 2 + 25, 75);
       } else {
-        spr(6, W / 2 - 40, 100);
-        spr(7, W / 2 - 20, 100);
-        spr(8, W / 2, 100);
-        spr(1, W / 2 + 20, 100);
+        spr(6, W / 2 - 27, 75);
+        spr(7, W / 2 - 13, 75);
+        spr(8, W / 2, 75);
+        spr(1, W / 2 + 13, 75);
       }
 
-      text("SAVE THE LAST HUMAN FAMILY", W / 2 - 64, 130, 2);
+      text("SAVE THE LAST HUMAN FAMILY", W / 2 - 65, 98, 2);
 
-      if (blink) text("PRESS ENTER TO START", W / 2 - 48, 170, 3);
+      if (blink) text("PRESS ENTER TO START", W / 2 - 50, 128, 3);
 
-      text("ARROWS  MOVE", W / 2 - 50, 200, 1);
-      text("Z  SHOOT IN MOVE DIR", W / 2 - 50, 212, 1);
-      text("HOLD Z + ARROWS  AIM", W / 2 - 50, 224, 1);
+      text("ARROWS  MOVE", W / 2 - 34, 150, 1);
+      text("Z  SHOOT IN MOVE DIR", W / 2 - 34, 159, 1);
+      text("HOLD Z + ARROWS  AIM", W / 2 - 34, 168, 1);
 
-      text("GRUNT 100  BRAIN 500", W / 2 - 50, 248, 2);
-      text("ENFORCER 150  SPHEROID 1000", W / 2 - 66, 260, 2);
-      text("RESCUE HUMANS FOR BONUS!", W / 2 - 60, 280, 3);
+      text("GRUNT 100  BRAIN 500", W / 2 - 50, 186, 2);
+      text("ENFORCER 150  SPHEROID 1000", W / 2 - 67, 195, 2);
+      text("RESCUE HUMANS FOR BONUS!", W / 2 - 60, 210, 3);
 
       if (hiScore > 0) {
-        text("HI " + hiScore, W / 2 - 20, 300, 1);
+        text("HI " + hiScore, W / 2 - 15, 225, 1);
       }
 
       return;
     }
 
     if (state === "gameover") {
-      text("GAME OVER", W / 2 - 42, H / 2 - 30, 3);
-      text("SCORE  " + score, W / 2 - 35, H / 2, 2);
+      text("GAME OVER", W / 2 - 22, H / 2 - 30, 3);
+      text("SCORE  " + score, W / 2 - 24, H / 2, 2);
       if (score >= hiScore) {
         text("NEW HIGH SCORE!", W / 2 - 37, H / 2 + 16, 3);
       }
-      text("PRESS ENTER", W / 2 - 26, H / 2 + 40, 1);
+      text("PRESS ENTER", W / 2 - 27, H / 2 + 40, 1);
       return;
     }
 
@@ -1112,7 +1112,7 @@
 
     // Wave message
     if (waveMessage > 0) {
-      text("WAVE " + wave, W / 2 - 20 + sx, H / 2 - 4 + sy, 3);
+      text("WAVE " + wave, W / 2 - 15 + sx, H / 2 - 4 + sy, 3);
       // Still draw HUD
       drawHUD(sx, sy);
       return;
@@ -1186,15 +1186,15 @@
     // Score
     text("SCORE " + score, 4 + sx, 4 + sy, 3);
     // Wave
-    text("WAVE " + wave, W / 2 - 20 + sx, 4 + sy, 2);
+    text("WAVE " + wave, W / 2 - 15 + sx, 4 + sy, 2);
     // Lives
     for (let i = 0; i < lives; i++) {
-      spr(14, W - 40 + i * 10 + sx, 2 + sy);
+      spr(14, W - 28 + i * 10 + sx, 2 + sy);
     }
     // Human count
     const aliveHumans = humans.filter(h => h.alive).length;
     if (aliveHumans > 0) {
-      text("HUMANS " + aliveHumans, W / 2 - 24 + sx, H - 10 + sy, 2);
+      text("HUMANS " + aliveHumans, W / 2 - 20 + sx, H - 10 + sy, 2);
     }
   }
 

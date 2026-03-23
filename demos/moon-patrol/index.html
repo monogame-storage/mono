@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -464,7 +464,7 @@
   );
 
   // --- Game Constants ---
-  const GROUND_Y = 260;
+  const GROUND_Y = 195;
   const BUGGY_Y = GROUND_Y - 16;
   const SCROLL_SPEED = 2;
   const JUMP_POWER = -7;
@@ -518,7 +518,7 @@
     scrollSpeed = SCROLL_SPEED;
     distance = 0;
     buggy = {
-      x: 80, y: BUGGY_Y,
+      x: 53, y: BUGGY_Y,
       vy: 0, onGround: true, jumping: false,
       wheelAnim: 0
     };
@@ -577,7 +577,7 @@
     const dir = rnd(1) < 0.5 ? 1 : -1;
     ufos.push({
       x: dir === 1 ? scrollX - 20 : scrollX + W + 20,
-      y: 40 + rnd(60),
+      y: 30 + rnd(45),
       vx: dir * (1.5 + rnd(1.5)),
       vy: 0,
       sinOffset: rnd(6.28),
@@ -868,15 +868,15 @@
 
   // Mountain height generator (seeded by X position)
   function getMountainH(wx, seed) {
-    const s1 = sin(wx * 0.003 + seed) * 30;
-    const s2 = sin(wx * 0.007 + seed * 2.1) * 15;
-    const s3 = sin(wx * 0.015 + seed * 0.7) * 8;
+    const s1 = sin(wx * 0.003 + seed) * 22;
+    const s2 = sin(wx * 0.007 + seed * 2.1) * 11;
+    const s3 = sin(wx * 0.015 + seed * 0.7) * 6;
     return s1 + s2 + s3;
   }
 
   function getHillH(wx, seed) {
-    const s1 = sin(wx * 0.005 + seed) * 20;
-    const s2 = sin(wx * 0.012 + seed * 1.3) * 10;
+    const s1 = sin(wx * 0.005 + seed) * 15;
+    const s2 = sin(wx * 0.012 + seed * 1.3) * 8;
     return s1 + s2;
   }
 
@@ -887,7 +887,7 @@
     const starSeed = seededRandom(123);
     for (let i = 0; i < 60; i++) {
       const sx = flr(starSeed() * W);
-      const sy = flr(starSeed() * 120);
+      const sy = flr(starSeed() * 90);
       const bright = starSeed() < 0.3 ? 2 : 1;
       // Twinkle
       if (bright === 2 && (API.frame + i * 7) % 40 < 5) continue;
@@ -900,28 +900,28 @@
       // Draw some mountains for atmosphere
       for (let x = 0; x < W; x++) {
         const mh = getMountainH(x * 3, 42);
-        const baseY = 180 + mh;
-        for (let y = flr(baseY); y < 220; y++) {
+        const baseY = 135 + mh;
+        for (let y = flr(baseY); y < 165; y++) {
           if (y >= 0 && y < H) pix(x, y, 1);
         }
       }
 
       // Ground
-      rectf(0, 220, W, 100, 1);
-      line(0, 220, W, 220, 2);
+      rectf(0, 165, W, 75, 1);
+      line(0, 165, W, 165, 2);
 
       // Title text
-      const ty = 60 + sin(API.frame * 0.05) * 4;
-      drawText("MOON PATROL", 170, flr(ty), 3);
-      drawText("MOON PATROL", 171, flr(ty) + 1, 1);
-      rectf(155, flr(ty) + 12, 170, 1, 2);
+      const ty = 45 + sin(API.frame * 0.05) * 3;
+      drawText("MOON PATROL", 105, flr(ty), 3);
+      drawText("MOON PATROL", 106, flr(ty) + 1, 1);
+      rectf(90, flr(ty) + 12, 140, 1, 2);
 
       // Korean subtitle
-      drawText("- LUNAR PATROL -", 163, flr(ty) + 18, 2);
+      drawText("- LUNAR PATROL -", 120, flr(ty) + 14, 2);
 
       // Draw buggy on title
-      const bx = 200;
-      const by = 212;
+      const bx = 133;
+      const by = 157;
       spr(1, bx, by);
       spr(1, bx + 8, by);
       spr(3, bx + 6, by - 6);
@@ -930,19 +930,19 @@
 
       // UFOs flying overhead
       const u1x = (API.frame * 2) % (W + 40) - 20;
-      const u1y = 100 + sin(API.frame * 0.07) * 8;
+      const u1y = 75 + sin(API.frame * 0.07) * 6;
       spr(4, flr(u1x), flr(u1y));
-      const u2x = ((API.frame * 2) + 180) % (W + 40) - 20;
-      const u2y = 120 + sin(API.frame * 0.09 + 2) * 6;
+      const u2x = ((API.frame * 2) + 120) % (W + 40) - 20;
+      const u2y = 90 + sin(API.frame * 0.09 + 2) * 5;
       spr(4, flr(u2x), flr(u2y));
 
-      if (flr(API.frame / 20) % 2 === 0) drawText("PRESS START", 195, 260, 3);
+      if (flr(API.frame / 20) % 2 === 0) drawText("PRESS START", 132, 195, 3);
 
       // Score table
-      drawText("-HOW TO PLAY-", 183, 280, 2);
-      drawText("Z:JUMP  X:SHOOT  LR:SPEED", 142, 292, 2);
+      drawText("-HOW TO PLAY-", 127, 210, 2);
+      drawText("Z:JUMP  X:SHOOT  LR:SPEED", 95, 219, 2);
 
-      drawText("GRAYBOX DEMO V0.1", 168, 310, 1);
+      drawText("GRAYBOX DEMO V0.1", 118, 232, 1);
       return;
     }
 
@@ -953,11 +953,11 @@
         sprTrans(sprId, flr(e.x), flr(e.y));
       }
 
-      drawText("GAME OVER", 195, 100, 3);
-      drawText("SCORE: " + score, 195, 125, 2);
-      drawText("CHECKPOINT: " + String.fromCharCode(65 + min(checkpoint, 25)), 175, 140, 2);
-      drawText("DISTANCE: " + flr(distance), 175, 155, 1);
-      if (flr(API.frame / 20) % 2 === 0) drawText("PRESS START", 193, 200, 3);
+      drawText("GAME OVER", 138, 75, 3);
+      drawText("SCORE: " + score, 130, 94, 2);
+      drawText("CHECKPOINT: " + String.fromCharCode(65 + min(checkpoint, 25)), 117, 106, 2);
+      drawText("DISTANCE: " + flr(distance), 117, 118, 1);
+      if (flr(API.frame / 20) % 2 === 0) drawText("PRESS START", 132, 150, 3);
       return;
     }
 
@@ -968,8 +968,8 @@
     for (let x = 0; x < W; x++) {
       const wx = x + mScrollX;
       const mh = getMountainH(wx, mountainSeed);
-      const baseY = 160 + mh;
-      for (let y = flr(baseY); y < 200; y++) {
+      const baseY = 120 + mh;
+      for (let y = flr(baseY); y < 150; y++) {
         if (y >= 0 && y < H) pix(x, y, 1);
       }
     }
@@ -979,8 +979,8 @@
     for (let x = 0; x < W; x++) {
       const wx = x + hScrollX;
       const hh = getHillH(wx, hillSeed);
-      const baseY = 200 + hh;
-      for (let y = flr(baseY); y < 230; y++) {
+      const baseY = 150 + hh;
+      for (let y = flr(baseY); y < 172; y++) {
         if (y >= 0 && y < H) pix(x, y, 1);
       }
     }
@@ -1004,10 +1004,10 @@
         const craterObj = craters.find(c => wx >= c.x && wx < c.x + c.w);
         if (craterObj) {
           if (wx === craterObj.x || wx === craterObj.x + craterObj.w - 1) {
-            for (let y = GROUND_Y; y < GROUND_Y + 30; y++) pix(x, y, 1);
+            for (let y = GROUND_Y; y < GROUND_Y + 22; y++) pix(x, y, 1);
           }
           // Crater bottom
-          if (GROUND_Y + 28 < H) pix(x, GROUND_Y + 28, 1);
+          if (GROUND_Y + 21 < H) pix(x, GROUND_Y + 21, 1);
         }
       }
     }
@@ -1036,26 +1036,26 @@
 
     // Draw checkpoint progress bar at top
     const progressY = 14;
-    rectf(40, progressY, 400, 5, 0);
-    rect(40, progressY, 400, 5, 1);
+    rectf(27, progressY, 266, 5, 0);
+    rect(27, progressY, 266, 5, 1);
     // Mark checkpoints A-Z on bar
     for (let i = 0; i < 26; i++) {
-      const px = 40 + flr(i * 400 / 26);
+      const px = 27 + flr(i * 266 / 26);
       pix(px, progressY + 4, 2);
       if (i <= checkpoint) {
-        rectf(40, progressY + 1, flr(min(checkpoint, 25) * 400 / 26), 3, 2);
+        rectf(27, progressY + 1, flr(min(checkpoint, 25) * 266 / 26), 3, 2);
       }
     }
     // Current position marker
-    const posMarker = 40 + flr((distance % (26 * CHECKPOINT_DIST)) / (26 * CHECKPOINT_DIST) * 400);
+    const posMarker = 27 + flr((distance % (26 * CHECKPOINT_DIST)) / (26 * CHECKPOINT_DIST) * 266);
     rectf(posMarker - 1, progressY - 1, 3, 7, 3);
 
     // Progress letters
     if (checkpoint > 0) {
-      drawText(String.fromCharCode(64 + min(checkpoint, 26)), 30, progressY - 1, 3);
+      drawText(String.fromCharCode(64 + min(checkpoint, 26)), 20, progressY - 1, 3);
     }
     const nextCp = min(checkpoint + 1, 26);
-    drawText(String.fromCharCode(64 + nextCp), 445, progressY - 1, 2);
+    drawText(String.fromCharCode(64 + nextCp), 297, progressY - 1, 2);
 
     // Draw UFOs
     for (const u of ufos) {
@@ -1134,7 +1134,7 @@
     if (checkpoint > 0 && distance - checkpoint * CHECKPOINT_DIST < 100) {
       const alpha = 1 - (distance - checkpoint * CHECKPOINT_DIST) / 100;
       if (alpha > 0) {
-        drawText("CHECKPOINT " + String.fromCharCode(64 + min(checkpoint, 26)), 168, 40, 3);
+        drawText("CHECKPOINT " + String.fromCharCode(64 + min(checkpoint, 26)), 112, 30, 3);
       }
     }
   };

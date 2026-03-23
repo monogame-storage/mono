@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -398,11 +398,11 @@
 
   // --- Isometric Cube Geometry ---
   // Each cube is drawn as 3 faces: top, left, right
-  const CUBE_W = 32;  // total width of isometric cube
-  const CUBE_H = 24;  // top diamond height
-  const CUBE_DEPTH = 16; // side face depth
+  const CUBE_W = 21;  // total width of isometric cube
+  const CUBE_H = 18;  // top diamond height
+  const CUBE_DEPTH = 12; // side face depth
   const PYR_TOP_X = W / 2; // top center of pyramid
-  const PYR_TOP_Y = 52;    // top of pyramid y
+  const PYR_TOP_Y = 39;    // top of pyramid y
   const ROWS = 7;
 
   // Get pixel position for grid position (row, col)
@@ -921,7 +921,7 @@
         } else {
           // Coily falls off! (lured by disc)
           e.targetPx = e.px + dc * CUBE_W;
-          e.targetPy = e.py + 60;
+          e.targetPy = e.py + 45;
           e.row = ROWS;
           coilyActive = false;
           score += 500;
@@ -948,14 +948,14 @@
 
     if (state === "title") {
       // Title screen
-      text("Q*BERT", W / 2 - 18, 60, 3);
-      text("GRAYBOX EDITION", W / 2 - 40, 76, 2);
+      text("Q*BERT", W / 2 - 15, 45, 3);
+      text("GRAYBOX EDITION", W / 2 - 37, 57, 2);
 
       // Draw a small demo pyramid
       for (let r = 0; r < 4; r++) {
         for (let c = 0; c <= r; c++) {
           const p = cubePos(r, c);
-          const ox = 0, oy = 80;
+          const ox = 0, oy = 60;
           drawCube(p.x + ox, p.y + oy,
             (r + c) % 2 === 0 ? 2 : 3,
             1, 1);
@@ -963,35 +963,35 @@
       }
 
       if (titleBlink) {
-        text("PRESS ENTER TO START", W / 2 - 52, 250, 3);
+        text("PRESS ENTER TO START", W / 2 - 50, 188, 3);
       }
 
-      text("ARROWS TO HOP", W / 2 - 36, 275, 1);
-      text("CHANGE ALL CUBES TO WIN", W / 2 - 58, 290, 1);
+      text("ARROWS TO HOP", W / 2 - 32, 206, 1);
+      text("CHANGE ALL CUBES TO WIN", W / 2 - 57, 218, 1);
       return;
     }
 
     if (state === "gameover") {
-      text("GAME OVER", W / 2 - 24, 120, 3);
-      text("SCORE " + score, W / 2 - 22, 145, 2);
+      text("GAME OVER", W / 2 - 22, 90, 3);
+      text("SCORE " + score, W / 2 - 22, 109, 2);
       if (titleBlink) {
-        text("PRESS ENTER", W / 2 - 30, 180, 3);
+        text("PRESS ENTER", W / 2 - 27, 135, 3);
       }
       return;
     }
 
     // --- Play state ---
     // HUD
-    text("SCORE " + score, 8, 4, 3);
-    text("LEVEL " + level, W - 60, 4, 2);
+    text("SCORE " + score, 5, 3, 3);
+    text("LEVEL " + level, W - 40, 3, 2);
     // Lives
     for (let i = 0; i < lives; i++) {
-      spr(1, 8 + i * 10, 14);
+      spr(1, 5 + i * 10, 11);
     }
 
     // Target indicator
-    text("TARGET:", W - 80, 14, 1);
-    rectf(W - 28, 14, 8, 6, targetColor);
+    text("TARGET:", W - 53, 11, 1);
+    rectf(W - 19, 11, 8, 6, targetColor);
 
     // Draw discs
     for (const disc of discs) {
@@ -1075,8 +1075,8 @@
 
     // Level clear message
     if (levelClearTimer > 0) {
-      rectf(W / 2 - 50, H / 2 - 12, 100, 20, 0);
-      text("LEVEL CLEAR!", W / 2 - 32, H / 2 - 8, 3);
+      rectf(W / 2 - 33, H / 2 - 9, 67, 15, 0);
+      text("LEVEL CLEAR!", W / 2 - 30, H / 2 - 6, 3);
     }
   };
 

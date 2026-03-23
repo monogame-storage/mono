@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -666,7 +666,7 @@
   // ============================================================
   // Level data generation
   // ============================================================
-  const GROUND_Y = 280;  // base ground level in world coords
+  const GROUND_Y = 210;  // base ground level in world coords
   const TILE = 8;
   const GRAVITY = 0.45;
   const JUMP_FORCE = -6.5;
@@ -683,47 +683,47 @@
     };
 
     // Each stage is wider
-    const stageWidth = 1800 + stageNum * 600;
+    const stageWidth = 1200 + stageNum * 400;
     level.width = stageWidth;
 
     // Ground with gaps
     let gx = 0;
-    while (gx < stageWidth - 200) {
-      const segLen = 80 + flr(rnd(160));
+    while (gx < stageWidth - 133) {
+      const segLen = 53 + flr(rnd(107));
       level.platforms.push({ x: gx, y: GROUND_Y, w: segLen, ground: true });
       gx += segLen;
 
       // Gap or elevation change
-      if (rnd(1) < 0.3 && gx > 100) {
-        gx += 32 + flr(rnd(24)); // gap
+      if (rnd(1) < 0.3 && gx > 67) {
+        gx += 21 + flr(rnd(16)); // gap
       }
     }
     // Final ground segment leading to boss
-    level.platforms.push({ x: gx, y: GROUND_Y, w: 300, ground: true });
-    level.width = gx + 300;
+    level.platforms.push({ x: gx, y: GROUND_Y, w: 200, ground: true });
+    level.width = gx + 200;
 
     // Elevated platforms
     for (let i = 0; i < 12 + stageNum * 4; i++) {
-      const px = 120 + flr(rnd(level.width - 400));
-      const py = GROUND_Y - 40 - flr(rnd(80));
-      const pw = 40 + flr(rnd(60));
+      const px = 80 + flr(rnd(level.width - 267));
+      const py = GROUND_Y - 30 - flr(rnd(60));
+      const pw = 27 + flr(rnd(40));
       level.platforms.push({ x: px, y: py, w: pw, ground: false });
     }
 
     // Enemies: soldiers
     for (let i = 0; i < 15 + stageNum * 8; i++) {
-      const ex = 200 + flr(rnd(level.width - 500));
+      const ex = 133 + flr(rnd(level.width - 333));
       level.enemies.push({
         type: "soldier", x: ex, y: 0, alive: true,
         dir: -1, speed: 0.5 + rnd(0.5) + stageNum * 0.2,
         shootTimer: 60 + flr(rnd(90)),
-        animTimer: 0, patrol: 40 + flr(rnd(40)), patrolStart: ex
+        animTimer: 0, patrol: 27 + flr(rnd(27)), patrolStart: ex
       });
     }
 
     // Turrets
     for (let i = 0; i < 4 + stageNum * 2; i++) {
-      const tx = 300 + flr(rnd(level.width - 600));
+      const tx = 200 + flr(rnd(level.width - 400));
       level.enemies.push({
         type: "turret", x: tx, y: 0, alive: true,
         hp: 3, shootTimer: 40 + flr(rnd(60)), dir: -1
@@ -732,7 +732,7 @@
 
     // Snipers (placed on platforms)
     for (let i = 0; i < 3 + stageNum * 2; i++) {
-      const sx = 250 + flr(rnd(level.width - 500));
+      const sx = 167 + flr(rnd(level.width - 333));
       level.enemies.push({
         type: "sniper", x: sx, y: 0, alive: true,
         shootTimer: 30 + flr(rnd(50)), hp: 1
@@ -744,16 +744,16 @@
     for (let i = 0; i < 3; i++) {
       level.powerups.push({
         type: pwTypes[i % 3],
-        x: 300 + flr(i * (level.width - 600) / 3 + rnd(100)),
-        y: GROUND_Y - 60 - flr(rnd(40)),
+        x: 200 + flr(i * (level.width - 400) / 3 + rnd(67)),
+        y: GROUND_Y - 45 - flr(rnd(30)),
         alive: true
       });
     }
 
     // Boss at end
     level.boss = {
-      x: level.width - 120,
-      y: GROUND_Y - 64,
+      x: level.width - 80,
+      y: GROUND_Y - 48,
       hp: 15 + stageNum * 10,
       maxHp: 15 + stageNum * 10,
       phase: 0,
@@ -765,11 +765,11 @@
     };
 
     // Background decoration
-    for (let i = 0; i < level.width / 60; i++) {
+    for (let i = 0; i < level.width / 40; i++) {
       level.bgElements.push({
         type: rnd(1) < 0.5 ? "tree" : "mountain",
         x: flr(rnd(level.width)),
-        y: GROUND_Y - 8 - flr(rnd(16)),
+        y: GROUND_Y - 6 - flr(rnd(12)),
         parallax: 0.3 + rnd(0.3)
       });
     }
@@ -782,7 +782,7 @@
     for (const e of level.enemies) {
       if (e.type === "sniper") {
         // Place on elevated platforms
-        const elevated = level.platforms.filter(p => !p.ground && p.x < level.width - 300);
+        const elevated = level.platforms.filter(p => !p.ground && p.x < level.width - 200);
         if (elevated.length > 0) {
           const p = elevated[flr(rnd(elevated.length))];
           e.x = p.x + flr(rnd(p.w - 8));
@@ -802,7 +802,7 @@
   }
 
   function getGroundY(level, wx) {
-    let bestY = GROUND_Y + 100;
+    let bestY = GROUND_Y + 75;
     for (const p of level.platforms) {
       if (wx >= p.x && wx < p.x + p.w) {
         if (p.y < bestY) bestY = p.y;
@@ -834,7 +834,7 @@
     level = generateStage(stageNum);
     placeEnemiesOnGround(level);
     player = {
-      x: 40, y: GROUND_Y - 8,
+      x: 27, y: GROUND_Y - 8,
       vx: 0, vy: 0,
       dir: 1,    // 1=right, -1=left
       onGround: false,
@@ -1049,8 +1049,8 @@
           state = "gameover";
         } else {
           player.dead = false;
-          player.x = camX + 40;
-          player.y = GROUND_Y - 40;
+          player.x = camX + 27;
+          player.y = GROUND_Y - 30;
           player.vy = 0;
           player.vx = 0;
           player.invincible = 90;
@@ -1418,81 +1418,81 @@
 
     if (state === "title") {
       // Sky gradient
-      for (let y = 0; y < 120; y++) {
-        const c = y < 40 ? 0 : y < 80 ? 0 : 0;
+      for (let y = 0; y < 90; y++) {
+        const c = y < 30 ? 0 : y < 60 ? 0 : 0;
         // just dark
       }
 
       // Mountains in background
       for (let x = 0; x < W; x += 2) {
-        const h1 = 60 + sin(x * 0.01 + 1) * 30 + sin(x * 0.025) * 15;
-        const h2 = 80 + sin(x * 0.015 + 3) * 25 + sin(x * 0.04) * 10;
-        for (let y = flr(200 - h1); y < 200; y++) pix(x, y, 1);
-        for (let y = flr(200 - h1); y < 200; y++) pix(x + 1, y, 1);
-        for (let y = flr(220 - h2); y < 220; y++) { pix(x, y, 1); pix(x + 1, y, 1); }
+        const h1 = 45 + sin(x * 0.01 + 1) * 23 + sin(x * 0.025) * 11;
+        const h2 = 60 + sin(x * 0.015 + 3) * 19 + sin(x * 0.04) * 8;
+        for (let y = flr(150 - h1); y < 150; y++) pix(x, y, 1);
+        for (let y = flr(150 - h1); y < 150; y++) pix(x + 1, y, 1);
+        for (let y = flr(165 - h2); y < 165; y++) { pix(x, y, 1); pix(x + 1, y, 1); }
       }
 
       // Ground
-      rectf(0, 220, W, 100, 1);
-      rectf(0, 218, W, 2, 2);
+      rectf(0, 165, W, 75, 1);
+      rectf(0, 163, W, 2, 2);
 
       // Title
-      const ty = 50 + sin(API.frame * 0.04) * 4;
+      const ty = 38 + sin(API.frame * 0.04) * 3;
       // Big CONTRA text
-      text("CONTRA", 188, flr(ty), 3);
+      text("CONTRA", 145, flr(ty), 3);
       // Shadow
-      text("CONTRA", 189, flr(ty) + 1, 1);
+      text("CONTRA", 146, flr(ty) + 1, 1);
       // Underline
-      rectf(175, flr(ty) + 10, 130, 2, 2);
-      text("GRAYBOX EDITION", 175, flr(ty) + 16, 2);
+      rectf(132, flr(ty) + 10, 56, 2, 2);
+      text("GRAYBOX EDITION", 122, flr(ty) + 16, 2);
 
       // Animated player sprite on title
       const pFrame = flr(API.frame / 6) % 2 === 0 ? 2 : 3;
-      sprT(pFrame, 200 + sin(API.frame * 0.06) * 4, 160 + sin(API.frame * 0.1) * 2);
-      sprT(10, 260, 162);
-      sprT(12, 290, 164);
+      sprT(pFrame, 133 + sin(API.frame * 0.06) * 3, 120 + sin(API.frame * 0.1) * 2);
+      sprT(10, 173, 122);
+      sprT(12, 193, 123);
 
       // Blink text
       if (flr(API.frame / 18) % 2 === 0) {
-        text("PRESS START", 200, 130, 3);
+        text("PRESS START", 132, 98, 3);
       }
 
       // Controls info
-      text("Z:JUMP  X:SHOOT  ARROWS:MOVE/AIM", 115, 280, 2);
-      text("ONE HIT DEATH - 3 LIVES", 148, 292, 1);
-      text("GRAYBOX DEMO V0.1", 168, 308, 1);
+      text("Z:JUMP  X:SHOOT  ARROWS:MOVE/AIM", 77, 210, 2);
+      text("ONE HIT DEATH - 3 LIVES", 100, 219, 1);
+      text("GRAYBOX DEMO V0.1", 117, 231, 1);
       return;
     }
 
     if (state === "gameover") {
       rectf(0, 0, W, H, 0);
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-      text("GAME OVER", 198, 110, 3);
-      text("SCORE: " + score, 195, 135, 2);
-      text("STAGE: " + stage, 205, 150, 2);
-      if (flr(API.frame / 18) % 2 === 0) text("PRESS START", 200, 200, 3);
+      text("GAME OVER", 137, 83, 3);
+      text("SCORE: " + score, 127, 101, 2);
+      text("STAGE: " + stage, 140, 113, 2);
+      if (flr(API.frame / 18) % 2 === 0) text("PRESS START", 132, 150, 3);
       return;
     }
 
     if (state === "win") {
       rectf(0, 0, W, H, 0);
-      text("MISSION COMPLETE!", 163, 100, 3);
-      text("FINAL SCORE: " + score, 175, 130, 2);
-      text("YOU SAVED THE WORLD!", 155, 155, 2);
+      text("MISSION COMPLETE!", 117, 75, 3);
+      text("FINAL SCORE: " + score, 115, 98, 2);
+      text("YOU SAVED THE WORLD!", 110, 116, 2);
       // Victory animation
-      sprT(1, 230, 180 + sin(API.frame * 0.08) * 3);
-      if (flr(API.frame / 18) % 2 === 0) text("PRESS START", 200, 230, 3);
-      text("GRAYBOX DEMO V0.1", 168, 308, 1);
+      sprT(1, 153, 135 + sin(API.frame * 0.08) * 3);
+      if (flr(API.frame / 18) % 2 === 0) text("PRESS START", 132, 173, 3);
+      text("GRAYBOX DEMO V0.1", 117, 231, 1);
       return;
     }
 
     if (state === "stageclear") {
       rectf(0, 0, W, H, 0);
-      text("STAGE " + stage + " CLEAR!", 185, 130, 3);
-      text("SCORE: " + score, 200, 160, 2);
+      text("STAGE " + stage + " CLEAR!", 125, 98, 3);
+      text("SCORE: " + score, 127, 120, 2);
       // Explosion particles
       if (stageClearTimer < 60 && stageClearTimer % 8 === 0) {
-        addExplosion(100 + rnd(280), 50 + rnd(200), true);
+        addExplosion(67 + rnd(187), 38 + rnd(150), true);
       }
       for (const e of explosions) {
         const sid = e.timer > 5 ? 20 : 21;
@@ -1514,14 +1514,14 @@
     // ---- PLAY STATE RENDERING ----
 
     // Sky - gradient feel
-    rectf(0, 0, W, 60, 0);
+    rectf(0, 0, W, 45, 0);
 
     // Background mountains (parallax)
     const bgOff = camX * 0.15;
     for (let x = 0; x < W; x += 2) {
       const wx = x + bgOff;
-      const h1 = 40 + sin(wx * 0.008 + 1) * 25 + sin(wx * 0.02) * 12;
-      for (let y = flr(GROUND_Y - 80 - h1); y < GROUND_Y - 60; y++) {
+      const h1 = 30 + sin(wx * 0.008 + 1) * 19 + sin(wx * 0.02) * 9;
+      for (let y = flr(GROUND_Y - 60 - h1); y < GROUND_Y - 45; y++) {
         if (y >= 0 && y < H) { pix(x, y, 1); pix(x + 1, y, 1); }
       }
     }
@@ -1530,8 +1530,8 @@
     const mgOff = camX * 0.4;
     for (let x = 0; x < W; x += 2) {
       const wx = x + mgOff;
-      const h = 20 + sin(wx * 0.015 + 2) * 15 + sin(wx * 0.035) * 8;
-      for (let y = flr(GROUND_Y - 40 - h); y < GROUND_Y - 20; y++) {
+      const h = 15 + sin(wx * 0.015 + 2) * 11 + sin(wx * 0.035) * 6;
+      for (let y = flr(GROUND_Y - 30 - h); y < GROUND_Y - 15; y++) {
         if (y >= 0 && y < H) { pix(x, y, 1); pix(x + 1, y, 1); }
       }
     }
@@ -1673,9 +1673,9 @@
     }
 
     // HUD
-    rectf(0, 0, W, 14, 0);
-    text("SCORE:" + score, 4, 3, 3);
-    text("STAGE:" + stage, W / 2 - 18, 3, 2);
+    rectf(0, 0, W, 11, 0);
+    text("SCORE:" + score, 3, 2, 3);
+    text("STAGE:" + stage, W / 2 - 18, 2, 2);
 
     // Lives
     for (let i = 0; i < lives; i++) sprT(45, W - 40 + i * 10, 2);
@@ -1684,14 +1684,14 @@
     if (weapon !== "normal") {
       const wName = weapon.toUpperCase();
       const wc = weaponTimer < 90 && flr(API.frame / 6) % 2 === 0 ? 1 : 3;
-      text(wName, 4, H - 12, wc);
+      text(wName, 3, H - 10, wc);
     }
 
     // Stage intro text
     if (API.frame < 90) {
       if (flr(API.frame / 6) % 2 === 0) {
-        text("STAGE " + stage, 210, 150, 3);
-        text("GET READY!", 200, 165, 2);
+        text("STAGE " + stage, 142, 113, 3);
+        text("GET READY!", 135, 124, 2);
       }
     }
   };

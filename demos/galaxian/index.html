@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -445,15 +445,15 @@
   // Row 2: 10 drones
   // Row 3: 10 drones
   // Row 4: 10 drones
-  const FORM_CELL_W = 16;
-  const FORM_CELL_H = 14;
+  const FORM_CELL_W = 11;
+  const FORM_CELL_H = 10;
   const MAX_COLS = 10;
 
   function formBaseX() { return (W - MAX_COLS * FORM_CELL_W) / 2; }
-  const FORM_BASE_Y = 42;
+  const FORM_BASE_Y = 32;
 
   function resetGame() {
-    player = { x: W / 2 - 4, y: H - 28, alive: true };
+    player = { x: W / 2 - 4, y: H - 21, alive: true };
     playerBullet = null; // only one at a time!
     eBullets = [];
     enemies = [];
@@ -573,13 +573,13 @@
     // Pick a side to swoop toward
     const swoopDir = (sx < W / 2) ? 1 : -1;
     // Control points for a wide arc then swoop down
-    const cp1x = sx + swoopDir * (80 + rnd(60));
-    const cp1y = sy + 30 + rnd(40);
-    const cp2x = sx - swoopDir * (40 + rnd(60));
-    const cp2y = H * 0.55 + rnd(40);
+    const cp1x = sx + swoopDir * (53 + rnd(40));
+    const cp1y = sy + 22 + rnd(30);
+    const cp2x = sx - swoopDir * (27 + rnd(40));
+    const cp2y = H * 0.55 + rnd(30);
     // End: swoop past player position and off bottom
-    const ex = player.alive ? player.x + rnd(60) - 30 : W / 2;
-    const ey = H + 20;
+    const ex = player.alive ? player.x + rnd(40) - 20 : W / 2;
+    const ey = H + 15;
 
     enemy.divePath = [
       { x: sx, y: sy },
@@ -689,8 +689,8 @@
 
     // Formation sway
     formationX += formationDir * formationSpeed;
-    if (formationX > 28) formationDir = -1;
-    if (formationX < -28) formationDir = 1;
+    if (formationX > 19) formationDir = -1;
+    if (formationX < -19) formationDir = 1;
 
     // Update enemies
     for (let i = enemies.length - 1; i >= 0; i--) {
@@ -704,7 +704,7 @@
         if (e.enterT <= flyDur) {
           const t = e.enterT / flyDur;
           // Fly in from top with a slight curve
-          const startX = W / 2 + sin(e.formCol * 1.2 + e.formRow) * 80;
+          const startX = W / 2 + sin(e.formCol * 1.2 + e.formRow) * 53;
           const startY = -16;
           e.x = startX + (target.x - startX) * t * t;
           e.y = startY + (target.y - startY) * t;
@@ -737,7 +737,7 @@
 
         // Diving enemies fire
         e.shootTimer--;
-        if (e.shootTimer <= 0 && e.y > 10 && e.y < H - 50) {
+        if (e.shootTimer <= 0 && e.y > 10 && e.y < H - 38) {
           eBullets.push({ x: e.x + 3, y: e.y + 8 });
           e.shootTimer = 20 + flr(rnd(30));
           note(1, "D4", 0.02);
@@ -908,11 +908,11 @@
       // Stars + particles
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      text("GAME OVER", 195, 100, 3);
-      text("SCORE  " + padScore(score), 185, 130, 2);
-      text("HI     " + padScore(hiScore), 185, 145, 2);
-      text("WAVE   " + wave, 205, 165, 2);
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS START", 190, 210, 3);
+      text("GAME OVER", 138, 75, 3);
+      text("SCORE  " + padScore(score), 128, 98, 2);
+      text("HI     " + padScore(hiScore), 128, 109, 2);
+      text("WAVE   " + wave, 140, 124, 2);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS START", 133, 158, 3);
       return;
     }
 
@@ -960,21 +960,21 @@
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
     // HUD
-    rectf(0, 0, W, 14, 0);
-    text("1UP", 4, 2, 3);
-    text(padScore(score), 4, 9, 3);
-    text("HIGH SCORE", W / 2 - 25, 2, 2);
-    text(padScore(hiScore), W / 2 - 15, 9, 3);
-    text("WAVE " + wave, W - 50, 2, 2);
+    rectf(0, 0, W, 10, 0);
+    text("1UP", 3, 2, 3);
+    text(padScore(score), 3, 7, 3);
+    text("HIGH SCORE", W / 2 - 17, 2, 2);
+    text(padScore(hiScore), W / 2 - 10, 7, 3);
+    text("WAVE " + wave, W - 33, 2, 2);
 
     // Lives
-    for (let i = 0; i < lives - 1; i++) spr(10, 4 + i * 10, H - 10);
+    for (let i = 0; i < lives - 1; i++) spr(10, 3 + i * 10, H - 8);
 
     // Wave announcement
     if (waveMessage > 0) {
-      const msgY = 140 + sin(waveMessage * 0.12) * 3;
-      text("WAVE " + wave, 210, flr(msgY), 3);
-      if (waveMessage > 50) text("READY!", 213, flr(msgY) + 14, 2);
+      const msgY = 105 + sin(waveMessage * 0.12) * 3;
+      text("WAVE " + wave, 140, flr(msgY), 3);
+      if (waveMessage > 50) text("READY!", 142, flr(msgY) + 14, 2);
     }
   };
 
@@ -988,35 +988,35 @@
     titleAnimT++;
 
     // Big title with shadow
-    const ty = 55 + sin(titleAnimT * 0.04) * 4;
-    text("GALAXIAN", 195, flr(ty), 3);
-    text("GALAXIAN", 196, flr(ty) + 1, 1);
-    rectf(165, flr(ty) + 12, 150, 1, 2);
+    const ty = 41 + sin(titleAnimT * 0.04) * 4;
+    text("GALAXIAN", 140, flr(ty), 3);
+    text("GALAXIAN", 141, flr(ty) + 1, 1);
+    rectf(110, flr(ty) + 12, 100, 1, 2);
 
     // Animated formation on title
     const cx = W / 2;
     const baseY = flr(ty) + 28;
     // Flagship in center swaying
-    spr(5, cx - 4 + sin(titleAnimT * 0.06) * 20, baseY + sin(titleAnimT * 0.07) * 3);
+    spr(5, cx - 4 + sin(titleAnimT * 0.06) * 13, baseY + sin(titleAnimT * 0.07) * 3);
     // Escorts flanking
-    spr(3, cx - 28 + sin(titleAnimT * 0.06 + 0.5) * 20, baseY + 3 + sin(titleAnimT * 0.07 + 1) * 3);
-    spr(3, cx + 20 + sin(titleAnimT * 0.06 - 0.5) * 20, baseY + 3 + sin(titleAnimT * 0.07 - 1) * 3);
+    spr(3, cx - 19 + sin(titleAnimT * 0.06 + 0.5) * 13, baseY + 3 + sin(titleAnimT * 0.07 + 1) * 3);
+    spr(3, cx + 13 + sin(titleAnimT * 0.06 - 0.5) * 13, baseY + 3 + sin(titleAnimT * 0.07 - 1) * 3);
     // Drones
     for (let i = -2; i <= 2; i++) {
-      spr(2, cx + i * 18 - 4 + sin(titleAnimT * 0.05) * 15, baseY + 18 + sin(titleAnimT * 0.06 + i * 0.5) * 2);
+      spr(2, cx + i * 12 - 4 + sin(titleAnimT * 0.05) * 10, baseY + 14 + sin(titleAnimT * 0.06 + i * 0.5) * 2);
     }
 
-    if (flr(titleAnimT / 22) % 2 === 0) text("PRESS START", 190, 180, 3);
+    if (flr(titleAnimT / 22) % 2 === 0) text("PRESS START", 133, 135, 3);
 
     // Score table
-    text("-- SCORE TABLE --", 175, 205, 2);
-    spr(4, 178, 219); text("FLAGSHIP       60 PTS", 190, 221, 2);
-    spr(4, 178, 233); text("FLAGSHIP DIVE 150 PTS", 190, 235, 2);
-    spr(3, 178, 247); text("ESCORT         30 PTS", 190, 249, 2);
-    spr(2, 178, 261); text("DRONE          10 PTS", 190, 263, 2);
+    text("-- SCORE TABLE --", 115, 154, 2);
+    spr(4, 119, 164); text("FLAGSHIP       60 PTS", 127, 166, 2);
+    spr(4, 119, 175); text("FLAGSHIP DIVE 150 PTS", 127, 177, 2);
+    spr(3, 119, 186); text("ESCORT         30 PTS", 127, 188, 2);
+    spr(2, 119, 197); text("DRONE          10 PTS", 127, 199, 2);
 
-    text("HIGH SCORE  " + padScore(hiScore), 175, 285, 2);
-    text("GRAYBOX DEMO V0.1", 175, 305, 1);
+    text("HIGH SCORE  " + padScore(hiScore), 115, 214, 2);
+    text("GRAYBOX DEMO V0.1", 115, 229, 1);
   }
 
   // ============================================================

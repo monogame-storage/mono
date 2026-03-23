@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -489,7 +489,7 @@
   );
 
   // --- Game Constants ---
-  const ROAD_W = 160;         // road width in pixels
+  const ROAD_W = 107;         // road width in pixels
   const ROAD_CENTER = W / 2;  // center of screen
   const ROAD_LEFT = ROAD_CENTER - ROAD_W / 2;
   const ROAD_RIGHT = ROAD_CENTER + ROAD_W / 2;
@@ -514,7 +514,7 @@
   }
 
   function resetGame() {
-    player = { x: ROAD_CENTER - 4, y: H - 40, lane: 1, speed: 0 };
+    player = { x: ROAD_CENTER - 4, y: H - 30, lane: 1, speed: 0 };
     bullets = [];
     enemies = [];
     explosions = [];
@@ -651,7 +651,7 @@
     addExplosion(player.x, player.y);
     deathSound();
     invincible = 90; // 3 seconds invincibility
-    player.y = H - 40;
+    player.y = H - 30;
     player.x = ROAD_CENTER - 4;
     scrollSpeed = baseSpeed;
     if (lives <= 0) {
@@ -710,8 +710,8 @@
     }
 
     // Clamp player to road (with small margin for shoulder)
-    const roadL = ROAD_LEFT + roadCurve + 4;
-    const roadR = ROAD_RIGHT + roadCurve - 12;
+    const roadL = ROAD_LEFT + roadCurve + 3;
+    const roadR = ROAD_RIGHT + roadCurve - 10;
     player.x = _max(roadL, min(roadR, player.x));
 
     // Off-road detection
@@ -725,7 +725,7 @@
 
     // Road curve
     if (API.frame % 120 === 0) {
-      roadCurveTarget = rnd(60) - 30;
+      roadCurveTarget = rnd(40) - 20;
     }
     roadCurve += (roadCurveTarget - roadCurve) * 0.01;
 
@@ -875,7 +875,7 @@
         e.y += e.speed;
         e.x += sin(API.frame * 0.05 + i) * 0.8;
         e.bombTimer--;
-        if (e.bombTimer <= 0 && e.y > 20 && e.y < H - 60) {
+        if (e.bombTimer <= 0 && e.y > 15 && e.y < H - 45) {
           bombs.push({
             x: e.x + 2,
             y: e.y + 8,
@@ -903,7 +903,7 @@
 
         // Enforcer rams toward player
         if (e.type === "enforcer") {
-          if (e.y > 0 && _abs(e.y - player.y) < 80) {
+          if (e.y > 0 && _abs(e.y - player.y) < 60) {
             const dx = player.x - e.x;
             e.x += (dx > 0 ? 1 : -1) * 0.6;
             e.speed = scrollSpeed * 0.95; // match player speed
@@ -1056,36 +1056,36 @@
       // Trees
       for (let ty = 0; ty < H; ty += 30) {
         const dy = (ty + flr(API.frame * 1.5) % 30);
-        sprT(14, rl - 14, dy % H, false, false);
-        sprT(14, rr + 6, (dy + 15) % H, false, false);
+        sprT(14, rl - 10, dy % H, false, false);
+        sprT(14, rr + 4, (dy + 15) % H, false, false);
       }
 
       // Title car driving up
-      sprT(1, ROAD_CENTER - 4 + sin(API.frame * 0.03) * 10, flr(titleCarY), false, false);
+      sprT(1, ROAD_CENTER - 4 + sin(API.frame * 0.03) * 7, flr(titleCarY), false, false);
 
       // Title text
-      const ty = 50 + sin(API.frame * 0.04) * 4;
-      text("SPY HUNTER", 185, flr(ty), 3);
-      rectf(170, flr(ty) + 10, 140, 1, 2);
+      const ty = 38 + sin(API.frame * 0.04) * 4;
+      text("SPY HUNTER", 123, flr(ty), 3);
+      rectf(113, flr(ty) + 10, 93, 1, 2);
 
-      text("TOP SECRET MISSION", 170, flr(ty) + 20, 2);
+      text("TOP SECRET MISSION", 113, flr(ty) + 20, 2);
 
       // Instructions
-      text("ARROWS  STEER/ACCEL", 170, 150, 2);
-      text("Z  SHOOT FORWARD", 170, 162, 2);
-      text("X  OIL/SMOKE", 170, 174, 2);
+      text("ARROWS  STEER/ACCEL", 113, 113, 2);
+      text("Z  SHOOT FORWARD", 113, 122, 2);
+      text("X  OIL/SMOKE", 113, 131, 2);
 
       // Score table
-      text("-TARGETS-", 195, 200, 2);
-      sprT(2, 180, 214); text("BLOCKER    50", 195, 216, 2);
-      sprT(3, 180, 228); text("ENFORCER  100", 195, 230, 2);
-      sprT(5, 180, 242); text("CHOPPER   200", 195, 244, 2);
-      sprT(4, 180, 256); text("CIVILIAN  NO!", 195, 258, 1);
+      text("-TARGETS-", 130, 150, 2);
+      sprT(2, 120, 161); text("BLOCKER    50", 130, 162, 2);
+      sprT(3, 120, 171); text("ENFORCER  100", 130, 173, 2);
+      sprT(5, 120, 182); text("CHOPPER   200", 130, 183, 2);
+      sprT(4, 120, 192); text("CIVILIAN  NO!", 130, 194, 1);
 
       if (flr(API.frame / 20) % 2 === 0)
-        text("PRESS START", 195, 285, 3);
+        text("PRESS START", 130, 214, 3);
 
-      text("GRAYBOX DEMO V0.1", 170, 308, 1);
+      text("GRAYBOX DEMO V0.1", 113, 231, 1);
       return;
     }
 
@@ -1094,13 +1094,13 @@
       rectf(rl, 0, ROAD_W, H, 1);
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      text("GAME OVER", 195, 100, 3);
-      text("DISTANCE: " + flr(distance / 10), 175, 130, 2);
-      text("SCORE: " + score, 190, 145, 2);
-      text("ENEMIES DESTROYED:", 165, 170, 2);
+      text("GAME OVER", 130, 75, 3);
+      text("DISTANCE: " + flr(distance / 10), 117, 98, 2);
+      text("SCORE: " + score, 127, 109, 2);
+      text("ENEMIES DESTROYED:", 110, 128, 2);
 
       if (flr(API.frame / 20) % 2 === 0)
-        text("PRESS START", 195, 220, 3);
+        text("PRESS START", 130, 165, 3);
       return;
     }
 
@@ -1144,20 +1144,20 @@
 
       // Trees on sides
       for (const t of treesLeft) {
-        sprT(14, rl - 14 + curveOff, flr(t.y));
+        sprT(14, rl - 10 + curveOff, flr(t.y));
       }
       for (const t of treesRight) {
-        sprT(14, rr + 6 + curveOff, flr(t.y));
+        sprT(14, rr + 4 + curveOff, flr(t.y));
       }
     }
 
     // Fork rendering
     if (forkMode) {
-      const forkX = ROAD_CENTER + curveOff + forkDir * 40;
+      const forkX = ROAD_CENTER + curveOff + forkDir * 27;
       // Draw diverging road
       for (let fy = 0; fy < H; fy += 2) {
         const spread = (H - fy) * 0.3 * forkDir;
-        rectf(flr(forkX + spread) - 20, fy, 40, 2, 1);
+        rectf(flr(forkX + spread) - 13, fy, 27, 2, 1);
       }
     }
 
@@ -1225,39 +1225,39 @@
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
     // --- HUD ---
-    rectf(0, 0, W, 14, 0);
-    text("SCORE:" + score, 4, 4, 3);
+    rectf(0, 0, W, 11, 0);
+    text("SCORE:" + score, 3, 2, 3);
 
     // Speed indicator
-    const speedBar = flr((scrollSpeed / 5) * 40);
-    text("SPD", W / 2 - 35, 4, 2);
-    rectf(W / 2 - 10, 5, 42, 5, 1);
-    rectf(W / 2 - 10, 5, speedBar, 5, 3);
+    const speedBar = flr((scrollSpeed / 5) * 27);
+    text("SPD", W / 2 - 23, 2, 2);
+    rectf(W / 2 - 7, 3, 28, 4, 1);
+    rectf(W / 2 - 7, 3, speedBar, 4, 3);
 
     // Lives
-    for (let i = 0; i < lives; i++) sprT(12, W - 40 + i * 12, 3);
+    for (let i = 0; i < lives; i++) sprT(12, W - 30 + i * 10, 2);
 
     // Weapon indicators
     if (hasOil) {
-      text("OIL:" + oilCount, 4, H - 10, 2);
+      text("OIL:" + oilCount, 3, H - 8, 2);
     }
     if (hasSmoke) {
-      text("SMK:" + smokeCount, hasOil ? 54 : 4, H - 10, 2);
+      text("SMK:" + smokeCount, hasOil ? 36 : 3, H - 8, 2);
     }
 
     // Civilian penalty warning
     if (civilianPenaltyTimer > 0) {
       if (flr(API.frame / 4) % 2 === 0) {
-        text("CIVILIAN HIT! -100", 170, 30, 3);
+        text("CIVILIAN HIT! -100", 113, 23, 3);
       }
     }
 
     // Distance marker
-    text("DIST:" + flr(distance / 10), W / 2 + 40, 4, 2);
+    text("DIST:" + flr(distance / 10), W / 2 + 27, 2, 2);
 
     // Bridge indicator
     if (bridgeMode) {
-      text("BRIDGE", W / 2 - 15, 20, 3);
+      text("BRIDGE", W / 2 - 10, 15, 3);
     }
   };
 

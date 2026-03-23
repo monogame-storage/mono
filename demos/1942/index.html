@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -587,7 +587,7 @@
       const offX = (i - 2) * 16 * dir;
       const offY = _abs(i - 2) * 12;
       arr.push({
-        x: baseX + offX, y: baseY - 60 + offY,
+        x: baseX + offX, y: baseY - 45 + offY,
         tx: baseX + offX, ty: baseY + offY,
         type: (i === 2 && isLeader) ? "leader" : "small",
         hp: 1, pts: (i === 2 && isLeader) ? 200 : 100,
@@ -605,7 +605,7 @@
     const arr = [];
     for (let i = 0; i < offsets.length; i++) {
       arr.push({
-        x: baseX + offsets[i][0], y: baseY - 70,
+        x: baseX + offsets[i][0], y: baseY - 53,
         tx: baseX + offsets[i][0], ty: baseY + offsets[i][1],
         type: (i === 4 && isLeader) ? "leader" : (i === 4 ? "medium" : "small"),
         hp: (i === 4) ? 2 : 1,
@@ -622,7 +622,7 @@
   function spawnDiveBomber(x) {
     return [{
       x: x, y: -10,
-      tx: x, ty: 80,
+      tx: x, ty: 60,
       type: "medium", hp: 2, pts: 200,
       vx: 0, vy: 2.5, state: "diving", enterT: 0,
       hoverT: 0,
@@ -635,8 +635,8 @@
     const arr = [];
     const count = 6;
     for (let i = 0; i < count; i++) {
-      const sx = fromLeft ? -10 - i * 18 : W + 10 + i * 18;
-      const tx = fromLeft ? 60 + i * 50 : W - 60 - i * 50;
+      const sx = fromLeft ? -7 - i * 12 : W + 7 + i * 12;
+      const tx = fromLeft ? 40 + i * 33 : W - 40 - i * 33;
       arr.push({
         x: sx, y: y + sin(i) * 8,
         tx: tx, ty: y + sin(i) * 8,
@@ -653,7 +653,7 @@
   function spawnLargeBomber(x) {
     return [{
       x: x, y: -20,
-      tx: x, ty: 50 + flr(rnd(40)),
+      tx: x, ty: 38 + flr(rnd(30)),
       type: "large", hp: 3, pts: 400,
       vx: 0, vy: 1.2, state: "entering", enterT: 0,
       hoverT: 0,
@@ -669,19 +669,19 @@
       const t = 60 + i * 100;
       const pattern = flr(rnd(6));
       const hasLeader = rnd(1) < 0.25 + stg * 0.05;
-      const cx = 100 + flr(rnd(W - 200));
-      if (pattern === 0) queue.push({ t, fn: () => spawnVFormation(cx, 60, 1, hasLeader) });
-      else if (pattern === 1) queue.push({ t, fn: () => spawnVFormation(cx, 60, -1, hasLeader) });
-      else if (pattern === 2) queue.push({ t, fn: () => spawnDiamondFormation(cx, 80, hasLeader) });
+      const cx = 67 + flr(rnd(W - 134));
+      if (pattern === 0) queue.push({ t, fn: () => spawnVFormation(cx, 45, 1, hasLeader) });
+      else if (pattern === 1) queue.push({ t, fn: () => spawnVFormation(cx, 45, -1, hasLeader) });
+      else if (pattern === 2) queue.push({ t, fn: () => spawnDiamondFormation(cx, 60, hasLeader) });
       else if (pattern === 3) queue.push({ t, fn: () => spawnDiveBomber(cx) });
-      else if (pattern === 4) queue.push({ t, fn: () => spawnSideLine(40 + flr(rnd(60)), rnd(1) < 0.5) });
+      else if (pattern === 4) queue.push({ t, fn: () => spawnSideLine(30 + flr(rnd(45)), rnd(1) < 0.5) });
       else queue.push({ t, fn: () => spawnLargeBomber(cx) });
     }
     return queue;
   }
 
   function resetGame() {
-    player = { x: W / 2 - 4, y: H - 40, speed: 2.5 };
+    player = { x: W / 2 - 4, y: H - 30, speed: 2.5 };
     bullets = [];
     eBullets = [];
     enemies = [];
@@ -795,7 +795,7 @@
     shotType = 0;
     shotTypeTimer = 0;
     player.x = W / 2 - 4;
-    player.y = H - 40;
+    player.y = H - 30;
     invincTimer = 60;
     if (lives <= 0) {
       state = "gameover";
@@ -860,8 +860,8 @@
     if (btn("right")) player.x += player.speed;
     if (btn("up")) player.y -= player.speed;
     if (btn("down")) player.y += player.speed;
-    player.x = _max(4, min(W - 12, player.x));
-    player.y = _max(20, min(H - 16, player.y));
+    player.x = _max(3, min(W - 8, player.x));
+    player.y = _max(15, min(H - 12, player.y));
 
     // Loop activation (X button)
     if (btnp("b") && loops > 0 && loopTimer <= 0) {
@@ -976,13 +976,13 @@
       }
 
       // Offscreen removal
-      if (e.y > H + 20 || e.y < -80 || e.x < -50 || e.x > W + 50) {
+      if (e.y > H + 15 || e.y < -60 || e.x < -33 || e.x > W + 33) {
         if (e.state !== "entering") { enemies.splice(i, 1); continue; }
       }
 
       // Enemy shooting
       e.shootTimer--;
-      if (e.shootTimer <= 0 && e.y > 10 && e.y < H - 30) {
+      if (e.shootTimer <= 0 && e.y > 8 && e.y < H - 23) {
         const angle = Math.atan2(player.y - e.y, player.x - e.x);
         const spd = 2 + stage * 0.15;
         eBullets.push({ x: e.x + 3, y: e.y + 8, vx: cos(angle) * spd, vy: sin(angle) * spd });
@@ -1025,8 +1025,8 @@
     if (boss) {
       if (boss.phase === "enter") {
         boss.y += 1;
-        if (boss.y >= 20) {
-          boss.y = 20;
+        if (boss.y >= 15) {
+          boss.y = 15;
           boss.phase = "fight";
           boss.moveTimer = 0;
         }
@@ -1034,11 +1034,11 @@
       if (boss.phase === "fight") {
         boss.moveTimer++;
         boss.x += boss.moveDir * (1 + stage * 0.2);
-        if (boss.x > W - 24) boss.moveDir = -1;
-        if (boss.x < 8) boss.moveDir = 1;
+        if (boss.x > W - 16) boss.moveDir = -1;
+        if (boss.x < 5) boss.moveDir = 1;
 
         // Also bob vertically
-        boss.y = 20 + sin(boss.moveTimer * 0.03) * 10;
+        boss.y = 15 + sin(boss.moveTimer * 0.03) * 8;
 
         boss.shootTimer++;
         const shootRate = _max(8, 18 - stage);
@@ -1187,10 +1187,10 @@
 
     if (state === "stageclear") {
       drawPlay();
-      rectf(W / 2 - 85, 128, 170, 44, 0);
-      rect(W / 2 - 85, 128, 170, 44, 2);
-      text(stageMsg, W / 2 - flr(stageMsg.length * 2.5), 140, 3);
-      text("BONUS: " + (stage * 1000), W / 2 - 35, 156, 2);
+      rectf(W / 2 - 57, 96, 114, 33, 0);
+      rect(W / 2 - 57, 96, 114, 33, 2);
+      text(stageMsg, (320 - stageMsg.length * 5) / 2, 105, 3);
+      text("BONUS: " + (stage * 1000), (320 - ("BONUS: " + (stage * 1000)).length * 5) / 2, 117, 2);
       return;
     }
 
@@ -1258,7 +1258,7 @@
       }
       // HP bar
       if (boss.phase === "fight" || boss.phase === "dying") {
-        const barW = 60;
+        const barW = 40;
         const hpFrac = _max(0, boss.hp / boss.maxHp);
         rectf(W / 2 - barW / 2, 12, barW, 4, 0);
         rectf(W / 2 - barW / 2, 12, flr(barW * hpFrac), 4, 3);
@@ -1309,14 +1309,14 @@
 
     // --- HUD ---
     rectf(0, 0, W, 10, 0);
-    text("SCORE:" + score, 4, 2, 3);
-    text("STG:" + stage, W / 2 - 16, 2, 2);
+    text("SCORE:" + score, 3, 2, 3);
+    text("STG:" + stage, W / 2 - 11, 2, 2);
 
     // Lives (right side)
-    for (let i = 0; i < lives; i++) spr(18, W - 50 + i * 10, 1);
+    for (let i = 0; i < lives; i++) spr(18, W - 33 + i * 10, 1);
 
     // Loops remaining
-    for (let i = 0; i < loops; i++) spr(19, W - 90 + i * 10, 1);
+    for (let i = 0; i < loops; i++) spr(19, W - 60 + i * 10, 1);
 
     // Shot type indicator near player
     if (shotTypeTimer > 0) {
@@ -1329,72 +1329,72 @@
 
     // Stage message overlay
     if (stageMsgTimer > 0) {
-      const msgX = W / 2 - flr(stageMsg.length * 2.5);
-      text(stageMsg, msgX, 150, 3);
+      const msgX = (320 - stageMsg.length * 5) / 2;
+      text(stageMsg, flr(msgX), 113, 3);
       if (stageMsgTimer > 60 && stageMsg.indexOf("WARNING") === -1) {
-        text("GET READY!", W / 2 - 25, 164, 2);
+        text("GET READY!", (320 - 10 * 5) / 2, 123, 2);
       }
     }
   }
 
   function drawTitle() {
-    const ty = 50 + sin(API.frame * 0.05) * 4;
+    const ty = 20 + sin(API.frame * 0.05) * 3;
 
     // Large title
-    text("1 9 4 2", W / 2 - 20, flr(ty), 3);
-    rectf(W / 2 - 55, flr(ty) + 10, 110, 1, 2);
-    text("SUPER ACE", W / 2 - 22, flr(ty) + 16, 2);
+    text("1 9 4 2", (320 - 7 * 5) / 2, flr(ty), 3);
+    rectf(W / 2 - 37, flr(ty) + 10, 74, 1, 2);
+    text("SUPER ACE", (320 - 9 * 5) / 2, flr(ty) + 16, 2);
 
     // Show player plane
-    spr(1, W / 2 - 4, flr(ty) + 35 + sin(API.frame * 0.08) * 3);
+    spr(1, W / 2 - 4, flr(ty) + 28 + sin(API.frame * 0.08) * 2);
 
     // Enemy formations on title screen
-    const bx = W / 2 - 50;
+    const bx = W / 2 - 33;
     for (let i = 0; i < 5; i++) {
-      const offY = _abs(i - 2) * 8;
-      spr(2, bx + i * 20, flr(ty) + 58 + offY + sin(API.frame * 0.06 + i) * 3);
+      const offY = _abs(i - 2) * 6;
+      spr(2, bx + i * 13, flr(ty) + 44 + offY + sin(API.frame * 0.06 + i) * 2);
     }
 
     // Boss preview
     const bbx = W / 2 - 8;
-    spr(8, bbx, flr(ty) + 100);
-    spr(9, bbx + 8, flr(ty) + 100);
-    spr(10, bbx, flr(ty) + 108);
-    spr(11, bbx + 8, flr(ty) + 108);
+    spr(8, bbx, flr(ty) + 72);
+    spr(9, bbx + 8, flr(ty) + 72);
+    spr(10, bbx, flr(ty) + 80);
+    spr(11, bbx + 8, flr(ty) + 80);
 
-    if (flr(API.frame / 20) % 2 === 0) text("PRESS Z TO START", W / 2 - 42, 210, 3);
+    if (flr(API.frame / 20) % 2 === 0) text("PRESS Z TO START", (320 - 16 * 5) / 2, 142, 3);
 
     // Controls
-    text("ARROWS  MOVE", W / 2 - 30, 230, 2);
-    text("Z  SHOOT", W / 2 - 20, 240, 2);
-    text("X  LOOP (DODGE)", W / 2 - 38, 250, 2);
+    text("ARROWS  MOVE", (320 - 12 * 5) / 2, 158, 2);
+    text("Z  SHOOT", (320 - 8 * 5) / 2, 168, 2);
+    text("X  LOOP (DODGE)", (320 - 15 * 5) / 2, 178, 2);
 
     // Score table
-    text("-SCORE TABLE-", W / 2 - 32, 268, 1);
-    spr(2, W / 2 - 38, 278); text("FIGHTER  100", W / 2 - 24, 280, 1);
-    spr(3, W / 2 - 38, 288); text("BOMBER   200", W / 2 - 24, 290, 1);
-    spr(20, W / 2 - 38, 298); text("LEADER   200+POW", W / 2 - 24, 300, 1);
+    text("-SCORE TABLE-", (320 - 13 * 5) / 2, 192, 1);
+    spr(2, W / 2 - 25, 201); text("FIGHTER  100", W / 2 - 16, 203, 1);
+    spr(3, W / 2 - 25, 211); text("BOMBER   200", W / 2 - 16, 213, 1);
+    spr(20, W / 2 - 25, 221); text("LEADER   200+POW", W / 2 - 16, 223, 1);
 
-    if (hiScore > 0) text("HI:" + hiScore, W / 2 - 16, 22, 2);
+    if (hiScore > 0) text("HI:" + hiScore, W / 2 - 11, 14, 2);
 
-    text("GRAYBOX DEMO V0.1", W / 2 - 42, H - 10, 1);
+    text("GRAYBOX DEMO V0.1", (320 - 17 * 5) / 2, H - 8, 1);
   }
 
   function drawGameOver() {
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
     if (stage >= 8 && lives > 0) {
-      text("CONGRATULATIONS!", W / 2 - 40, 100, 3);
-      text("ALL 8 STAGES CLEAR!", W / 2 - 48, 120, 2);
+      text("CONGRATULATIONS!", (320 - 16 * 5) / 2, 75, 3);
+      text("ALL 8 STAGES CLEAR!", (320 - 19 * 5) / 2, 90, 2);
     } else {
-      text("GAME OVER", W / 2 - 22, 120, 3);
+      text("GAME OVER", (320 - 9 * 5) / 2, 90, 3);
     }
-    text("SCORE: " + score, W / 2 - 22, 150, 2);
-    text("STAGE: " + stage, W / 2 - 18, 165, 2);
+    text("SCORE: " + score, (320 - ("SCORE: " + score).length * 5) / 2, 113, 2);
+    text("STAGE: " + stage, (320 - ("STAGE: " + stage).length * 5) / 2, 124, 2);
     if (score >= hiScore && score > 0) {
-      text("NEW HIGH SCORE!", W / 2 - 38, 185, 3);
+      text("NEW HIGH SCORE!", (320 - 15 * 5) / 2, 139, 3);
     }
-    if (flr(API.frame / 20) % 2 === 0) text("PRESS Z TO CONTINUE", W / 2 - 50, 220, 3);
+    if (flr(API.frame / 20) % 2 === 0) text("PRESS Z TO CONTINUE", (320 - 20 * 5) / 2, 165, 3);
   }
 
   // ============================================================

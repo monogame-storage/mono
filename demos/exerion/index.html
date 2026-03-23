@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -481,7 +481,7 @@
   }
 
   function resetGame() {
-    player = { x: W / 2 - 4, y: H - 40, speed: 2.5, yBase: H - 40 };
+    player = { x: W / 2 - 4, y: H - 30, speed: 2.5, yBase: H - 30 };
     bullets = [];
     eBullets = [];
     enemies = [];
@@ -514,7 +514,7 @@
 
     if (hasCarrier) {
       // Carrier enters alone first
-      enemies.push(makeEnemy(12, W / 2 - 4, -20, PATTERNS.SWOOP, 0, 3, 100));
+      enemies.push(makeEnemy(12, W / 2 - 4, -15, PATTERNS.SWOOP, 0, 3, 100));
     }
 
     for (let i = 0; i < numEnemies; i++) {
@@ -558,16 +558,16 @@
       phase: "enter", // enter, attack, exit
       shootTimer: 60 + flr(rnd(90)),
       baseSpeed: 1.5 + wave * 0.15,
-      amplitude: 40 + rnd(30),
+      amplitude: 30 + rnd(22),
       freq: 0.03 + rnd(0.02),
       // For circle pattern
-      cx: W / 2 + rnd(100) - 50,
-      cy: 80 + rnd(60),
-      radius: 30 + rnd(40),
+      cx: W / 2 + rnd(66) - 33,
+      cy: 60 + rnd(45),
+      radius: 20 + rnd(30),
       angle: rnd(Math.PI * 2),
       // V-formation offset
-      formX: (index % 6 - 2.5) * 22,
-      formY: _abs(index % 6 - 2.5) * 16,
+      formX: (index % 6 - 2.5) * 15,
+      formY: _abs(index % 6 - 2.5) * 12,
     };
   }
 
@@ -672,7 +672,7 @@
 
     // Clamp player position
     player.x = _max(4, min(W - 12, player.x));
-    player.y = _max(H - 100, min(H - 20, player.y));
+    player.y = _max(H - 75, min(H - 15, player.y));
 
     // Shooting: dual diverging shots
     if (shootCooldown > 0) shootCooldown--;
@@ -724,7 +724,7 @@
         switch (e.pattern) {
           case PATTERNS.SINE:
             e.x += e.entryDir * spd * 1.2;
-            e.y = 40 + e.formY + sin(t * e.freq) * e.amplitude;
+            e.y = 30 + e.formY + sin(t * e.freq) * e.amplitude;
             if ((e.entryDir > 0 && e.x > W / 2 + e.formX) ||
                 (e.entryDir < 0 && e.x < W / 2 + e.formX)) {
               e.phase = "attack";
@@ -742,13 +742,13 @@
           case PATTERNS.VFORM:
             e.x += e.entryDir * spd * 0.8;
             e.y += spd * 0.6;
-            if (e.y > 40 + e.formY) { e.phase = "attack"; e.timer = 0; }
+            if (e.y > 30 + e.formY) { e.phase = "attack"; e.timer = 0; }
             break;
 
           case PATTERNS.SWOOP:
             // Swoop in from side in an arc
             e.x += e.entryDir * spd * 1.5;
-            e.y = 30 + sin(t * 0.04) * 60 + 40;
+            e.y = 22 + sin(t * 0.04) * 45 + 30;
             if (t > 80) { e.phase = "attack"; e.timer = 0; }
             break;
 
@@ -757,7 +757,7 @@
             e.y += spd * 0.5;
             if (t % 30 < 15) e.x += spd * 0.8;
             else e.x -= spd * 0.8;
-            if (e.y > 50 + e.formY) { e.phase = "attack"; e.timer = 0; }
+            if (e.y > 38 + e.formY) { e.phase = "attack"; e.timer = 0; }
             break;
         }
       }
@@ -797,7 +797,7 @@
 
         // Shoot at player
         e.shootTimer--;
-        if (e.shootTimer <= 0 && e.y > 10 && e.y < H - 50) {
+        if (e.shootTimer <= 0 && e.y > 10 && e.y < H - 38) {
           const angle = Math.atan2(player.y - e.y, player.x - e.x);
           const bspd = 2.5 + wave * 0.12;
           eBullets.push({
@@ -902,7 +902,7 @@
     addExplosion(player.x, player.y, true);
     deathSound();
     player.x = W / 2 - 4;
-    player.y = H - 40;
+    player.y = H - 30;
     invincible = 60;
     chargeTime = 0;
     charging = false;
@@ -1032,12 +1032,12 @@
     for (const p of particles) pix(flr(p.x) + shakeX, flr(p.y) + shakeY, p.color);
 
     // --- HUD ---
-    rectf(0, 0, W, 13, 0);
-    text("SCORE:" + String(score).padStart(6, "0"), 4, 3, 3);
-    text("WAVE:" + wave, W / 2 - 24, 3, 2);
+    rectf(0, 0, W, 10, 0);
+    text("SCORE:" + String(score).padStart(6, "0"), 3, 2, 3);
+    text("WAVE:" + wave, W / 2 - 16, 2, 2);
 
     // Lives
-    for (let i = 0; i < lives; i++) spr(40, W - 40 + i * 10, 2);
+    for (let i = 0; i < lives; i++) spr(40, W - 27 + i * 9, 1);
 
     // Charge bar
     if (charging && chargeTime >= 10) {
@@ -1049,14 +1049,14 @@
 
     // Wave announcement
     if (waveMessage > 0) {
-      const msgY = 140 + sin(waveMessage * 0.08) * 4;
+      const msgY = 105 + sin(waveMessage * 0.08) * 3;
       text("WAVE " + wave, W / 2 - 20, flr(msgY), 3);
-      if (waveMessage > 60) text("GET READY!", W / 2 - 30, flr(msgY) + 12, 2);
+      if (waveMessage > 60) text("GET READY!", W / 2 - 30, flr(msgY) + 10, 2);
     }
   };
 
   function drawTitle() {
-    const ty = 55 + sin(titleAnim * 0.04) * 5;
+    const ty = 30 + sin(titleAnim * 0.04) * 4;
 
     // Title shadow
     text("EXERION", W / 2 - 20, flr(ty) + 1, 1);
@@ -1064,52 +1064,52 @@
     text("EXERION", W / 2 - 21, flr(ty), 3);
 
     // Subtitle
-    text("VERTICAL SHOOTER", W / 2 - 42, flr(ty) + 14, 2);
-    rectf(W / 2 - 50, flr(ty) + 23, 100, 1, 1);
+    text("VERTICAL SHOOTER", W / 2 - 42, flr(ty) + 12, 2);
+    rectf(W / 2 - 50, flr(ty) + 20, 100, 1, 1);
 
     // Animated enemies on title screen
     const cx = W / 2;
     for (let i = 0; i < 5; i++) {
       const angle = titleAnim * 0.03 + i * (Math.PI * 2 / 5);
-      const ex = cx + cos(angle) * 50;
-      const ey = flr(ty) + 50 + sin(angle) * 20;
+      const ex = cx + cos(angle) * 33;
+      const ey = flr(ty) + 38 + sin(angle) * 15;
       spr(10, flr(ex), flr(ey));
     }
     // Bomber in center
-    spr(11, cx - 4, flr(ty) + 46 + flr(sin(titleAnim * 0.05) * 4));
+    spr(11, cx - 4, flr(ty) + 35 + flr(sin(titleAnim * 0.05) * 3));
     // Carrier below
-    spr(12, cx - 4, flr(ty) + 70 + flr(sin(titleAnim * 0.03) * 3));
+    spr(12, cx - 4, flr(ty) + 53 + flr(sin(titleAnim * 0.03) * 2));
 
     // Player ship demo
-    const shipY = 220 + sin(titleAnim * 0.06) * 3;
+    const shipY = 150 + sin(titleAnim * 0.06) * 2;
     spr(1, cx - 4, flr(shipY));
 
-    if (flr(titleAnim / 20) % 2 === 0) text("PRESS A TO START", W / 2 - 42, 200, 3);
+    if (flr(titleAnim / 20) % 2 === 0) text("PRESS A TO START", W / 2 - 42, 145, 3);
 
     // Score table
-    text("-SCORE TABLE-", W / 2 - 36, 240, 2);
-    spr(12, W / 2 - 44, 252); text("CARRIER  100 PTS", W / 2 - 30, 254, 2);
-    spr(11, W / 2 - 44, 264); text("BOMBER    30 PTS", W / 2 - 30, 266, 2);
-    spr(10, W / 2 - 44, 276); text("FIGHTER   10 PTS", W / 2 - 30, 278, 2);
+    text("-SCORE TABLE-", W / 2 - 36, 170, 2);
+    spr(12, W / 2 - 44, 180); text("CARRIER  100 PTS", W / 2 - 30, 182, 2);
+    spr(11, W / 2 - 44, 192); text("BOMBER    30 PTS", W / 2 - 30, 194, 2);
+    spr(10, W / 2 - 44, 204); text("FIGHTER   10 PTS", W / 2 - 30, 206, 2);
 
-    if (hiScore > 0) text("HI:" + String(hiScore).padStart(6, "0"), W / 2 - 25, 295, 2);
+    if (hiScore > 0) text("HI:" + String(hiScore).padStart(6, "0"), W / 2 - 25, 218, 2);
 
-    text("GRAYBOX DEMO V0.1", W / 2 - 46, 310, 1);
+    text("GRAYBOX DEMO V0.1", W / 2 - 46, 230, 1);
   }
 
   function drawGameOver() {
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-    const gy = 100 + sin(titleAnim * 0.05) * 2;
+    const gy = 75 + sin(titleAnim * 0.05) * 2;
     text("GAME OVER", W / 2 - 24, flr(gy), 3);
-    text("SCORE: " + String(score).padStart(6, "0"), W / 2 - 34, flr(gy) + 20, 2);
-    text("WAVE: " + wave, W / 2 - 17, flr(gy) + 32, 2);
+    text("SCORE: " + String(score).padStart(6, "0"), W / 2 - 34, flr(gy) + 15, 2);
+    text("WAVE: " + wave, W / 2 - 17, flr(gy) + 24, 2);
 
     if (score > hiScore) {
-      if (flr(titleAnim / 10) % 2 === 0) text("NEW HIGH SCORE!", W / 2 - 40, flr(gy) + 48, 3);
+      if (flr(titleAnim / 10) % 2 === 0) text("NEW HIGH SCORE!", W / 2 - 40, flr(gy) + 36, 3);
     }
 
-    if (flr(titleAnim / 20) % 2 === 0) text("PRESS A TO CONTINUE", W / 2 - 52, 210, 3);
+    if (flr(titleAnim / 20) % 2 === 0) text("PRESS A TO CONTINUE", W / 2 - 52, 158, 3);
   }
 
   // ============================================================

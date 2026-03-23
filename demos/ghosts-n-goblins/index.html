@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -726,8 +726,8 @@
   const GRAVITY = 0.35;
   const JUMP_FORCE = -5.5;
   const MOVE_SPEED = 1.8;
-  const GROUND_Y = 264;
-  const LEVEL_WIDTH = 2400;
+  const GROUND_Y = 198;
+  const LEVEL_WIDTH = 1600;
   const TILE = 8;
   const WEAPON_LANCE = 0;
   const WEAPON_DAGGER = 1;
@@ -747,27 +747,27 @@
   function generateLevel() {
     levelData = { platforms: [], grounds: [], decorations: [] };
     const groundSegs = [
-      { x: 0, w: 40 }, { x: 44, w: 30 }, { x: 78, w: 50 },
-      { x: 132, w: 40 }, { x: 176, w: 30 }, { x: 210, w: 50 },
-      { x: 264, w: 36 }
+      { x: 0, w: 27 }, { x: 29, w: 20 }, { x: 52, w: 33 },
+      { x: 88, w: 27 }, { x: 117, w: 20 }, { x: 140, w: 33 },
+      { x: 176, w: 24 }
     ];
     for (const g of groundSegs) {
       levelData.grounds.push({ x: g.x * TILE, y: GROUND_Y, w: g.w * TILE });
     }
     const plats = [
-      { x: 10, y: GROUND_Y - 40, w: 5 },
-      { x: 50, y: GROUND_Y - 56, w: 4 },
-      { x: 90, y: GROUND_Y - 40, w: 6 },
-      { x: 140, y: GROUND_Y - 48, w: 5 },
-      { x: 185, y: GROUND_Y - 56, w: 4 },
-      { x: 220, y: GROUND_Y - 40, w: 6 },
-      { x: 270, y: GROUND_Y - 48, w: 4 }
+      { x: 7, y: GROUND_Y - 30, w: 3 },
+      { x: 33, y: GROUND_Y - 42, w: 3 },
+      { x: 60, y: GROUND_Y - 30, w: 4 },
+      { x: 93, y: GROUND_Y - 36, w: 3 },
+      { x: 123, y: GROUND_Y - 42, w: 3 },
+      { x: 147, y: GROUND_Y - 30, w: 4 },
+      { x: 180, y: GROUND_Y - 36, w: 3 }
     ];
     for (const p of plats) {
       levelData.platforms.push({ x: p.x * TILE, y: p.y, w: p.w * TILE });
     }
     // Decorations
-    for (let dx = 0; dx < LEVEL_WIDTH; dx += 80 + flr(rnd(60))) {
+    for (let dx = 0; dx < LEVEL_WIDTH; dx += 53 + flr(rnd(40))) {
       const dtype = rnd(1) < 0.5 ? 24 : 25;
       levelData.decorations.push({ x: dx, sprId: dtype });
     }
@@ -801,7 +801,7 @@
   function resetGame() {
     generateLevel();
     player = {
-      x: 40, y: GROUND_Y - 16, vx: 0, vy: 0,
+      x: 27, y: GROUND_Y - 12, vx: 0, vy: 0,
       facing: 1, armor: 2, weapon: WEAPON_LANCE,
       grounded: true, crouching: false,
       walkFrame: 0, walkTimer: 0,
@@ -820,7 +820,7 @@
     bossActive = false;
     boss = null;
     deathTimer = 0;
-    respawnX = 40;
+    respawnX = 27;
     titleAnim = 0;
     spawnEnemies();
     spawnChests();
@@ -828,7 +828,7 @@
 
   function spawnChests() {
     chests = [];
-    for (let cx = 200; cx < LEVEL_WIDTH - 200; cx += 200 + flr(rnd(200))) {
+    for (let cx = 133; cx < LEVEL_WIDTH - 133; cx += 133 + flr(rnd(133))) {
       const gy = getGroundAt(cx);
       if (gy < H) {
         chests.push({ x: cx, y: gy - 8, alive: true, content: flr(rnd(5)) });
@@ -839,7 +839,7 @@
   function spawnEnemies() {
     enemies = [];
     // Zombies
-    for (let ex = 150; ex < LEVEL_WIDTH - 100; ex += 60 + flr(rnd(80))) {
+    for (let ex = 100; ex < LEVEL_WIDTH - 67; ex += 40 + flr(rnd(53))) {
       const gy = getGroundAt(ex);
       if (gy < H) {
         enemies.push({
@@ -851,25 +851,25 @@
       }
     }
     // Ghosts
-    for (let ex = 300; ex < LEVEL_WIDTH - 100; ex += 150 + flr(rnd(120))) {
+    for (let ex = 200; ex < LEVEL_WIDTH - 67; ex += 100 + flr(rnd(80))) {
       enemies.push({
-        type: "ghost", x: ex, y: GROUND_Y - 60 - rnd(40),
-        baseY: GROUND_Y - 60 - rnd(40), hp: 1, alive: true,
+        type: "ghost", x: ex, y: GROUND_Y - 45 - rnd(30),
+        baseY: GROUND_Y - 45 - rnd(30), hp: 1, alive: true,
         vx: -0.5 - rnd(0.5), phase: rnd(6.28), animTimer: 0
       });
     }
     // Red Arremers
-    for (let ex = 500; ex < LEVEL_WIDTH - 200; ex += 300 + flr(rnd(200))) {
+    for (let ex = 333; ex < LEVEL_WIDTH - 133; ex += 200 + flr(rnd(133))) {
       enemies.push({
-        type: "arremer", x: ex, y: GROUND_Y - 80,
-        baseX: ex, baseY: GROUND_Y - 80,
+        type: "arremer", x: ex, y: GROUND_Y - 60,
+        baseX: ex, baseY: GROUND_Y - 60,
         hp: 3, alive: true,
         state: "hover", swoopTimer: 60 + flr(rnd(60)),
         animTimer: 0, vx: 0, vy: 0
       });
     }
     // Skeletons
-    for (let ex = 400; ex < LEVEL_WIDTH - 100; ex += 180 + flr(rnd(100))) {
+    for (let ex = 267; ex < LEVEL_WIDTH - 67; ex += 120 + flr(rnd(67))) {
       const gy = getGroundAt(ex);
       if (gy < H) {
         enemies.push({
@@ -881,7 +881,7 @@
       }
     }
     // Plant monsters
-    for (let ex = 350; ex < LEVEL_WIDTH - 100; ex += 250 + flr(rnd(150))) {
+    for (let ex = 233; ex < LEVEL_WIDTH - 67; ex += 167 + flr(rnd(100))) {
       const gy = getGroundAt(ex);
       if (gy < H) {
         enemies.push({
@@ -895,7 +895,7 @@
   function spawnBoss() {
     bossActive = true;
     boss = {
-      x: LEVEL_WIDTH - 80, y: GROUND_Y - 32,
+      x: LEVEL_WIDTH - 53, y: GROUND_Y - 24,
       hp: 12, maxHp: 12, alive: true,
       state: "idle", timer: 60,
       animFrame: 0, flashTimer: 0
@@ -1022,7 +1022,7 @@
         player.alive = true;
         player.armor = 2;
         player.x = respawnX;
-        player.y = GROUND_Y - 16;
+        player.y = GROUND_Y - 12;
         player.vy = 0;
         player.vx = 0;
         player.invincible = 90;
@@ -1094,12 +1094,12 @@
     camera.x = _max(0, min(LEVEL_WIDTH - W, camera.x));
 
     // Checkpoints
-    if (flr(player.x / 200) > flr(respawnX / 200)) {
-      respawnX = flr(player.x / 200) * 200;
+    if (flr(player.x / 133) > flr(respawnX / 133)) {
+      respawnX = flr(player.x / 133) * 133;
     }
 
     // Boss trigger
-    if (player.x > LEVEL_WIDTH - 200 && !bossActive && !boss) spawnBoss();
+    if (player.x > LEVEL_WIDTH - 133 && !bossActive && !boss) spawnBoss();
 
     // --- Projectiles ---
     for (let i = projectiles.length - 1; i >= 0; i--) {
@@ -1197,7 +1197,7 @@
         } else if (e.state === "swoop") {
           e.x += e.vx;
           e.y += e.vy;
-          if (e.y >= GROUND_Y - 16) { e.state = "return"; e.vy = -2; }
+          if (e.y >= GROUND_Y - 12) { e.state = "return"; e.vy = -2; }
         } else if (e.state === "return") {
           e.y += e.vy;
           e.x += (e.baseX - e.x) * 0.03;
@@ -1361,52 +1361,52 @@
         sprT(23, x, GROUND_Y + 8);
       }
       // Decorations
-      sprT(24, 60, GROUND_Y - 8);
-      sprT(24, 180, GROUND_Y - 8);
-      sprT(24, 340, GROUND_Y - 8);
-      sprT(25, 120, GROUND_Y - 8);
-      sprT(25, 280, GROUND_Y - 8);
-      sprT(25, 400, GROUND_Y - 8);
+      sprT(24, 40, GROUND_Y - 8);
+      sprT(24, 120, GROUND_Y - 8);
+      sprT(24, 227, GROUND_Y - 8);
+      sprT(25, 80, GROUND_Y - 8);
+      sprT(25, 187, GROUND_Y - 8);
+      sprT(25, 267, GROUND_Y - 8);
 
       // Title
-      const ty = 50 + sin(titleAnim * 0.04) * 5;
-      drawText("GHOSTS N GOBLINS", 140, flr(ty), 3);
-      drawText("GHOSTS N GOBLINS", 141, flr(ty) + 1, 1);
-      rectf(130, flr(ty) + 12, 220, 1, 2);
+      const ty = 38 + sin(titleAnim * 0.04) * 5;
+      drawText("GHOSTS N GOBLINS", 120, flr(ty), 3);
+      drawText("GHOSTS N GOBLINS", 121, flr(ty) + 1, 1);
+      rectf(110, flr(ty) + 12, 147, 1, 2);
 
       // Showcase
-      const by = flr(ty) + 30;
-      sprT(1, 200, by + sin(titleAnim * 0.06) * 2);
-      sprT(15, 240, by + 2 + sin(titleAnim * 0.06 + 1) * 2);
-      sprT(17, 270, by - 2 + sin(titleAnim * 0.06 + 2) * 3);
-      sprT(18, 300, by + sin(titleAnim * 0.06 + 3) * 2);
-      sprT(20, 160, by + 2 + sin(titleAnim * 0.06 + 4) * 2);
+      const by = flr(ty) + 23;
+      sprT(1, 133, by + sin(titleAnim * 0.06) * 2);
+      sprT(15, 160, by + 2 + sin(titleAnim * 0.06 + 1) * 2);
+      sprT(17, 180, by - 2 + sin(titleAnim * 0.06 + 2) * 3);
+      sprT(18, 200, by + sin(titleAnim * 0.06 + 3) * 2);
+      sprT(20, 107, by + 2 + sin(titleAnim * 0.06 + 4) * 2);
 
-      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 190, 180, 3);
+      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 135, 3);
 
-      drawText("Z:JUMP  X:THROW  ARROWS:MOVE", 120, 210, 2);
-      drawText("3 LIVES  2-HIT ARMOR  4 WEAPONS", 108, 225, 1);
-      drawText("GRAYBOX DEMO V0.1", 168, 305, 1);
+      drawText("Z:JUMP  X:THROW  ARROWS:MOVE", 88, 158, 2);
+      drawText("3 LIVES  2-HIT ARMOR  4 WEAPONS", 80, 169, 1);
+      drawText("GRAYBOX DEMO V0.1", 116, 229, 1);
       return;
     }
 
     if (state === "gameover") {
       for (const p of particles) pix(flr(p.x - cx), flr(p.y), p.color);
-      drawText("GAME OVER", 195, 110, 3);
-      drawText("SCORE: " + score, 190, 140, 2);
-      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 190, 200, 3);
+      drawText("GAME OVER", 138, 83, 3);
+      drawText("SCORE: " + score, 127, 105, 2);
+      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 150, 3);
       return;
     }
 
     if (state === "win") {
-      drawText("CONGRATULATIONS!", 155, 80, 3);
-      sprT(1, 210, 130);
-      sprT(37, 240, 130);
-      drawText("ARTHUR RESCUED", 165, 160, 2);
-      drawText("THE PRINCESS!", 170, 175, 2);
-      drawText("SCORE: " + score, 190, 210, 3);
-      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 190, 250, 3);
-      drawText("GRAYBOX DEMO V0.1", 168, 305, 1);
+      drawText("CONGRATULATIONS!", 120, 60, 3);
+      sprT(1, 140, 98);
+      sprT(37, 160, 98);
+      drawText("ARTHUR RESCUED", 126, 120, 2);
+      drawText("THE PRINCESS!", 128, 131, 2);
+      drawText("SCORE: " + score, 127, 158, 3);
+      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 188, 3);
+      drawText("GRAYBOX DEMO V0.1", 116, 229, 1);
       return;
     }
 
@@ -1415,8 +1415,8 @@
     // Background hills (parallax)
     for (let bx = 0; bx < W; bx += 2) {
       const worldX = bx + cx * 0.3;
-      const hillH = 30 + sin(worldX * 0.01) * 15 + sin(worldX * 0.025) * 8;
-      const baseY = GROUND_Y - 20;
+      const hillH = 23 + sin(worldX * 0.01) * 11 + sin(worldX * 0.025) * 6;
+      const baseY = GROUND_Y - 15;
       for (let by = baseY; by > baseY - hillH; by--) {
         if (by >= 0 && by < H) pix(bx, by, 1);
       }
@@ -1424,8 +1424,8 @@
 
     // Mid-ground trees (parallax)
     for (let tx = -1; tx < 8; tx++) {
-      const treeX = tx * 80 - (cx * 0.5) % 80;
-      sprT(35, flr(treeX), GROUND_Y - 28);
+      const treeX = tx * 53 - (cx * 0.5) % 53;
+      sprT(35, flr(treeX), GROUND_Y - 21);
     }
 
     // Decorations
@@ -1566,11 +1566,11 @@
     // --- HUD ---
     rectf(0, 0, W, 14, 0);
     drawText("SCORE:" + score, 4, 3, 3);
-    drawText("TIME:" + timeLeft, 200, 3, timeLeft <= 30 ? 3 : 2);
-    drawText(WEAPON_NAMES[player.weapon], 320, 3, 2);
+    drawText("TIME:" + timeLeft, 133, 3, timeLeft <= 30 ? 3 : 2);
+    drawText(WEAPON_NAMES[player.weapon], 213, 3, 2);
     for (let i = 0; i < lives; i++) sprT(36, W - 40 + i * 10, 2);
-    if (player.armor >= 2) drawText("AR", 380, 3, 2);
-    else if (player.armor === 1) drawText("AR", 380, 3, 1);
+    if (player.armor >= 2) drawText("AR", 253, 3, 2);
+    else if (player.armor === 1) drawText("AR", 253, 3, 1);
 
     // Progress bar
     const progress = player.x / LEVEL_WIDTH;

@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -430,12 +430,12 @@
   );
 
   // --- Game Constants ---
-  const MAZE_W = 58; // maze tiles wide (464px in 480px viewport, centered with 8px border)
-  const MAZE_H = 34; // maze tiles tall (272px in 320px viewport)
+  const MAZE_W = 38; // maze tiles wide (304px in 320px viewport, centered with 8px border)
+  const MAZE_H = 27; // maze tiles tall (216px in 240px viewport)
   const MAZE_OX = 8; // pixel offset X
-  const MAZE_OY = 16; // pixel offset Y (leave room for HUD at top)
+  const MAZE_OY = 12; // pixel offset Y (leave room for HUD at top)
   const HUD_Y = 2;
-  const TIMER_Y = H - 14;
+  const TIMER_Y = H - 10;
 
   const STATE_TITLE = 0;
   const STATE_READY = 1;
@@ -467,7 +467,7 @@
 
   // ---- Maze Definitions ----
   // Each maze is a string grid. '#' = wall, '.' = path, 'S' = start
-  // Mazes are 58x34 tiles
+  // Mazes are 38x27 tiles
   function createMaze(idx) {
     const m = [];
     for (let y = 0; y < MAZE_H; y++) {
@@ -497,9 +497,9 @@
         }
       }
       // Central chamber
-      for (let x = 24; x < 34; x++) { m[14][x] = 1; m[20][x] = 1; }
-      for (let y = 14; y < 21; y++) { m[y][24] = 1; m[y][33] = 1; }
-      m[17][24] = 0; m[17][33] = 0; // entrances
+      for (let x = 16; x < 22; x++) { m[11][x] = 1; m[16][x] = 1; }
+      for (let y = 11; y < 17; y++) { m[y][16] = 1; m[y][21] = 1; }
+      m[13][16] = 0; m[13][21] = 0; // entrances
     }
     else if (pat === 1) {
       // Spiral-ish maze
@@ -507,57 +507,57 @@
       for (let x = 4; x < MAZE_W-4; x++) { m[4][x] = 1; m[MAZE_H-5][x] = 1; }
       for (let y = 4; y < MAZE_H-4; y++) { m[y][4] = 1; m[y][MAZE_W-5] = 1; }
       // Gaps in outer ring
-      m[4][29] = 0; m[MAZE_H-5][29] = 0;
-      m[17][4] = 0; m[17][MAZE_W-5] = 0;
+      m[4][19] = 0; m[MAZE_H-5][19] = 0;
+      m[13][4] = 0; m[13][MAZE_W-5] = 0;
       // Inner ring
       for (let x = 10; x < MAZE_W-10; x++) { m[9][x] = 1; m[MAZE_H-10][x] = 1; }
       for (let y = 9; y < MAZE_H-9; y++) { m[y][10] = 1; m[y][MAZE_W-11] = 1; }
-      m[9][20] = 0; m[MAZE_H-10][38] = 0;
-      m[14][10] = 0; m[20][MAZE_W-11] = 0;
+      m[9][13] = 0; m[MAZE_H-10][25] = 0;
+      m[11][10] = 0; m[16][MAZE_W-11] = 0;
       // Center cross
-      for (let x = 22; x < 36; x++) m[17][x] = 1;
-      for (let y = 12; y < 23; y++) m[y][29] = 1;
-      m[17][29] = 0; // cross center open
-      m[17][22] = 0; m[17][35] = 0;
-      m[12][29] = 0; m[22][29] = 0;
+      for (let x = 14; x < 24; x++) m[13][x] = 1;
+      for (let y = 10; y < 18; y++) m[y][19] = 1;
+      m[13][19] = 0; // cross center open
+      m[13][14] = 0; m[13][23] = 0;
+      m[10][19] = 0; m[17][19] = 0;
     }
     else if (pat === 2) {
       // Diamond pattern
       const cx = Math.floor(MAZE_W/2);
       const cy = Math.floor(MAZE_H/2);
       // Diamond walls
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 8; i++) {
         m[cy-i][cx-i] = 1; m[cy-i][cx+i] = 1;
         m[cy+i][cx-i] = 1; m[cy+i][cx+i] = 1;
       }
       // Gaps
-      m[cy][cx-11] = 0; m[cy][cx+11] = 0;
-      m[cy-11][cx] = 0; m[cy+11][cx] = 0;
+      m[cy][cx-7] = 0; m[cy][cx+7] = 0;
+      m[cy-8][cx] = 0; m[cy+8][cx] = 0;
       // Inner diamond
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 4; i++) {
         if (i < MAZE_H && cy-i >= 0 && cy+i < MAZE_H && cx-i >= 0 && cx+i < MAZE_W) {
-          m[cy-i][cx-i+12] = 1; m[cy-i][cx+i-12] = 0;
+          m[cy-i][cx-i+8] = 1; m[cy-i][cx+i-8] = 0;
         }
       }
       // Horizontal corridors
       for (let x = 2; x < MAZE_W-2; x++) {
         if (x > cx-3 && x < cx+3) continue;
-        m[8][x] = 1; m[MAZE_H-9][x] = 1;
+        m[6][x] = 1; m[MAZE_H-7][x] = 1;
       }
       // Vertical corridors
       for (let y = 2; y < MAZE_H-2; y++) {
         if (y > cy-3 && y < cy+3) continue;
-        m[y][14] = 1; m[y][MAZE_W-15] = 1;
+        m[y][9] = 1; m[y][MAZE_W-10] = 1;
       }
-      m[8][14] = 0; m[8][MAZE_W-15] = 0;
-      m[MAZE_H-9][14] = 0; m[MAZE_H-9][MAZE_W-15] = 0;
+      m[6][9] = 0; m[6][MAZE_W-10] = 0;
+      m[MAZE_H-7][9] = 0; m[MAZE_H-7][MAZE_W-10] = 0;
     }
     else if (pat === 3) {
       // Rooms and corridors
       const rooms = [
-        [3,3,12,8], [20,3,16,8], [40,3,15,8],
-        [3,14,14,8], [22,13,14,9], [42,14,13,8],
-        [3,25,12,6], [20,24,16,7], [40,25,15,6],
+        [2,2,8,6], [13,2,11,6], [27,2,10,6],
+        [2,11,9,6], [15,10,9,7], [28,11,9,6],
+        [2,19,8,5], [13,18,11,5], [27,19,10,5],
       ];
       for (const [rx,ry,rw,rh] of rooms) {
         for (let x = rx; x < rx+rw && x < MAZE_W; x++) {
@@ -759,7 +759,7 @@
       const glyph = FONT[ch];
       if (!glyph) continue;
       const ox = tx + ci * 15;
-      const oy = 50 + Math.floor(sin(titleAnim * 0.08 + ci * 0.5) * 4);
+      const oy = 38 + Math.floor(sin(titleAnim * 0.08 + ci * 0.5) * 4);
       const col = (ci + flr(titleAnim/10)) % 2 === 0 ? 3 : 2;
       for (let py = 0; py < FONT_H; py++) {
         for (let px = 0; px < FONT_W; px++) {
@@ -771,12 +771,12 @@
     }
 
     // Subtitle
-    text("SNAKE IN A MAZE", (W - 15*5)/2, 100, 2);
+    text("SNAKE IN A MAZE", (W - 15*5)/2, 75, 2);
 
     // Demo snake animation
-    const sy = 140;
+    const sy = 105;
     for (let i = 0; i < 12; i++) {
-      const sx = 160 + i * 8 + Math.floor(sin(titleAnim * 0.1 + i * 0.3) * 2);
+      const sx = 107 + i * 8 + Math.floor(sin(titleAnim * 0.1 + i * 0.3) * 2);
       if (i === 0) {
         sprT(6, sx, sy);
       } else {
@@ -786,17 +786,17 @@
 
     // Instructions
     const blink2 = (flr(titleAnim/20) % 2 === 0) ? 3 : 1;
-    text("PRESS START", (W - 11*5)/2, 190, blink2);
+    text("PRESS START", (W - 11*5)/2, 142, blink2);
 
-    text("ARROWS - TURN SNAKE", (W - 19*5)/2, 220, 2);
-    text("EAT ALL PELLETS", (W - 15*5)/2, 234, 2);
-    text("AVOID WALLS AND YOURSELF", (W - 24*5)/2, 248, 2);
+    text("ARROWS - TURN SNAKE", (W - 19*5)/2, 165, 2);
+    text("EAT ALL PELLETS", (W - 15*5)/2, 176, 2);
+    text("AVOID WALLS AND YOURSELF", (W - 24*5)/2, 187, 2);
 
     // Hi-score
-    text("HI " + String(hiScore).padStart(6, "0"), (W - 12*5)/2, 280, 1);
+    text("HI " + String(hiScore).padStart(6, "0"), (W - 12*5)/2, 210, 1);
 
     // Credits
-    text("GRAYBOX 2026", (W - 12*5)/2, 302, 1);
+    text("GRAYBOX 2026", (W - 12*5)/2, 226, 1);
   }
 
   // --- Gameplay ---
@@ -993,21 +993,21 @@
     line(0, 14, W, 14, 1);
 
     // Score
-    text("SCORE " + String(score).padStart(6, "0"), 8, HUD_Y, 3);
+    text("SCORE " + String(score).padStart(6, "0"), 4, HUD_Y, 3);
 
     // Level
-    text("LV" + String(level+1).padStart(2, "0"), 180, HUD_Y, 2);
+    text("LV" + String(level+1).padStart(2, "0"), 70, HUD_Y, 2);
 
     // Pellets remaining
-    text("FOOD " + String(foodTotal - foodEaten).padStart(2, "0") + "/" + String(foodTotal).padStart(2, "0"), 230, HUD_Y, 2);
+    text("FOOD " + String(foodTotal - foodEaten).padStart(2, "0") + "/" + String(foodTotal).padStart(2, "0"), 96, HUD_Y, 2);
 
     // Lives
     for (let i = 0; i < lives; i++) {
-      sprT(8, 380 + i * 10, HUD_Y - 1);
+      sprT(8, 200 + i * 10, HUD_Y - 1);
     }
 
     // Hi score
-    text("HI " + String(hiScore).padStart(6, "0"), 420, HUD_Y, 1);
+    text("HI " + String(hiScore).padStart(6, "0"), 272, HUD_Y, 1);
 
     // Timer bar at bottom
     rectf(0, H-12, W, 12, 0);
@@ -1018,8 +1018,8 @@
     text("TIME " + String(timeLeft).padStart(3, "0"), 8, H-10, tCol);
 
     // Timer bar
-    const barW = 400;
-    const barX = 60;
+    const barW = 267;
+    const barX = 40;
     const barY = H - 9;
     const maxTime = 60 + level * 10 > 120 ? 120 : 60 + level * 10;
     const fill = Math.floor((timeLeft / maxTime) * barW);
@@ -1144,17 +1144,17 @@
 
     // Celebration overlay
     const blink = flr(levelUpAnim / 8) % 2 === 0 ? 3 : 2;
-    rectf((W-160)/2, (H-60)/2, 160, 60, 0);
-    rect((W-160)/2, (H-60)/2, 160, 60, blink);
+    rectf((W-107)/2, (H-45)/2, 107, 45, 0);
+    rect((W-107)/2, (H-45)/2, 107, 45, blink);
 
-    text("MAZE CLEAR!", (W - 11*5)/2, H/2 - 18, 3);
-    text("TIME BONUS +" + String(timeLeft * 5), (W - 18*5)/2, H/2 - 4, 2);
-    text("NEXT MAZE...", (W - 12*5)/2, H/2 + 12, blink);
+    text("MAZE CLEAR!", (W - 11*5)/2, H/2 - 14, 3);
+    text("TIME BONUS +" + String(timeLeft * 5), (W - 18*5)/2, H/2 - 3, 2);
+    text("NEXT MAZE...", (W - 12*5)/2, H/2 + 9, blink);
 
     // Sparkle particles
     for (let i = 0; i < 6; i++) {
       const angle = (levelUpAnim * 0.05 + i * 1.047);
-      const r = 40 + sin(levelUpAnim * 0.1 + i) * 15;
+      const r = 27 + sin(levelUpAnim * 0.1 + i) * 10;
       const px = W/2 + Math.floor(cos(angle) * r);
       const py = H/2 + Math.floor(sin(angle) * r);
       pix(px, py, 3);
@@ -1176,18 +1176,18 @@
     drawHUD();
 
     // Game Over overlay
-    rectf((W-180)/2, (H-80)/2, 180, 80, 0);
-    rect((W-180)/2, (H-80)/2, 180, 80, 1);
-    rect((W-178)/2, (H-78)/2, 176, 76, 2);
+    rectf((W-120)/2, (H-60)/2, 120, 60, 0);
+    rect((W-120)/2, (H-60)/2, 120, 60, 1);
+    rect((W-118)/2, (H-58)/2, 116, 56, 2);
 
     const blink = flr(titleAnim / 15) % 2 === 0 ? 3 : 2;
-    text("GAME OVER", (W - 9*5)/2, H/2 - 25, blink);
-    text("SCORE " + String(score).padStart(6, "0"), (W - 12*5)/2, H/2 - 8, 3);
-    text("HI    " + String(hiScore).padStart(6, "0"), (W - 12*5)/2, H/2 + 5, 2);
+    text("GAME OVER", (W - 9*5)/2, H/2 - 19, blink);
+    text("SCORE " + String(score).padStart(6, "0"), (W - 12*5)/2, H/2 - 6, 3);
+    text("HI    " + String(hiScore).padStart(6, "0"), (W - 12*5)/2, H/2 + 4, 2);
 
     if (stateTimer <= 0) {
       const blink2 = flr(titleAnim / 20) % 2 === 0 ? 3 : 1;
-      text("PRESS START", (W - 11*5)/2, H/2 + 22, blink2);
+      text("PRESS START", (W - 11*5)/2, H/2 + 16, blink2);
     }
   }
 

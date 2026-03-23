@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -296,27 +296,27 @@
           min, max: _max, sin, cos } = API;
 
   // --- Table layout constants ---
-  // Table is centered, portrait-ish in the 480x320 landscape canvas
-  const TBL_X = 140;   // left edge of table
-  const TBL_Y = 10;    // top edge
-  const TBL_W = 200;   // table width
-  const TBL_H = 300;   // table height
+  // Table is centered, portrait-ish in the 320x240 landscape canvas
+  const TBL_X = 93;    // left edge of table
+  const TBL_Y = 8;     // top edge
+  const TBL_W = 133;   // table width
+  const TBL_H = 225;   // table height
   const TBL_R = TBL_X + TBL_W;
   const TBL_B = TBL_Y + TBL_H;
 
   // Plunger lane
-  const LANE_W = 20;
+  const LANE_W = 13;
   const LANE_X = TBL_R - LANE_W;
 
   // Flipper geometry
-  const FLIP_LEN = 30;
-  const FLIP_Y = TBL_B - 40;
-  const FLIP_LX = TBL_X + 35;
-  const FLIP_RX = LANE_X - 35;
+  const FLIP_LEN = 20;
+  const FLIP_Y = TBL_B - 30;
+  const FLIP_LX = TBL_X + 23;
+  const FLIP_RX = LANE_X - 23;
   const FLIP_MAX_ANG = 0.55; // radians up from rest
 
   // Drain
-  const DRAIN_Y = TBL_B - 10;
+  const DRAIN_Y = TBL_B - 8;
 
   // --- Game objects ---
   let state = "title";
@@ -336,23 +336,23 @@
   // Bumper definitions
   function makeBumpers() {
     return [
-      { x: TBL_X + 60,  y: TBL_Y + 80,  r: 12, hit: 0 },
-      { x: TBL_X + 100, y: TBL_Y + 60,  r: 12, hit: 0 },
-      { x: TBL_X + 140, y: TBL_Y + 85,  r: 12, hit: 0 },
-      { x: TBL_X + 80,  y: TBL_Y + 130, r: 10, hit: 0 },
-      { x: TBL_X + 120, y: TBL_Y + 120, r: 10, hit: 0 },
+      { x: TBL_X + 40,  y: TBL_Y + 60,  r: 8, hit: 0 },
+      { x: TBL_X + 67,  y: TBL_Y + 45,  r: 8, hit: 0 },
+      { x: TBL_X + 93,  y: TBL_Y + 64,  r: 8, hit: 0 },
+      { x: TBL_X + 53,  y: TBL_Y + 98,  r: 7, hit: 0 },
+      { x: TBL_X + 80,  y: TBL_Y + 90,  r: 7, hit: 0 },
     ];
   }
 
   // Target definitions (rectangular)
   function makeTargets() {
     return [
-      { x: TBL_X + 30,  y: TBL_Y + 50,  w: 6, h: 16, lit: false },
-      { x: TBL_X + 30,  y: TBL_Y + 70,  w: 6, h: 16, lit: false },
-      { x: TBL_X + 30,  y: TBL_Y + 90,  w: 6, h: 16, lit: false },
-      { x: TBL_X + 155, y: TBL_Y + 50,  w: 6, h: 16, lit: false },
-      { x: TBL_X + 155, y: TBL_Y + 70,  w: 6, h: 16, lit: false },
-      { x: TBL_X + 155, y: TBL_Y + 90,  w: 6, h: 16, lit: false },
+      { x: TBL_X + 20,  y: TBL_Y + 38,  w: 4, h: 12, lit: false },
+      { x: TBL_X + 20,  y: TBL_Y + 53,  w: 4, h: 12, lit: false },
+      { x: TBL_X + 20,  y: TBL_Y + 68,  w: 4, h: 12, lit: false },
+      { x: TBL_X + 103, y: TBL_Y + 38,  w: 4, h: 12, lit: false },
+      { x: TBL_X + 103, y: TBL_Y + 53,  w: 4, h: 12, lit: false },
+      { x: TBL_X + 103, y: TBL_Y + 68,  w: 4, h: 12, lit: false },
     ];
   }
 
@@ -385,7 +385,7 @@
   function spawnBall() {
     ball = {
       x: LANE_X + LANE_W / 2,
-      y: TBL_B - 30,
+      y: TBL_B - 23,
       vx: 0,
       vy: 0,
       launched: false,
@@ -475,10 +475,10 @@
   }
 
   // --- Ramp zone (top of table) ---
-  const RAMP_X = TBL_X + 60;
-  const RAMP_W = 60;
-  const RAMP_Y = TBL_Y + 15;
-  const RAMP_H = 12;
+  const RAMP_X = TBL_X + 40;
+  const RAMP_W = 40;
+  const RAMP_Y = TBL_Y + 11;
+  const RAMP_H = 9;
 
   function checkRamp(b) {
     if (b.x > RAMP_X && b.x < RAMP_X + RAMP_W && b.y < RAMP_Y + RAMP_H && b.y > RAMP_Y && b.vy < -1) {
@@ -515,7 +515,7 @@
       b.vx = _abs(b.vx) * 0.8;
     }
     // Right wall (but not in plunger lane area when ball is low)
-    const inLane = b.x > LANE_X - 5 && b.y > TBL_Y + 50;
+    const inLane = b.x > LANE_X - 5 && b.y > TBL_Y + 38;
     if (!inLane && b.x + b.r > LANE_X) {
       b.x = LANE_X - b.r;
       b.vx = -_abs(b.vx) * 0.8;
@@ -526,7 +526,7 @@
       b.vx = -_abs(b.vx) * 0.8;
     }
     // Plunger lane left wall (only when in lane area)
-    if (inLane && b.x - b.r < LANE_X && b.y > FLIP_Y - 10) {
+    if (inLane && b.x - b.r < LANE_X && b.y > FLIP_Y - 8) {
       b.x = LANE_X + b.r;
       b.vx = _abs(b.vx) * 0.8;
     }
@@ -538,7 +538,7 @@
     }
 
     // Curved top arch - bounce off top corners
-    const archR = 30;
+    const archR = 20;
     // Top-left corner arc
     const tlcx = TBL_X + archR, tlcy = TBL_Y + archR;
     if (b.x < tlcx && b.y < tlcy) {
@@ -617,11 +617,11 @@
     }
 
     // Slingshot triangles (above flippers)
-    const slingLX = TBL_X + 15, slingLY = FLIP_Y - 30;
-    const slingRX = LANE_X - 15, slingRY = FLIP_Y - 30;
+    const slingLX = TBL_X + 10, slingLY = FLIP_Y - 23;
+    const slingRX = LANE_X - 10, slingRY = FLIP_Y - 23;
     // Left slingshot
-    if (b.x < slingLX + 15 && b.y > slingLY && b.y < slingLY + 40 && b.x > TBL_X) {
-      const d = b.x - (TBL_X + 8);
+    if (b.x < slingLX + 10 && b.y > slingLY && b.y < slingLY + 30 && b.x > TBL_X) {
+      const d = b.x - (TBL_X + 5);
       if (d < b.r + 5) {
         b.vx = 3 + rnd(2);
         b.vy = -2;
@@ -631,8 +631,8 @@
       }
     }
     // Right slingshot
-    if (b.x > slingRX - 15 && b.y > slingRY && b.y < slingRY + 40 && b.x < LANE_X) {
-      const d = (LANE_X - 8) - b.x;
+    if (b.x > slingRX - 10 && b.y > slingRY && b.y < slingRY + 30 && b.x < LANE_X) {
+      const d = (LANE_X - 5) - b.x;
       if (d < b.r + 5) {
         b.vx = -3 - rnd(2);
         b.vy = -2;
@@ -681,8 +681,8 @@
     // Add 2 extra balls
     for (let i = 0; i < 2; i++) {
       multiballs.push({
-        x: TBL_X + 60 + rnd(60),
-        y: TBL_Y + 50,
+        x: TBL_X + 40 + rnd(40),
+        y: TBL_Y + 38,
         vx: rnd(4) - 2,
         vy: 2 + rnd(2),
         launched: true,
@@ -697,7 +697,7 @@
       showBonus("BALL SAVED!");
       sndBallSave();
       ball.x = TBL_X + TBL_W / 2;
-      ball.y = FLIP_Y - 30;
+      ball.y = FLIP_Y - 23;
       ball.vx = rnd(2) - 1;
       ball.vy = -4;
       return;
@@ -863,10 +863,10 @@
     rect(TBL_X + 3, TBL_Y + 3, TBL_W - 6, TBL_H - 6, 1);
 
     // Plunger lane
-    line(LANE_X, TBL_Y + 40, LANE_X, TBL_B, 1);
+    line(LANE_X, TBL_Y + 30, LANE_X, TBL_B, 1);
 
     // Top arch decorations
-    const archR = 30;
+    const archR = 20;
     // Draw arcs as series of lines
     for (let a = 0; a < Math.PI / 2; a += 0.15) {
       const x1 = TBL_X + archR - Math.cos(a) * archR;
@@ -886,28 +886,28 @@
     // Ramp
     rectf(RAMP_X, RAMP_Y, RAMP_W, RAMP_H, 0);
     rect(RAMP_X, RAMP_Y, RAMP_W, RAMP_H, 2);
-    text("RAMP", RAMP_X + 16, RAMP_Y + 3, 2);
+    text("RAMP", RAMP_X + 10, RAMP_Y + 2, 2);
 
     // Slingshot triangles (above flippers, on sides)
-    const sly = FLIP_Y - 35;
+    const sly = FLIP_Y - 26;
     // Left slingshot
-    line(TBL_X + 8, sly, TBL_X + 8, sly + 40, 2);
-    line(TBL_X + 8, sly, TBL_X + 25, sly + 20, 2);
-    line(TBL_X + 25, sly + 20, TBL_X + 8, sly + 40, 2);
+    line(TBL_X + 5, sly, TBL_X + 5, sly + 30, 2);
+    line(TBL_X + 5, sly, TBL_X + 17, sly + 15, 2);
+    line(TBL_X + 17, sly + 15, TBL_X + 5, sly + 30, 2);
     // Right slingshot
-    line(LANE_X - 8, sly, LANE_X - 8, sly + 40, 2);
-    line(LANE_X - 8, sly, LANE_X - 25, sly + 20, 2);
-    line(LANE_X - 25, sly + 20, LANE_X - 8, sly + 40, 2);
+    line(LANE_X - 5, sly, LANE_X - 5, sly + 30, 2);
+    line(LANE_X - 5, sly, LANE_X - 17, sly + 15, 2);
+    line(LANE_X - 17, sly + 15, LANE_X - 5, sly + 30, 2);
 
     // Drain warning
-    const drainL = FLIP_LX - 15;
-    const drainR = FLIP_RX + 15;
-    line(TBL_X, DRAIN_Y, drainL, DRAIN_Y + 12, 1);
-    line(LANE_X, DRAIN_Y, drainR, DRAIN_Y + 12, 1);
+    const drainL = FLIP_LX - 10;
+    const drainR = FLIP_RX + 10;
+    line(TBL_X, DRAIN_Y, drainL, DRAIN_Y + 9, 1);
+    line(LANE_X, DRAIN_Y, drainR, DRAIN_Y + 9, 1);
 
     // Drain guides (outer lanes)
-    line(TBL_X + 5, FLIP_Y - 60, TBL_X + 5, FLIP_Y + 5, 1);
-    line(LANE_X - 5, FLIP_Y - 60, LANE_X - 5, FLIP_Y + 5, 1);
+    line(TBL_X + 3, FLIP_Y - 45, TBL_X + 3, FLIP_Y + 4, 1);
+    line(LANE_X - 3, FLIP_Y - 45, LANE_X - 3, FLIP_Y + 4, 1);
   }
 
   function drawBumpers() {
@@ -954,8 +954,8 @@
 
   function drawPlunger() {
     const plX = LANE_X + LANE_W / 2;
-    const plBase = TBL_B - 5;
-    const plTop = plBase - 20 + plungerPow * 0.5;
+    const plBase = TBL_B - 4;
+    const plTop = plBase - 15 + plungerPow * 0.5;
     // Plunger shaft
     rectf(plX - 3, plTop, 6, plBase - plTop, 2);
     // Plunger head
@@ -981,42 +981,42 @@
 
   function drawHUD() {
     // Score panel (left side)
-    rectf(5, 10, 125, 60, 0);
-    rect(5, 10, 125, 60, 1);
-    text("SCORE", 12, 15, 2);
-    text(String(score), 12, 25, 3);
-    text("HIGH", 12, 40, 2);
-    text(String(highScore), 12, 50, 3);
+    rectf(3, 8, 83, 45, 0);
+    rect(3, 8, 83, 45, 1);
+    text("SCORE", 8, 11, 2);
+    text(String(score), 8, 19, 3);
+    text("HIGH", 8, 30, 2);
+    text(String(highScore), 8, 38, 3);
 
     // Ball count (right side)
-    rectf(350, 10, 125, 45, 0);
-    rect(350, 10, 125, 45, 1);
-    text("BALL", 358, 15, 2);
+    rectf(233, 8, 83, 34, 0);
+    rect(233, 8, 83, 34, 1);
+    text("BALL", 239, 11, 2);
     for (let i = 0; i < balls; i++) {
-      circf(370 + i * 14, 38, 4, 3);
+      circf(247 + i * 14, 29, 4, 3);
     }
 
     // Ball save indicator
     if (ballSaved) {
-      text("SAVE", 358, 48, (API.frame % 20 < 12) ? 3 : 1);
+      text("SAVE", 239, 36, (API.frame % 20 < 12) ? 3 : 1);
     }
 
     // Multiball indicator
     if (multiball) {
       const mc = (API.frame % 10 < 5) ? 3 : 2;
-      text("MULTIBALL!", 358, 60, mc);
+      text("MULTIBALL!", 239, 45, mc);
     }
 
     // Target progress
     const litCount = targets.filter(t => t.lit).length;
-    rectf(350, 70, 125, 20, 0);
-    rect(350, 70, 125, 20, 1);
-    text("TARGETS " + litCount + "/" + targets.length, 358, 75, litCount === targets.length ? 3 : 2);
+    rectf(233, 53, 83, 15, 0);
+    rect(233, 53, 83, 15, 1);
+    text("TARGETS " + litCount + "/" + targets.length, 239, 56, litCount === targets.length ? 3 : 2);
 
     // Bonus text
     if (bonusTimer > 0) {
       const bx = TBL_X + TBL_W / 2 - bonusText.length * 2.5;
-      const by = TBL_Y + TBL_H / 2 - 20;
+      const by = TBL_Y + TBL_H / 2 - 15;
       const bc = (API.frame % 6 < 3) ? 3 : 2;
       text(bonusText, bx, by, bc);
     }
@@ -1034,56 +1034,56 @@
     if (state === "title") {
       // Title screen
       // Decorative border
-      rect(20, 20, W - 40, H - 40, 1);
-      rect(24, 24, W - 48, H - 48, 1);
+      rect(13, 15, W - 26, H - 30, 1);
+      rect(16, 18, W - 32, H - 36, 1);
 
       // Title
-      text("GRAYBOX PINBALL", W / 2 - 75, 60, 3);
+      text("GRAYBOX PINBALL", W / 2 - 75, 40, 3);
 
       // Pinball art
-      circf(W / 2, 130, 20, 2);
-      circ(W / 2, 130, 20, 3);
-      circ(W / 2, 130, 15, 1);
-      circf(W / 2, 130, 5, 3);
+      circf(W / 2, 90, 15, 2);
+      circ(W / 2, 90, 15, 3);
+      circ(W / 2, 90, 11, 1);
+      circf(W / 2, 90, 4, 3);
       // Flipper art
-      line(W / 2 - 40, 170, W / 2 - 10, 155, 3);
-      line(W / 2 + 40, 170, W / 2 + 10, 155, 3);
+      line(W / 2 - 27, 120, W / 2 - 7, 109, 3);
+      line(W / 2 + 27, 120, W / 2 + 7, 109, 3);
       for (let i = -1; i <= 1; i++) {
-        line(W / 2 - 40, 170 + i, W / 2 - 10, 155 + i, 2);
-        line(W / 2 + 40, 170 + i, W / 2 + 10, 155 + i, 2);
+        line(W / 2 - 27, 120 + i, W / 2 - 7, 109 + i, 2);
+        line(W / 2 + 27, 120 + i, W / 2 + 7, 109 + i, 2);
       }
 
       // Animated bumpers on title
       for (let i = 0; i < 3; i++) {
-        const bx = W / 2 - 50 + i * 50;
-        const by = 110 + Math.sin(API.frame * 0.08 + i * 2) * 5;
-        const br = 8 + ((API.frame + i * 10) % 20 < 10 ? 2 : 0);
+        const bx = W / 2 - 33 + i * 33;
+        const by = 78 + Math.sin(API.frame * 0.08 + i * 2) * 4;
+        const br = 6 + ((API.frame + i * 10) % 20 < 10 ? 2 : 0);
         circf(bx, by, br, (API.frame + i * 10) % 20 < 10 ? 3 : 2);
         circ(bx, by, br, 1);
       }
 
       if (titleBlink) {
-        text("PRESS ENTER TO START", W / 2 - 98, 210, 3);
+        text("PRESS ENTER TO START", W / 2 - 98, 150, 3);
       }
 
-      text("LEFT/Z = LEFT FLIPPER", W / 2 - 103, 240, 2);
-      text("RIGHT/X = RIGHT FLIPPER", W / 2 - 112, 252, 2);
-      text("DOWN = PLUNGER", W / 2 - 68, 264, 2);
-      text("HIT ALL TARGETS FOR MULTIBALL", W / 2 - 143, 282, 1);
+      text("LEFT/Z = LEFT FLIPPER", W / 2 - 103, 172, 2);
+      text("RIGHT/X = RIGHT FLIPPER", W / 2 - 112, 184, 2);
+      text("DOWN = PLUNGER", W / 2 - 68, 196, 2);
+      text("HIT ALL TARGETS FOR MULTIBALL", W / 2 - 143, 214, 1);
       return;
     }
 
     if (state === "gameover") {
-      rect(20, 20, W - 40, H - 40, 1);
-      text("GAME OVER", W / 2 - 44, 80, 3);
-      text("FINAL SCORE", W / 2 - 54, 120, 2);
-      text(String(score), W / 2 - String(score).length * 2.5, 140, 3);
+      rect(13, 15, W - 26, H - 30, 1);
+      text("GAME OVER", W / 2 - 44, 55, 3);
+      text("FINAL SCORE", W / 2 - 54, 85, 2);
+      text(String(score), W / 2 - String(score).length * 2.5, 100, 3);
       if (score >= highScore && score > 0) {
-        text("NEW HIGH SCORE!", W / 2 - 73, 170, (API.frame % 10 < 6) ? 3 : 2);
+        text("NEW HIGH SCORE!", W / 2 - 73, 122, (API.frame % 10 < 6) ? 3 : 2);
       }
-      text("HIGH SCORE  " + String(highScore), W / 2 - 73, 195, 2);
+      text("HIGH SCORE  " + String(highScore), W / 2 - 73, 143, 2);
       if ((API.frame % 40) < 25) {
-        text("PRESS ENTER", W / 2 - 54, 240, 3);
+        text("PRESS ENTER", W / 2 - 54, 175, 3);
       }
       return;
     }
@@ -1100,10 +1100,10 @@
     rect(TBL_X + 3 + ox, TBL_Y + 3 + oy, TBL_W - 6, TBL_H - 6, 1);
 
     // Plunger lane
-    line(LANE_X + ox, TBL_Y + 40 + oy, LANE_X + ox, TBL_B + oy, 1);
+    line(LANE_X + ox, TBL_Y + 30 + oy, LANE_X + ox, TBL_B + oy, 1);
 
     // Top arches
-    const archR = 30;
+    const archR = 20;
     for (let a = 0; a < Math.PI / 2; a += 0.15) {
       const x1 = TBL_X + archR - Math.cos(a) * archR + ox;
       const y1 = TBL_Y + archR - Math.sin(a) * archR + oy;
@@ -1122,26 +1122,26 @@
     // Ramp
     rectf(RAMP_X + ox, RAMP_Y + oy, RAMP_W, RAMP_H, 0);
     rect(RAMP_X + ox, RAMP_Y + oy, RAMP_W, RAMP_H, 2);
-    text("RAMP", RAMP_X + 16 + ox, RAMP_Y + 3 + oy, 2);
+    text("RAMP", RAMP_X + 10 + ox, RAMP_Y + 2 + oy, 2);
 
     // Slingshots
-    const sly = FLIP_Y - 35;
-    line(TBL_X + 8 + ox, sly + oy, TBL_X + 8 + ox, sly + 40 + oy, 2);
-    line(TBL_X + 8 + ox, sly + oy, TBL_X + 25 + ox, sly + 20 + oy, 2);
-    line(TBL_X + 25 + ox, sly + 20 + oy, TBL_X + 8 + ox, sly + 40 + oy, 2);
-    line(LANE_X - 8 + ox, sly + oy, LANE_X - 8 + ox, sly + 40 + oy, 2);
-    line(LANE_X - 8 + ox, sly + oy, LANE_X - 25 + ox, sly + 20 + oy, 2);
-    line(LANE_X - 25 + ox, sly + 20 + oy, LANE_X - 8 + ox, sly + 40 + oy, 2);
+    const sly = FLIP_Y - 26;
+    line(TBL_X + 5 + ox, sly + oy, TBL_X + 5 + ox, sly + 30 + oy, 2);
+    line(TBL_X + 5 + ox, sly + oy, TBL_X + 17 + ox, sly + 15 + oy, 2);
+    line(TBL_X + 17 + ox, sly + 15 + oy, TBL_X + 5 + ox, sly + 30 + oy, 2);
+    line(LANE_X - 5 + ox, sly + oy, LANE_X - 5 + ox, sly + 30 + oy, 2);
+    line(LANE_X - 5 + ox, sly + oy, LANE_X - 17 + ox, sly + 15 + oy, 2);
+    line(LANE_X - 17 + ox, sly + 15 + oy, LANE_X - 5 + ox, sly + 30 + oy, 2);
 
     // Drain guides
-    line(TBL_X + 5 + ox, FLIP_Y - 60 + oy, TBL_X + 5 + ox, FLIP_Y + 5 + oy, 1);
-    line(LANE_X - 5 + ox, FLIP_Y - 60 + oy, LANE_X - 5 + ox, FLIP_Y + 5 + oy, 1);
+    line(TBL_X + 3 + ox, FLIP_Y - 45 + oy, TBL_X + 3 + ox, FLIP_Y + 4 + oy, 1);
+    line(LANE_X - 3 + ox, FLIP_Y - 45 + oy, LANE_X - 3 + ox, FLIP_Y + 4 + oy, 1);
 
     // Drain slopes
-    const drainL = FLIP_LX - 15;
-    const drainR = FLIP_RX + 15;
-    line(TBL_X + ox, DRAIN_Y + oy, drainL + ox, DRAIN_Y + 12 + oy, 1);
-    line(LANE_X + ox, DRAIN_Y + oy, drainR + ox, DRAIN_Y + 12 + oy, 1);
+    const drainL = FLIP_LX - 10;
+    const drainR = FLIP_RX + 10;
+    line(TBL_X + ox, DRAIN_Y + oy, drainL + ox, DRAIN_Y + 9 + oy, 1);
+    line(LANE_X + ox, DRAIN_Y + oy, drainR + ox, DRAIN_Y + 9 + oy, 1);
 
     // Bumpers
     for (const b of bumpers) {
@@ -1181,8 +1181,8 @@
     // Plunger
     if (!ball.launched) {
       const plX = LANE_X + LANE_W / 2 + ox;
-      const plBase = TBL_B - 5 + oy;
-      const plTop = plBase - 20 + plungerPow * 0.5;
+      const plBase = TBL_B - 4 + oy;
+      const plTop = plBase - 15 + plungerPow * 0.5;
       rectf(plX - 3, plTop, 6, plBase - plTop, 2);
       rectf(plX - 5, plTop - 3, 10, 5, 3);
       for (let sy = plTop + 5; sy < plBase; sy += 4) {
@@ -1208,7 +1208,7 @@
     drawHUD();
 
     // Decorative dots along table sides
-    for (let dy = TBL_Y + 20; dy < TBL_B - 20; dy += 15) {
+    for (let dy = TBL_Y + 15; dy < TBL_B - 15; dy += 11) {
       pix(TBL_X + 1 + ox, dy + oy, 1);
       pix(TBL_R - 2 + ox, dy + oy, 1);
     }

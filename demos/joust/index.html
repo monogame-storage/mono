@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -505,27 +505,27 @@
   // --- Platforms ---
   const platforms = [
     // Bottom ground platforms (above lava)
-    { x: 0, y: 290, w: 80 },
-    { x: 400, y: 290, w: 80 },
+    { x: 0, y: 218, w: 53 },
+    { x: 267, y: 218, w: 53 },
     // Mid-low platforms
-    { x: 80, y: 250, w: 80 },
-    { x: 300, y: 250, w: 80 },
+    { x: 53, y: 188, w: 53 },
+    { x: 200, y: 188, w: 53 },
     // Middle platforms
-    { x: 170, y: 200, w: 100 },
-    { x: 0, y: 180, w: 60 },
-    { x: 420, y: 180, w: 60 },
+    { x: 113, y: 150, w: 67 },
+    { x: 0, y: 135, w: 40 },
+    { x: 280, y: 135, w: 40 },
     // Upper platforms
-    { x: 60, y: 140, w: 80 },
-    { x: 300, y: 130, w: 90 },
+    { x: 40, y: 105, w: 53 },
+    { x: 200, y: 98, w: 60 },
     // Top platform
-    { x: 180, y: 80, w: 120 },
+    { x: 120, y: 60, w: 80 },
   ];
 
   const GRAVITY = 0.18;
   const FLAP_POWER = -2.8;
   const MAX_FALL = 3.5;
   const MOVE_SPEED = 1.8;
-  const LAVA_Y = 306;
+  const LAVA_Y = 230;
 
   // --- Game state ---
   let state = "title";
@@ -535,7 +535,7 @@
 
   function resetGame() {
     player = {
-      x: W / 2 - 4, y: 200,
+      x: W / 2 - 4, y: 150,
       vx: 0, vy: 0,
       facing: 1,  // 1=right, -1=left
       wingFrame: 0,
@@ -573,7 +573,7 @@
     // Spawn from top edges
     const side = rnd(1) < 0.5 ? -1 : 1;
     const ex = side < 0 ? -8 : W;
-    const ey = 10 + rnd(60);
+    const ey = 8 + rnd(45);
     enemies.push({
       x: ex, y: ey,
       vx: side < 0 ? 1.5 + rnd(1) : -(1.5 + rnd(1)),
@@ -584,7 +584,7 @@
       wingTimer: 0,
       flapTimer: 15 + flr(rnd(20)),
       alive: true,
-      targetY: 80 + rnd(180),
+      targetY: 60 + rnd(135),
       aiTimer: 0,
     });
   }
@@ -718,7 +718,7 @@
     checkPlatformCollision(player);
 
     // Ceiling
-    if (player.y < 12) { player.y = 12; player.vy = 0.5; }
+    if (player.y < 9) { player.y = 9; player.vy = 0.5; }
 
     // Lava death
     if (player.y + 8 > LAVA_Y) {
@@ -726,7 +726,7 @@
       addExplosion(player.x, LAVA_Y - 10);
       lavaSound();
       player.x = W / 2 - 4;
-      player.y = 60;
+      player.y = 45;
       player.vx = 0;
       player.vy = 0;
       player.invincible = 60;
@@ -753,7 +753,7 @@
       e.aiTimer++;
       if (e.aiTimer > 60) {
         e.aiTimer = 0;
-        e.targetY = 60 + rnd(200);
+        e.targetY = 45 + rnd(150);
         // Chase player horizontally
         if (rnd(1) < 0.6) {
           const dir = player.x > e.x ? 1 : -1;
@@ -829,7 +829,7 @@
             addExplosion(player.x, player.y);
             deathSound();
             player.x = W / 2 - 4;
-            player.y = 60;
+            player.y = 45;
             player.vx = 0;
             player.vy = 0;
             player.invincible = 60;
@@ -942,37 +942,37 @@
       drawPlatforms();
       drawLava(lavaFrame);
 
-      const ty = 50 + sin(API.frame * 0.05) * 5;
+      const ty = 38 + sin(API.frame * 0.05) * 4;
 
       // Title shadow
-      drawText("JOUST", 205, flr(ty) + 1, 1);
+      drawText("JOUST", 137, flr(ty) + 1, 1);
       // Title
-      drawText("JOUST", 204, flr(ty), 3);
-      rectf(185, flr(ty) + 10, 110, 1, 2);
+      drawText("JOUST", 136, flr(ty), 3);
+      rectf(123, flr(ty) + 10, 73, 1, 2);
 
       // Show animated player on title
-      const px = 200 + sin(API.frame * 0.04) * 40;
-      const py = 100 + sin(API.frame * 0.06) * 15;
+      const px = 133 + sin(API.frame * 0.04) * 27;
+      const py = 75 + sin(API.frame * 0.06) * 11;
       const wf = flr(API.frame / 6) % 3;
       const sprId = wf === 0 ? 1 : wf === 1 ? 2 : 3;
       spr(sprId, flr(px), flr(py));
 
       // Show enemy on other side
-      const ex = 280 - sin(API.frame * 0.04) * 40;
-      const ey = 105 + sin(API.frame * 0.06 + 2) * 15;
+      const ex = 187 - sin(API.frame * 0.04) * 27;
+      const ey = 79 + sin(API.frame * 0.06 + 2) * 11;
       const ef = flr(API.frame / 6) % 3;
       const esprId = ef === 0 ? 4 : ef === 1 ? 5 : 6;
       spr(esprId, flr(ex), flr(ey), true);
 
-      if (flr(API.frame / 20) % 2 === 0) drawText("PRESS FLAP TO START", 160, 170, 3);
+      if (flr(API.frame / 20) % 2 === 0) drawText("PRESS FLAP TO START", 112, 128, 3);
 
       // Score info
-      drawText("DEFEAT ENEMY KNIGHTS", 155, 200, 2);
-      drawText("HIGHER LANCE WINS", 168, 212, 2);
-      drawText("COLLECT EGGS FOR POINTS", 144, 224, 2);
-      drawText("BEWARE THE LAVA", 175, 236, 2);
+      drawText("DEFEAT ENEMY KNIGHTS", 110, 150, 2);
+      drawText("HIGHER LANCE WINS", 117, 159, 2);
+      drawText("COLLECT EGGS FOR POINTS", 102, 168, 2);
+      drawText("BEWARE THE LAVA", 122, 177, 2);
 
-      drawText("GRAYBOX DEMO V0.1", 168, 305, 1);
+      drawText("GRAYBOX DEMO V0.1", 117, 229, 1);
       return;
     }
 
@@ -981,10 +981,10 @@
       drawLava(lavaFrame);
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      drawText("GAME OVER", 195, 100, 3);
-      drawText("SCORE: " + score, 195, 125, 2);
-      drawText("WAVE: " + wave, 207, 140, 2);
-      if (flr(API.frame / 20) % 2 === 0) drawText("PRESS FLAP TO CONTINUE", 148, 180, 3);
+      drawText("GAME OVER", 137, 75, 3);
+      drawText("SCORE: " + score, 130, 94, 2);
+      drawText("WAVE: " + wave, 138, 105, 2);
+      if (flr(API.frame / 20) % 2 === 0) drawText("PRESS FLAP TO CONTINUE", 105, 135, 3);
       return;
     }
 
@@ -1041,9 +1041,9 @@
 
     // Wave announcement
     if (waveMessage > 0) {
-      const msgY = 40 + sin(waveMessage * 0.1) * 3;
-      drawText("WAVE " + wave, 210, flr(msgY), 3);
-      if (waveMessage > 60) drawText("GET READY!", 195, flr(msgY) + 12, 2);
+      const msgY = 30 + sin(waveMessage * 0.1) * 3;
+      drawText("WAVE " + wave, 140, flr(msgY), 3);
+      if (waveMessage > 60) drawText("GET READY!", 135, flr(msgY) + 12, 2);
     }
   };
 

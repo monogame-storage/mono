@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -999,32 +999,32 @@
   };
 
   function drawHUD() {
-    text("SCORE", 4, 3, 2);
-    text(String(score), 4, 11, 3);
+    text("SCORE", 3, 2, 2);
+    text(String(score), 3, 8, 3);
 
-    text("HI", W - 60, 3, 2);
-    text(String(_max(hiScore, score)), W - 60, 11, 3);
+    text("HI", W - 40, 2, 2);
+    text(String(_max(hiScore, score)), W - 40, 8, 3);
 
     // Lives (small ship icons)
     for (let i = 0; i < lives; i++) {
-      const lx = 4 + i * 14;
-      const ly = 24;
+      const lx = 3 + i * 14;
+      const ly = 18;
       drawPoly(SHIP_PTS, lx + 4, ly + 4, -Math.PI / 2, 0.5, 2);
     }
 
     // Level indicator
-    text("LV" + level, W / 2 - 10, 3, 1);
+    text("LV" + level, W / 2 - 7, 2, 1);
   }
 
   function drawTitle() {
     // Large vector title "ASTEROIDS"
-    const cy = 80 + sin(API.frame * 0.04) * 4;
+    const cy = 60 + sin(API.frame * 0.04) * 3;
 
     // Draw some floating asteroids in the background
     const t = API.frame * 0.01;
     for (let i = 0; i < 5; i++) {
-      const ax = (100 + i * 90 + t * 20 * (i + 1)) % (W + 40) - 20;
-      const ay = 40 + i * 50 + sin(t * 2 + i) * 20;
+      const ax = (67 + i * 60 + t * 20 * (i + 1)) % (W + 40) - 20;
+      const ay = 30 + i * 38 + sin(t * 2 + i) * 15;
       const sz = 8 + i * 3;
       const shape = [
         [cos(0)*0.8, sin(0)*0.8], [cos(0.8)*1, sin(0.8)*1],
@@ -1036,36 +1036,36 @@
     }
 
     // Title text
-    text("ASTEROIDS", 185, flr(cy), 3);
+    text("ASTEROIDS", 138, flr(cy), 3);
     // Shadow
-    text("ASTEROIDS", 186, flr(cy) + 1, 1);
+    text("ASTEROIDS", 139, flr(cy) + 1, 1);
 
     // Decorative line
-    rectf(160, flr(cy) + 11, 160, 1, 2);
+    rectf(107, flr(cy) + 11, 107, 1, 2);
 
     // Ship display
     const shipX = W / 2;
-    const shipY = flr(cy) + 35;
+    const shipY = flr(cy) + 26;
     drawPoly(SHIP_PTS, shipX, shipY, -Math.PI / 2 + sin(API.frame * 0.05) * 0.3, 1.5, 3);
 
     // Blinking start text
     if (flr(API.frame / 20) % 2 === 0) {
-      text("PRESS A TO START", 170, 190, 3);
+      text("PRESS A TO START", 120, 143, 3);
     }
 
     // Score table
-    text("- SCORE TABLE -", 175, 220, 2);
-    text("LARGE  ASTEROID   20", 155, 234, 2);
-    text("MEDIUM ASTEROID   50", 155, 244, 2);
-    text("SMALL  ASTEROID  100", 155, 254, 2);
-    text("LARGE  UFO       200", 155, 264, 2);
-    text("SMALL  UFO      1000", 155, 274, 2);
+    text("- SCORE TABLE -", 123, 165, 2);
+    text("LARGE  ASTEROID   20", 110, 176, 2);
+    text("MEDIUM ASTEROID   50", 110, 183, 2);
+    text("SMALL  ASTEROID  100", 110, 191, 2);
+    text("LARGE  UFO       200", 110, 198, 2);
+    text("SMALL  UFO      1000", 110, 206, 2);
 
     if (hiScore > 0) {
-      text("HI SCORE: " + hiScore, 180, 290, 1);
+      text("HI SCORE: " + hiScore, 120, 218, 1);
     }
 
-    text("GRAYBOX DEMO V0.1", 168, 308, 1);
+    text("GRAYBOX DEMO V0.1", 118, 231, 1);
   }
 
   function drawGameOver() {
@@ -1077,18 +1077,18 @@
       line(flr(d.x - dx), flr(d.y - dy), flr(d.x + dx), flr(d.y + dy), d.life < 5 ? 1 : d.color);
     }
 
-    text("GAME OVER", 195, 110, 3);
-    text("SCORE: " + score, 190, 135, 2);
-    text("LEVEL: " + level, 200, 150, 2);
+    text("GAME OVER", 138, 83, 3);
+    text("SCORE: " + score, 127, 101, 2);
+    text("LEVEL: " + level, 133, 113, 2);
 
     if (score > hiScore) {
       if (flr(API.frame / 10) % 2 === 0) {
-        text("NEW HI SCORE!", 180, 170, 3);
+        text("NEW HI SCORE!", 128, 128, 3);
       }
     }
 
     if (flr(API.frame / 20) % 2 === 0) {
-      text("PRESS A TO CONTINUE", 158, 210, 3);
+      text("PRESS A TO CONTINUE", 113, 158, 3);
     }
   }
 

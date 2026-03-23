@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -695,46 +695,46 @@
   );
 
   // --- Game Constants ---
-  const GROUND_Y = 200;   // Top of walkable ground area
-  const GROUND_H = 80;    // Height of walkable area
-  const SCROLL_EDGE = 200; // X position where scrolling starts
+  const GROUND_Y = 150;   // Top of walkable ground area
+  const GROUND_H = 60;    // Height of walkable area
+  const SCROLL_EDGE = 133; // X position where scrolling starts
   const PLAYER_SPEED = 2;
   const PLAYER_VSPEED = 1.5;
 
   // Section definitions (world X start positions and enemy waves)
   const SECTIONS = [
     { // Section 1: Street
-      length: 800,
+      length: 533,
       waves: [
-        { trigger: 50,  enemies: [{type:"thug",x:500,y:230},{type:"thug",x:520,y:250}] },
-        { trigger: 200, enemies: [{type:"thug",x:500,y:220},{type:"thug",x:530,y:260},{type:"knife",x:480,y:240}] },
-        { trigger: 400, enemies: [{type:"thug",x:520,y:230},{type:"big",x:500,y:250}] },
-        { trigger: 550, enemies: [{type:"thug",x:500,y:220},{type:"knife",x:520,y:260},{type:"thug",x:-30,y:240}] },
-        { trigger: 700, enemies: [{type:"boss",x:500,y:235}], boss: true },
+        { trigger: 33,  enemies: [{type:"thug",x:333,y:173},{type:"thug",x:347,y:188}] },
+        { trigger: 133, enemies: [{type:"thug",x:333,y:165},{type:"thug",x:353,y:195},{type:"knife",x:320,y:180}] },
+        { trigger: 267, enemies: [{type:"thug",x:347,y:173},{type:"big",x:333,y:188}] },
+        { trigger: 367, enemies: [{type:"thug",x:333,y:165},{type:"knife",x:347,y:195},{type:"thug",x:-20,y:180}] },
+        { trigger: 467, enemies: [{type:"boss",x:333,y:176}], boss: true },
       ],
-      weapons: [{x:250,y:248,type:"bat"},{x:500,y:255,type:"knife"}],
+      weapons: [{x:167,y:186,type:"bat"},{x:333,y:191,type:"knife"}],
     },
     { // Section 2: Industrial
-      length: 900,
+      length: 600,
       waves: [
-        { trigger: 50,  enemies: [{type:"knife",x:510,y:230},{type:"knife",x:490,y:260}] },
-        { trigger: 200, enemies: [{type:"big",x:500,y:240},{type:"thug",x:520,y:220},{type:"thug",x:-30,y:250}] },
-        { trigger: 400, enemies: [{type:"knife",x:510,y:230},{type:"big",x:490,y:260},{type:"thug",x:-20,y:240}] },
-        { trigger: 600, enemies: [{type:"big",x:500,y:230},{type:"big",x:520,y:260},{type:"knife",x:-30,y:245}] },
-        { trigger: 800, enemies: [{type:"boss",x:500,y:235}], boss: true },
+        { trigger: 33,  enemies: [{type:"knife",x:340,y:173},{type:"knife",x:327,y:195}] },
+        { trigger: 133, enemies: [{type:"big",x:333,y:180},{type:"thug",x:347,y:165},{type:"thug",x:-20,y:188}] },
+        { trigger: 267, enemies: [{type:"knife",x:340,y:173},{type:"big",x:327,y:195},{type:"thug",x:-13,y:180}] },
+        { trigger: 400, enemies: [{type:"big",x:333,y:173},{type:"big",x:347,y:195},{type:"knife",x:-20,y:184}] },
+        { trigger: 533, enemies: [{type:"boss",x:333,y:176}], boss: true },
       ],
-      weapons: [{x:300,y:252,type:"bat"},{x:600,y:248,type:"knife"},{x:150,y:260,type:"bat"}],
+      weapons: [{x:200,y:189,type:"bat"},{x:400,y:186,type:"knife"},{x:100,y:195,type:"bat"}],
     },
     { // Section 3: Final
-      length: 1000,
+      length: 667,
       waves: [
-        { trigger: 50,  enemies: [{type:"big",x:510,y:240},{type:"knife",x:500,y:220},{type:"thug",x:-20,y:260}] },
-        { trigger: 250, enemies: [{type:"knife",x:500,y:230},{type:"knife",x:520,y:260},{type:"big",x:-30,y:240}] },
-        { trigger: 450, enemies: [{type:"big",x:510,y:230},{type:"big",x:490,y:260},{type:"knife",x:520,y:245},{type:"thug",x:-20,y:220}] },
-        { trigger: 650, enemies: [{type:"knife",x:510,y:240},{type:"big",x:500,y:220},{type:"knife",x:-30,y:260},{type:"big",x:-20,y:240}] },
-        { trigger: 900, enemies: [{type:"boss",x:500,y:235}], boss: true },
+        { trigger: 33,  enemies: [{type:"big",x:340,y:180},{type:"knife",x:333,y:165},{type:"thug",x:-13,y:195}] },
+        { trigger: 167, enemies: [{type:"knife",x:333,y:173},{type:"knife",x:347,y:195},{type:"big",x:-20,y:180}] },
+        { trigger: 300, enemies: [{type:"big",x:340,y:173},{type:"big",x:327,y:195},{type:"knife",x:347,y:184},{type:"thug",x:-13,y:165}] },
+        { trigger: 433, enemies: [{type:"knife",x:340,y:180},{type:"big",x:333,y:165},{type:"knife",x:-20,y:195},{type:"big",x:-13,y:180}] },
+        { trigger: 600, enemies: [{type:"boss",x:333,y:176}], boss: true },
       ],
-      weapons: [{x:200,y:250,type:"knife"},{x:450,y:255,type:"bat"},{x:700,y:248,type:"knife"},{x:350,y:260,type:"bat"}],
+      weapons: [{x:133,y:188,type:"knife"},{x:300,y:191,type:"bat"},{x:467,y:186,type:"knife"},{x:233,y:195,type:"bat"}],
     },
   ];
 
@@ -756,7 +756,7 @@
 
   function resetGame() {
     player = {
-      x: 60, y: 240, vx: 0, vy: 0,
+      x: 40, y: 180, vx: 0, vy: 0,
       facing: 1, // 1=right, -1=left
       hp: 20, maxHp: 20,
       state: "idle", // idle, walk, punch, kick, jumpkick, hurt, dead
@@ -988,7 +988,7 @@
       }
       // Victory particles
       if (API.frame % 8 === 0) {
-        addParticles(flr(rnd(W)), flr(rnd(100)) + 100, 5, flr(rnd(3))+1);
+        addParticles(flr(rnd(W)), flr(rnd(75)) + 75, 5, flr(rnd(3))+1);
       }
       if (btnp("start") || btnp("a")) state = "title";
       return;
@@ -1133,7 +1133,7 @@
         waveIndex = 0;
         sectionClear = false;
         goTimer = 0;
-        player.x = 60;
+        player.x = 40;
         spawnSectionWeapons();
       }
     }
@@ -1227,18 +1227,18 @@
     const sx = flr(scrollX);
 
     // Sky
-    rectf(0, 0, W, GROUND_Y - 40, 0);
+    rectf(0, 0, W, GROUND_Y - 30, 0);
 
     // Buildings (parallax - slower scroll)
     const buildScroll = flr(sx * 0.3);
-    for (let bx = -buildScroll % 48; bx < W + 48; bx += 48) {
-      const bh = 40 + ((flr((bx + buildScroll) / 48) * 7) % 30);
-      const by = GROUND_Y - 40 - bh;
+    for (let bx = -buildScroll % 32; bx < W + 32; bx += 32) {
+      const bh = 30 + ((flr((bx + buildScroll) / 32) * 7) % 23);
+      const by = GROUND_Y - 30 - bh;
       // Building body
       for (let ty = 0; ty < flr(bh / 8); ty++) {
-        for (let tx = 0; tx < 6; tx++) {
-          const worldTx = flr((bx + buildScroll) / 48);
-          if (ty % 3 === 1 && tx >= 1 && tx <= 4 && (tx + worldTx) % 2 === 0) {
+        for (let tx = 0; tx < 4; tx++) {
+          const worldTx = flr((bx + buildScroll) / 32);
+          if (ty % 3 === 1 && tx >= 1 && tx <= 2 && (tx + worldTx) % 2 === 0) {
             sprT(61, bx + tx * 8, by + ty * 8); // window
           } else {
             sprT(60, bx + tx * 8, by + ty * 8); // wall
@@ -1249,15 +1249,15 @@
 
     // Mid-ground buildings (closer parallax)
     const midScroll = flr(sx * 0.6);
-    for (let bx = -midScroll % 64; bx < W + 64; bx += 64) {
-      const idx = flr((bx + midScroll) / 64);
-      const bh = 20 + (idx * 13 % 20);
-      const by = GROUND_Y - 40 - bh;
+    for (let bx = -midScroll % 40; bx < W + 40; bx += 40) {
+      const idx = flr((bx + midScroll) / 40);
+      const bh = 15 + (idx * 13 % 15);
+      const by = GROUND_Y - 30 - bh;
       for (let ty = 0; ty < flr(bh / 8) + 1; ty++) {
-        for (let tx = 0; tx < 8; tx++) {
-          if (ty === flr(bh/8) && tx >= 3 && tx <= 4 && idx % 3 === 0) {
+        for (let tx = 0; tx < 5; tx++) {
+          if (ty === flr(bh/8) && tx >= 2 && tx <= 3 && idx % 3 === 0) {
             sprT(62, bx + tx * 8, by + ty * 8); // door
-          } else if (ty % 2 === 0 && tx >= 1 && tx <= 6 && (tx + idx) % 3 === 0) {
+          } else if (ty % 2 === 0 && tx >= 1 && tx <= 3 && (tx + idx) % 3 === 0) {
             sprT(61, bx + tx * 8, by + ty * 8);
           } else {
             sprT(60, bx + tx * 8, by + ty * 8);
@@ -1267,34 +1267,34 @@
     }
 
     // Sidewalk line
-    rectf(0, GROUND_Y - 40, W, 2, 2);
+    rectf(0, GROUND_Y - 30, W, 2, 2);
 
     // Ground area (sidewalk)
-    for (let ty = 0; ty < (GROUND_H + 40) / 8 + 1; ty++) {
+    for (let ty = 0; ty < (GROUND_H + 30) / 8 + 1; ty++) {
       for (let tx = 0; tx < W / 8 + 1; tx++) {
         const wx = tx * 8 + (sx % 8);
         if (ty <= 2) {
-          sprT(63, tx * 8 - (sx % 8), GROUND_Y - 38 + ty * 8);
+          sprT(63, tx * 8 - (sx % 8), GROUND_Y - 28 + ty * 8);
         } else {
-          sprT(64, tx * 8 - (sx % 8), GROUND_Y - 38 + ty * 8);
+          sprT(64, tx * 8 - (sx % 8), GROUND_Y - 28 + ty * 8);
         }
       }
     }
 
     // Road dashes
-    for (let dx = -(sx % 32); dx < W; dx += 32) {
-      rectf(dx, GROUND_Y + 20, 16, 2, 1);
+    for (let dx = -(sx % 24); dx < W; dx += 24) {
+      rectf(dx, GROUND_Y + 15, 11, 2, 1);
     }
 
     // Props (lamp posts, trashcans)
     const propScroll = sx;
-    for (let px = -(propScroll % 120); px < W + 120; px += 120) {
-      sprT(66, px + 10, GROUND_Y - 40 - 8); // lamp
-      if ((flr((px + propScroll) / 120)) % 3 === 0) {
-        sprT(65, px + 60, GROUND_Y - 38); // trashcan near sidewalk
+    for (let px = -(propScroll % 80); px < W + 80; px += 80) {
+      sprT(66, px + 7, GROUND_Y - 30 - 8); // lamp
+      if ((flr((px + propScroll) / 80)) % 3 === 0) {
+        sprT(65, px + 40, GROUND_Y - 28); // trashcan near sidewalk
       }
-      if ((flr((px + propScroll) / 120)) % 4 === 1) {
-        sprT(68, px + 80, GROUND_Y - 38); // crate
+      if ((flr((px + propScroll) / 80)) % 4 === 1) {
+        sprT(68, px + 53, GROUND_Y - 28); // crate
       }
     }
   }
@@ -1346,49 +1346,49 @@
       rectf(0, 0, W, H, 0);
 
       // City silhouette
-      for (let bx = 0; bx < W; bx += 32) {
-        const bh = 30 + ((bx * 7) % 50);
-        rectf(bx, H/2 + 30 - bh, 30, bh, 1);
+      for (let bx = 0; bx < W; bx += 21) {
+        const bh = 23 + ((bx * 7) % 38);
+        rectf(bx, H/2 + 23 - bh, 20, bh, 1);
         // Windows
-        for (let wy = H/2 + 32 - bh; wy < H/2 + 30; wy += 10) {
-          for (let wx = bx + 4; wx < bx + 28; wx += 8) {
+        for (let wy = H/2 + 24 - bh; wy < H/2 + 23; wy += 8) {
+          for (let wx = bx + 3; wx < bx + 19; wx += 6) {
             if ((wx + wy) % 13 < 7) rectf(wx, wy, 4, 4, 0);
           }
         }
       }
-      rectf(0, H/2 + 30, W, H/2 - 30, 1);
+      rectf(0, H/2 + 23, W, H/2 - 23, 1);
 
       // Ground
-      rectf(0, H/2 + 50, W, 4, 2);
+      rectf(0, H/2 + 38, W, 4, 2);
 
       // Title text
-      const ty = 60 + sin(API.frame * 0.04) * 4;
+      const ty = 45 + sin(API.frame * 0.04) * 3;
 
       // Big title with shadow
-      text("DOUBLE DRAGON", 152, flr(ty) + 1, 1);
-      text("DOUBLE DRAGON", 151, flr(ty), 3);
+      text("DOUBLE DRAGON", 129, flr(ty) + 1, 1);
+      text("DOUBLE DRAGON", 128, flr(ty), 3);
 
       // Subtitle
-      rectf(140, flr(ty) + 12, 200, 1, 2);
-      text("STREETS OF FURY", 167, flr(ty) + 20, 2);
+      rectf(93, flr(ty) + 9, 133, 1, 2);
+      text("STREETS OF FURY", 123, flr(ty) + 15, 2);
 
       // Player figures on title
-      const px1 = 180 + sin(API.frame * 0.06) * 3;
-      sprT(1, flr(px1), flr(ty) + 45);
-      sprT(10, flr(px1) + 80, flr(ty) + 45, true);
-      sprT(15, flr(px1) + 100, flr(ty) + 43, true);
+      const px1 = 120 + sin(API.frame * 0.06) * 3;
+      sprT(1, flr(px1), flr(ty) + 34);
+      sprT(10, flr(px1) + 53, flr(ty) + 34, true);
+      sprT(15, flr(px1) + 67, flr(ty) + 32, true);
 
       // Blink start text
       if (flr(titleBlink / 18) % 2 === 0) {
-        text("PRESS START", 195, 210, 3);
+        text("PRESS START", 133, 158, 3);
       }
 
       // Controls
-      text("Z=PUNCH  X=KICK  UP+Z=JUMP KICK", 115, 250, 2);
-      text("ARROWS=MOVE", 195, 262, 2);
+      text("Z=PUNCH  X=KICK  UP+Z=JUMP KICK", 80, 188, 2);
+      text("ARROWS=MOVE", 133, 197, 2);
 
       // Credits
-      text("GRAYBOX DEMO V0.1", 168, 305, 1);
+      text("GRAYBOX DEMO V0.1", 118, 229, 1);
       return;
     }
 
@@ -1396,12 +1396,12 @@
       rectf(0, 0, W, H, 0);
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      text("GAME OVER", 195, 100, 3);
-      text("FINAL SCORE: " + score, 172, 130, 2);
-      text("SECTION: " + (section + 1), 192, 148, 2);
+      text("GAME OVER", 138, 75, 3);
+      text("FINAL SCORE: " + score, 123, 98, 2);
+      text("SECTION: " + (section + 1), 130, 111, 2);
 
       if (flr(titleBlink / 18) % 2 === 0) {
-        text("PRESS START", 195, 200, 3);
+        text("PRESS START", 133, 150, 3);
       }
       return;
     }
@@ -1410,15 +1410,15 @@
       rectf(0, 0, W, H, 0);
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      text("CONGRATULATIONS!", 163, 80, 3);
-      text("YOU DEFEATED ALL ENEMIES!", 132, 110, 2);
-      text("FINAL SCORE: " + score, 172, 140, 3);
+      text("CONGRATULATIONS!", 120, 60, 3);
+      text("YOU DEFEATED ALL ENEMIES!", 98, 83, 2);
+      text("FINAL SCORE: " + score, 123, 105, 3);
 
       // Animate player victory pose
-      sprT(1, 230, 170 + sin(API.frame * 0.1) * 2);
+      sprT(1, 153, 128 + sin(API.frame * 0.1) * 2);
 
       if (flr(titleBlink / 18) % 2 === 0) {
-        text("PRESS START", 195, 230, 3);
+        text("PRESS START", 133, 173, 3);
       }
       return;
     }
@@ -1528,49 +1528,49 @@
     }
 
     // --- HUD ---
-    rectf(0, 0, W, 20, 0);
+    rectf(0, 0, W, 15, 0);
 
     // Player health
-    text("BILLY", 4, 3, 3);
-    drawHealthBar(4, 11, player.hp, player.maxHp, 60);
+    text("BILLY", 4, 2, 3);
+    drawHealthBar(4, 8, player.hp, player.maxHp, 40);
 
     // Lives
     for (let i = 0; i < lives; i++) {
-      sprT(55, 70 + i * 10, 2);
+      sprT(55, 47 + i * 10, 2);
     }
 
     // Score
-    text("SCORE:" + score, W / 2 - 30, 3, 2);
+    text("SCORE:" + score, W / 2 - 20, 2, 2);
 
     // Section indicator
-    text("SECTION " + (section + 1) + "/3", W - 70, 3, 2);
+    text("SECTION " + (section + 1) + "/3", W - 55, 2, 2);
 
     // Combo display
     if (player.combo >= 2 && player.comboTimer > 0) {
-      text(player.combo + " HIT COMBO!", 190, 30, 3);
+      text(player.combo + " HIT COMBO!", 127, 23, 3);
       if (player.combo >= 3) {
-        text("+" + (player.combo * 50), 210, 40, 2);
+        text("+" + (player.combo * 50), 140, 30, 2);
       }
     }
 
     // GO arrow when enemies cleared and more waves coming
     if (allEnemiesDead && waveIndex < SECTIONS[section].waves.length && !sectionClear) {
-      const goX = W - 50 + sin(API.frame * 0.15) * 5;
-      text("GO", flr(goX), H / 2 - 20, 3);
+      const goX = W - 33 + sin(API.frame * 0.15) * 5;
+      text("GO", flr(goX), H / 2 - 15, 3);
       // Arrow
-      line(flr(goX) + 16, H/2 - 17, flr(goX) + 22, H/2 - 17, 3);
-      line(flr(goX) + 20, H/2 - 20, flr(goX) + 22, H/2 - 17, 3);
-      line(flr(goX) + 20, H/2 - 14, flr(goX) + 22, H/2 - 17, 3);
+      line(flr(goX) + 11, H/2 - 13, flr(goX) + 15, H/2 - 13, 3);
+      line(flr(goX) + 13, H/2 - 15, flr(goX) + 15, H/2 - 13, 3);
+      line(flr(goX) + 13, H/2 - 11, flr(goX) + 15, H/2 - 13, 3);
     }
 
     // Section clear text
     if (sectionClear && goTimer < 90) {
       if (section < SECTIONS.length - 1) {
-        text("SECTION CLEAR!", 180, H / 2 - 20, 3);
+        text("SECTION CLEAR!", 125, H / 2 - 15, 3);
       } else {
-        text("FINAL BOSS DEFEATED!", 155, H / 2 - 20, 3);
+        text("FINAL BOSS DEFEATED!", 110, H / 2 - 15, 3);
       }
-      text("+" + ENEMY_STATS.boss.pts + " BONUS", 192, H / 2 - 6, 2);
+      text("+" + ENEMY_STATS.boss.pts + " BONUS", 128, H / 2 - 5, 2);
     }
 
     // Boss warning
@@ -1579,14 +1579,14 @@
       const bossAlive = enemies.some(e => e.type === "boss" && !e.dead);
       if (bossAlive) {
         if (flr(API.frame / 10) % 2 === 0) {
-          text("!! BOSS !!", W/2 - 25, 24, 3);
+          text("!! BOSS !!", W/2 - 17, 18, 3);
         }
 
         // Boss health bar at top
         const boss = enemies.find(e => e.type === "boss" && !e.dead);
         if (boss) {
-          text("BOSS", W/2 - 12, 32, 1);
-          drawHealthBar(W/2 - 30, 40, boss.hp, boss.maxHp, 60);
+          text("BOSS", W/2 - 10, 24, 1);
+          drawHealthBar(W/2 - 20, 30, boss.hp, boss.maxHp, 40);
         }
       }
     }

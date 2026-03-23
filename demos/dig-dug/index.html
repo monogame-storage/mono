@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -497,8 +497,8 @@
   const GRID_W = 28;     // grid columns (playfield)
   const GRID_H = 28;     // grid rows
   const CELL = 8;        // cell size in pixels
-  const FIELD_X = 128;   // playfield x offset (centered in 480)
-  const FIELD_Y = 24;    // playfield y offset (leave room for HUD)
+  const FIELD_X = 48;    // playfield x offset (centered in 320)
+  const FIELD_Y = 18;    // playfield y offset (leave room for HUD)
   const SKY_ROWS = 2;    // top rows are sky (no dirt)
 
   // Dirt grid: 0=empty(tunnel), 1=dirt
@@ -1297,7 +1297,7 @@
     // Layer markers
     for (let i = 0; i < 4; i++) {
       const ly = FIELD_Y + (SKY_ROWS + i * 7) * CELL;
-      rectf(FIELD_X - 3, ly, 2, 8, 2);
+      rectf(FIELD_X - 2, ly, 2, 6, 2);
     }
 
     // Draw surface (flowers/plants on sky row)
@@ -1392,20 +1392,20 @@
     }
 
     // HUD
-    rectf(0, 0, W, 20, 0);
-    text("SCORE:" + score, 4, 3, 3);
-    text("LV:" + level, W / 2 - 15, 3, 2);
-    for (let i = 0; i < lives; i++) spr(14, W - 50 + i * 10, 2);
+    rectf(0, 0, W, 15, 0);
+    text("SCORE:" + score, 3, 2, 3);
+    text("LV:" + level, W / 2 - 10, 2, 2);
+    for (let i = 0; i < lives; i++) spr(14, W - 33 + i * 7, 2);
 
     // Level clear message
     if (state === "levelclear") {
-      rectf(FIELD_X + 40, FIELD_Y + 80, 140, 30, 0);
-      rect(FIELD_X + 40, FIELD_Y + 80, 140, 30, 3);
-      text("ROUND CLEAR!", FIELD_X + 56, FIELD_Y + 90, 3);
+      rectf(FIELD_X + 27, FIELD_Y + 60, 93, 23, 0);
+      rect(FIELD_X + 27, FIELD_Y + 60, 93, 23, 3);
+      text("ROUND CLEAR!", FIELD_X + 44, FIELD_Y + 68, 3);
     }
 
     // Bottom info
-    text("ROUND " + level, 4, H - 10, 1);
+    text("ROUND " + level, 3, H - 8, 1);
   };
 
   function drawTitle() {
@@ -1413,54 +1413,54 @@
     rectf(0, 0, W, H, 0);
 
     // Decorative dirt layers
-    for (let y = 120; y < H; y += 2) {
-      const shade = y > 200 ? 1 : 2;
+    for (let y = 90; y < H; y += 2) {
+      const shade = y > 150 ? 1 : 2;
       for (let x = 0; x < W; x += 3) {
         if (rnd(1) < 0.3) pix(x, y, shade);
       }
     }
 
-    const ty = 50 + sin(API.frame * 0.04) * 4;
+    const ty = 38 + sin(API.frame * 0.04) * 3;
 
     // Title
-    text("DIG DUG", 194, flr(ty), 3);
-    text("DIG DUG", 195, flr(ty) + 1, 1);
-    rectf(170, flr(ty) + 12, 140, 1, 2);
+    text("DIG DUG", 143, flr(ty), 3);
+    text("DIG DUG", 144, flr(ty) + 1, 1);
+    rectf(113, flr(ty) + 12, 93, 1, 2);
 
     // Show characters
-    const bx = W / 2 - 50;
-    const by = flr(ty) + 30;
+    const bx = W / 2 - 33;
+    const by = flr(ty) + 23;
     spr(1, bx, by + sin(API.frame * 0.06) * 3);
-    spr(5, bx + 30, by + 2 + sin(API.frame * 0.06 + 1) * 3);
-    spr(8, bx + 60, by + sin(API.frame * 0.06 + 2) * 3);
-    spr(11, bx + 90, by + 2 + sin(API.frame * 0.06 + 3) * 2);
+    spr(5, bx + 20, by + 2 + sin(API.frame * 0.06 + 1) * 3);
+    spr(8, bx + 40, by + sin(API.frame * 0.06 + 2) * 3);
+    spr(11, bx + 60, by + 2 + sin(API.frame * 0.06 + 3) * 2);
 
     if (flr(API.frame / 20) % 2 === 0) {
-      text("PRESS A TO START", 170, 175, 3);
+      text("PRESS A TO START", 120, 131, 3);
     }
 
     // Score table
-    text("-HOW TO PLAY-", 180, 200, 2);
-    spr(5, 160, 214); text("POOKA   200 PTS", 172, 216, 2);
-    spr(8, 160, 228); text("FYGAR   300 PTS", 172, 230, 2);
-    spr(11, 160, 242); text("ROCK  1000 PTS", 172, 244, 2);
+    text("-HOW TO PLAY-", 128, 150, 2);
+    spr(5, 107, 161); text("POOKA   200 PTS", 119, 162, 2);
+    spr(8, 107, 171); text("FYGAR   300 PTS", 119, 173, 2);
+    spr(11, 107, 182); text("ROCK  1000 PTS", 119, 183, 2);
 
-    text("DIG TUNNELS  PUMP ENEMIES", 130, 270, 2);
-    text("DROP ROCKS FOR BONUS!", 148, 282, 2);
+    text("DIG TUNNELS  PUMP ENEMIES", 98, 203, 2);
+    text("DROP ROCKS FOR BONUS!", 108, 212, 2);
 
-    text("GRAYBOX DEMO V0.1", 168, 305, 1);
+    text("GRAYBOX DEMO V0.1", 118, 229, 1);
   }
 
   function drawGameOver() {
     cls(0);
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-    text("GAME OVER", 195, 100, 3);
-    text("SCORE: " + score, 190, 130, 2);
-    text("ROUND: " + level, 195, 148, 2);
+    text("GAME OVER", 138, 75, 3);
+    text("SCORE: " + score, 127, 98, 2);
+    text("ROUND: " + level, 130, 111, 2);
 
     if (flr(API.frame / 20) % 2 === 0) {
-      text("PRESS A TO CONTINUE", 155, 200, 3);
+      text("PRESS A TO CONTINUE", 113, 150, 3);
     }
   }
 

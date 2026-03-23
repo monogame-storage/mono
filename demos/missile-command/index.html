@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -353,7 +353,7 @@
   );
 
   // --- Constants ---
-  const GROUND_Y = 290;
+  const GROUND_Y = 218;
   const HUD_Y = 4;
   const CURSOR_SPEED = 3;
   const CURSOR_FAST = 5;
@@ -364,9 +364,9 @@
   const BONUS_CITY_SCORE = 10000;
 
   // City X positions (6 cities, 3 on each side of center base)
-  const CITY_X = [52, 92, 132, 308, 348, 388];
+  const CITY_X = [35, 61, 88, 205, 232, 259];
   // Base X positions (left, center, right)
-  const BASE_X = [20, 220, 440];
+  const BASE_X = [13, 147, 293];
   const BASE_MAX_AMMO = 10;
 
   // --- Game State ---
@@ -414,7 +414,7 @@
       if (!target) break;
       const isMirv = i < numMirv;
       const isSmart = !isMirv && i < numMirv + numSmart;
-      spawnEnemyMissile(sx, -rnd(60) - 10, target.x + 4, target.y,
+      spawnEnemyMissile(sx, -rnd(45) - 8, target.x + 4, target.y,
         isSmart ? speed * 1.8 : speed,
         isMirv, isSmart,
         rnd(120) + i * 8 // delay before active
@@ -681,7 +681,7 @@
       m.y += m.vy;
 
       // MIRV split
-      if (m.mirv && !m.split && m.y > 80 + rnd(60)) {
+      if (m.mirv && !m.split && m.y > 60 + rnd(45)) {
         m.split = true;
         // Split into 3 warheads
         for (let j = 0; j < 2; j++) {
@@ -771,30 +771,30 @@
 
     if (state === "title") {
       // Title screen
-      text("MISSILE COMMAND", W / 2 - 75, 60, 3);
+      text("MISSILE COMMAND", W / 2 - 37, 45, 3);
       // Korean subtitle
-      text("- CITY DEFENSE -", W / 2 - 78, 78, 2);
+      text("- CITY DEFENSE -", W / 2 - 40, 59, 2);
 
       // Draw some decorative cities
       for (let i = 0; i < 6; i++) {
-        spr(1, 80 + i * 55, 200);
+        spr(1, 53 + i * 37, 150);
       }
       // Ground line
-      rectf(0, 210, W, 2, 1);
+      rectf(0, 158, W, 2, 1);
 
       // Animated missiles raining down (decorative)
       for (let i = 0; i < 5; i++) {
-        const mx = 60 + i * 90;
-        const my = 100 + sin(titleFlash * 0.05 + i) * 30;
-        line(mx, my - 20, mx + 5, my, 2);
+        const mx = 40 + i * 60;
+        const my = 75 + sin(titleFlash * 0.05 + i) * 22;
+        line(mx, my - 15, mx + 3, my, 2);
       }
 
       if (flr(titleFlash / 20) % 2 === 0) {
-        text("PRESS START", W / 2 - 54, 145, 3);
+        text("PRESS START", W / 2 - 27, 109, 3);
       }
 
-      text("ARROWS:AIM  Z:FIRE  X:FAST AIM", W / 2 - 148, 250, 1);
-      text("DEFEND YOUR CITIES!", W / 2 - 92, 270, 2);
+      text("ARROWS:AIM  Z:FIRE  X:FAST AIM", W / 2 - 77, 188, 1);
+      text("DEFEND YOUR CITIES!", W / 2 - 47, 203, 2);
       return;
     }
 
@@ -886,7 +886,7 @@
 
     // HUD
     text("SCORE:" + String(score).padStart(6, "0"), 4, HUD_Y, 3);
-    text("WAVE:" + wave, W - 70, HUD_Y, 2);
+    text("WAVE:" + wave, W - 50, HUD_Y, 2);
 
     // Wave message
     if (waveMessage > 0 && state === "play") {
@@ -894,33 +894,33 @@
       if (waveMessage > 30 || flr(waveMessage / 5) % 2 === 0) {
         text(msg, W / 2 - msg.length * 2.5, H / 2 - 20, 3);
       }
-      text("DEFEND YOUR CITIES!", W / 2 - 92, H / 2 - 6, 2);
+      text("DEFEND YOUR CITIES!", W / 2 - 47, H / 2 - 6, 2);
     }
 
     // Bonus tally screen
     if (state === "bonus" && bonusTally) {
-      rectf(W / 2 - 100, 70, 200, 140, 0);
-      rect(W / 2 - 100, 70, 200, 140, 2);
-      text("BONUS POINTS", W / 2 - 58, 82, 3);
+      rectf(W / 2 - 67, 53, 134, 105, 0);
+      rect(W / 2 - 67, 53, 134, 105, 2);
+      text("BONUS POINTS", W / 2 - 30, 62, 3);
 
-      text("CITIES:" + bonusTally.cityCount + " X 100", W / 2 - 70, 110, 2);
+      text("CITIES:" + bonusTally.cityCount + " X 100", W / 2 - 47, 83, 2);
       // Draw city icons
       for (let i = 0; i < bonusTally.cityCount; i++) {
-        spr(1, W / 2 - 60 + i * 12, 120);
+        spr(1, W / 2 - 40 + i * 12, 93);
       }
 
-      text("AMMO:" + bonusTally.ammoCount + " X 5", W / 2 - 60, 145, 2);
+      text("AMMO:" + bonusTally.ammoCount + " X 5", W / 2 - 40, 109, 2);
 
-      text("TOTAL:" + bonusTally.bonusTotal, W / 2 - 55, 175, 3);
+      text("TOTAL:" + bonusTally.bonusTotal, W / 2 - 37, 131, 3);
     }
 
     // Game over screen
     if (state === "gameover") {
-      rectf(W / 2 - 80, H / 2 - 30, 160, 60, 0);
-      rect(W / 2 - 80, H / 2 - 30, 160, 60, 2);
-      text("GAME OVER", W / 2 - 44, H / 2 - 16, 3);
-      text("THE END", W / 2 - 34, H / 2 - 2, 2);
-      text("SCORE:" + String(score).padStart(6, "0"), W / 2 - 55, H / 2 + 14, 3);
+      rectf(W / 2 - 53, H / 2 - 22, 107, 45, 0);
+      rect(W / 2 - 53, H / 2 - 22, 107, 45, 2);
+      text("GAME OVER", W / 2 - 22, H / 2 - 16, 3);
+      text("THE END", W / 2 - 17, H / 2 - 2, 2);
+      text("SCORE:" + String(score).padStart(6, "0"), W / 2 - 32, H / 2 + 10, 3);
     }
   };
 

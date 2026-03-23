@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -584,43 +584,43 @@
     name: "25M",
     girders: [
       // Bottom floor
-      { x1: 0, y: 288, x2: 480, slope: 0 },
+      { x1: 0, y: 216, x2: 320, slope: 0 },
       // Girder 2 (slopes right-to-left going up)
-      { x1: 32, y: 240, x2: 460, slope: -12 },
+      { x1: 21, y: 180, x2: 307, slope: -9 },
       // Girder 3 (slopes left-to-right)
-      { x1: 20, y: 192, x2: 448, slope: 12 },
+      { x1: 13, y: 144, x2: 299, slope: 9 },
       // Girder 4 (slopes right-to-left)
-      { x1: 32, y: 144, x2: 460, slope: -12 },
+      { x1: 21, y: 108, x2: 307, slope: -9 },
       // Girder 5 (slopes left-to-right)
-      { x1: 20, y: 96, x2: 448, slope: 12 },
+      { x1: 13, y: 72, x2: 299, slope: 9 },
       // Top platform (DK's platform)
-      { x1: 60, y: 52, x2: 280, slope: 0 },
+      { x1: 40, y: 39, x2: 187, slope: 0 },
     ],
     ladders: [
-      { x: 440, y1: 240, y2: 288 },
-      { x: 60, y1: 192, y2: 240 },
-      { x: 240, y1: 192, y2: 240 },
-      { x: 420, y1: 144, y2: 192 },
-      { x: 160, y1: 144, y2: 192 },
-      { x: 60, y1: 96, y2: 144 },
-      { x: 340, y1: 96, y2: 144 },
-      { x: 200, y1: 52, y2: 96 },
+      { x: 293, y1: 180, y2: 216 },
+      { x: 40, y1: 144, y2: 180 },
+      { x: 160, y1: 144, y2: 180 },
+      { x: 280, y1: 108, y2: 144 },
+      { x: 107, y1: 108, y2: 144 },
+      { x: 40, y1: 72, y2: 108 },
+      { x: 227, y1: 72, y2: 108 },
+      { x: 133, y1: 39, y2: 72 },
     ],
     brokenLadders: [
-      { x: 320, y1: 228, y2: 248 },
-      { x: 280, y1: 132, y2: 148 },
+      { x: 213, y1: 171, y2: 186 },
+      { x: 187, y1: 99, y2: 111 },
     ],
-    dk: { x: 80, y: 20 },
-    pauline: { x: 168, y: 20 },
-    playerStart: { x: 40, y: 280 },
+    dk: { x: 53, y: 15 },
+    pauline: { x: 112, y: 15 },
+    playerStart: { x: 27, y: 210 },
     hammers: [
-      { x: 40, y: 178 },
-      { x: 400, y: 82 },
+      { x: 27, y: 134 },
+      { x: 267, y: 62 },
     ],
     items: [
-      { x: 300, y: 180, spr: 38 },
+      { x: 200, y: 135, spr: 38 },
     ],
-    oilDrum: { x: 16, y: 280 },
+    oilDrum: { x: 11, y: 210 },
     barrelSpawn: true,
   };
 
@@ -628,40 +628,40 @@
   LEVELS[1] = {
     name: "50M",
     girders: [
-      { x1: 0, y: 288, x2: 480, slope: 0 },
-      { x1: 20, y: 232, x2: 340, slope: 0 },
-      { x1: 360, y: 232, x2: 470, slope: 0 },
-      { x1: 140, y: 176, x2: 460, slope: 0 },
-      { x1: 10, y: 176, x2: 120, slope: 0 },
-      { x1: 20, y: 120, x2: 340, slope: 0 },
-      { x1: 360, y: 120, x2: 470, slope: 0 },
-      { x1: 60, y: 56, x2: 280, slope: 0 },
+      { x1: 0, y: 216, x2: 320, slope: 0 },
+      { x1: 13, y: 174, x2: 227, slope: 0 },
+      { x1: 240, y: 174, x2: 313, slope: 0 },
+      { x1: 93, y: 132, x2: 307, slope: 0 },
+      { x1: 7, y: 132, x2: 80, slope: 0 },
+      { x1: 13, y: 90, x2: 227, slope: 0 },
+      { x1: 240, y: 90, x2: 313, slope: 0 },
+      { x1: 40, y: 42, x2: 187, slope: 0 },
     ],
     ladders: [
-      { x: 320, y1: 232, y2: 288 },
-      { x: 100, y1: 232, y2: 288 },
-      { x: 380, y1: 176, y2: 232 },
-      { x: 160, y1: 176, y2: 232 },
-      { x: 440, y1: 120, y2: 176 },
-      { x: 100, y1: 120, y2: 176 },
-      { x: 320, y1: 120, y2: 176 },
-      { x: 200, y1: 56, y2: 120 },
-      { x: 60, y1: 56, y2: 120 },
+      { x: 213, y1: 174, y2: 216 },
+      { x: 67, y1: 174, y2: 216 },
+      { x: 253, y1: 132, y2: 174 },
+      { x: 107, y1: 132, y2: 174 },
+      { x: 293, y1: 90, y2: 132 },
+      { x: 67, y1: 90, y2: 132 },
+      { x: 213, y1: 90, y2: 132 },
+      { x: 133, y1: 42, y2: 90 },
+      { x: 40, y1: 42, y2: 90 },
     ],
     brokenLadders: [
-      { x: 240, y1: 220, y2: 240 },
+      { x: 160, y1: 165, y2: 180 },
     ],
-    dk: { x: 80, y: 24 },
-    pauline: { x: 168, y: 24 },
-    playerStart: { x: 40, y: 280 },
+    dk: { x: 53, y: 18 },
+    pauline: { x: 112, y: 18 },
+    playerStart: { x: 27, y: 210 },
     hammers: [
-      { x: 420, y: 218 },
-      { x: 60, y: 106 },
+      { x: 280, y: 164 },
+      { x: 40, y: 80 },
     ],
     items: [
-      { x: 420, y: 164, spr: 39 },
+      { x: 280, y: 123, spr: 39 },
     ],
-    oilDrum: { x: 16, y: 280 },
+    oilDrum: { x: 11, y: 210 },
     barrelSpawn: true,
   };
 
@@ -669,39 +669,39 @@
   LEVELS[2] = {
     name: "75M",
     girders: [
-      { x1: 0, y: 288, x2: 480, slope: 0 },
-      { x1: 60, y: 240, x2: 460, slope: -8 },
-      { x1: 20, y: 192, x2: 420, slope: 8 },
-      { x1: 60, y: 144, x2: 460, slope: -8 },
-      { x1: 20, y: 96, x2: 420, slope: 8 },
-      { x1: 80, y: 52, x2: 260, slope: 0 },
+      { x1: 0, y: 216, x2: 320, slope: 0 },
+      { x1: 40, y: 180, x2: 307, slope: -6 },
+      { x1: 13, y: 144, x2: 280, slope: 6 },
+      { x1: 40, y: 108, x2: 307, slope: -6 },
+      { x1: 13, y: 72, x2: 280, slope: 6 },
+      { x1: 53, y: 39, x2: 173, slope: 0 },
     ],
     ladders: [
-      { x: 440, y1: 240, y2: 288 },
-      { x: 200, y1: 240, y2: 288 },
-      { x: 80, y1: 192, y2: 240 },
-      { x: 360, y1: 192, y2: 240 },
-      { x: 440, y1: 144, y2: 192 },
-      { x: 160, y1: 144, y2: 192 },
-      { x: 80, y1: 96, y2: 144 },
-      { x: 300, y1: 96, y2: 144 },
-      { x: 180, y1: 52, y2: 96 },
+      { x: 293, y1: 180, y2: 216 },
+      { x: 133, y1: 180, y2: 216 },
+      { x: 53, y1: 144, y2: 180 },
+      { x: 240, y1: 144, y2: 180 },
+      { x: 293, y1: 108, y2: 144 },
+      { x: 107, y1: 108, y2: 144 },
+      { x: 53, y1: 72, y2: 108 },
+      { x: 200, y1: 72, y2: 108 },
+      { x: 120, y1: 39, y2: 72 },
     ],
     brokenLadders: [
-      { x: 300, y1: 228, y2: 248 },
-      { x: 240, y1: 84, y2: 100 },
+      { x: 200, y1: 171, y2: 186 },
+      { x: 160, y1: 63, y2: 75 },
     ],
-    dk: { x: 96, y: 20 },
-    pauline: { x: 176, y: 20 },
-    playerStart: { x: 40, y: 280 },
+    dk: { x: 64, y: 15 },
+    pauline: { x: 117, y: 15 },
+    playerStart: { x: 27, y: 210 },
     hammers: [
-      { x: 380, y: 130 },
+      { x: 253, y: 98 },
     ],
     items: [
-      { x: 260, y: 130, spr: 38 },
-      { x: 100, y: 228, spr: 39 },
+      { x: 173, y: 98, spr: 38 },
+      { x: 67, y: 171, spr: 39 },
     ],
-    oilDrum: { x: 16, y: 280 },
+    oilDrum: { x: 11, y: 210 },
     barrelSpawn: true,
   };
 
@@ -709,38 +709,38 @@
   LEVELS[3] = {
     name: "100M",
     girders: [
-      { x1: 0, y: 288, x2: 480, slope: 0 },
-      { x1: 100, y: 240, x2: 460, slope: -10 },
-      { x1: 20, y: 196, x2: 380, slope: 8 },
-      { x1: 100, y: 148, x2: 460, slope: -10 },
-      { x1: 20, y: 104, x2: 380, slope: 8 },
-      { x1: 60, y: 56, x2: 300, slope: 0 },
+      { x1: 0, y: 216, x2: 320, slope: 0 },
+      { x1: 67, y: 180, x2: 307, slope: -8 },
+      { x1: 13, y: 147, x2: 253, slope: 6 },
+      { x1: 67, y: 111, x2: 307, slope: -8 },
+      { x1: 13, y: 78, x2: 253, slope: 6 },
+      { x1: 40, y: 42, x2: 200, slope: 0 },
     ],
     ladders: [
-      { x: 440, y1: 240, y2: 288 },
-      { x: 120, y1: 240, y2: 288 },
-      { x: 280, y1: 240, y2: 288 },
-      { x: 60, y1: 196, y2: 240 },
-      { x: 360, y1: 196, y2: 240 },
-      { x: 440, y1: 148, y2: 196 },
-      { x: 200, y1: 148, y2: 196 },
-      { x: 60, y1: 104, y2: 148 },
-      { x: 320, y1: 104, y2: 148 },
-      { x: 180, y1: 56, y2: 104 },
+      { x: 293, y1: 180, y2: 216 },
+      { x: 80, y1: 180, y2: 216 },
+      { x: 187, y1: 180, y2: 216 },
+      { x: 40, y1: 147, y2: 180 },
+      { x: 240, y1: 147, y2: 180 },
+      { x: 293, y1: 111, y2: 147 },
+      { x: 133, y1: 111, y2: 147 },
+      { x: 40, y1: 78, y2: 111 },
+      { x: 213, y1: 78, y2: 111 },
+      { x: 120, y1: 42, y2: 78 },
     ],
     brokenLadders: [],
-    dk: { x: 80, y: 24 },
-    pauline: { x: 178, y: 24 },
-    playerStart: { x: 40, y: 280 },
+    dk: { x: 53, y: 18 },
+    pauline: { x: 119, y: 18 },
+    playerStart: { x: 27, y: 210 },
     hammers: [
-      { x: 420, y: 226 },
-      { x: 40, y: 90 },
+      { x: 280, y: 170 },
+      { x: 27, y: 68 },
     ],
     items: [
-      { x: 340, y: 134, spr: 39 },
-      { x: 140, y: 228, spr: 38 },
+      { x: 227, y: 101, spr: 39 },
+      { x: 93, y: 171, spr: 38 },
     ],
-    oilDrum: { x: 16, y: 280 },
+    oilDrum: { x: 11, y: 210 },
     barrelSpawn: true,
   };
 
@@ -1365,7 +1365,7 @@
 
     if (state === "title") {
       // Title screen
-      const ty = 40 + sin(API.frame * 0.04) * 4;
+      const ty = 20 + sin(API.frame * 0.04) * 3;
 
       // DK sprite at top
       const dkx = W / 2 - 8;
@@ -1374,31 +1374,31 @@
       spr(12, dkx, flr(ty) + 8);
       spr(13, dkx + 8, flr(ty) + 8);
 
-      text("DONKEY KONG", 185, flr(ty) + 28, 3);
-      rectf(175, flr(ty) + 38, 130, 1, 2);
+      text("DONKEY KONG", 132, flr(ty) + 22, 3);
+      rectf(125, flr(ty) + 31, 70, 1, 2);
 
       // Characters display
       const cx = W / 2 - 30;
-      spr(1, cx, flr(ty) + 50);
-      text("MARIO", cx + 12, flr(ty) + 53, 2);
-      spr(25, cx, flr(ty) + 65);
-      text("PAULINE", cx + 12, flr(ty) + 68, 2);
+      spr(1, cx, flr(ty) + 40);
+      text("MARIO", cx + 12, flr(ty) + 43, 2);
+      spr(25, cx, flr(ty) + 55);
+      text("PAULINE", cx + 12, flr(ty) + 58, 2);
 
       // Barrel
-      spr(20, cx, flr(ty) + 82 + sin(API.frame * 0.1) * 2);
-      text("BARREL  100 PTS", cx + 12, flr(ty) + 85, 2);
+      spr(20, cx, flr(ty) + 72 + sin(API.frame * 0.1) * 2);
+      text("BARREL  100 PTS", cx + 12, flr(ty) + 75, 2);
 
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", 170, 220, 3);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", 120, 160, 3);
 
       // Controls
-      text("ARROWS: MOVE/CLIMB", 155, 250, 2);
-      text("Z: JUMP", 205, 262, 2);
+      text("ARROWS: MOVE/CLIMB", 115, 182, 2);
+      text("Z: JUMP", 143, 194, 2);
 
       if (highScore > 0) {
-        text("HIGH SCORE: " + highScore, 170, 285, 2);
+        text("HIGH SCORE: " + highScore, 115, 212, 2);
       }
 
-      text("GRAYBOX DEMO V0.1", 168, 305, 1);
+      text("GRAYBOX DEMO V0.1", 118, 228, 1);
       return;
     }
 
@@ -1408,11 +1408,11 @@
         else pix(flr(pt.x), flr(pt.y), pt.color);
       }
 
-      text("GAME OVER", 195, 110, 3);
-      text("SCORE: " + score, 190, 140, 2);
-      text("LEVEL: " + levelData.name, 190, 155, 2);
-      if (score >= highScore && score > 0) text("NEW HIGH SCORE!", 175, 175, 3);
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 158, 210, 3);
+      text("GAME OVER", 138, 83, 3);
+      text("SCORE: " + score, 135, 105, 2);
+      text("LEVEL: " + levelData.name, 135, 116, 2);
+      if (score >= highScore && score > 0) text("NEW HIGH SCORE!", 123, 131, 3);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 113, 158, 3);
       return;
     }
 
@@ -1576,11 +1576,11 @@
 
     // Level complete overlay
     if (levelComplete) {
-      const centerY = 140;
-      rectf(140, centerY - 20, 200, 50, 0);
-      rect(140, centerY - 20, 200, 50, 3);
-      text("LEVEL CLEAR!", 185, centerY - 10, 3);
-      text("BONUS: " + bonusScore, 190, centerY + 5, 2);
+      const centerY = 105;
+      rectf(93, centerY - 15, 134, 38, 0);
+      rect(93, centerY - 15, 134, 38, 3);
+      text("LEVEL CLEAR!", 130, centerY - 8, 3);
+      text("BONUS: " + bonusScore, 133, centerY + 4, 2);
     }
 
     // HUD

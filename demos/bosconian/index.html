@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -548,10 +548,10 @@
   const PLAY_Y = 16;
   const PLAY_W = W;
   const PLAY_H = H - 16;
-  const RADAR_X = W - 64;
+  const RADAR_X = W - 44;
   const RADAR_Y = PLAY_Y + 2;
-  const RADAR_W = 60;
-  const RADAR_H = 48;
+  const RADAR_W = 40;
+  const RADAR_H = 36;
 
   // direction vectors for 8 directions (up=0, clockwise)
   const DIR_DX = [0, 1, 1, 1, 0, -1, -1, -1];
@@ -1091,20 +1091,20 @@
       }
 
       // Title
-      text("BOSCONIAN", W / 2 - 45, 70, 3);
-      text("SPACE PATROL", W / 2 - 60, 86, 2);
+      text("BOSCONIAN", W / 2 - 22, 52, 3);
+      text("SPACE PATROL", W / 2 - 30, 64, 2);
 
       if (flr(titleBlink / 20) % 2 === 0) {
-        text("PRESS START", W / 2 - 55, 160, 3);
+        text("PRESS START", W / 2 - 27, 120, 3);
       }
 
-      text("ARROWS  MOVE", W / 2 - 60, 210, 1);
-      text("Z  SHOOT FRONT+BACK", W / 2 - 95, 222, 1);
-      text("DESTROY ALL STATIONS", W / 2 - 100, 250, 2);
+      text("ARROWS  MOVE", W / 2 - 30, 157, 1);
+      text("Z  SHOOT FRONT+BACK", W / 2 - 50, 167, 1);
+      text("DESTROY ALL STATIONS", W / 2 - 50, 187, 2);
 
       // Draw a sample station on title
       const cx = W / 2;
-      const cy = 130;
+      const cy = 98;
       spr(6, cx - 4, cy - 4);
       for (let p = 0; p < 6; p++) {
         const a = p * Math.PI / 3;
@@ -1124,10 +1124,10 @@
       for (const p of particles) {
         pix(p.x % W, p.y % H, p.color);
       }
-      text("GAME OVER", W / 2 - 45, 130, 3);
-      text("SCORE " + score, W / 2 - 50, 155, 2);
+      text("GAME OVER", W / 2 - 22, 98, 3);
+      text("SCORE " + score, W / 2 - 33, 116, 2);
       if (flr(titleBlink / 20) % 2 === 0) {
-        text("PRESS START", W / 2 - 55, 190, 3);
+        text("PRESS START", W / 2 - 27, 142, 3);
       }
       return;
     }
@@ -1242,18 +1242,18 @@
     text("SCORE " + score, 4, 2, 3);
 
     // Round
-    text("RD " + round, 140, 2, 2);
+    text("RD " + round, 93, 2, 2);
 
     // Condition indicator
     const condNames = ["GREEN", "YELLOW", "RED"];
     const condColors = [1, 2, 3];
     if (condFlash <= 0 || flr(condFlash / 4) % 2 === 0) {
-      text("COND:" + condNames[condition], 200, 2, condColors[condition]);
+      text("COND:" + condNames[condition], 133, 2, condColors[condition]);
     }
 
     // Lives
     for (let i = 0; i < lives; i++) {
-      spr(15, 320 + i * 10, 2);
+      spr(15, 213 + i * 10, 2);
     }
 
     // --- Radar / minimap ---
@@ -1300,10 +1300,10 @@
 
     // Round clear message
     if (state === "roundclear") {
-      rectf(W / 2 - 80, H / 2 - 16, 160, 32, 0);
-      rect(W / 2 - 80, H / 2 - 16, 160, 32, 2);
-      text("ROUND CLEAR!", W / 2 - 58, H / 2 - 6, 3);
-      text("BONUS " + (round * 1000), W / 2 - 55, H / 2 + 6, 2);
+      rectf(W / 2 - 53, H / 2 - 12, 107, 24, 0);
+      rect(W / 2 - 53, H / 2 - 12, 107, 24, 2);
+      text("ROUND CLEAR!", W / 2 - 30, H / 2 - 4, 3);
+      text("BONUS " + (round * 1000), W / 2 - 37, H / 2 + 5, 2);
     }
 
     // Direction arrows on edge of screen pointing to nearest station
@@ -1320,7 +1320,7 @@
         const ndy = wrapDist(player.y, nearest.y, WORLD_H);
         const a = atan2(ndy, ndx);
         // place arrow at screen edge
-        const arrowDist = 100;
+        const arrowDist = 70;
         let ax = W / 2 + Math.cos(a) * arrowDist;
         let ay = PLAY_Y + PLAY_H / 2 + Math.sin(a) * arrowDist;
         ax = _max(12, min(W - 12, ax));

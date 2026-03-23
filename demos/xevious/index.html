@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -593,7 +593,7 @@
   let invincibleTimer;
 
   // Terrain map - procedurally generated strips
-  const TERRAIN_W = 60; // tiles wide
+  const TERRAIN_W = 40; // tiles wide
   const TERRAIN_H = 2000; // tiles tall (scrolling)
   const terrain = new Uint8Array(TERRAIN_W * TERRAIN_H);
 
@@ -611,7 +611,7 @@
           terrain[y * TERRAIN_W + x] = 20; // field
         } else {
           // road segments
-          if (_abs(Math.sin(y * 0.05) * 15 + 30 - x) < 2) {
+          if (_abs(Math.sin(y * 0.05) * 10 + 20 - x) < 2) {
             terrain[y * TERRAIN_W + x] = 23;
           } else {
             terrain[y * TERRAIN_W + x] = 20;
@@ -629,7 +629,7 @@
       for (let i = 0; i < 5; i++) {
         enemies.push({
           type: 5, hp: 1, pts: 100,
-          startX: -20 - i * 15, startY: 40 + _abs(i - 2) * 20,
+          startX: -20 - i * 10, startY: 30 + _abs(i - 2) * 15,
           pattern: "sweep_right", delay: i * 5, speed: 2.5 + wave * 0.1
         });
       }
@@ -638,7 +638,7 @@
     // Column dive from top
     function(wave) {
       const enemies = [];
-      const cx = 60 + flr(rnd(W - 120));
+      const cx = 40 + flr(rnd(W - 80));
       for (let i = 0; i < 4; i++) {
         enemies.push({
           type: 6, hp: 1, pts: 150,
@@ -654,7 +654,7 @@
       for (let i = 0; i < 6; i++) {
         enemies.push({
           type: 5, hp: 1, pts: 100,
-          startX: W + 20, startY: 60 + i * 25,
+          startX: W + 20, startY: 45 + i * 19,
           pattern: "sweep_left", delay: i * 4, speed: 2.2 + wave * 0.1
         });
       }
@@ -666,7 +666,7 @@
       for (let i = 0; i < 3; i++) {
         enemies.push({
           type: 7, hp: 1, pts: 200,
-          startX: rnd(W - 40) + 20, startY: -20 - i * 30,
+          startX: rnd(W - 27) + 13, startY: -20 - i * 23,
           pattern: "fast_dive", delay: i * 10, speed: 3.5 + wave * 0.15
         });
       }
@@ -678,7 +678,7 @@
       for (let i = 0; i < 2; i++) {
         enemies.push({
           type: 19, hp: 999, pts: 0,
-          startX: 100 + i * 200, startY: -20,
+          startX: 67 + i * 133, startY: -20,
           pattern: "slow_descent", delay: i * 20, speed: 1.5
         });
       }
@@ -690,7 +690,7 @@
       for (let i = 0; i < 7; i++) {
         enemies.push({
           type: 6, hp: 1, pts: 150,
-          startX: W/2 - 90 + i * 30, startY: -20 - _abs(i - 3) * 15,
+          startX: W/2 - 60 + i * 20, startY: -20 - _abs(i - 3) * 11,
           pattern: "dive_spread", delay: i * 3, speed: 2 + wave * 0.1
         });
       }
@@ -699,10 +699,10 @@
   ];
 
   function resetGame() {
-    player = { x: W / 2 - 4, y: H - 40, speed: 2.5 };
+    player = { x: W / 2 - 4, y: H - 30, speed: 2.5 };
     zapper = [];
     bombs = [];
-    bombReticle = { x: W / 2 - 4, y: H - 80, active: false };
+    bombReticle = { x: W / 2 - 4, y: H - 60, active: false };
     airEnemies = [];
     groundTargets = [];
     eBullets = [];
@@ -746,7 +746,7 @@
     // Spread ground targets across the terrain
     for (let i = 0; i < 120; i++) {
       const ty = 50 + i * 15 + flr(rnd(10));
-      const tx = 20 + flr(rnd(W - 40));
+      const tx = 13 + flr(rnd(W - 27));
       const type = flr(rnd(3));
       let sprId, hp, pts;
       if (type === 0) { sprId = 8; hp = 1; pts = 200; }       // tank
@@ -765,7 +765,7 @@
   function spawnBoss() {
     bossActive = true;
     boss = {
-      x: W / 2 - 20, y: -40,
+      x: W / 2 - 20, y: -30,
       hp: 30, maxHp: 30,
       phase: "enter", // enter, fight, flee
       t: 0, pts: 5000,
@@ -845,12 +845,12 @@
     if (btn("up")) player.y -= player.speed;
     if (btn("down")) player.y += player.speed;
     player.x = _max(4, min(W - 12, player.x));
-    player.y = _max(16, min(H - 16, player.y));
+    player.y = _max(12, min(H - 12, player.y));
 
     // Bomb reticle follows player, offset ahead
     bombReticle.x = player.x;
-    bombReticle.y = player.y - 50;
-    if (bombReticle.y < 16) bombReticle.y = 16;
+    bombReticle.y = player.y - 38;
+    if (bombReticle.y < 12) bombReticle.y = 12;
 
     // A button: Zapper (air shot)
     if (shootCd > 0) shootCd--;
@@ -932,14 +932,14 @@
       switch (e.pattern) {
         case "sweep_right":
           e.x = e.originX + e.t * e.speed;
-          e.y = e.originY + sin(e.t * 0.08) * 40;
+          e.y = e.originY + sin(e.t * 0.08) * 30;
           break;
         case "sweep_left":
           e.x = e.originX - e.t * e.speed;
-          e.y = e.originY + sin(e.t * 0.08) * 40;
+          e.y = e.originY + sin(e.t * 0.08) * 30;
           break;
         case "dive_zigzag":
-          e.x = e.originX + sin(e.t * 0.1) * 60;
+          e.x = e.originX + sin(e.t * 0.1) * 40;
           e.y = e.originY + e.t * e.speed;
           break;
         case "fast_dive": {
@@ -949,18 +949,18 @@
           break;
         }
         case "slow_descent":
-          e.x = e.originX + sin(e.t * 0.03) * 30;
+          e.x = e.originX + sin(e.t * 0.03) * 20;
           e.y = e.originY + e.t * e.speed * 0.5;
           break;
         case "dive_spread":
-          e.x = e.originX + sin(e.t * 0.06) * 20;
+          e.x = e.originX + sin(e.t * 0.06) * 13;
           e.y = e.originY + e.t * e.speed * 0.8;
           break;
       }
 
       // Enemy shoots
       e.shootTimer--;
-      if (e.shootTimer <= 0 && e.y > 10 && e.y < H - 30 && e.x > 0 && e.x < W) {
+      if (e.shootTimer <= 0 && e.y > 8 && e.y < H - 23 && e.x > 0 && e.x < W) {
         // Aimed shot toward player
         const dx = player.x - e.x, dy = player.y - e.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1056,11 +1056,11 @@
 
       if (boss.phase === "enter") {
         boss.y += 0.8;
-        if (boss.y >= 30) { boss.phase = "fight"; boss.t = 0; }
+        if (boss.y >= 23) { boss.phase = "fight"; boss.t = 0; }
       } else if (boss.phase === "fight") {
         boss.moveAngle += 0.02;
-        boss.x = W / 2 - 20 + sin(boss.moveAngle) * 80;
-        boss.y = 30 + sin(boss.moveAngle * 0.7) * 15;
+        boss.x = W / 2 - 20 + sin(boss.moveAngle) * 53;
+        boss.y = 23 + sin(boss.moveAngle * 0.7) * 11;
 
         // Boss shoots
         boss.shootTimer--;
@@ -1118,7 +1118,7 @@
     addExplosion(player.x, player.y, false);
     deathSound();
     player.x = W / 2 - 4;
-    player.y = H - 40;
+    player.y = H - 30;
     invincibleTimer = 90;
     if (lives <= 0) {
       state = "gameover";
@@ -1145,14 +1145,14 @@
         if (tile === 22) {
           // Water shimmer (far)
           const sx = px * 8, sy = py * 8 - (farOff % 8);
-          if (sy > 11 && sy < H) {
+          if (sy > 8 && sy < H) {
             pix(sx + 3, sy + 2, 1);
             pix(sx + 6, sy + 5, 1);
           }
         } else if (tile === 21) {
           // Forest shadow (far)
           const sx = px * 8, sy = py * 8 - (farOff % 8);
-          if (sy > 11 && sy < H) {
+          if (sy > 8 && sy < H) {
             pix(sx + 2, sy + 3, 1);
             pix(sx + 5, sy + 1, 1);
           }
@@ -1167,7 +1167,7 @@
         if (my < 0) continue;
         const tile = terrain[(my % TERRAIN_H) * TERRAIN_W + (px % TERRAIN_W)];
         const sx = px * 8, sy = py * 8 - tileOffY;
-        if (sy < 10 || sy > H) continue;
+        if (sy < 8 || sy > H) continue;
 
         if (tile === 21) {
           // Forest - scattered dots
@@ -1310,49 +1310,49 @@
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
     // --- HUD ---
-    rectf(0, 0, W, 12, 0);
-    text("SCORE:" + score, 4, 3, 3);
+    rectf(0, 0, W, 9, 0);
+    text("SCORE:" + score, 3, 2, 3);
     // Lives
-    for (let i = 0; i < lives; i++) sprT(18, W - 40 + i * 10, 2);
+    for (let i = 0; i < lives; i++) sprT(18, W - 27 + i * 10, 1);
 
     // --- Title screen ---
     if (state === "title") {
-      rectf(100, 50, 280, 220, 0);
+      rectf(67, 38, 187, 165, 0);
 
-      const ty = 70 + sin(API.frame * 0.05) * 4;
+      const ty = 53 + sin(API.frame * 0.05) * 3;
       text("XEVIOUS", W / 2 - 20, flr(ty), 3);
-      rectf(W / 2 - 40, flr(ty) + 10, 80, 1, 2);
+      rectf(W / 2 - 27, flr(ty) + 10, 53, 1, 2);
 
       // Show sample enemies
-      const bx = W / 2 - 50;
-      sprT(5, bx, flr(ty) + 22 + sin(API.frame * 0.08) * 3);
-      sprT(6, bx + 25, flr(ty) + 24 + sin(API.frame * 0.08 + 1) * 3);
-      sprT(7, bx + 50, flr(ty) + 22 + sin(API.frame * 0.08 + 2) * 3);
-      sprT(19, bx + 75, flr(ty) + 24 + sin(API.frame * 0.08 + 3) * 3);
-      sprT(5, bx + 100, flr(ty) + 22 + sin(API.frame * 0.08 + 4) * 3);
+      const bx = W / 2 - 33;
+      sprT(5, bx, flr(ty) + 17 + sin(API.frame * 0.08) * 2);
+      sprT(6, bx + 17, flr(ty) + 18 + sin(API.frame * 0.08 + 1) * 2);
+      sprT(7, bx + 33, flr(ty) + 17 + sin(API.frame * 0.08 + 2) * 2);
+      sprT(19, bx + 50, flr(ty) + 18 + sin(API.frame * 0.08 + 3) * 2);
+      sprT(5, bx + 67, flr(ty) + 17 + sin(API.frame * 0.08 + 4) * 2);
 
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 28, 170, 3);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 28, 128, 3);
 
-      text("- AIR TARGETS -", W / 2 - 38, 190, 2);
-      sprT(5, W / 2 - 48, 202); text("TORKAN  100", W / 2 - 36, 204, 2);
-      sprT(6, W / 2 - 48, 214); text("TOROID  150", W / 2 - 36, 216, 2);
-      sprT(7, W / 2 - 48, 226); text("ZOSHI   200", W / 2 - 36, 228, 2);
+      text("- AIR TARGETS -", W / 2 - 38, 143, 2);
+      sprT(5, W / 2 - 32, 152); text("TORKAN  100", W / 2 - 20, 153, 2);
+      sprT(6, W / 2 - 32, 162); text("TOROID  150", W / 2 - 20, 163, 2);
+      sprT(7, W / 2 - 32, 172); text("ZOSHI   200", W / 2 - 20, 173, 2);
 
-      text("- GROUND TARGETS -", W / 2 - 48, 242, 2);
-      sprT(8, W / 2 - 48, 254); text("TANK    200", W / 2 - 36, 256, 2);
-      sprT(9, W / 2 - 48, 266); text("BUNKER  300", W / 2 - 36, 268, 2);
+      text("- GROUND TARGETS -", W / 2 - 48, 184, 2);
+      sprT(8, W / 2 - 32, 193); text("TANK    200", W / 2 - 20, 194, 2);
+      sprT(9, W / 2 - 32, 203); text("BUNKER  300", W / 2 - 20, 204, 2);
 
-      text("Z=ZAPPER  X=BOMB", W / 2 - 42, 285, 1);
-      text("GRAYBOX DEMO V0.1", W / 2 - 43, 305, 1);
+      text("Z=ZAPPER  X=BOMB", W / 2 - 42, 216, 1);
+      text("GRAYBOX DEMO V0.1", W / 2 - 43, 229, 1);
       return;
     }
 
     // --- Game over ---
     if (state === "gameover") {
-      rectf(W / 2 - 60, 100, 120, 80, 0);
-      text("GAME OVER", W / 2 - 24, 115, 3);
-      text("SCORE: " + score, W / 2 - 24, 135, 2);
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 28, 160, 3);
+      rectf(W / 2 - 40, 75, 80, 60, 0);
+      text("GAME OVER", W / 2 - 24, 86, 3);
+      text("SCORE: " + score, W / 2 - 24, 101, 2);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 28, 120, 3);
     }
   };
 

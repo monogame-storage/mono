@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -503,10 +503,10 @@
   // --- Game Constants ---
   const FORM_COLS = 10;
   const FORM_ROWS = 4;
-  const FORM_CELL_W = 18;
-  const FORM_CELL_H = 16;
+  const FORM_CELL_W = 12;
+  const FORM_CELL_H = 12;
   const FORM_BASE_X = (W - FORM_COLS * FORM_CELL_W) / 2;
-  const FORM_BASE_Y = 40;
+  const FORM_BASE_Y = 30;
 
   // --- Game State ---
   let state = "title";
@@ -521,7 +521,7 @@
   let hiScore = 0;
 
   function resetGame() {
-    player = { x: W / 2 - 4, y: H - 30, speed: 3 };
+    player = { x: W / 2 - 4, y: H - 22, speed: 3 };
     bullets = [];
     eBullets = [];
     enemies = [];
@@ -607,12 +607,12 @@
 
   function spawnBoss() {
     boss = {
-      x: W / 2 - 4, y: 60,
+      x: W / 2 - 4, y: 45,
       hp: 20 + loop * 10,
       maxHp: 20 + loop * 10,
       shieldAngle: 0,
       shieldSegments: 12,
-      shieldRadius: 30,
+      shieldRadius: 20,
       shieldHp: [], // each segment has HP
       state: "entering",
       enterT: 0,
@@ -675,9 +675,9 @@
     enemy.diveT = 0;
     const startX = enemy.x;
     const startY = enemy.y;
-    const midX = startX + (rnd(200) - 100);
-    const midY = H * 0.4 + rnd(60);
-    const endX = player.x + (rnd(80) - 40);
+    const midX = startX + (rnd(133) - 67);
+    const midY = H * 0.4 + rnd(45);
+    const endX = player.x + (rnd(53) - 27);
     const endY = H + 20;
     enemy.divePath = { sx: startX, sy: startY, mx: midX, my: midY, ex: endX, ey: endY };
     enemy.diveSpeed = 2 + rnd(1) + loop * 0.3;
@@ -748,7 +748,7 @@
     // Player movement
     if (btn("left")) player.x -= player.speed;
     if (btn("right")) player.x += player.speed;
-    player.x = _max(4, min(W - 12, player.x));
+    player.x = _max(3, min(W - 11, player.x));
 
     // Player shoot
     if (shootCooldown > 0) shootCooldown--;
@@ -784,8 +784,8 @@
 
     // Formation movement
     formationX += formationDir * formationSpeed;
-    if (formationX > 30) formationDir = -1;
-    if (formationX < -30) formationDir = 1;
+    if (formationX > 20) formationDir = -1;
+    if (formationX < -20) formationDir = 1;
 
     // Update enemies
     for (let i = enemies.length - 1; i >= 0; i--) {
@@ -808,7 +808,7 @@
         const flyInDuration = 30;
         if (e.enterT <= flyInDuration) {
           const t = e.enterT / flyInDuration;
-          const startX = W / 2 + sin(e.formCol * 0.8) * 100;
+          const startX = W / 2 + sin(e.formCol * 0.8) * 67;
           e.x = startX + (target.x - startX) * t;
           e.y = -10 + (target.y + 10) * t;
         } else {
@@ -835,7 +835,7 @@
           e.y = bezier(e.diveT, p.sy, p.my, p.ey);
         }
         e.shootTimer--;
-        if (e.shootTimer <= 0 && e.y > 0 && e.y < H - 40) {
+        if (e.shootTimer <= 0 && e.y > 0 && e.y < H - 30) {
           eBullets.push({ x: e.x + 3, y: e.y + 8 });
           e.shootTimer = _max(20, 40 - loop * 3) + flr(rnd(30));
         }
@@ -960,9 +960,9 @@
 
     if (b.state === "entering") {
       b.enterT++;
-      b.y = -20 + b.enterT * 1.5;
-      if (b.y >= 60) {
-        b.y = 60;
+      b.y = -15 + b.enterT * 1.5;
+      if (b.y >= 45) {
+        b.y = 45;
         b.state = "fighting";
       }
       return;
@@ -973,10 +973,10 @@
 
     // Boss movement
     b.x += b.moveDir * b.moveSpeed;
-    if (b.x > W - 50) b.moveDir = -1;
-    if (b.x < 50) b.moveDir = 1;
+    if (b.x > W - 33) b.moveDir = -1;
+    if (b.x < 33) b.moveDir = 1;
     // Slight vertical bob
-    b.y = 60 + sin(b.phaseTimer * 0.03) * 15;
+    b.y = 45 + sin(b.phaseTimer * 0.03) * 11;
 
     // Boss shoots
     b.shootTimer--;
@@ -1112,43 +1112,43 @@
   };
 
   function drawTitle() {
-    const ty = 60 + sin(API.frame * 0.05) * 5;
+    const ty = 45 + sin(API.frame * 0.05) * 5;
 
     // Title text
-    drawText("PHOENIX", 200, flr(ty), 3);
-    drawText("PHOENIX", 201, flr(ty) + 1, 1);
-    rectf(170, flr(ty) + 12, 140, 1, 2);
+    drawText("PHOENIX", 142, flr(ty), 3);
+    drawText("PHOENIX", 143, flr(ty) + 1, 1);
+    rectf(113, flr(ty) + 12, 93, 1, 2);
 
     // Animated phoenix sprites
-    const bx = W / 2 - 48;
+    const bx = W / 2 - 32;
     const wingUp = flr(API.frame / 10) % 2 === 0;
-    sprT(wingUp ? 4 : 5, bx, flr(ty) + 24 + sin(API.frame * 0.08) * 3);
-    sprT(wingUp ? 2 : 3, bx + 24, flr(ty) + 26 + sin(API.frame * 0.08 + 1) * 3);
-    sprT(7, bx + 48, flr(ty) + 24 + sin(API.frame * 0.08 + 2) * 3);
-    sprT(wingUp ? 2 : 3, bx + 72, flr(ty) + 26 + sin(API.frame * 0.08 + 3) * 3);
-    sprT(wingUp ? 4 : 5, bx + 96, flr(ty) + 24 + sin(API.frame * 0.08 + 4) * 3);
+    sprT(wingUp ? 4 : 5, bx, flr(ty) + 18 + sin(API.frame * 0.08) * 3);
+    sprT(wingUp ? 2 : 3, bx + 16, flr(ty) + 20 + sin(API.frame * 0.08 + 1) * 3);
+    sprT(7, bx + 32, flr(ty) + 18 + sin(API.frame * 0.08 + 2) * 3);
+    sprT(wingUp ? 2 : 3, bx + 48, flr(ty) + 20 + sin(API.frame * 0.08 + 3) * 3);
+    sprT(wingUp ? 4 : 5, bx + 64, flr(ty) + 18 + sin(API.frame * 0.08 + 4) * 3);
 
-    if (flr(API.frame / 20) % 2 === 0) drawText("PRESS A TO START", 170, 190, 3);
+    if (flr(API.frame / 20) % 2 === 0) drawText("PRESS A TO START", 120, 142, 3);
 
     // Score table
-    drawText("-SCORE TABLE-", 185, 215, 2);
-    sprT(2, 190, 229); drawText("  BIRD     10 PTS", 200, 231, 2);
-    sprT(4, 190, 243); drawText("  PHOENIX  30 PTS", 200, 245, 2);
-    sprT(7, 190, 257); drawText("  BOSS    500 PTS", 200, 259, 2);
+    drawText("-SCORE TABLE-", 128, 161, 2);
+    sprT(2, 127, 172); drawText("  BIRD     10 PTS", 133, 173, 2);
+    sprT(4, 127, 182); drawText("  PHOENIX  30 PTS", 133, 184, 2);
+    sprT(7, 127, 193); drawText("  BOSS    500 PTS", 133, 194, 2);
 
-    drawText("X = SHIELD   Z = SHOOT", 152, 280, 1);
-    if (hiScore > 0) drawText("HI:" + hiScore, 210, 295, 2);
-    drawText("GRAYBOX DEMO V0.1", 168, 308, 1);
+    drawText("X = SHIELD   Z = SHOOT", 105, 210, 1);
+    if (hiScore > 0) drawText("HI:" + hiScore, 140, 221, 2);
+    drawText("GRAYBOX DEMO V0.1", 118, 231, 1);
   }
 
   function drawGameOver() {
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-    drawText("GAME OVER", 195, 110, 3);
-    drawText("SCORE: " + score, 195, 135, 2);
-    drawText("PHASE: " + phase, 195, 150, 2);
-    if (score >= hiScore && score > 0) drawText("NEW HIGH SCORE!", 178, 170, 3);
-    if (flr(API.frame / 20) % 2 === 0) drawText("PRESS A TO CONTINUE", 158, 210, 3);
+    drawText("GAME OVER", 138, 82, 3);
+    drawText("SCORE: " + score, 138, 101, 2);
+    drawText("PHASE: " + phase, 138, 112, 2);
+    if (score >= hiScore && score > 0) drawText("NEW HIGH SCORE!", 123, 128, 3);
+    if (flr(API.frame / 20) % 2 === 0) drawText("PRESS A TO CONTINUE", 113, 158, 3);
   }
 
   function drawPlay() {
@@ -1201,34 +1201,34 @@
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
     // HUD
-    rectf(0, 0, W, 14, 0);
-    drawText("SCORE:" + score, 4, 3, 3);
+    rectf(0, 0, W, 10, 0);
+    drawText("SCORE:" + score, 3, 2, 3);
 
     const actualPhase = ((phase - 1) % 5) + 1;
     let phaseLabel = "PH" + phase;
     if (actualPhase <= 2) phaseLabel += " BIRDS";
     else if (actualPhase <= 4) phaseLabel += " PHNX";
     else phaseLabel += " BOSS";
-    drawText(phaseLabel, W / 2 - 30, 3, 2);
+    drawText(phaseLabel, W / 2 - 20, 2, 2);
 
     // Lives
-    for (let i = 0; i < lives; i++) sprT(13, W - 40 + i * 10, 2);
+    for (let i = 0; i < lives; i++) sprT(13, W - 27 + i * 10, 2);
 
     // Shield bar
-    const barX = W - 80;
-    const barY = H - 10;
+    const barX = W - 53;
+    const barY = H - 8;
     drawText("SH", barX - 15, barY - 1, 1);
-    rect(barX, barY - 2, 52, 6, 1);
-    const barW = flr(shieldEnergy / 90 * 50);
-    if (barW > 0) rectf(barX + 1, barY - 1, barW, 4, shieldActive ? 3 : 2);
+    rect(barX, barY - 2, 35, 5, 1);
+    const barW = flr(shieldEnergy / 90 * 33);
+    if (barW > 0) rectf(barX + 1, barY - 1, barW, 3, shieldActive ? 3 : 2);
 
     // Phase announcement
     if (waveMessage > 0) {
-      const msgY = 140 + sin(waveMessage * 0.1) * 3;
+      const msgY = 105 + sin(waveMessage * 0.1) * 3;
       const pLabel = getPhaseLabel();
       const textW = pLabel.length * 5;
       drawText(pLabel, W / 2 - textW / 2, flr(msgY), 3);
-      if (waveMessage > 60) drawText("GET READY!", 200, flr(msgY) + 14, 2);
+      if (waveMessage > 60) drawText("GET READY!", 135, flr(msgY) + 10, 2);
     }
   }
 
@@ -1257,9 +1257,9 @@
     sprT(7, flr(b.x) - 4, flr(b.y) - 4);
 
     // HP bar
-    const hpBarW = 60;
+    const hpBarW = 40;
     const hpX = flr(b.x) - hpBarW / 2 + 4;
-    const hpY = flr(b.y) - 18;
+    const hpY = flr(b.y) - 14;
     rect(hpX, hpY, hpBarW + 2, 5, 1);
     const hpFill = flr((b.hp / b.maxHp) * hpBarW);
     if (hpFill > 0) rectf(hpX + 1, hpY + 1, hpFill, 3, b.hp < b.maxHp / 3 ? 3 : 2);

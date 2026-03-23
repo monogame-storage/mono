@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -518,8 +518,8 @@
   );
 
   // --- Game Constants ---
-  const ARENA_X = 80;
-  const ARENA_Y = 8;
+  const ARENA_X = 53;
+  const ARENA_Y = 6;
   const GRID_W = 26;
   const GRID_H = 26;
   const TILE = 8;
@@ -1023,15 +1023,15 @@
     cls(0);
 
     if (state === "title") {
-      text("BATTLE CITY", 175, 80, 3);
-      text("TANK GAME", 190, 100, 2);
-      spr(1, 220, 130); spr(10, 240, 130); spr(12, 260, 130);
+      text("BATTLE CITY", 133, 60, 3);
+      text("TANK GAME", 138, 75, 2);
+      spr(1, 147, 98); spr(10, 160, 98); spr(12, 173, 98);
       if (flr(titleBlink/20) % 2 === 0)
-        text("PRESS ENTER TO START", 155, 180, 3);
-      text("ARROWS: MOVE  Z: SHOOT", 148, 220, 1);
-      text("DESTROY ALL ENEMY TANKS", 143, 240, 1);
-      text("PROTECT YOUR BASE!", 163, 256, 2);
-      text("GRAYBOX DEMO", 185, 300, 1);
+        text("PRESS ENTER TO START", 110, 135, 3);
+      text("ARROWS: MOVE  Z: SHOOT", 103, 165, 1);
+      text("DESTROY ALL ENEMY TANKS", 103, 180, 1);
+      text("PROTECT YOUR BASE!", 115, 192, 2);
+      text("GRAYBOX DEMO", 131, 225, 1);
       return;
     }
 
@@ -1089,46 +1089,46 @@
     }
 
     // --- HUD ---
-    const hudX = ARENA_X + ARENA_PW + 16;
+    const hudX = ARENA_X + ARENA_PW + 11;
 
     // Enemy icons
-    text("ENEMY", hudX, 10, 2);
+    text("ENEMY", hudX, 8, 2);
     const rem = _max(0, totalEnemies-spawnCount) + enemies.filter(e => e.alive).length;
     for (let i = 0; i < rem; i++) {
-      const ix = hudX + (i%2)*10, iy = 22 + flr(i/2)*10;
+      const ix = hudX + (i%2)*10, iy = 17 + flr(i/2)*10;
       rectf(ix+2, iy+2, 4, 4, 1);
     }
 
-    text("LV", hudX, 160, 2);
-    text(String(level), hudX+16, 160, 3);
+    text("LV", hudX, 120, 2);
+    text(String(level), hudX+11, 120, 3);
 
-    text("P1", hudX, 180, 2);
-    for (let i = 0; i < lives; i++) spr(20, hudX+i*10, 190);
+    text("P1", hudX, 135, 2);
+    for (let i = 0; i < lives; i++) spr(20, hudX+i*10, 143);
 
-    text("SCORE", hudX, 220, 2);
-    text(String(score), hudX, 230, 3);
+    text("SCORE", hudX, 165, 2);
+    text(String(score), hudX, 173, 3);
 
     // Left side
-    text("BATTLE", 4, 10, 2);
-    text("CITY", 8, 20, 2);
-    if (shieldTimer > 0) text("SHIELD", 4, 50, 3);
-    if (freezeTimer > 0) text("FREEZE", 4, 60, 3);
+    text("BATTLE", 3, 8, 2);
+    text("CITY", 5, 15, 2);
+    if (shieldTimer > 0) text("SHIELD", 3, 38, 3);
+    if (freezeTimer > 0) text("FREEZE", 3, 45, 3);
 
     // Level complete
     if (levelCompleteTimer > 0) {
-      rectf(140, 140, 200, 40, 0); rect(140, 140, 200, 40, 3);
-      text("STAGE CLEAR!", 175, 148, 3);
-      text("SCORE: " + score, 185, 162, 2);
+      rectf(93, 105, 133, 30, 0); rect(93, 105, 133, 30, 3);
+      text("STAGE CLEAR!", 130, 111, 3);
+      text("SCORE: " + score, 133, 122, 2);
     }
 
     // Game over
     if (state === "gameover") {
-      rectf(160, 120, 160, 80, 0); rect(160, 120, 160, 80, 3);
-      text("GAME OVER", 193, 135, 3);
-      text("SCORE: " + score, 193, 155, 2);
-      text("LEVEL: " + level, 193, 170, 2);
+      rectf(107, 90, 107, 60, 0); rect(107, 90, 107, 60, 3);
+      text("GAME OVER", 138, 101, 3);
+      text("SCORE: " + score, 130, 116, 2);
+      text("LEVEL: " + level, 130, 128, 2);
       if (gameOverTimer <= 0 && flr(titleBlink/15)%2 === 0)
-        text("PRESS ENTER", 193, 185, 1);
+        text("PRESS ENTER", 133, 139, 1);
     }
   };
 

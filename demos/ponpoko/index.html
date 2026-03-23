@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -522,7 +522,7 @@
   const NUM_FLOORS = 7;
   const FLOOR_Y = []; // pixel Y for each floor (0=top, 6=bottom/ground)
   for (let i = 0; i < NUM_FLOORS; i++) {
-    FLOOR_Y[i] = 36 + i * 44;
+    FLOOR_Y[i] = 27 + i * 33;
   }
 
   // --- Game state ---
@@ -558,7 +558,7 @@
       const gapCount = 1 + flr(rnd(2));
       const gaps = [];
       for (let g = 0; g < gapCount; g++) {
-        gaps.push(40 + flr(rnd(W - 100)));
+        gaps.push(27 + flr(rnd(W - 67)));
       }
 
       // Build segments avoiding gaps
@@ -577,12 +577,12 @@
         // Middle floors have gaps for falling/jumping
         let cx = 0;
         for (const gx of gaps) {
-          if (gx - cx > 24) {
+          if (gx - cx > 16) {
             segments.push({ x: cx, y: y, w: gx - cx });
           }
-          cx = gx + 24; // gap width
+          cx = gx + 16; // gap width
         }
-        if (W - cx > 16) {
+        if (W - cx > 11) {
           segments.push({ x: cx, y: y, w: W - cx });
         }
       }
@@ -595,7 +595,7 @@
     for (let f = 0; f < NUM_FLOORS - 1; f++) {
       const numLadders = 2 + flr(rnd(2));
       for (let l = 0; l < numLadders; l++) {
-        const lx = 30 + flr(rnd(W - 80));
+        const lx = 20 + flr(rnd(W - 53));
         // Check that ladder position sits on a platform on both floors
         const topY = FLOOR_Y[f];
         const botY = FLOOR_Y[f + 1];
@@ -615,7 +615,7 @@
         const topY = FLOOR_Y[f];
         const botY = FLOOR_Y[f + 1];
         for (let attempt = 0; attempt < 20; attempt++) {
-          const lx = 30 + flr(rnd(W - 80));
+          const lx = 20 + flr(rnd(W - 53));
           const onTop = platforms.some(p => p.y === topY && lx >= p.x && lx + 8 <= p.x + p.w);
           const onBot = platforms.some(p => p.y === botY && lx >= p.x && lx + 8 <= p.x + p.w);
           if (onTop && onBot) {
@@ -631,7 +631,7 @@
     for (let f = 1; f < NUM_FLOORS - 1; f++) {
       const numItems = 1 + flr(rnd(2 + difficulty * 0.3));
       for (let i = 0; i < numItems; i++) {
-        const ix = 20 + flr(rnd(W - 60));
+        const ix = 13 + flr(rnd(W - 40));
         const iy = FLOOR_Y[f] - 9;
         // Check on a platform
         const onPlat = platforms.some(p => p.y === FLOOR_Y[f] && ix >= p.x && ix + 8 <= p.x + p.w);
@@ -648,7 +648,7 @@
     // Goal item at top
     goalItem = {
       x: W / 2 - 4,
-      y: FLOOR_Y[0] - 12,
+      y: FLOOR_Y[0] - 9,
       type: 34, // star
       collected: false
     };
@@ -658,7 +658,7 @@
       const numEnemies = min(1 + flr(difficulty * 0.4), 3);
       for (let e = 0; e < numEnemies; e++) {
         if (rnd(1) < 0.3 + difficulty * 0.05) {
-          const ex = 30 + flr(rnd(W - 80));
+          const ex = 20 + flr(rnd(W - 53));
           const ey = FLOOR_Y[f] - 8;
           const etype = rnd(1) < 0.5 ? "snake" : "bird";
           enemies.push({
@@ -992,7 +992,7 @@
       } else if (e.type === "bird") {
         // Birds fly horizontally with slight wave
         e.x += e.dir * e.speed * 1.2;
-        e.y = FLOOR_Y[e.floor] - 14 + sin(e.animTimer * 0.1) * 6;
+        e.y = FLOOR_Y[e.floor] - 11 + sin(e.animTimer * 0.1) * 5;
         if (e.x < -10) { e.x = W + 10; }
         if (e.x > W + 10) { e.x = -10; }
       }
@@ -1021,7 +1021,7 @@
           } else {
             hitSound();
             pl.vy = JUMP_FORCE * 0.5;
-            pl.x += (pl.x < e.x) ? -20 : 20;
+            pl.x += (pl.x < e.x) ? -13 : 13;
           }
         }
       }
@@ -1031,7 +1031,7 @@
     // Spawn falling rocks periodically
     const fallRate = _max(40, 120 - stage * 10);
     if (stageTimer % fallRate === 0 && fallingObjs.length < 4 + stage) {
-      const fx = 20 + flr(rnd(W - 40));
+      const fx = 13 + flr(rnd(W - 27));
       fallingObjs.push({
         x: fx, y: -8,
         vy: 1.5 + rnd(1) + stage * 0.15,
@@ -1099,54 +1099,54 @@
         }
       }
 
-      const ty = 50 + sin(titleAnim * 0.06) * 4;
+      const ty = 38 + sin(titleAnim * 0.06) * 3;
 
       // Title
       text("PONPOKO", flr(W / 2 - 7 * 2.5), flr(ty), 3);
       text("PONPOKO", flr(W / 2 - 7 * 2.5) + 1, flr(ty) + 1, 1);
 
       // Subtitle in Korean
-      text("- RACCOON -", flr(W / 2 - 11 * 2.5), flr(ty) + 14, 2);
+      text("- RACCOON -", flr(W / 2 - 11 * 2.5), flr(ty) + 11, 2);
 
-      rectf(W / 2 - 60, flr(ty) + 24, 120, 1, 2);
+      rectf(W / 2 - 40, flr(ty) + 18, 80, 1, 2);
 
       // Animated raccoon
       const rx = W / 2 - 4;
       const walkFrame = flr(titleAnim / 8) % 2 === 0 ? 1 : 2;
-      spr(walkFrame, flr(rx + sin(titleAnim * 0.08) * 30), flr(ty) + 35);
+      spr(walkFrame, flr(rx + sin(titleAnim * 0.08) * 20), flr(ty) + 26);
 
       // Show some items
-      spr(30, W / 2 - 40, flr(ty) + 36 + flr(sin(titleAnim * 0.1) * 3));
-      spr(31, W / 2 + 32, flr(ty) + 38 + flr(sin(titleAnim * 0.1 + 1) * 3));
-      spr(32, W / 2 - 56, flr(ty) + 34 + flr(sin(titleAnim * 0.1 + 2) * 3));
-      spr(33, W / 2 + 48, flr(ty) + 36 + flr(sin(titleAnim * 0.1 + 3) * 3));
+      spr(30, W / 2 - 27, flr(ty) + 27 + flr(sin(titleAnim * 0.1) * 3));
+      spr(31, W / 2 + 21, flr(ty) + 29 + flr(sin(titleAnim * 0.1 + 1) * 3));
+      spr(32, W / 2 - 37, flr(ty) + 26 + flr(sin(titleAnim * 0.1 + 2) * 3));
+      spr(33, W / 2 + 32, flr(ty) + 27 + flr(sin(titleAnim * 0.1 + 3) * 3));
 
       if (flr(titleAnim / 20) % 2 === 0) {
-        text("PRESS A TO START", flr(W / 2 - 16 * 2.5), 195, 3);
+        text("PRESS A TO START", flr(W / 2 - 16 * 2.5), 146, 3);
       }
 
       // Instructions
-      text("ARROWS: MOVE/CLIMB", flr(W / 2 - 18 * 2.5), 225, 2);
-      text("Z: JUMP", flr(W / 2 - 7 * 2.5), 237, 2);
-      text("REACH THE STAR!", flr(W / 2 - 15 * 2.5), 255, 2);
+      text("ARROWS: MOVE/CLIMB", flr(W / 2 - 18 * 2.5), 169, 2);
+      text("Z: JUMP", flr(W / 2 - 7 * 2.5), 178, 2);
+      text("REACH THE STAR!", flr(W / 2 - 15 * 2.5), 191, 2);
 
       // Score table
-      spr(20, W / 2 - 50, 270); text("SNAKE  200", W / 2 - 36, 272, 2);
-      spr(21, W / 2 - 50, 284); text("BIRD   200", W / 2 - 36, 286, 2);
-      spr(34, W / 2 - 50, 298); text("STAR   500+", W / 2 - 36, 300, 2);
+      spr(20, W / 2 - 33, 203); text("SNAKE  200", W / 2 - 24, 205, 2);
+      spr(21, W / 2 - 33, 213); text("BIRD   200", W / 2 - 24, 215, 2);
+      spr(34, W / 2 - 33, 224); text("STAR   500+", W / 2 - 24, 226, 2);
 
-      text("GRAYBOX DEMO V0.1", flr(W / 2 - 17 * 2.5), 312, 1);
+      text("GRAYBOX DEMO V0.1", flr(W / 2 - 17 * 2.5), 234, 1);
       return;
     }
 
     if (state === "gameover") {
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      text("GAME OVER", flr(W / 2 - 9 * 2.5), 120, 3);
-      text("SCORE: " + score, flr(W / 2 - (7 + String(score).length) * 2.5), 145, 2);
-      text("STAGE: " + stage, flr(W / 2 - (7 + String(stage).length) * 2.5), 160, 2);
+      text("GAME OVER", flr(W / 2 - 9 * 2.5), 90, 3);
+      text("SCORE: " + score, flr(W / 2 - (7 + String(score).length) * 2.5), 109, 2);
+      text("STAGE: " + stage, flr(W / 2 - (7 + String(stage).length) * 2.5), 120, 2);
       if (flr(API.frame / 20) % 2 === 0) {
-        text("PRESS A TO CONTINUE", flr(W / 2 - 19 * 2.5), 200, 3);
+        text("PRESS A TO CONTINUE", flr(W / 2 - 19 * 2.5), 150, 3);
       }
       return;
     }
@@ -1244,16 +1244,16 @@
     rectf(0, 0, W, 14, 0);
     line(0, 14, W, 14, 1);
     text("SCORE:" + score, 4, 4, 3);
-    text("STAGE:" + stage, W / 2 - 25, 4, 2);
-    for (let i = 0; i < lives; i++) spr(42, W - 40 + i * 10, 3);
+    text("STAGE:" + stage, W / 2 - 17, 4, 2);
+    for (let i = 0; i < lives; i++) spr(42, W - 27 + i * 10, 3);
 
     // Stage complete message
     if (stageComplete) {
-      const msgY = 140 + sin(stageCompleteTimer * 0.1) * 3;
-      rectf(W / 2 - 70, flr(msgY) - 4, 140, 30, 0);
-      rect(W / 2 - 70, flr(msgY) - 4, 140, 30, 3);
+      const msgY = 105 + sin(stageCompleteTimer * 0.1) * 3;
+      rectf(W / 2 - 47, flr(msgY) - 4, 94, 23, 0);
+      rect(W / 2 - 47, flr(msgY) - 4, 94, 23, 3);
       text("STAGE CLEAR!", flr(W / 2 - 12 * 2.5), flr(msgY), 3);
-      text("BONUS: " + (500 + stage * 100), flr(W / 2 - 12 * 2.5), flr(msgY) + 12, 2);
+      text("BONUS: " + (500 + stage * 100), flr(W / 2 - 12 * 2.5), flr(msgY) + 9, 2);
     }
   };
 

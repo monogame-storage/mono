@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -371,10 +371,10 @@
   );
 
   // --- Arena constants ---
-  const ARENA_X = 8;
-  const ARENA_Y = 20;
-  const ARENA_W = W - 16;
-  const ARENA_H = H - 28;
+  const ARENA_X = 5;
+  const ARENA_Y = 15;
+  const ARENA_W = W - 10;
+  const ARENA_H = H - 22;
   const ARENA_R = ARENA_X + ARENA_W - 1;
   const ARENA_B = ARENA_Y + ARENA_H - 1;
 
@@ -428,7 +428,7 @@
     const positions = [];
     const cx = flr(ARENA_X + ARENA_W / 2);
     const cy = flr(ARENA_Y + ARENA_H / 2);
-    const margin = 60;
+    const margin = 40;
 
     // Player always starts left side going right
     positions.push({ x: ARENA_X + margin, y: cy, dir: 1 });
@@ -836,26 +836,26 @@
 
     // Vanishing point perspective lines
     const cx = W / 2;
-    const cy = H / 2 + 40;
+    const cy = H / 2 + 30;
     for (let i = 0; i < 12; i++) {
       const angle = (i / 12) * Math.PI * 2 + t;
-      const ex = cx + cos(angle) * 300;
-      const ey = cy + sin(angle) * 200;
+      const ex = cx + cos(angle) * 200;
+      const ey = cy + sin(angle) * 150;
       line(flr(cx), flr(cy), flr(ex), flr(ey), 1);
     }
 
     // Title background box
-    rectf(120, 55, 240, 50, 0);
-    rect(120, 55, 240, 50, 2);
-    rect(122, 57, 236, 46, 1);
+    rectf(80, 41, 160, 38, 0);
+    rect(80, 41, 160, 38, 2);
+    rect(82, 43, 156, 34, 1);
 
     // Title text
     const bounce = sin(API.frame * 0.06) * 3;
-    text("TRON", 190, flr(64 + bounce), 3);
-    text("LIGHT CYCLES", 170, flr(80 + bounce), 2);
+    text("TRON", 150, flr(48 + bounce), 3);
+    text("LIGHT CYCLES", 130, flr(60 + bounce), 2);
 
     // Animated light cycles on title
-    const bikeY = 130;
+    const bikeY = 98;
     const bikeX1 = flr((API.frame * 2) % (W + 100)) - 50;
     const bikeX2 = W - bikeX1 + 50;
 
@@ -873,20 +873,20 @@
 
     // Instructions
     if (flr(API.frame / 20) % 2 === 0) {
-      text("PRESS START", 195, 175, 3);
+      text("PRESS START", 133, 131, 3);
     }
 
     // Rules
-    rectf(130, 200, 220, 85, 0);
-    rect(130, 200, 220, 85, 1);
-    text("HOW TO PLAY", 182, 207, 2);
-    text("ARROWS: TURN YOUR CYCLE", 145, 222, 2);
-    text("Z: BOOST SPEED", 175, 234, 2);
-    text("AVOID WALLS AND TRAILS", 148, 246, 2);
-    text("TRAP YOUR OPPONENT!", 158, 258, 2);
-    text("BEST OF 5 ROUNDS", 168, 270, 1);
+    rectf(87, 150, 147, 64, 0);
+    rect(87, 150, 147, 64, 1);
+    text("HOW TO PLAY", 133, 155, 2);
+    text("ARROWS: TURN YOUR CYCLE", 103, 167, 2);
+    text("Z: BOOST SPEED", 125, 176, 2);
+    text("AVOID WALLS AND TRAILS", 105, 185, 2);
+    text("TRAP YOUR OPPONENT!", 113, 194, 2);
+    text("BEST OF 5 ROUNDS", 120, 203, 1);
 
-    text("GRAYBOX DEMO V0.1", 168, 305, 1);
+    text("GRAYBOX DEMO V0.1", 118, 229, 1);
   }
 
   function drawGameOver() {
@@ -901,25 +901,25 @@
 
     const won = playerScore >= winsNeeded;
 
-    rectf(120, 80, 240, 140, 0);
-    rect(120, 80, 240, 140, won ? 3 : 1);
-    rect(122, 82, 236, 136, won ? 2 : 1);
+    rectf(80, 60, 160, 105, 0);
+    rect(80, 60, 160, 105, won ? 3 : 1);
+    rect(82, 62, 156, 101, won ? 2 : 1);
 
     if (won) {
-      spr(5, 220, 92);
-      spr(5, 248, 92);
-      text("YOU WIN!", 195, 108, 3);
+      spr(5, 147, 69);
+      spr(5, 165, 69);
+      text("YOU WIN!", 140, 81, 3);
     } else {
-      text("GAME OVER", 193, 100, 3);
-      text("DEREZZING...", 185, 115, 1);
+      text("GAME OVER", 138, 75, 3);
+      text("DEREZZING...", 130, 86, 1);
     }
 
-    text("PLAYER: " + playerScore, 185, 140, 3);
-    text("CPU:    " + aiScore, 185, 155, 2);
-    text("ROUNDS: " + round, 185, 170, 1);
+    text("PLAYER: " + playerScore, 125, 105, 3);
+    text("CPU:    " + aiScore, 125, 116, 2);
+    text("ROUNDS: " + round, 125, 128, 1);
 
     if (flr(API.frame / 20) % 2 === 0) {
-      text("PRESS START", 195, 200, 3);
+      text("PRESS START", 133, 150, 3);
     }
   }
 
@@ -944,8 +944,8 @@
     line(ARENA_R, ARENA_B, ARENA_R, ARENA_B - cLen, 3);
 
     // Subtle grid dots
-    for (let gx = ARENA_X + 20; gx < ARENA_R; gx += 20) {
-      for (let gy = ARENA_Y + 20; gy < ARENA_B; gy += 20) {
+    for (let gx = ARENA_X + 13; gx < ARENA_R; gx += 13) {
+      for (let gy = ARENA_Y + 15; gy < ARENA_B; gy += 15) {
         pix(gx, gy, 1);
       }
     }
@@ -1031,37 +1031,37 @@
 
   function drawHUD() {
     // Top bar background
-    rectf(0, 0, W, 18, 0);
-    line(0, 18, W, 18, 1);
+    rectf(0, 0, W, 14, 0);
+    line(0, 14, W, 14, 1);
 
     // Round info
-    text("ROUND " + round, 4, 3, 2);
+    text("ROUND " + round, 3, 2, 2);
 
     // Score
     const scoreStr = "P:" + playerScore + "  CPU:" + aiScore;
-    text(scoreStr, 200, 3, 3);
+    text(scoreStr, 133, 2, 3);
 
     // Wins needed
-    text("FIRST TO " + winsNeeded, 200, 11, 1);
+    text("FIRST TO " + winsNeeded, 133, 8, 1);
 
     // Boost meter
-    text("BOOST", 370, 2, boostActive ? 3 : 1);
-    const meterX = 400;
-    const meterW = 60;
+    text("BOOST", 247, 2, boostActive ? 3 : 1);
+    const meterX = 267;
+    const meterW = 40;
     const meterH = 5;
-    rect(meterX, 9, meterW, meterH, 1);
+    rect(meterX, 7, meterW, meterH, 1);
     const fillW = flr((boostFuel / boostMax) * (meterW - 2));
     if (fillW > 0) {
-      rectf(meterX + 1, 10, fillW, meterH - 2, boostActive ? 3 : 2);
+      rectf(meterX + 1, 8, fillW, meterH - 2, boostActive ? 3 : 2);
     }
 
     // Speed indicator
     const spd = getCurrentSpeed();
-    text("SPD:" + (flr(spd * 10) / 10), 4, 11, 1);
+    text("SPD:" + (flr(spd * 10) / 10), 3, 8, 1);
 
     // Round score dots
-    const dotY = 10;
-    const dotStartX = 310;
+    const dotY = 8;
+    const dotStartX = 207;
     for (let i = 0; i < winsNeeded; i++) {
       const filled = i < playerScore;
       if (filled) rectf(dotStartX + i * 8, dotY, 5, 5, 3);
@@ -1085,7 +1085,7 @@
       msg = "ROUND " + round;
       col = 3;
       if (numAI > 1) {
-        text(numAI + " OPPONENTS", 193, 170, 2);
+        text(numAI + " OPPONENTS", 133, 128, 2);
       }
     } else if (t > 30) {
       msg = "READY";
@@ -1098,7 +1098,7 @@
     if (msg) {
       const tw = msg.length * 5;
       const mx = flr((W - tw) / 2);
-      const my = 150;
+      const my = 113;
 
       // Background box
       rectf(mx - 10, my - 5, tw + 20, 16, 0);
@@ -1126,7 +1126,7 @@
 
     const tw = msg.length * 5;
     const mx = flr((W - tw) / 2);
-    const my = 145;
+    const my = 109;
 
     rectf(mx - 15, my - 8, tw + 30, 24, 0);
     rect(mx - 15, my - 8, tw + 30, 24, col);

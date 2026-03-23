@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -452,8 +452,8 @@
   );
 
   // --- Grid constants ---
-  const GRID_W = 60;   // 480 / 8
-  const GRID_H = 40;   // 320 / 8
+  const GRID_W = 40;   // 320 / 8
+  const GRID_H = 30;   // 240 / 8
   const HUD_H = 2;     // top 2 rows for HUD
   const PLAYER_ROWS = 6; // bottom 6 rows for player movement
   const PLAYER_MIN_Y = (GRID_H - PLAYER_ROWS) * 8;
@@ -467,7 +467,7 @@
   let titleCentipede; // decorative centipede on title screen
 
   function resetGame() {
-    player = { x: W / 2 - 4, y: H - 24, speed: 2.5 };
+    player = { x: W / 2 - 4, y: H - 18, speed: 2.5 };
     bullet = null;
     centipedes = [];
     mushrooms = {};
@@ -500,7 +500,7 @@
   function generateMushrooms() {
     mushrooms = {};
     // Scatter mushrooms in the play area (not in HUD or bottom player rows)
-    const count = 30 + flr(rnd(20));
+    const count = 20 + flr(rnd(15));
     for (let i = 0; i < count; i++) {
       const gx = flr(rnd(GRID_W));
       const gy = HUD_H + 1 + flr(rnd(GRID_H - HUD_H - PLAYER_ROWS - 2));
@@ -610,7 +610,7 @@
       respawnTimer--;
       if (respawnTimer === 0) {
         player.x = W / 2 - 4;
-        player.y = H - 24;
+        player.y = H - 18;
       }
       // Still update enemies and such during respawn
     }
@@ -860,7 +860,7 @@
     if (spiderTimer <= 0 && !spider) {
       const side = rnd(1) < 0.5 ? 0 : W - 8;
       spider = {
-        x: side, y: PLAYER_MIN_Y + rnd(40),
+        x: side, y: PLAYER_MIN_Y + rnd(30),
         vx: side === 0 ? 2 : -2, vy: rnd(2) - 1,
         bounceTimer: 10, life: 200 + flr(rnd(150))
       };
@@ -1013,52 +1013,52 @@
     // HUD
     rectf(0, 0, W, HUD_H * 8, 0);
     text("SCORE:" + score, 4, 3, 3);
-    text("WAVE:" + wave, W / 2 - 22, 3, 2);
-    for (let i = 0; i < lives; i++) spr(13, W - 40 + i * 10, 2);
+    text("WAVE:" + wave, W / 2 - 15, 3, 2);
+    for (let i = 0; i < lives; i++) spr(13, W - 30 + i * 10, 2);
 
     // Player area divider line (subtle)
     for (let x = 0; x < W; x += 4) pix(x, PLAYER_MIN_Y - 1, 1);
 
     // Wave announcement
     if (waveMessage > 0) {
-      const msgY = 140 + sin(waveMessage * 0.1) * 3;
+      const msgY = 105 + sin(waveMessage * 0.1) * 3;
       text("WAVE " + wave, W / 2 - 17, flr(msgY), 3);
       if (waveMessage > 60) text("GET READY!", W / 2 - 27, flr(msgY) + 12, 2);
     }
   };
 
   function drawTitle() {
-    const ty = 50 + sin(API.frame * 0.04) * 4;
+    const ty = 38 + sin(API.frame * 0.04) * 4;
 
     // Title text
     text("CENTIPEDE", W / 2 - 25, flr(ty), 3);
-    rectf(W / 2 - 50, flr(ty) + 10, 100, 1, 2);
+    rectf(W / 2 - 33, flr(ty) + 10, 67, 1, 2);
 
     // Animated centipede on title
-    const cx = W / 2 - 40;
-    const cy = flr(ty) + 25;
+    const cx = W / 2 - 27;
+    const cy = flr(ty) + 19;
     spr(2, cx + flr(sin(API.frame * 0.1) * 8), cy);
     for (let i = 1; i < 8; i++) {
       spr(3, cx + flr(sin(API.frame * 0.1 - i * 0.5) * 8) + i * 9, cy + flr(sin(API.frame * 0.08 + i) * 2));
     }
 
     // Decorative mushrooms
-    const mx = W / 2 - 30;
-    const my = flr(ty) + 50;
+    const mx = W / 2 - 20;
+    const my = flr(ty) + 38;
     for (let i = 0; i < 7; i++) {
       spr(4, mx + i * 10 + flr(sin(i + API.frame * 0.02) * 2), my);
     }
 
-    if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", W / 2 - 42, 180, 3);
+    if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", W / 2 - 42, 135, 3);
 
     // Score table
-    text("-SCORE TABLE-", W / 2 - 35, 210, 2);
-    spr(2, W / 2 - 40, 222); text("  HEAD   100 PTS", W / 2 - 28, 224, 2);
-    spr(3, W / 2 - 40, 234); text("  BODY    10 PTS", W / 2 - 28, 236, 2);
-    spr(9, W / 2 - 40, 246); text("  SPIDER 300-900", W / 2 - 28, 248, 2);
-    spr(10, W / 2 - 40, 258); text("  FLEA   200 PTS", W / 2 - 28, 260, 2);
+    text("-SCORE TABLE-", W / 2 - 35, 158, 2);
+    spr(2, W / 2 - 27, 167); text("  HEAD   100 PTS", W / 2 - 19, 168, 2);
+    spr(3, W / 2 - 27, 177); text("  BODY    10 PTS", W / 2 - 19, 178, 2);
+    spr(9, W / 2 - 27, 187); text("  SPIDER 300-900", W / 2 - 19, 188, 2);
+    spr(10, W / 2 - 27, 197); text("  FLEA   200 PTS", W / 2 - 19, 198, 2);
 
-    text("GRAYBOX DEMO V0.1", W / 2 - 45, 305, 1);
+    text("GRAYBOX DEMO V0.1", W / 2 - 45, 229, 1);
   }
 
   function drawGameOver() {
@@ -1072,13 +1072,13 @@
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
     // Dark overlay
-    rectf(W / 2 - 70, 100, 140, 70, 0);
-    rect(W / 2 - 70, 100, 140, 70, 1);
+    rectf(W / 2 - 47, 75, 93, 53, 0);
+    rect(W / 2 - 47, 75, 93, 53, 1);
 
-    text("GAME OVER", W / 2 - 25, 112, 3);
-    text("SCORE: " + score, W / 2 - 25, 130, 2);
-    text("WAVE: " + wave, W / 2 - 18, 142, 2);
-    if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", W / 2 - 52, 200, 3);
+    text("GAME OVER", W / 2 - 25, 84, 3);
+    text("SCORE: " + score, W / 2 - 25, 98, 2);
+    text("WAVE: " + wave, W / 2 - 18, 107, 2);
+    if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", W / 2 - 52, 150, 3);
   }
 
   // ============================================================

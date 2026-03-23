@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -537,8 +537,8 @@
     clouds = [];
     for (let i = 0; i < 20; i++) {
       clouds.push({
-        x: rnd(1200) - 600,
-        y: rnd(1000) - 500,
+        x: rnd(800) - 400,
+        y: rnd(750) - 375,
         size: flr(rnd(3)),  // 0=small, 1=med, 2=large
         shade: flr(rnd(2)) + 1  // 1 or 2
       });
@@ -1003,8 +1003,8 @@
       const sx = c.x - camX * 0.6;
       const sy = c.y - camY * 0.6;
       // Wrap clouds
-      const wx = ((sx % (W + 100)) + W + 100) % (W + 100) - 50;
-      const wy = ((sy % (H + 80)) + H + 80) % (H + 80) - 40;
+      const wx = ((sx % (W + 67)) + W + 67) % (W + 67) - 33;
+      const wy = ((sy % (H + 60)) + H + 60) % (H + 60) - 30;
 
       if (c.size === 0) {
         spr(13, flr(wx), flr(wy));
@@ -1066,8 +1066,8 @@
         rectf(flr(sx) - barW/2 + 4, flr(sy) - 10, flr(barW * hpRatio), 3, 3);
       } else {
         // Boss off screen - draw arrow indicator
-        const ax = _max(8, min(W - 8, sx));
-        const ay = _max(16, min(H - 8, sy));
+        const ax = _max(5, min(W - 5, sx));
+        const ay = _max(12, min(H - 6, sy));
         circf(flr(ax), flr(ay), 3, 3);
       }
     }
@@ -1115,42 +1115,42 @@
     // --- Era transition overlay ---
     if (eraTransition) {
       const nextEra = min(era + 1, ERAS.length - 1);
-      rectf(0, H/2 - 30, W, 60, 0);
-      rect(0, H/2 - 30, W, 60, 2);
-      text("TIME WARP!", W/2 - 25, H/2 - 20, 3);
-      text(ERAS[nextEra].label, W/2 - flr(ERAS[nextEra].label.length * 2.5), H/2 - 5, 3);
+      rectf(0, H/2 - 22, W, 45, 0);
+      rect(0, H/2 - 22, W, 45, 2);
+      text("TIME WARP!", W/2 - 25, H/2 - 15, 3);
+      text(ERAS[nextEra].label, W/2 - flr(ERAS[nextEra].label.length * 2.5), H/2 - 4, 3);
       if (eraTransTimer < 80) {
-        const barW = flr((80 - eraTransTimer) / 80 * (W - 40));
-        rectf(20, H/2 + 12, barW, 4, 2);
+        const barW = flr((80 - eraTransTimer) / 80 * (W - 27));
+        rectf(13, H/2 + 9, barW, 3, 2);
       }
     }
   };
 
   function drawHUD() {
     // Top bar
-    rectf(0, 0, W, 14, 0);
-    line(0, 14, W, 14, 1);
+    rectf(0, 0, W, 10, 0);
+    line(0, 10, W, 10, 1);
 
-    text("SCORE:" + score, 4, 4, 3);
-    text(ERAS[era].name, W/2 - 10, 4, 2);
+    text("SCORE:" + score, 3, 3, 3);
+    text(ERAS[era].name, W/2 - 10, 3, 2);
 
     // Lives
-    for (let i = 0; i < lives; i++) spr(12, W - 40 + i * 10, 3);
+    for (let i = 0; i < lives; i++) spr(12, W - 27 + i * 7, 2);
 
     // Kill counter / boss bar
     const e = ERAS[era];
     if (!bossActive) {
       const progress = min(killCount, e.killReq);
-      text("KILLS:" + progress + "/" + e.killReq, 4, H - 10, 2);
+      text("KILLS:" + progress + "/" + e.killReq, 3, H - 8, 2);
     } else {
-      text("BOSS!", 4, H - 10, 3);
+      text("BOSS!", 3, H - 8, 3);
     }
 
     // Era name bottom right
-    text(ERAS[era].label, W - ERAS[era].label.length * 5 - 4, H - 10, 1);
+    text(ERAS[era].label, W - ERAS[era].label.length * 5 - 3, H - 8, 1);
 
     // Compass / direction indicator
-    const cx = W - 20, cy = 30;
+    const cx = W - 13, cy = 22;
     circ(cx, cy, 10, 1);
     const nx = cx + cos(player.angle) * 8;
     const ny = cy + sin(player.angle) * 8;
@@ -1163,46 +1163,46 @@
 
     // Animated clouds in background
     for (let i = 0; i < 8; i++) {
-      const cx = ((API.frame * 0.5 + i * 70) % (W + 40)) - 20;
-      const cy = 60 + i * 30 + sin(API.frame * 0.02 + i) * 10;
+      const cx = ((API.frame * 0.5 + i * 47) % (W + 27)) - 13;
+      const cy = 45 + i * 22 + sin(API.frame * 0.02 + i) * 8;
       spr(13, flr(cx), flr(cy));
     }
 
-    const ty = 50 + sin(API.frame * 0.04) * 4;
+    const ty = 38 + sin(API.frame * 0.04) * 3;
 
     // Title text with shadow
-    text("TIME PILOT", W/2 - 27, flr(ty), 1);
-    text("TIME PILOT", W/2 - 28, flr(ty) - 1, 3);
+    text("TIME PILOT", W/2 - 25, flr(ty), 1);
+    text("TIME PILOT", W/2 - 26, flr(ty) - 1, 3);
 
-    rectf(W/2 - 40, flr(ty) + 10, 80, 1, 2);
+    rectf(W/2 - 27, flr(ty) + 8, 53, 1, 2);
 
     // Rotating plane display
     const showAngle = API.frame * 0.05;
-    sprRot(1, W/2, flr(ty) + 40, showAngle);
+    sprRot(1, W/2, flr(ty) + 30, showAngle);
 
     // Show era enemies
-    const ey = flr(ty) + 65;
+    const ey = flr(ty) + 49;
     for (let i = 0; i < 5; i++) {
-      const ex = W/2 - 50 + i * 25;
+      const ex = W/2 - 33 + i * 17;
       const bob = sin(API.frame * 0.06 + i * 1.2) * 3;
       sprRot(ERAS[i].enemySpr, ex, ey + flr(bob), -PI/2 + sin(API.frame * 0.03 + i) * 0.3);
     }
 
     // Blink prompt
     if (flr(API.frame / 20) % 2 === 0) {
-      text("PRESS Z TO START", W/2 - 42, 180, 3);
+      text("PRESS Z TO START", W/2 - 40, 135, 3);
     }
 
     // Era list
-    text("-TIME ERAS-", W/2 - 30, 200, 2);
+    text("-TIME ERAS-", W/2 - 27, 150, 2);
     for (let i = 0; i < ERAS.length; i++) {
       const col = (i === flr(API.frame / 40) % 5) ? 3 : 2;
-      text(ERAS[i].label, W/2 - flr(ERAS[i].label.length * 2.5), 215 + i * 12, col);
+      text(ERAS[i].label, W/2 - flr(ERAS[i].label.length * 2.5), 161 + i * 9, col);
     }
 
     // Controls info
-    text("ARROWS:ROTATE/THRUST  Z:FIRE", W/2 - 73, 290, 1);
-    text("GRAYBOX DEMO V0.1", W/2 - 43, 308, 1);
+    text("ARROWS:ROTATE/THRUST  Z:FIRE", W/2 - 70, 218, 1);
+    text("GRAYBOX DEMO V0.1", W/2 - 45, 231, 1);
   }
 
   function drawGameOver() {
@@ -1213,12 +1213,12 @@
       pix(flr(p.x - camX), flr(p.y - camY), p.color);
     }
 
-    text("GAME OVER", W/2 - 25, 100, 3);
-    text("FINAL SCORE: " + score, W/2 - 35, 130, 2);
-    text("ERA: " + ERAS[era].name, W/2 - 18, 150, 2);
+    text("GAME OVER", W/2 - 22, 75, 3);
+    text("FINAL SCORE: " + score, W/2 - 35, 98, 2);
+    text("ERA: " + ERAS[era].name, W/2 - 15, 113, 2);
 
     if (flr(API.frame / 20) % 2 === 0) {
-      text("PRESS Z TO CONTINUE", W/2 - 50, 200, 3);
+      text("PRESS Z TO CONTINUE", W/2 - 50, 150, 3);
     }
   }
 

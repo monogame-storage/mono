@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -436,13 +436,13 @@
   const MAZE_PX_W = MAZE_W * TILE;
   const MAZE_PX_H = MAZE_H * TILE;
   const VIEW_X = 0;
-  const VIEW_Y = 12;
-  const VIEW_W = 400;
-  const VIEW_H = 296;
-  const RADAR_X = 410;
-  const RADAR_Y = 18;
-  const RADAR_W = 62;
-  const RADAR_H = 62;
+  const VIEW_Y = 9;
+  const VIEW_W = 267;
+  const VIEW_H = 222;
+  const RADAR_X = 273;
+  const RADAR_Y = 14;
+  const RADAR_W = 41;
+  const RADAR_H = 46;
 
   // Direction vectors: 0=up, 1=right, 2=down, 3=left
   const DX = [0, 1, 0, -1];
@@ -767,8 +767,8 @@
   }
 
   function drawFuel() {
-    const gx = RADAR_X-1, gy = RADAR_Y + RADAR_H + 12;
-    const gw = RADAR_W+2, gh = 6;
+    const gx = RADAR_X-1, gy = RADAR_Y + RADAR_H + 9;
+    const gw = RADAR_W+2, gh = 5;
     text("FUEL", gx, gy-8, 2);
     rect(gx, gy, gw, gh, 1);
     const fw = flr((fuel/maxFuel)*(gw-2));
@@ -780,9 +780,9 @@
     cls(0);
 
     if (state === "title") {
-      const ty = 55 + sin(API.frame*0.05)*4;
-      text("RALLY-X", 196, flr(ty), 3);
-      rectf(168, flr(ty)+10, 144, 1, 2);
+      const ty = 41 + sin(API.frame*0.05)*4;
+      text("RALLY-X", 142, flr(ty), 3);
+      rectf(112, flr(ty)+10, 96, 1, 2);
 
       // Animated cars
       const cx = W/2-30;
@@ -791,27 +791,27 @@
       spr(2, cx+40, flr(ty)+20 + sin(API.frame*0.1+2)*3);
       spr(9, cx+60, flr(ty)+20);
 
-      if (flr(API.frame/20)%2===0) text("PRESS Z TO START", 168, 170, 3);
+      if (flr(API.frame/20)%2===0) text("PRESS Z TO START", 120, 128, 3);
 
-      text("COLLECT ALL FLAGS", 175, 198, 2);
-      text("AVOID ENEMY CARS", 177, 212, 2);
-      text("Z = DEPLOY SMOKE SCREEN", 152, 226, 2);
-      text("ARROWS = STEER CAR", 168, 240, 2);
+      text("COLLECT ALL FLAGS", 117, 149, 2);
+      text("AVOID ENEMY CARS", 120, 159, 2);
+      text("Z = DEPLOY SMOKE SCREEN", 102, 170, 2);
+      text("ARROWS = STEER CAR", 115, 180, 2);
 
-      text("-SCORING-", 200, 262, 2);
-      spr(9, 190, 274); text("  FLAG    100 PTS", 200, 276, 2);
-      spr(10, 190, 288); text("  SPECIAL  200 PTS", 200, 290, 2);
-      text("2X PTS AFTER SPECIAL!", 157, 306, 1);
+      text("-SCORING-", 137, 197, 2);
+      spr(9, 127, 206); text("  FLAG    100 PTS", 133, 207, 2);
+      spr(10, 127, 216); text("  SPECIAL  200 PTS", 133, 218, 2);
+      text("2X PTS AFTER SPECIAL!", 107, 230, 1);
 
-      text("GRAYBOX DEMO V0.1", 168, 314, 1);
+      text("GRAYBOX DEMO V0.1", 117, 236, 1);
       return;
     }
 
     if (state === "gameover") {
-      text("GAME OVER", 195, 100, 3);
-      text("SCORE: " + score, 195, 130, 2);
-      text("LEVEL: " + level, 203, 148, 2);
-      if (flr(API.frame/20)%2===0) text("PRESS Z TO CONTINUE", 155, 200, 3);
+      text("GAME OVER", 137, 75, 3);
+      text("SCORE: " + score, 130, 98, 2);
+      text("LEVEL: " + level, 135, 111, 2);
+      if (flr(API.frame/20)%2===0) text("PRESS Z TO CONTINUE", 110, 150, 3);
       return;
     }
 
@@ -846,18 +846,18 @@
 
     // Level clear overlay
     if (levelCompleteTimer > 0) {
-      const ox = VIEW_W/2-58, oy = VIEW_H/2+VIEW_Y-12;
-      rectf(ox,oy,116,24,0); rect(ox,oy,116,24,2);
-      text("LEVEL CLEAR!", ox+10, oy+8, 3);
+      const ox = VIEW_W/2-38, oy = VIEW_H/2+VIEW_Y-9;
+      rectf(ox,oy,77,18,0); rect(ox,oy,77,18,2);
+      text("LEVEL CLEAR!", ox+8, oy+6, 3);
     }
 
     // --- HUD ---
-    rectf(0,0,W,12,0);
-    text("SCORE:"+score, 4, 3, 3);
-    text("LV:"+level, 170, 3, 2);
-    for (let i = 0; i < lives; i++) spr(1, 220+i*10, 2);
+    rectf(0,0,W,9,0);
+    text("SCORE:"+score, 3, 2, 3);
+    text("LV:"+level, 113, 2, 2);
+    for (let i = 0; i < lives; i++) spr(1, 147+i*10, 1);
     const fl = totalFlags - flagsCollected;
-    text("FLAGS:"+fl, 300, 3, doublePoints?3:2);
+    text("FLAGS:"+fl, 200, 2, doublePoints?3:2);
 
     // Right panel
     rectf(VIEW_W, VIEW_Y, W-VIEW_W, VIEW_H, 0);
@@ -868,12 +868,12 @@
     drawFuel();
 
     // Smoke status
-    const smy = RADAR_Y + RADAR_H + 30;
+    const smy = RADAR_Y + RADAR_H + 22;
     text("SMOKE", RADAR_X, smy, 2);
     if (fuel > 50) text("READY", RADAR_X, smy+10, 3);
     else text("EMPTY", RADAR_X, smy+10, 1);
 
-    if (doublePoints && API.frame%10<7) text("2X PTS!", RADAR_X-2, smy+26, 3);
+    if (doublePoints && API.frame%10<7) text("2X PTS!", RADAR_X-2, smy+22, 3);
   };
 
   // ============================================================

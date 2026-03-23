@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -578,7 +578,7 @@
   let trapezes; // trapeze data
   let onTrapeze, currentTrapeze, swingAngle, swingDir;
 
-  const GROUND_Y = 260;
+  const GROUND_Y = 195;
   const PLAYER_W = 8;
   const PLAYER_H = 8;
 
@@ -622,84 +622,84 @@
 
     if (stage === 0) {
       // Stage 1: Fire rings - lion ride
-      stageLen = 2400 + loop * 400;
-      playerX = 60;
+      stageLen = 1600 + loop * 267;
+      playerX = 40;
       playerY = GROUND_Y - 16;
       // Generate fire rings at intervals
-      for (let x = 200; x < stageLen - 100; x += 80 + flr(rnd(60))) {
-        obstacles.push({ type: "fire", x: x, y: GROUND_Y - 40 - flr(rnd(16)), w: 8, h: 32 });
+      for (let x = 133; x < stageLen - 67; x += 53 + flr(rnd(40))) {
+        obstacles.push({ type: "fire", x: x, y: GROUND_Y - 30 - flr(rnd(12)), w: 8, h: 24 });
       }
       // Bonus items
-      for (let x = 300; x < stageLen - 200; x += 150 + flr(rnd(100))) {
-        bonuses.push({ type: "star", x: x, y: GROUND_Y - 55 - flr(rnd(20)), alive: true });
+      for (let x = 200; x < stageLen - 133; x += 100 + flr(rnd(67))) {
+        bonuses.push({ type: "star", x: x, y: GROUND_Y - 41 - flr(rnd(15)), alive: true });
       }
     }
     else if (stage === 1) {
       // Stage 2: Tightrope
-      stageLen = 2200 + loop * 400;
-      ropeY = GROUND_Y - 60;
-      playerX = 60;
+      stageLen = 1467 + loop * 267;
+      ropeY = GROUND_Y - 45;
+      playerX = 40;
       playerY = ropeY - 8;
       onGround = true;
       // Monkeys as obstacles
-      for (let x = 250; x < stageLen - 100; x += 100 + flr(rnd(80))) {
+      for (let x = 167; x < stageLen - 67; x += 67 + flr(rnd(53))) {
         const dir = rnd(1) < 0.5 ? -1 : 1;
-        obstacles.push({ type: "monkey", x: x, y: ropeY - 8, w: 8, h: 8, dir: dir, startX: x, moveRange: 30 + flr(rnd(30)) });
+        obstacles.push({ type: "monkey", x: x, y: ropeY - 8, w: 8, h: 8, dir: dir, startX: x, moveRange: 20 + flr(rnd(20)) });
       }
-      for (let x = 350; x < stageLen - 200; x += 180 + flr(rnd(80))) {
-        bonuses.push({ type: "ball", x: x, y: ropeY - 24, alive: true });
+      for (let x = 233; x < stageLen - 133; x += 120 + flr(rnd(53))) {
+        bonuses.push({ type: "ball", x: x, y: ropeY - 18, alive: true });
       }
     }
     else if (stage === 2) {
       // Stage 3: Trampolines
-      stageLen = 2600 + loop * 400;
-      playerX = 60;
+      stageLen = 1733 + loop * 267;
+      playerX = 40;
       playerY = GROUND_Y - 16;
       trampolines = [];
       // Trampolines and barrels
-      let tx = 180;
-      while (tx < stageLen - 100) {
+      let tx = 120;
+      while (tx < stageLen - 67) {
         trampolines.push({ x: tx, y: GROUND_Y - 8 });
         // Barrel after some trampolines
         if (rnd(1) < 0.6) {
-          obstacles.push({ type: "barrel", x: tx + 50 + flr(rnd(30)), y: GROUND_Y - 8, w: 8, h: 8 });
+          obstacles.push({ type: "barrel", x: tx + 33 + flr(rnd(20)), y: GROUND_Y - 8, w: 8, h: 8 });
         }
-        tx += 90 + flr(rnd(50));
+        tx += 60 + flr(rnd(33));
       }
-      for (let x = 300; x < stageLen - 200; x += 200 + flr(rnd(100))) {
-        bonuses.push({ type: "star", x: x, y: GROUND_Y - 70, alive: true });
+      for (let x = 200; x < stageLen - 133; x += 133 + flr(rnd(67))) {
+        bonuses.push({ type: "star", x: x, y: GROUND_Y - 53, alive: true });
       }
     }
     else if (stage === 3) {
       // Stage 4: Horse vault
-      stageLen = 2400 + loop * 400;
-      playerX = 60;
+      stageLen = 1600 + loop * 267;
+      playerX = 40;
       playerY = GROUND_Y - 16;
       horses = [];
-      for (let x = 200; x < stageLen - 100; x += 70 + flr(rnd(40))) {
+      for (let x = 133; x < stageLen - 67; x += 47 + flr(rnd(27))) {
         horses.push({ x: x, y: GROUND_Y - 16, w: 16, h: 16 });
         obstacles.push({ type: "horse", x: x, y: GROUND_Y - 16, w: 16, h: 16 });
       }
-      for (let x = 250; x < stageLen - 200; x += 160 + flr(rnd(80))) {
-        bonuses.push({ type: "ball", x: x, y: GROUND_Y - 50, alive: true });
+      for (let x = 167; x < stageLen - 133; x += 107 + flr(rnd(53))) {
+        bonuses.push({ type: "ball", x: x, y: GROUND_Y - 38, alive: true });
       }
     }
     else if (stage === 4) {
       // Stage 5: Trapeze
-      stageLen = 2800 + loop * 400;
-      playerX = 40;
-      playerY = 100;
+      stageLen = 1867 + loop * 267;
+      playerX = 27;
+      playerY = 75;
       trapezes = [];
-      let tx = 60;
+      let tx = 40;
       for (let i = 0; i < 20; i++) {
-        const ty = 60 + flr(rnd(40));
-        trapezes.push({ x: tx, y: ty, angle: rnd(Math.PI * 2), speed: 0.04 + rnd(0.03), ropeLen: 40 + flr(rnd(20)) });
-        tx += 100 + flr(rnd(60));
+        const ty = 45 + flr(rnd(30));
+        trapezes.push({ x: tx, y: ty, angle: rnd(Math.PI * 2), speed: 0.04 + rnd(0.03), ropeLen: 30 + flr(rnd(15)) });
+        tx += 67 + flr(rnd(40));
       }
       onTrapeze = true;
       currentTrapeze = 0;
-      for (let x = 300; x < stageLen - 200; x += 200 + flr(rnd(100))) {
-        bonuses.push({ type: "star", x: x, y: 60 + flr(rnd(40)), alive: true });
+      for (let x = 200; x < stageLen - 133; x += 133 + flr(rnd(67))) {
+        bonuses.push({ type: "star", x: x, y: 45 + flr(rnd(30)), alive: true });
       }
     }
 
@@ -740,7 +740,7 @@
     } else {
       invincible = true;
       invTimer = 60;
-      playerX = 60 + scrollX;
+      playerX = 40 + scrollX;
       if (stage === 1) { playerY = ropeY - 8; }
       else if (stage === 4) { onTrapeze = true; currentTrapeze = _max(0, currentTrapeze - 1); }
       else { playerY = GROUND_Y - 16; jumping = false; playerVY = 0; onGround = true; }
@@ -843,9 +843,9 @@
     const screenPX = playerX - scrollX;
 
     // Player auto-runs with lion, can move slightly
-    playerX = scrollX + 60;
-    if (btn("right")) playerX = scrollX + 80;
-    if (btn("left")) playerX = scrollX + 40;
+    playerX = scrollX + 40;
+    if (btn("right")) playerX = scrollX + 53;
+    if (btn("left")) playerX = scrollX + 27;
 
     // Jump
     if (btnp("a") && onGround) {
@@ -874,15 +874,15 @@
       // Only check nearby
       if (_abs(ox - px) > 20) continue;
       // Fire ring: you need to jump THROUGH the ring (pass through center OK, hit edges = damage)
-      const ringCenterY = obs.y + 12;
+      const ringCenterY = obs.y + 9;
       const relX = px - ox;
       if (relX > -4 && relX < 12) {
         // Inside ring horizontal zone
-        if (py > obs.y - 2 && py < obs.y + 6) {
+        if (py > obs.y - 2 && py < obs.y + 5) {
           // Hit top of ring
           playerHit(); break;
         }
-        if (py + 8 > obs.y + 24 && py + 8 < obs.y + 34) {
+        if (py + 8 > obs.y + 18 && py + 8 < obs.y + 26) {
           // Hit bottom of ring
           playerHit(); break;
         }
@@ -892,9 +892,9 @@
 
   // --- Stage 2: Tightrope ---
   function updateTightrope() {
-    playerX = scrollX + 60;
-    if (btn("right")) playerX = scrollX + 80;
-    if (btn("left")) playerX = scrollX + 40;
+    playerX = scrollX + 40;
+    if (btn("right")) playerX = scrollX + 53;
+    if (btn("left")) playerX = scrollX + 27;
 
     // Jump
     if (btnp("a") && onGround) {
@@ -946,9 +946,9 @@
 
   // --- Stage 3: Trampolines ---
   function updateTrampolines() {
-    playerX = scrollX + 60;
-    if (btn("right")) playerX = scrollX + 80;
-    if (btn("left")) playerX = scrollX + 40;
+    playerX = scrollX + 40;
+    if (btn("right")) playerX = scrollX + 53;
+    if (btn("left")) playerX = scrollX + 27;
 
     // Jump / auto-bounce on trampolines
     if (btnp("a") && onGround) {
@@ -1011,9 +1011,9 @@
 
   // --- Stage 4: Horse Vault ---
   function updateHorseVault() {
-    playerX = scrollX + 60;
-    if (btn("right")) playerX = scrollX + 80;
-    if (btn("left")) playerX = scrollX + 40;
+    playerX = scrollX + 40;
+    if (btn("right")) playerX = scrollX + 53;
+    if (btn("left")) playerX = scrollX + 27;
 
     if (btnp("a") && onGround) {
       playerVY = -7.5;
@@ -1064,8 +1064,8 @@
 
     if (onTrapeze && currentTrapeze >= 0 && currentTrapeze < trapezes.length) {
       const t = trapezes[currentTrapeze];
-      const bx = t.x + sin(t.angle) * 30;
-      const by = t.y + t.ropeLen + cos(t.angle) * 10;
+      const bx = t.x + sin(t.angle) * 20;
+      const by = t.y + t.ropeLen + cos(t.angle) * 8;
       playerX = bx;
       playerY = by;
 
@@ -1080,21 +1080,21 @@
       }
 
       // Auto-scroll follows player
-      scrollX = _max(0, t.x - 120);
+      scrollX = _max(0, t.x - 80);
     } else {
       // Flying through air
       playerVY += 0.22;
       playerX += 2.5;
       playerY += playerVY;
 
-      scrollX = _max(0, playerX - 120);
+      scrollX = _max(0, playerX - 80);
 
       // Check if can grab a trapeze
       for (let i = 0; i < trapezes.length; i++) {
         if (i === currentTrapeze) continue;
         const t = trapezes[i];
-        const bx = t.x + sin(t.angle) * 30;
-        const by = t.y + t.ropeLen + cos(t.angle) * 10;
+        const bx = t.x + sin(t.angle) * 20;
+        const by = t.y + t.ropeLen + cos(t.angle) * 8;
         if (_abs(playerX - bx) < 14 && _abs(playerY - by) < 14) {
           onTrapeze = true;
           currentTrapeze = i;
@@ -1106,7 +1106,7 @@
       }
 
       // Fall to death
-      if (playerY > GROUND_Y + 20) {
+      if (playerY > GROUND_Y + 15) {
         playerHit();
       }
     }
@@ -1169,43 +1169,43 @@
 
     // Stage announcement
     if (stageTimer > 0) {
-      rectf(100, 130, 280, 60, 0);
-      rect(102, 132, 276, 56, 2);
-      text("STAGE " + (stage + 1), 195, 145, 3);
-      text(STAGE_NAMES[stage], 200 - STAGE_NAMES[stage].length * 2.5, 160, 2);
-      if (loop > 0) text("LOOP " + (loop + 1), 210, 175, 1);
+      rectf(67, 98, 187, 45, 0);
+      rect(69, 100, 183, 42, 2);
+      text("STAGE " + (stage + 1), 128, 109, 3);
+      text(STAGE_NAMES[stage], 133 - STAGE_NAMES[stage].length * 2.5, 120, 2);
+      if (loop > 0) text("LOOP " + (loop + 1), 140, 131, 1);
     }
 
     // Stage clear
     if (stageComplete) {
       const flash = flr(stageClearTimer / 4) % 2;
-      rectf(140, 130, 200, 50, 0);
-      rect(142, 132, 196, 46, flash ? 3 : 2);
-      text("STAGE CLEAR!", 178, 142, 3);
-      text("BONUS: 1000", 185, 158, 2);
+      rectf(93, 98, 133, 38, 0);
+      rect(95, 100, 129, 34, flash ? 3 : 2);
+      text("STAGE CLEAR!", 130, 107, 3);
+      text("BONUS: 1000", 133, 119, 2);
     }
 
     // Progress bar
     const progress = min(1, scrollX / stageLen);
-    rectf(100, H - 8, 280, 4, 0);
-    rect(100, H - 8, 280, 4, 1);
-    rectf(101, H - 7, flr(278 * progress), 2, 2);
+    rectf(67, H - 8, 187, 4, 0);
+    rect(67, H - 8, 187, 4, 1);
+    rectf(68, H - 7, flr(185 * progress), 2, 2);
   };
 
   function drawBackground(camX) {
     // Circus tent stripes at top
     for (let x = 0; x < W; x += 16) {
       const stripe = (flr((x + camX * 0.1) / 16)) % 2;
-      rectf(x, 0, 16, 20, stripe ? 0 : 1);
+      rectf(x, 0, 16, 15, stripe ? 0 : 1);
     }
     // Tent edge
-    line(0, 20, W, 20, 2);
-    line(0, 21, W, 21, 1);
+    line(0, 15, W, 15, 2);
+    line(0, 16, W, 16, 1);
 
     // Stars in the circus ceiling
     for (let i = 0; i < 15; i++) {
       const sx = ((i * 73 + camX * 0.05) % W);
-      const sy = 5 + (i * 37) % 13;
+      const sy = 4 + (i * 37) % 10;
       pix(flr(sx), sy, (i + flr(animFrame / 10)) % 2 ? 2 : 1);
     }
 
@@ -1225,20 +1225,20 @@
       if (sx < -16 || sx > W + 16) continue;
 
       // Fire pot below ring
-      spr(20, flr(sx), flr(obs.y + 28));
+      spr(20, flr(sx), flr(obs.y + 21));
 
       // Fire ring
       spr(6, flr(sx), flr(obs.y));
-      spr(7, flr(sx), flr(obs.y + 24));
+      spr(7, flr(sx), flr(obs.y + 18));
 
       // Animated flames
       const flameOff = sin(animFrame * 0.3 + obs.x) * 2;
-      spr(8, flr(sx - 6), flr(obs.y + 8 + flameOff));
-      spr(8, flr(sx + 6), flr(obs.y + 10 - flameOff));
+      spr(8, flr(sx - 4), flr(obs.y + 6 + flameOff));
+      spr(8, flr(sx + 4), flr(obs.y + 8 - flameOff));
 
       // Flickering fire particles
       if (animFrame % 4 === 0) {
-        pix(flr(sx + rnd(8)), flr(obs.y + rnd(30)), flr(rnd(2)) + 2);
+        pix(flr(sx + rnd(8)), flr(obs.y + rnd(23)), flr(rnd(2)) + 2);
       }
     }
 
@@ -1256,8 +1256,8 @@
     line(0, ropeY + 1, W, ropeY + 1, 1);
 
     // Rope supports
-    for (let x = 0; x < W + 40; x += 200) {
-      const sx = x - (camX % 200);
+    for (let x = 0; x < W + 40; x += 133) {
+      const sx = x - (camX % 133);
       rectf(flr(sx), ropeY, 3, GROUND_Y - ropeY, 1);
       rectf(flr(sx) - 2, ropeY - 4, 7, 5, 2);
     }
@@ -1301,7 +1301,7 @@
 
   function drawTrapezeStage(camX) {
     // Draw safety net
-    for (let y = GROUND_Y; y < GROUND_Y + 20; y += 4) {
+    for (let y = GROUND_Y; y < GROUND_Y + 15; y += 4) {
       for (let x = 0; x < W; x += 6) {
         pix(x, y, 1);
       }
@@ -1314,8 +1314,8 @@
       const sx = t.x - camX;
       if (sx < -60 || sx > W + 60) continue;
 
-      const bx = sx + sin(t.angle) * 30;
-      const by = t.y + t.ropeLen + cos(t.angle) * 10;
+      const bx = sx + sin(t.angle) * 20;
+      const by = t.y + t.ropeLen + cos(t.angle) * 8;
 
       // Ropes
       line(flr(sx), flr(t.y), flr(bx - 3), flr(by), 2);
@@ -1360,11 +1360,11 @@
   }
 
   function drawHUD() {
-    rectf(0, 22, W, 14, 0);
-    text("SCORE:" + score, 4, 25, 3);
-    text("STAGE " + (stage + 1), W / 2 - 20, 25, 2);
-    for (let i = 0; i < lives; i++) spr(19, W - 40 + i * 10, 24);
-    if (loop > 0) text("*" + (loop + 1), W / 2 + 30, 25, 1);
+    rectf(0, 17, W, 14, 0);
+    text("SCORE:" + score, 3, 19, 3);
+    text("STAGE " + (stage + 1), W / 2 - 20, 19, 2);
+    for (let i = 0; i < lives; i++) spr(19, W - 40 + i * 10, 18);
+    if (loop > 0) text("*" + (loop + 1), W / 2 + 30, 19, 1);
   }
 
   function drawTitle() {
@@ -1375,52 +1375,52 @@
     }
 
     // Spotlight effect
-    circf(W / 2, H / 2, 130, 0);
-    circ(W / 2, H / 2, 130, 1);
-    circ(W / 2, H / 2, 131, 1);
+    circf(W / 2, H / 2, 97, 0);
+    circ(W / 2, H / 2, 97, 1);
+    circ(W / 2, H / 2, 98, 1);
 
     // Title
-    const ty = 60 + sin(animFrame * 0.05) * 5;
-    text("CIRCUS CHARLIE", 173, flr(ty), 3);
-    text("CIRCUS CHARLIE", 174, flr(ty) + 1, 1);
-    rectf(160, flr(ty) + 12, 160, 1, 2);
+    const ty = 45 + sin(animFrame * 0.05) * 4;
+    text("CIRCUS CHARLIE", 125, flr(ty), 3);
+    text("CIRCUS CHARLIE", 126, flr(ty) + 1, 1);
+    rectf(113, flr(ty) + 12, 107, 1, 2);
 
     // Show characters
-    const bx = W / 2 - 50;
+    const bx = W / 2 - 33;
     const bounce = sin(animFrame * 0.08) * 3;
 
     // Lion with Charlie
-    spr(3, flr(bx), flr(ty + 30 + bounce));
-    spr(1, flr(bx - 8), flr(ty + 32 + bounce));
-    spr(4, flr(bx - 4), flr(ty + 24 + bounce));
+    spr(3, flr(bx), flr(ty + 23 + bounce));
+    spr(1, flr(bx - 5), flr(ty + 24 + bounce));
+    spr(4, flr(bx - 3), flr(ty + 18 + bounce));
 
     // Fire ring
-    spr(6, flr(bx + 30), flr(ty + 25));
-    spr(7, flr(bx + 30), flr(ty + 49));
-    spr(8, flr(bx + 24), flr(ty + 34 + sin(animFrame * 0.2) * 2));
+    spr(6, flr(bx + 20), flr(ty + 19));
+    spr(7, flr(bx + 20), flr(ty + 37));
+    spr(8, flr(bx + 16), flr(ty + 26 + sin(animFrame * 0.2) * 2));
 
     // Monkey
     const monkSpr = flr(animFrame / 8) % 2 === 0 ? 11 : 12;
-    spr(monkSpr, flr(bx + 55), flr(ty + 30 + sin(animFrame * 0.1 + 1) * 3));
+    spr(monkSpr, flr(bx + 37), flr(ty + 23 + sin(animFrame * 0.1 + 1) * 3));
 
     // Horse
-    spr(16, flr(bx + 78), flr(ty + 22 + bounce));
-    spr(15, flr(bx + 70), flr(ty + 30 + bounce));
+    spr(16, flr(bx + 52), flr(ty + 17 + bounce));
+    spr(15, flr(bx + 47), flr(ty + 23 + bounce));
 
     // Star bonus
-    spr(9, flr(bx + 100), flr(ty + 28 + sin(animFrame * 0.12 + 2) * 4));
+    spr(9, flr(bx + 67), flr(ty + 21 + sin(animFrame * 0.12 + 2) * 4));
 
-    if (flr(animFrame / 20) % 2 === 0) text("PRESS A TO START", 170, 190, 3);
+    if (flr(animFrame / 20) % 2 === 0) text("PRESS A TO START", 120, 143, 3);
 
     // Stage list
-    text("-STAGES-", 205, 215, 2);
-    text("1. FIRE RINGS", 185, 228, 2);
-    text("2. TIGHTROPE", 185, 238, 2);
-    text("3. TRAMPOLINES", 185, 248, 2);
-    text("4. HORSE VAULT", 185, 258, 2);
-    text("5. TRAPEZE", 185, 268, 2);
+    text("-STAGES-", 140, 161, 2);
+    text("1. FIRE RINGS", 123, 171, 2);
+    text("2. TIGHTROPE", 123, 179, 2);
+    text("3. TRAMPOLINES", 123, 187, 2);
+    text("4. HORSE VAULT", 123, 195, 2);
+    text("5. TRAPEZE", 123, 203, 2);
 
-    text("GRAYBOX DEMO V0.1", 168, 305, 1);
+    text("GRAYBOX DEMO V0.1", 117, 229, 1);
   }
 
   function drawGameOver() {
@@ -1428,16 +1428,16 @@
     cls(0);
 
     // Spotlight
-    circf(W / 2, 160, 80, 0);
-    circ(W / 2, 160, 80, 1);
+    circf(W / 2, 120, 60, 0);
+    circ(W / 2, 120, 60, 1);
 
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-    text("GAME OVER", 198, 110, 3);
-    text("SCORE: " + score, 195, 140, 2);
-    text("STAGE: " + (stage + 1), 195, 155, 2);
-    if (loop > 0) text("LOOP: " + (loop + 1), 195, 170, 2);
-    if (flr(animFrame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 158, 210, 3);
+    text("GAME OVER", 138, 83, 3);
+    text("SCORE: " + score, 130, 105, 2);
+    text("STAGE: " + (stage + 1), 130, 116, 2);
+    if (loop > 0) text("LOOP: " + (loop + 1), 130, 128, 2);
+    if (flr(animFrame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 110, 158, 3);
   }
 
   // ============================================================

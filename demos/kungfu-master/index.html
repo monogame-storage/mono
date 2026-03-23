@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -573,8 +573,8 @@
   );
 
   // --- Constants ---
-  const FLOOR_Y = 250;         // ground Y for player feet
-  const FLOOR_W = 960;         // total floor width in pixels
+  const FLOOR_Y = 188;         // ground Y for player feet
+  const FLOOR_W = 640;         // total floor width in pixels
   const PLAYER_W = 12;
   const PLAYER_H = 16;
   const GRAVITY = 0.6;
@@ -614,7 +614,7 @@
 
   function initFloor() {
     player = {
-      x: 40, y: FLOOR_Y, vx: 0, vy: 0,
+      x: 27, y: FLOOR_Y, vx: 0, vy: 0,
       facingR: true, hp: MAX_HP,
       state: "idle",     // idle, walk, jump, crouch, attack, hurt, grabbed, dead
       attackType: "",    // punch, kick, jumpkick, crouchpunch
@@ -661,7 +661,7 @@
       e.speed = 0.6;
       e.score = 2000;
       e.attackTimer = 30 + flr(rnd(30));
-      e.x = FLOOR_W - 60;
+      e.x = FLOOR_W - 40;
       e.facingR = false;
     }
     enemies.push(e);
@@ -918,7 +918,7 @@
           gameOverTimer = 120;
         } else {
           // Respawn
-          p.x = camX + 40;
+          p.x = camX + 27;
           p.y = FLOOR_Y;
           p.hp = MAX_HP;
           p.state = "idle";
@@ -947,7 +947,7 @@
       }
 
       // Spawn boss when player reaches end of floor
-      if (p.x > FLOOR_W - 200) {
+      if (p.x > FLOOR_W - 133) {
         spawnBoss();
       }
     }
@@ -1210,16 +1210,16 @@
     rectf(0, 0, W, H, bgC);
 
     // Draw background pillars
-    for (let px = flr(camX / 64) * 64; px < camX + W + 64; px += 64) {
+    for (let px = flr(camX / 43) * 43; px < camX + W + 43; px += 43) {
       const sx = px + ox;
       // Pillar
-      rectf(sx + 28, 40 + oy, 8, FLOOR_Y - 40 + oy, 1);
-      rectf(sx + 26, 38 + oy, 12, 4, 1);
-      rectf(sx + 26, FLOOR_Y - 2 + oy, 12, 4, 1);
+      rectf(sx + 19, 30 + oy, 6, FLOOR_Y - 30 + oy, 1);
+      rectf(sx + 17, 29 + oy, 10, 3, 1);
+      rectf(sx + 17, FLOOR_Y - 2 + oy, 10, 3, 1);
     }
 
     // Draw wall lines
-    for (let wy = 50; wy < FLOOR_Y; wy += 24) {
+    for (let wy = 38; wy < FLOOR_Y; wy += 18) {
       const screenWy = wy + oy;
       if (screenWy >= 0 && screenWy < H) {
         line(0, screenWy, W, screenWy, 1);
@@ -1376,46 +1376,46 @@
 
     // --- HUD ---
     // Health bar background
-    rectf(8, 4, 82, 10, 0);
-    rect(8, 4, 82, 10, 2);
-    text("HP", 10, 6, 3);
-    const hpW = flr((p.hp / MAX_HP) * 64);
-    rectf(18, 6, hpW, 6, 3);
-    rectf(18 + hpW, 6, 64 - hpW, 6, 1);
+    rectf(5, 3, 55, 8, 0);
+    rect(5, 3, 55, 8, 2);
+    text("HP", 7, 5, 3);
+    const hpW = flr((p.hp / MAX_HP) * 43);
+    rectf(12, 5, hpW, 5, 3);
+    rectf(12 + hpW, 5, 43 - hpW, 5, 1);
 
     // Lives
     for (let i = 0; i < lives; i++) {
-      sprT(32, 96 + i * 10, 2, false, false);
+      sprT(32, 64 + i * 10, 2, false, false);
     }
 
     // Score
-    text("SCORE " + String(score).padStart(7, "0"), W - 110, 4, 3);
+    text("SCORE " + String(score).padStart(7, "0"), W - 73, 3, 3);
 
     // Floor indicator
-    text("FLOOR " + FLOORS[min(floor, 4)].name, 8, 18, 2);
+    text("FLOOR " + FLOORS[min(floor, 4)].name, 5, 14, 2);
 
     // Timer
     const timerSec = _max(0, Math.ceil(timer / 30));
     const timerColor = timerSec <= 10 ? (API.frame % 10 < 5 ? 3 : 2) : 3;
-    text("TIME " + String(timerSec).padStart(3, "0"), W / 2 - 25, 4, timerColor);
+    text("TIME " + String(timerSec).padStart(3, "0"), W / 2 - 17, 3, timerColor);
 
     // Hi-Score
-    text("HI " + String(hiScore).padStart(7, "0"), W - 110, 14, 2);
+    text("HI " + String(hiScore).padStart(7, "0"), W - 73, 11, 2);
 
     // Grabbed indicator
     if (p.state === "grabbed") {
       const mashText = "MASH Z/X!";
-      text(mashText, W / 2 - 22, 30, API.frame % 6 < 3 ? 3 : 2);
+      text(mashText, W / 2 - 22, 23, API.frame % 6 < 3 ? 3 : 2);
     }
 
     // Floor transition
     if (floorTransition) {
       const msg = bossDefeated ? "FLOOR CLEAR!" : "";
-      text(msg, W / 2 - 30, H / 2 - 10, 3);
+      text(msg, W / 2 - 30, H / 2 - 8, 3);
       if (floor < 4) {
-        text("NEXT: FLOOR " + FLOORS[min(floor + 1, 4)].name, W / 2 - 40, H / 2 + 4, 2);
+        text("NEXT: FLOOR " + FLOORS[min(floor + 1, 4)].name, W / 2 - 40, H / 2 + 3, 2);
       } else {
-        text("FINAL FLOOR COMPLETE!", W / 2 - 52, H / 2 + 4, 3);
+        text("FINAL FLOOR COMPLETE!", W / 2 - 52, H / 2 + 3, 3);
       }
     }
   }
@@ -1425,47 +1425,47 @@
     cls(0);
 
     // Title art border
-    rect(40, 20, W - 80, 60, 2);
-    rect(42, 22, W - 84, 56, 1);
+    rect(27, 15, W - 54, 45, 2);
+    rect(29, 17, W - 58, 41, 1);
 
     // Title text
-    text("KUNG-FU MASTER", W / 2 - 36, 34, 3);
-    text("SPARTAN X", W / 2 - 24, 48, 2);
+    text("KUNG-FU MASTER", W / 2 - 35, 26, 3);
+    text("SPARTAN X", W / 2 - 22, 36, 2);
 
     // Decorative martial arts figure
-    sprT(1, W / 2 - 50, 100, false, false);
-    sprT(2, W / 2 - 50, 108, false, false);
-    sprT(3, W / 2 - 42, 98, false, false); // punch
+    sprT(1, W / 2 - 33, 75, false, false);
+    sprT(2, W / 2 - 33, 83, false, false);
+    sprT(3, W / 2 - 25, 73, false, false); // punch
 
     // VS enemies
-    sprT(10, W / 2 + 20, 100, true, false);
-    sprT(11, W / 2 + 20, 108, true, false);
-    sprT(10, W / 2 + 40, 96, true, false);
-    sprT(11, W / 2 + 40, 104, true, false);
+    sprT(10, W / 2 + 13, 75, true, false);
+    sprT(11, W / 2 + 13, 83, true, false);
+    sprT(10, W / 2 + 27, 72, true, false);
+    sprT(11, W / 2 + 27, 80, true, false);
 
     // Floor display
-    text("5 FLOORS OF FURY!", W / 2 - 44, 130, 2);
+    text("5 FLOORS OF FURY!", W / 2 - 44, 98, 2);
 
     // Controls
-    text("CONTROLS:", W / 2 - 24, 160, 3);
-    text("ARROWS  MOVE/JUMP/CROUCH", W / 2 - 60, 175, 2);
-    text("Z  PUNCH    X  KICK", W / 2 - 50, 190, 2);
-    text("UP+Z  JUMP KICK", W / 2 - 40, 205, 2);
-    text("DOWN+Z  CROUCH PUNCH", W / 2 - 52, 220, 2);
+    text("CONTROLS:", W / 2 - 22, 120, 3);
+    text("ARROWS  MOVE/JUMP/CROUCH", W / 2 - 60, 131, 2);
+    text("Z  PUNCH    X  KICK", W / 2 - 50, 143, 2);
+    text("UP+Z  JUMP KICK", W / 2 - 40, 154, 2);
+    text("DOWN+Z  CROUCH PUNCH", W / 2 - 52, 165, 2);
 
     // Blink "PRESS START"
     titleBlink = (titleBlink || 0) + 1;
     if (titleBlink % 40 < 25) {
-      text("PRESS ENTER TO START", W / 2 - 50, 260, 3);
+      text("PRESS ENTER TO START", W / 2 - 50, 195, 3);
     }
 
     // Hi-Score
     if (hiScore > 0) {
-      text("HI-SCORE " + String(hiScore).padStart(7, "0"), W / 2 - 40, 290, 2);
+      text("HI-SCORE " + String(hiScore).padStart(7, "0"), W / 2 - 40, 218, 2);
     }
 
     // Copyright line
-    text("GRAYBOX DEMO 2024", W / 2 - 44, 306, 1);
+    text("GRAYBOX DEMO 2024", W / 2 - 42, 230, 1);
   }
 
   function drawGameOver() {
@@ -1473,35 +1473,35 @@
     drawGame();
 
     // Overlay
-    rectf(W / 2 - 70, H / 2 - 30, 140, 60, 0);
-    rect(W / 2 - 70, H / 2 - 30, 140, 60, 2);
-    rect(W / 2 - 68, H / 2 - 28, 136, 56, 1);
+    rectf(W / 2 - 47, H / 2 - 23, 94, 45, 0);
+    rect(W / 2 - 47, H / 2 - 23, 94, 45, 2);
+    rect(W / 2 - 45, H / 2 - 21, 90, 42, 1);
 
-    text("GAME OVER", W / 2 - 24, H / 2 - 16, 3);
+    text("GAME OVER", W / 2 - 22, H / 2 - 12, 3);
     text("SCORE " + String(score).padStart(7, "0"), W / 2 - 30, H / 2, 2);
 
     if (gameOverTimer <= 60 && API.frame % 30 < 20) {
-      text("PRESS ENTER", W / 2 - 28, H / 2 + 16, 3);
+      text("PRESS ENTER", W / 2 - 27, H / 2 + 12, 3);
     }
   }
 
   function drawWin() {
     cls(0);
 
-    rect(60, 40, W - 120, 100, 3);
-    rect(62, 42, W - 124, 96, 2);
+    rect(40, 30, W - 80, 75, 3);
+    rect(42, 32, W - 84, 71, 2);
 
-    text("CONGRATULATIONS!", W / 2 - 42, 60, 3);
-    text("YOU HAVE RESCUED", W / 2 - 42, 80, 2);
-    text("THE PRINCESS!", W / 2 - 34, 96, 2);
-    text("SCORE " + String(score).padStart(7, "0"), W / 2 - 30, 116, 3);
+    text("CONGRATULATIONS!", W / 2 - 42, 45, 3);
+    text("YOU HAVE RESCUED", W / 2 - 42, 60, 2);
+    text("THE PRINCESS!", W / 2 - 34, 72, 2);
+    text("SCORE " + String(score).padStart(7, "0"), W / 2 - 30, 87, 3);
 
     // Player celebration
-    sprT(1, W / 2 - 4, 180, false, false);
-    sprT(6, W / 2 - 4, 188, false, false);
+    sprT(1, W / 2 - 4, 135, false, false);
+    sprT(6, W / 2 - 4, 143, false, false);
 
     if (gameOverTimer <= 60 && API.frame % 30 < 20) {
-      text("PRESS ENTER", W / 2 - 28, 220, 3);
+      text("PRESS ENTER", W / 2 - 27, 165, 3);
     }
   }
 

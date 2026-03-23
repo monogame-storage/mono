@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -426,7 +426,7 @@
   const PLAT_SPRING = 3;
   const PLAT_DISAPPEARING = 4;
 
-  const PLAT_W = 32;
+  const PLAT_W = 22;
   const PLAT_DRAW_H = 5;
 
   // --- Game state ---
@@ -485,15 +485,15 @@
   }
 
   function ensurePlatforms() {
-    const topEdge = cameraY - 120;
+    const topEdge = cameraY - 90;
     let highestPlat = Infinity;
     for (const p of platforms) {
       if (p.y < highestPlat) highestPlat = p.y;
     }
     if (highestPlat === Infinity) highestPlat = cameraY + H;
 
-    const baseGap = 44;
-    const gapVariation = 16;
+    const baseGap = 33;
+    const gapVariation = 12;
 
     while (highestPlat > topEdge) {
       const gap = baseGap + flr(rnd(gapVariation));
@@ -528,7 +528,7 @@
   function resetGame() {
     player = {
       x: W / 2 - 4,
-      y: H - 40,
+      y: H - 30,
       vx: 0,
       vy: 0,
       facing: 1
@@ -550,7 +550,7 @@
     // Ground platforms
     for (let gx = 0; gx < W; gx += PLAT_W) {
       platforms.push({
-        x: gx, y: H - 16,
+        x: gx, y: H - 12,
         type: PLAT_NORMAL, alive: true,
         moveDir: 0, moveSpeed: 0, alpha: 1,
         crumbleTimer: 0, disappearTimer: 0
@@ -560,7 +560,7 @@
     for (let i = 1; i < 8; i++) {
       platforms.push({
         x: flr(rnd(W - PLAT_W)),
-        y: H - 16 - i * 44,
+        y: H - 12 - i * 33,
         type: PLAT_NORMAL, alive: true,
         moveDir: 0, moveSpeed: 0, alpha: 1,
         crumbleTimer: 0, disappearTimer: 0
@@ -602,8 +602,8 @@
 
     // Left margin red-ish line (using medium gray)
     for (let ly = 0; ly < H; ly++) {
-      pix(32, ly, 2);
-      pix(33, ly, 2);
+      pix(21, ly, 2);
+      pix(22, ly, 2);
     }
   }
 
@@ -973,10 +973,10 @@
     text("SCORE: " + score + "M", 4, 3, 0);
 
     if (jetpackTimer > 0) {
-      text("JETPACK: " + flr(jetpackTimer / 30 + 1) + "S", W / 2 - 40, 3, 1);
+      text("JETPACK: " + flr(jetpackTimer / 30 + 1) + "S", W / 2 - 27, 3, 1);
     }
     if (springShoeCount > 0) {
-      text("SPRINGS: " + springShoeCount, W - 80, 3, 1);
+      text("SPRINGS: " + springShoeCount, W - 53, 3, 1);
     }
   }
 
@@ -1002,34 +1002,34 @@
       }
     }
     for (let ly = 0; ly < H; ly++) {
-      pix(32, ly, 2);
-      pix(33, ly, 2);
+      pix(21, ly, 2);
+      pix(22, ly, 2);
     }
 
     // Title with bounce
-    const titleY = 55 + flr(sin(titleBounce * 0.08) * 4);
+    const titleY = 41 + flr(sin(titleBounce * 0.08) * 4);
     textCenter("DOODLE JUMP", titleY + 2, 2);
     textCenter("DOODLE JUMP", titleY, 0);
     textCenter("GRAYBOX EDITION", titleY + 18, 1);
 
     // Bouncing character preview
-    const charY = 130 + flr(sin(titleBounce * 0.15) * 14);
+    const charY = 98 + flr(sin(titleBounce * 0.15) * 14);
     sprT(1, W / 2 - 4, charY);
     pix(W / 2 + 3, charY + 3, 0);
 
     // Decorative platforms
-    rectf(W / 2 - 16, charY + 22, 32, 4, 1);
-    line(W / 2 - 16, charY + 21, W / 2 + 15, charY + 21, 0);
-    line(W / 2 - 16, charY + 26, W / 2 + 15, charY + 26, 0);
+    rectf(W / 2 - 11, charY + 22, 22, 4, 1);
+    line(W / 2 - 11, charY + 21, W / 2 + 10, charY + 21, 0);
+    line(W / 2 - 11, charY + 26, W / 2 + 10, charY + 26, 0);
 
-    rectf(W / 2 + 50, charY + 2, 32, 4, 1);
-    rectf(W / 2 - 70, charY + 8, 32, 4, 1);
+    rectf(W / 2 + 33, charY + 2, 22, 4, 1);
+    rectf(W / 2 - 47, charY + 8, 22, 4, 1);
 
-    textCenter("PRESS ENTER TO START", 225, 0);
-    textCenter("ARROWS: MOVE   Z: SHOOT", 245, 1);
+    textCenter("PRESS ENTER TO START", 169, 0);
+    textCenter("ARROWS: MOVE   Z: SHOOT", 184, 1);
 
     if (bestScore > 0) {
-      textCenter("BEST: " + bestScore + "M", 270, 1);
+      textCenter("BEST: " + bestScore + "M", 203, 1);
     }
 
     textCenter("GRAYBOX V0.1", H - 14, 2);
@@ -1051,15 +1051,15 @@
       }
     }
 
-    textCenter("GAME OVER!", 80, 0);
-    textCenter("HEIGHT: " + score + "M", 120, 0);
+    textCenter("GAME OVER!", 60, 0);
+    textCenter("HEIGHT: " + score + "M", 90, 0);
 
     if (score >= bestScore) {
-      textCenter("NEW BEST!", 148, 1);
+      textCenter("NEW BEST!", 111, 1);
     }
 
-    textCenter("BEST: " + bestScore + "M", 175, 1);
-    textCenter("PRESS ENTER TO CONTINUE", 225, 0);
+    textCenter("BEST: " + bestScore + "M", 131, 1);
+    textCenter("PRESS ENTER TO CONTINUE", 169, 0);
   }
 
   // --- Dying state ---

@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -537,13 +537,13 @@
 
   // --- Game constants ---
   const TILE = 8;
-  const PLAY_LEFT = 32;
-  const PLAY_RIGHT = W - 32;
+  const PLAY_LEFT = 21;
+  const PLAY_RIGHT = W - 21;
   const PLAY_W = PLAY_RIGHT - PLAY_LEFT;
   const GRAVITY = 0.35;
   const JUMP_FORCE = -5.5;
   const MOVE_SPEED = 2.0;
-  const LAYER_H = 40; // vertical distance between platform layers
+  const LAYER_H = 30; // vertical distance between platform layers
   const LAYERS_PER_STAGE = 8; // number of platform layers per mountain stage
   const TOTAL_STAGES = 8;
 
@@ -585,8 +585,8 @@
     flashTimer = 0;
 
     mountainHeight = LAYERS_PER_STAGE * LAYER_H;
-    stageBottomY = mountainHeight + 40;
-    stageTopY = -20;
+    stageBottomY = mountainHeight + 30;
+    stageTopY = -15;
 
     // Player starts at bottom
     player = {
@@ -603,7 +603,7 @@
       animTimer: 0
     };
 
-    cameraY = stageBottomY - H + 40;
+    cameraY = stageBottomY - H + 30;
     targetCameraY = cameraY;
     highestPlayerY = player.y;
 
@@ -683,7 +683,7 @@
     if (layer > 2 && rnd(1) < 0.3) {
       platforms.push({
         x: PLAY_LEFT + flr(rnd(PLAY_W - 40)),
-        y: y - 20,
+        y: y - 15,
         type: "cloud",
         broken: false,
         moveDir: rnd(1) < 0.5 ? 1 : -1,
@@ -706,7 +706,7 @@
     for (let i = 0; i < 12; i++) {
       bonusItems.push({
         x: PLAY_LEFT + 16 + flr(rnd(PLAY_W - 40)),
-        y: summitY - 8 - flr(rnd(60)),
+        y: summitY - 8 - flr(rnd(45)),
         type: 7 + flr(rnd(3)), // sprites 7,8,9
         collected: false,
         bob: rnd(6.28)
@@ -1093,14 +1093,14 @@
         pix(flr(s.x), flr(s.y % H), 3);
       }
 
-      const ty = 60 + titleBounce;
+      const ty = 45 + titleBounce;
 
       // Title shadow + text
-      text("ICE CLIMBER", 175, flr(ty) + 2, 1);
-      text("ICE CLIMBER", 174, flr(ty), 3);
+      text("ICE CLIMBER", 134, flr(ty) + 2, 1);
+      text("ICE CLIMBER", 133, flr(ty), 3);
 
       // Subtitle
-      rectf(160, flr(ty) + 12, 160, 1, 2);
+      rectf(107, flr(ty) + 12, 107, 1, 2);
 
       // Player sprite on title
       sprAlpha(1, W / 2 - 4, flr(ty) + 24 + flr(sin(API.frame * 0.1) * 3));
@@ -1110,19 +1110,19 @@
       sprAlpha(6, W / 2 + 22, flr(ty) + 24 + flr(sin(API.frame * 0.08 + 2) * 2));
 
       // Ice platforms
-      for (let x = 160; x < 320; x += 8) {
+      for (let x = 107; x < 214; x += 8) {
         sprAlpha(3, x, flr(ty) + 36);
       }
 
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", 175, 200, 3);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", 120, 150, 3);
 
       // Instructions
-      text("CLIMB THE ICE MOUNTAIN!", 155, 230, 2);
-      text("A:JUMP  LEFT/RIGHT:MOVE", 155, 245, 2);
-      text("BREAK ICE FROM BELOW!", 160, 260, 2);
+      text("CLIMB THE ICE MOUNTAIN!", 103, 172, 2);
+      text("A:JUMP  LEFT/RIGHT:MOVE", 103, 184, 2);
+      text("BREAK ICE FROM BELOW!", 108, 195, 2);
 
-      text(TOTAL_STAGES + " MOUNTAINS TO CONQUER", 152, 282, 1);
-      text("GRAYBOX DEMO V0.1", 168, 305, 1);
+      text(TOTAL_STAGES + " MOUNTAINS TO CONQUER", 105, 211, 1);
+      text("GRAYBOX DEMO V0.1", 118, 229, 1);
       return;
     }
 
@@ -1133,16 +1133,16 @@
 
       if (stage > TOTAL_STAGES) {
         // Victory!
-        text("CONGRATULATIONS!", 170, 100, 3);
-        text("YOU CONQUERED ALL", 162, 125, 2);
-        text(TOTAL_STAGES + " MOUNTAINS!", 190, 140, 2);
-        text("FINAL SCORE: " + score, 170, 170, 3);
+        text("CONGRATULATIONS!", 120, 75, 3);
+        text("YOU CONQUERED ALL", 118, 94, 2);
+        text(TOTAL_STAGES + " MOUNTAINS!", 130, 105, 2);
+        text("FINAL SCORE: " + score, 110, 128, 3);
       } else {
-        text("GAME OVER", 198, 120, 3);
-        text("SCORE: " + score, 198, 145, 2);
-        text("MOUNTAIN: " + stage, 193, 160, 2);
+        text("GAME OVER", 138, 90, 3);
+        text("SCORE: " + score, 128, 109, 2);
+        text("MOUNTAIN: " + stage, 130, 120, 2);
       }
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 162, 220, 3);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 113, 165, 3);
       return;
     }
 
@@ -1296,23 +1296,23 @@
     // Stage announcement
     if (state === "play" && API.frame < 90) {
       const msgAlpha = API.frame < 60 ? 3 : (API.frame < 75 ? 2 : 1);
-      text("MOUNTAIN " + stage, 190, 140, msgAlpha);
-      text("START!", 210, 158, msgAlpha);
+      text("MOUNTAIN " + stage, 133, 105, msgAlpha);
+      text("START!", 145, 119, msgAlpha);
     }
 
     // Bonus stage overlay
     if (bonusStage) {
       const timeLeft = flr(bonusTimer / 30);
-      text("BONUS! " + timeLeft + "S", 195, 20, 3);
-      text("GET VEGGIES!", 190, 30, 2);
+      text("BONUS! " + timeLeft + "S", 135, 20, 3);
+      text("GET VEGGIES!", 130, 30, 2);
     }
 
     // Stage clear
     if (state === "stageclear") {
-      text("STAGE CLEAR!", 185, 130, 3);
-      text("BONUS: " + bonusScore, 195, 150, 2);
+      text("STAGE CLEAR!", 130, 98, 3);
+      text("BONUS: " + bonusScore, 130, 113, 2);
       if (stageCompleteTimer < 60 && flr(API.frame / 15) % 2 === 0) {
-        text("NEXT MOUNTAIN...", 175, 180, 2);
+        text("NEXT MOUNTAIN...", 120, 135, 2);
       }
     }
   };
@@ -1320,8 +1320,8 @@
   function drawMountainBg(offsetY) {
     // Simple mountain silhouette background for title/gameover
     for (let x = 0; x < W; x += 2) {
-      const h1 = 80 + sin(x * 0.02) * 40 + sin(x * 0.05) * 20;
-      const h2 = 120 + sin(x * 0.015 + 1) * 30 + sin(x * 0.04) * 15;
+      const h1 = 60 + sin(x * 0.02) * 30 + sin(x * 0.05) * 15;
+      const h2 = 90 + sin(x * 0.015 + 1) * 22 + sin(x * 0.04) * 11;
       // Far mountains
       for (let y = H - flr(h1); y < H; y++) {
         if (y >= 0 && y < H) { pix(x, y, 1); pix(x + 1, y, 1); }
@@ -1333,7 +1333,7 @@
     }
     // Snow caps
     for (let x = 0; x < W; x++) {
-      const h1 = 80 + sin(x * 0.02) * 40 + sin(x * 0.05) * 20;
+      const h1 = 60 + sin(x * 0.02) * 30 + sin(x * 0.05) * 15;
       const peakY = H - flr(h1);
       if (peakY >= 0 && peakY < H) {
         pix(x, peakY, 3);

@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -665,7 +665,7 @@
   let levelSection = 0;
 
   // Player
-  let px = 240, py = 260;
+  let px = 160, py = 195;
   let pdir = 0; // 0=up,1=right,2=down,3=left
   let pInvuln = 0;
   let pWalkFrame = 0;
@@ -707,7 +707,7 @@
     scrollY = 0;
     scrollSpeed = 0.5;
     levelSection = 0;
-    px = 240; py = 260;
+    px = 160; py = 195;
     pdir = 0;
     pInvuln = 0;
     pDead = false;
@@ -722,7 +722,7 @@
     bossActive = false;
     bossDefeated = false;
     spawnTimer = 0;
-    nextObstacleY = 400;
+    nextObstacleY = 300;
     sectionLength = 0;
     gameOverTimer = 0;
     groundDetails = [];
@@ -730,7 +730,7 @@
     for (let i = 0; i < 80; i++) {
       groundDetails.push({
         x: flr(rnd(W)),
-        wy: flr(rnd(600)),
+        wy: flr(rnd(450)),
         type: flr(rnd(3))
       });
     }
@@ -785,29 +785,29 @@
   }
 
   function generateSection() {
-    const baseY = scrollY + H + 50;
+    const baseY = scrollY + H + 38;
 
     // Trees and bushes
     for (let i = 0; i < 4; i++) {
       let tx = flr(rnd(W - 16));
       // Avoid center corridor sometimes
-      if (rnd(1) < 0.4) tx = tx < 240 ? flr(rnd(100)) : W - 100 + flr(rnd(80));
-      spawnObstacle(tx, baseY + flr(rnd(200)), 0);
+      if (rnd(1) < 0.4) tx = tx < 160 ? flr(rnd(67)) : W - 67 + flr(rnd(53));
+      spawnObstacle(tx, baseY + flr(rnd(150)), 0);
     }
 
     // Sandbags / barricades
     if (rnd(1) < 0.5) {
-      let bx = 80 + flr(rnd(300));
+      let bx = 53 + flr(rnd(200));
       for (let j = 0; j < 3; j++) {
-        spawnObstacle(bx + j * 10, baseY + 80 + flr(rnd(40)), 3);
+        spawnObstacle(bx + j * 10, baseY + 60 + flr(rnd(30)), 3);
       }
     }
 
     // Trenches
     if (rnd(1) < 0.3) {
-      let tx = 60 + flr(rnd(300));
+      let tx = 40 + flr(rnd(200));
       for (let j = 0; j < 5; j++) {
-        spawnObstacle(tx + j * 9, baseY + 150, 4);
+        spawnObstacle(tx + j * 9, baseY + 113, 4);
       }
     }
 
@@ -815,55 +815,55 @@
     let numEnemies = 3 + flr(levelSection * 0.5);
     if (numEnemies > 10) numEnemies = 10;
     for (let i = 0; i < numEnemies; i++) {
-      spawnEnemy(30 + flr(rnd(W - 60)), baseY + flr(rnd(250)), rnd(1) < 0.3 ? 1 : 0);
+      spawnEnemy(20 + flr(rnd(W - 40)), baseY + flr(rnd(188)), rnd(1) < 0.3 ? 1 : 0);
     }
 
     // Bunker
     if (rnd(1) < 0.35) {
-      let bx = 60 + flr(rnd(W - 120));
-      spawnObstacle(bx, baseY + 120, 1);
+      let bx = 40 + flr(rnd(W - 80));
+      spawnObstacle(bx, baseY + 90, 1);
       // Guards near bunker
-      spawnEnemy(bx - 20, baseY + 130, 0);
-      spawnEnemy(bx + 20, baseY + 130, 0);
+      spawnEnemy(bx - 20, baseY + 98, 0);
+      spawnEnemy(bx + 20, baseY + 98, 0);
     }
 
     // Truck
     if (rnd(1) < 0.25) {
-      let tx = 80 + flr(rnd(W - 160));
-      spawnObstacle(tx, baseY + 60, 2);
+      let tx = 53 + flr(rnd(W - 107));
+      spawnObstacle(tx, baseY + 45, 2);
       // Enemies around truck
       for (let i = 0; i < 3; i++) {
-        spawnEnemy(tx + flr(rnd(30)) - 15, baseY + 80 + flr(rnd(20)), 0);
+        spawnEnemy(tx + flr(rnd(30)) - 15, baseY + 60 + flr(rnd(15)), 0);
       }
     }
 
     // POW
     if (rnd(1) < 0.4) {
-      spawnPOW(60 + flr(rnd(W - 120)), baseY + 100 + flr(rnd(100)));
+      spawnPOW(40 + flr(rnd(W - 80)), baseY + 75 + flr(rnd(75)));
     }
 
     // More ground details
     for (let i = 0; i < 10; i++) {
       groundDetails.push({
         x: flr(rnd(W)),
-        wy: baseY + flr(rnd(300)),
+        wy: baseY + flr(rnd(225)),
         type: flr(rnd(3))
       });
     }
 
     // Grenade pickup (random ammo)
     if (rnd(1) < 0.3) {
-      pows.push({ x: 50 + flr(rnd(W - 100)), y: baseY + 180, state: "ammo", timer: 0 });
+      pows.push({ x: 33 + flr(rnd(W - 67)), y: baseY + 135, state: "ammo", timer: 0 });
     }
 
-    sectionLength = 300;
+    sectionLength = 225;
     nextObstacleY = baseY + sectionLength;
   }
 
   function spawnBoss() {
     bossActive = true;
     boss = {
-      x: 200, y: scrollY - 40,
+      x: 133, y: scrollY - 30,
       hp: 30, maxHp: 30,
       timer: 0, phase: 0,
       shootTimer: 0,
@@ -900,7 +900,7 @@
     }
 
     // Check if it's time for a new section
-    if (!bossActive && scrollY > nextObstacleY - H - 200) {
+    if (!bossActive && scrollY > nextObstacleY - H - 150) {
       levelSection++;
       generateSection();
       // Boss every 5 sections
@@ -920,7 +920,7 @@
         } else {
           pDead = false;
           pInvuln = 90;
-          px = 240; py = 260;
+          px = 160; py = 195;
           grenadeCount = 5;
         }
       }
@@ -946,7 +946,7 @@
       // Bounds
       if (npx < 4) npx = 4;
       if (npx > W - 12) npx = W - 12;
-      if (npy < 20) npy = 20;
+      if (npy < 15) npy = 15;
       if (npy > H - 16) npy = H - 16;
 
       // Obstacle collision
@@ -1175,7 +1175,7 @@
         const dx = px - e.x;
         const dy = py - esy;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > 0 && dist < 200) {
+        if (dist > 0 && dist < 150) {
           shoot(e.x + 3, esy + 3, (dx / dist) * 3, (dy / dist) * 3, "e");
         }
       }
@@ -1229,12 +1229,12 @@
       const bsy = worldToScreen(boss.y);
 
       // Move boss into view
-      if (bsy < 30) {
+      if (bsy < 23) {
         boss.y += 0.5;
       } else {
         // Strafe
         boss.x += boss.vx;
-        if (boss.x < 40 || boss.x > W - 60) boss.vx = -boss.vx;
+        if (boss.x < 27 || boss.x > W - 40) boss.vx = -boss.vx;
 
         // Shoot
         boss.shootTimer++;
@@ -1270,39 +1270,39 @@
       }
 
       // Title
-      const tx = 170;
-      rectf(tx - 10, 70, 160, 40, 0);
-      rect(tx - 10, 70, 160, 40, 2);
-      text("COMMANDO", tx, 80, 3);
-      text("GRAYBOX EDITION", tx + 8, 94, 1);
+      const tx = 140;
+      rectf(tx - 10, 53, 107, 30, 0);
+      rect(tx - 10, 53, 107, 30, 2);
+      text("COMMANDO", tx, 60, 3);
+      text("GRAYBOX EDITION", 123, 71, 1);
 
       // Soldier graphic
-      sprT(1, 234, 130);
-      sprT(10, 234, 118);
+      sprT(1, 156, 98);
+      sprT(10, 156, 89);
 
-      text("PRESS ENTER TO START", 155, 170, 2);
+      text("PRESS ENTER TO START", 110, 128, 2);
 
-      text("ARROWS - MOVE", 170, 210, 1);
-      text("Z - SHOOT", 182, 222, 1);
-      text("X - GRENADE", 178, 234, 1);
+      text("ARROWS - MOVE", 128, 158, 1);
+      text("Z - SHOOT", 138, 167, 1);
+      text("X - GRENADE", 133, 176, 1);
 
       if (highScore > 0) {
-        text("HIGH SCORE " + highScore, 175, 270, 2);
+        text("HIGH SCORE " + highScore, 120, 203, 2);
       }
 
-      text("2026 GRAYBOX", 190, 300, 1);
+      text("2026 GRAYBOX", 130, 225, 1);
       return;
     }
 
     if (state === "gameover") {
       cls(0);
-      text("GAME OVER", 195, 130, 3);
-      text("SCORE " + score, 200, 155, 2);
+      text("GAME OVER", 138, 98, 3);
+      text("SCORE " + score, 130, 116, 2);
       if (score >= highScore && score > 0) {
-        text("NEW HIGH SCORE!", 180, 175, 3);
+        text("NEW HIGH SCORE!", 123, 131, 3);
       }
       if (gameOverTimer > 90) {
-        text("PRESS ENTER", 195, 210, (flr(gameOverTimer / 15) % 2 === 0) ? 2 : 0);
+        text("PRESS ENTER", 133, 158, (flr(gameOverTimer / 15) % 2 === 0) ? 2 : 0);
       }
       return;
     }
@@ -1445,30 +1445,30 @@
     }
 
     // --- HUD ---
-    rectf(0, 0, W, 16, 0);
-    line(0, 16, W, 16, 1);
+    rectf(0, 0, W, 12, 0);
+    line(0, 12, W, 12, 1);
 
     // Score
-    text("SCORE " + score, 4, 5, 3);
+    text("SCORE " + score, 3, 3, 3);
 
     // Lives
     for (let i = 0; i < lives; i++) {
-      sprT(80, 180 + i * 10, 4);
+      sprT(80, 120 + i * 10, 2);
     }
 
     // Grenades
-    text("G", 260, 5, 2);
-    text("" + grenadeCount, 270, 5, 3);
+    text("G", 173, 3, 2);
+    text("" + grenadeCount, 183, 3, 3);
 
     // Section
-    text("AREA " + (levelSection + 1), 320, 5, 1);
+    text("AREA " + (levelSection + 1), 213, 3, 1);
 
     // High score
-    text("HI " + highScore, 410, 5, 1);
+    text("HI " + highScore, 273, 3, 1);
 
     // Boss warning
     if (bossActive && boss && flr(API.frame / 10) % 2 === 0) {
-      text("WARNING - BOSS!", 180, 26, 3);
+      text("WARNING - BOSS!", 123, 20, 3);
     }
   }
 

@@ -52,8 +52,8 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
+  const W = 320;
+  const H = 240;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -434,9 +434,9 @@
   );
 
   // --- Game constants ---
-  const ROAD_W = 160;           // road width in pixels
+  const ROAD_W = 107;           // road width in pixels
   const ROAD_CENTER = W / 2;    // center of screen
-  const PLAYER_Y = H - 40;     // player vertical position (fixed)
+  const PLAYER_Y = H - 30;     // player vertical position (fixed)
   const MAX_SPEED = 12;
   const ACCEL = 0.12;
   const BRAKE_DECEL = 0.25;
@@ -868,36 +868,36 @@
         if (right - 1 >= 0 && right - 1 < W) buf32[y * W + right - 1] = COLOR_U32[1];
       }
 
-      const ty = 50 + sin(API.frame * 0.04) * 4;
+      const ty = 38 + sin(API.frame * 0.04) * 4;
 
       // Title text with shadow
-      text("ROAD FIGHTER", 175, flr(ty), 3);
-      text("ROAD FIGHTER", 176, flr(ty) + 1, 1);
+      text("ROAD FIGHTER", 130, flr(ty), 3);
+      text("ROAD FIGHTER", 131, flr(ty) + 1, 1);
 
-      rectf(160, flr(ty) + 12, 160, 1, 2);
+      rectf(107, flr(ty) + 12, 107, 1, 2);
 
       // Animated cars on title
       const carY1 = ((titleCarY || 0) * 2) % (H + 40) - 20;
       const carY2 = ((titleCarY || 0) * 2 + 120) % (H + 40) - 20;
       const carY3 = ((titleCarY || 0) * 2 + 240) % (H + 40) - 20;
       spr(1, W / 2 - 4, flr(ty) + 24 + sin(API.frame * 0.1) * 2);
-      spr(2, W / 2 - 30, carY1);
-      spr(3, W / 2 + 24, carY2);
-      spr(4, W / 2 - 20, carY3);
+      spr(2, W / 2 - 20, carY1);
+      spr(3, W / 2 + 16, carY2);
+      spr(4, W / 2 - 13, carY3);
 
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS START", 197, 180, 3);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS START", 132, 135, 3);
 
       // Instructions
-      text("STEER TO AVOID TRAFFIC", 160, 210, 2);
-      text("COLLECT FUEL TO SURVIVE", 155, 222, 2);
-      text("REACH CHECKPOINTS", 173, 234, 2);
+      text("STEER TO AVOID TRAFFIC", 105, 158, 2);
+      text("COLLECT FUEL TO SURVIVE", 102, 166, 2);
+      text("REACH CHECKPOINTS", 117, 176, 2);
 
       // Score table
-      text("-SCORING-", 202, 260, 2);
-      spr(6, 188, 272); text("  FUEL    +100", 198, 274, 2);
-      spr(2, 188, 286); text("  CRASH    +50", 198, 288, 2);
+      text("-SCORING-", 137, 195, 2);
+      spr(6, 125, 204); text("  FUEL    +100", 132, 206, 2);
+      spr(2, 125, 214); text("  CRASH    +50", 132, 216, 2);
 
-      text("GRAYBOX DEMO V0.1", 168, 305, 1);
+      text("GRAYBOX DEMO V0.1", 117, 229, 1);
       return;
     }
 
@@ -905,10 +905,10 @@
     if (state === "gameover") {
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      text("GAME OVER", 195, 100, 3);
-      text("DISTANCE: " + score, 180, 130, 2);
-      text("STAGE: " + stage, 203, 145, 2);
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS START", 197, 200, 3);
+      text("GAME OVER", 137, 75, 3);
+      text("DISTANCE: " + score, 120, 98, 2);
+      text("STAGE: " + stage, 137, 109, 2);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS START", 132, 150, 3);
       return;
     }
 
@@ -953,18 +953,18 @@
 
     // Checkpoint flash
     if (checkpointFlash > 60) {
-      const msgY = 100;
-      text("CHECKPOINT!", 190, msgY, 3);
-      text("STAGE " + stage, 205, msgY + 14, 2);
-      spr(11, 175, msgY - 2);
-      spr(11, 280, msgY - 2);
+      const msgY = 75;
+      text("CHECKPOINT!", 132, msgY, 3);
+      text("STAGE " + stage, 140, msgY + 14, 2);
+      spr(11, 117, msgY - 2);
+      spr(11, 187, msgY - 2);
     } else if (checkpointFlash > 0 && flr(checkpointFlash / 5) % 2 === 0) {
-      text("STAGE " + stage, 205, 100, 3);
+      text("STAGE " + stage, 140, 75, 3);
     }
 
     // ---- HUD ----
     // Top bar background
-    rectf(0, 0, W, 20, 0);
+    rectf(0, 0, W, 15, 0);
 
     // Score / distance
     text("DIST:" + score, 4, 3, 3);
@@ -973,45 +973,45 @@
     text("STAGE:" + stage, 4, 12, 2);
 
     // Speed indicator bar
-    text("SPD", 120, 3, 2);
-    rectf(140, 3, 52, 6, 0);
-    rect(140, 3, 52, 6, 2);
-    const speedBarW = flr((speed / MAX_SPEED) * 50);
+    text("SPD", 80, 3, 2);
+    rectf(93, 3, 35, 6, 0);
+    rect(93, 3, 35, 6, 2);
+    const speedBarW = flr((speed / MAX_SPEED) * 33);
     const speedCol = speed > 9 ? 3 : speed > 5 ? 2 : 1;
-    rectf(141, 4, speedBarW, 4, speedCol);
+    rectf(94, 4, speedBarW, 4, speedCol);
 
     // Fuel gauge
-    text("FUEL", 210, 3, 2);
-    rectf(235, 3, 62, 6, 0);
-    rect(235, 3, 62, 6, 2);
-    const fuelBarW = flr((fuel / FUEL_MAX) * 60);
+    text("FUEL", 140, 3, 2);
+    rectf(157, 3, 41, 6, 0);
+    rect(157, 3, 41, 6, 2);
+    const fuelBarW = flr((fuel / FUEL_MAX) * 39);
     const fuelCol = fuel < 200 ? (flr(API.frame / 8) % 2 === 0 ? 3 : 1) : fuel < 400 ? 2 : 3;
-    rectf(236, 4, fuelBarW, 4, fuelCol);
+    rectf(158, 4, fuelBarW, 4, fuelCol);
 
     // Low fuel warning
     if (fuel < 200 && flr(API.frame / 10) % 2 === 0) {
-      text("LOW FUEL!", 220, 12, 3);
+      text("LOW FUEL!", 147, 12, 3);
     }
 
     // Lives
-    for (let i = 0; i < lives; i++) spr(9, W - 36 + i * 10, 4);
+    for (let i = 0; i < lives; i++) spr(9, W - 24 + i * 10, 4);
 
     // Next checkpoint distance
     const nextCP = stage * CHECKPOINT_DIST;
     const remaining = nextCP - flr(distance);
     if (remaining > 0) {
-      text("NEXT:" + remaining, W - 80, 12, 2);
+      text("NEXT:" + remaining, W - 53, 12, 2);
     }
 
     // Bottom: simple speed lines on sides for effect
     if (speed > 4) {
       const intensity = flr(speed / 3);
       for (let i = 0; i < intensity; i++) {
-        const lx = flr(rnd(30));
-        const ly = flr(rnd(H - 20)) + 20;
+        const lx = flr(rnd(20));
+        const ly = flr(rnd(H - 15)) + 15;
         const len = 3 + flr(rnd(speed));
         line(lx, ly, lx, ly + len, 1);
-        const rx = W - flr(rnd(30));
+        const rx = W - flr(rnd(20));
         line(rx, ly, rx, ly + len, 1);
       }
     }
