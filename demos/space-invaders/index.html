@@ -52,9 +52,9 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
-  const SCALE = 2;
+  const W = 320;
+  const H = 240;
+  const SCALE = 3;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -516,12 +516,12 @@
 
   function initShields() {
     shields = [];
-    const spacing = (W - 60) / NUM_SHIELDS; // area between margins
-    const startX = 60;
+    const spacing = (W - 40) / NUM_SHIELDS; // area between margins
+    const startX = 40;
     for (let i = 0; i < NUM_SHIELDS; i++) {
       shields.push({
         x: flr(startX + i * spacing),
-        y: 250,
+        y: 188,
         pixels: createShieldPixels()
       });
     }
@@ -585,7 +585,7 @@
   hiScore = 0;
 
   function resetGame() {
-    player = { x: W / 2 - 4, y: 290 };
+    player = { x: W / 2 - 4, y: 218 };
     bullet = null;
     eBullets = [];
     aliens = [];
@@ -632,8 +632,8 @@
           col, row, type, pts,
           alive: true,
           // Position: will be set based on grid offset
-          baseX: 46 + col * 16,
-          baseY: 50 + row * 14,
+          baseX: 31 + col * 11,
+          baseY: 38 + row * 11,
         });
       }
     }
@@ -753,7 +753,7 @@
     // Player movement
     if (btn("left")) player.x -= 3;
     if (btn("right")) player.x += 3;
-    player.x = _max(8, min(W - 16, player.x));
+    player.x = _max(4, min(W - 12, player.x));
 
     // Player shoot
     if (shootCooldown > 0) shootCooldown--;
@@ -787,10 +787,10 @@
         if (pos.x + 8 > rightMost) rightMost = pos.x + 8;
       }
 
-      if (marchDir === 1 && rightMost + 4 >= W - 8) {
+      if (marchDir === 1 && rightMost + 2 >= W - 4) {
         needDrop = true;
         marchDir = -1;
-      } else if (marchDir === -1 && leftMost - 4 <= 8) {
+      } else if (marchDir === -1 && leftMost - 2 <= 4) {
         needDrop = true;
         marchDir = 1;
       }
@@ -954,7 +954,7 @@
     ufoTimer--;
     if (ufoTimer <= 0 && !ufo) {
       const dir = rnd(1) > 0.5 ? 1 : -1;
-      ufo = { x: dir === 1 ? -10 : W + 10, y: 26, dir: dir, speed: 1.5 };
+      ufo = { x: dir === 1 ? -10 : W + 10, y: 20, dir: dir, speed: 1.5 };
       ufoTimer = 400 + flr(rnd(400));
     }
     if (ufo) {
@@ -1002,11 +1002,11 @@
 
     // --- Title Screen ---
     if (state === "title") {
-      const ty = 50 + sin(API.frame * 0.05) * 4;
+      const ty = 38 + sin(API.frame * 0.05) * 4;
 
       // Title text
-      text("SPACE INVADERS", 170, flr(ty), 3);
-      rectf(165, flr(ty) + 10, 150, 1, 2);
+      text("SPACE INVADERS", 126, flr(ty), 3);
+      rectf(110, flr(ty) + 10, 100, 1, 2);
 
       // Animated aliens parade
       const bx = W / 2 - 55;
@@ -1018,20 +1018,20 @@
       spr(aFrame ? 4 : 5, bx + 72, by + sin(API.frame * 0.08 + 3) * 2);
       spr(aFrame ? 2 : 3, bx + 96, by + sin(API.frame * 0.08 + 4) * 2);
 
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", 170, 170, 3);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", 120, 128, 3);
 
       // Score table
-      text("- SCORE TABLE -", 175, 195, 2);
-      spr(8, 185, 210); text("  UFO     ???", 195, 212, 2);
-      spr(2, 185, 224); text("  SQUID    30", 195, 226, 2);
-      spr(4, 185, 238); text("  CRAB     20", 195, 240, 2);
-      spr(6, 185, 252); text("  OCTOPUS  10", 195, 254, 2);
+      text("- SCORE TABLE -", 123, 146, 2);
+      spr(8, 123, 158); text("  UFO     ???", 133, 160, 2);
+      spr(2, 123, 168); text("  SQUID    30", 133, 170, 2);
+      spr(4, 123, 178); text("  CRAB     20", 133, 180, 2);
+      spr(6, 123, 188); text("  OCTOPUS  10", 133, 190, 2);
 
       if (hiScore > 0) {
-        text("HI-SCORE: " + hiScore, 185, 280, 1);
+        text("HI-SCORE: " + hiScore, 123, 210, 1);
       }
 
-      text("GRAYBOX DEMO V0.1", 168, 305, 1);
+      text("GRAYBOX DEMO V0.1", 118, 229, 1);
       return;
     }
 
@@ -1039,18 +1039,18 @@
     if (state === "gameover") {
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      text("GAME OVER", 195, 110, 3);
-      text("SCORE: " + score, 195, 135, 2);
-      text("WAVE: " + wave, 207, 150, 2);
-      if (hiScore > 0) text("HI-SCORE: " + hiScore, 185, 170, 1);
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 158, 210, 3);
+      text("GAME OVER", 138, 83, 3);
+      text("SCORE: " + score, 130, 101, 2);
+      text("WAVE: " + wave, 140, 113, 2);
+      if (hiScore > 0) text("HI-SCORE: " + hiScore, 123, 128, 1);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 113, 158, 3);
       return;
     }
 
     // --- Play State Rendering ---
 
     // Ground line
-    rectf(0, 305, W, 1, 1);
+    rectf(0, 229, W, 1, 1);
 
     // Shields
     for (const s of shields) drawShield(s);
@@ -1068,7 +1068,7 @@
     }
     // UFO score display
     if (ufoScoreTimer > 0) {
-      text("" + ufoScoreShow, flr(ufoScoreX), 26, 3);
+      text("" + ufoScoreShow, flr(ufoScoreX), 20, 3);
     }
 
     // Enemy bullets

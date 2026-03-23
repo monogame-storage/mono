@@ -52,9 +52,9 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
-  const SCALE = 2;
+  const W = 320;
+  const H = 240;
+  const SCALE = 3;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -425,14 +425,14 @@
   );
 
   // --- Constants ---
-  const GROUND_Y = H - 24; // ground top y
+  const GROUND_Y = H - 18; // ground top y
   const GRAVITY = 0.35;
   const FLAP_VEL = -4.8;
-  const PIPE_W = 32;       // pipe width in pixels (4 sprite columns)
-  const PIPE_GAP = 72;     // vertical gap between pipes
+  const PIPE_W = 24;       // pipe width in pixels (3 sprite columns)
+  const PIPE_GAP = 54;     // vertical gap between pipes
   const PIPE_SPEED = 2.2;
-  const PIPE_SPACING = 160; // horizontal spacing between pipes
-  const BIRD_X = 80;        // bird x position (fixed)
+  const PIPE_SPACING = 107; // horizontal spacing between pipes
+  const BIRD_X = 53;        // bird x position (fixed)
   const BIRD_SIZE = 8;      // sprite size
   const BIRD_HITBOX = 6;    // slightly smaller than sprite for fairness
 
@@ -451,7 +451,7 @@
   bestScore = 0;
 
   function resetGame() {
-    bird = { y: H / 2 - 20, vy: 0, flapAnim: 0, alive: true, angle: 0 };
+    bird = { y: H / 2 - 15, vy: 0, flapAnim: 0, alive: true, angle: 0 };
     pipes = [];
     score = 0;
     groundScroll = 0;
@@ -466,21 +466,21 @@
     clouds = [];
     for (let i = 0; i < 6; i++) {
       clouds.push({
-        x: flr(rnd(W + 100)),
-        y: 20 + flr(rnd(100)),
+        x: flr(rnd(W + 67)),
+        y: 15 + flr(rnd(75)),
         speed: 0.2 + rnd(0.4),
         size: 1 + flr(rnd(2))
       });
     }
     // Spawn initial pipes
     for (let i = 0; i < 4; i++) {
-      spawnPipe(W + 60 + i * PIPE_SPACING);
+      spawnPipe(W + 40 + i * PIPE_SPACING);
     }
   }
 
   function spawnPipe(x) {
-    const minGapY = 50;
-    const maxGapY = GROUND_Y - PIPE_GAP - 50;
+    const minGapY = 38;
+    const maxGapY = GROUND_Y - PIPE_GAP - 38;
     const gapY = minGapY + flr(rnd(maxGapY - minGapY));
     pipes.push({
       id: pipeIdCounter++,
@@ -633,7 +633,7 @@
   function spawnDeathParticles() {
     for (let i = 0; i < 12; i++) {
       particles.push({
-        x: BIRD_X + 4, y: bird.y + 4,
+        x: BIRD_X + 3, y: bird.y + 3,
         vx: rnd(4) - 2, vy: rnd(3) - 2,
         life: 15 + flr(rnd(15)),
         color: 1 + flr(rnd(3))
@@ -748,19 +748,19 @@
 
     if (state === "title") {
       // Bob the bird on title screen
-      bird.y = H / 2 - 30 + sin(titleBobT * 0.08) * 8;
+      bird.y = H / 2 - 23 + sin(titleBobT * 0.08) * 6;
       bird.flapAnim++;
       groundScroll += 1;
 
       // Move clouds
       for (const c of clouds) {
         c.x -= c.speed;
-        if (c.x < -20) { c.x = W + 10; c.y = 20 + flr(rnd(100)); }
+        if (c.x < -13) { c.x = W + 7; c.y = 15 + flr(rnd(75)); }
       }
 
       if (btnp("a") || btnp("start")) {
         state = "ready";
-        bird.y = H / 2 - 30;
+        bird.y = H / 2 - 23;
         bird.vy = 0;
         startSound();
       }
@@ -769,13 +769,13 @@
 
     if (state === "ready") {
       // Bird bobs, waiting for first flap
-      bird.y = H / 2 - 30 + sin(titleBobT * 0.08) * 6;
+      bird.y = H / 2 - 23 + sin(titleBobT * 0.08) * 5;
       bird.flapAnim++;
       groundScroll += getSpeed();
 
       for (const c of clouds) {
         c.x -= c.speed;
-        if (c.x < -20) { c.x = W + 10; c.y = 20 + flr(rnd(100)); }
+        if (c.x < -13) { c.x = W + 7; c.y = 15 + flr(rnd(75)); }
       }
 
       if (btnp("a") || btnp("up")) {
@@ -813,12 +813,12 @@
           passedPipeIds.add(pipes[i].id);
           score++;
           scoreSound();
-          scorePopups.push({ x: BIRD_X + 12, y: bird.y - 5, life: 25 });
+          scorePopups.push({ x: BIRD_X + 8, y: bird.y - 4, life: 25 });
         }
         // Remove off-screen pipes and spawn new ones
         if (pipes[i].x < -PIPE_W - 10) {
           pipes.splice(i, 1);
-          spawnPipe(pipes.length > 0 ? pipes[pipes.length - 1].x + PIPE_SPACING : W + 60);
+          spawnPipe(pipes.length > 0 ? pipes[pipes.length - 1].x + PIPE_SPACING : W + 40);
         }
       }
 
@@ -828,7 +828,7 @@
       // Move clouds
       for (const c of clouds) {
         c.x -= c.speed + spd * 0.1;
-        if (c.x < -20) { c.x = W + 10; c.y = 20 + flr(rnd(100)); }
+        if (c.x < -13) { c.x = W + 7; c.y = 15 + flr(rnd(75)); }
       }
 
       // Collision
@@ -900,15 +900,15 @@
     // Background - gradient sky
     cls(0);
     // Sky gradient: dark at top, slightly lighter lower
-    rectf(0, 0, W, 80, 0);
-    rectf(0, 80, W, 80, 0);
+    rectf(0, 0, W, 60, 0);
+    rectf(0, 60, W, 60, 0);
     // Dithered transition band
-    for (let y = 130; y < 170; y++) {
+    for (let y = 98; y < 128; y++) {
       for (let x = 0; x < W; x++) {
         if ((x + y) % 3 === 0) pix(x, y, 1);
       }
     }
-    rectf(0, 170, W, GROUND_Y - 170, 1);
+    rectf(0, 128, W, GROUND_Y - 128, 1);
 
     // Clouds
     drawClouds();
@@ -921,24 +921,24 @@
       const bobY = flr(sin(titleBobT * 0.05) * 3);
 
       // Title background box
-      rectf(W/2 - 110, 50 + bobY, 220, 50, 0);
-      rect(W/2 - 110, 50 + bobY, 220, 50, 2);
+      rectf(W/2 - 73, 38 + bobY, 146, 38, 0);
+      rect(W/2 - 73, 38 + bobY, 146, 38, 2);
 
-      textHugeCenter("FLAPPY", 56 + bobY, 3);
-      textBigCenter("BIRD", 78 + bobY, 2);
+      textHugeCenter("FLAPPY", 42 + bobY, 3);
+      textBigCenter("BIRD", 59 + bobY, 2);
 
       // Draw bird
       drawBird();
 
       // Instructions
-      textCenter("PRESS Z OR ENTER TO START", 200, 2);
+      textCenter("PRESS Z OR ENTER TO START", 150, 2);
 
       if (bestScore > 0) {
-        textCenter("BEST: " + bestScore, 225, 1);
+        textCenter("BEST: " + bestScore, 169, 1);
       }
 
       // Credits
-      textCenter("GRAYBOX DEMO", H - 20, 1);
+      textCenter("GRAYBOX DEMO", H - 15, 1);
 
       return;
     }
@@ -951,13 +951,13 @@
       drawBird();
 
       // "Get Ready" message
-      rectf(W/2 - 60, 80, 120, 28, 0);
-      rect(W/2 - 60, 80, 120, 28, 2);
-      textBigCenter("GET READY", 84, 3);
-      textCenter("PRESS Z TO FLAP", 102, 2);
+      rectf(W/2 - 40, 60, 80, 21, 0);
+      rect(W/2 - 40, 60, 80, 21, 2);
+      textBigCenter("GET READY", 63, 3);
+      textCenter("PRESS Z TO FLAP", 77, 2);
 
       // Score
-      textBigCenter("" + score, 30, 3);
+      textBigCenter("" + score, 23, 3);
 
       return;
     }
@@ -979,8 +979,8 @@
       // Score display - big centered at top
       const scoreStr = "" + score;
       // Shadow
-      textBig(scoreStr, flr((W - textBigWidth(scoreStr)) / 2) + 1, 21, 0);
-      textBigCenter(scoreStr, 20, 3);
+      textBig(scoreStr, flr((W - textBigWidth(scoreStr)) / 2) + 1, 16, 0);
+      textBigCenter(scoreStr, 15, 3);
 
       return;
     }
@@ -1005,8 +1005,8 @@
 
       // Score
       const scoreStr = "" + score;
-      textBig(scoreStr, flr((W - textBigWidth(scoreStr)) / 2) + 1, 21, 0);
-      textBigCenter(scoreStr, 20, 3);
+      textBig(scoreStr, flr((W - textBigWidth(scoreStr)) / 2) + 1, 16, 0);
+      textBigCenter(scoreStr, 15, 3);
 
       return;
     }
@@ -1024,10 +1024,10 @@
       drawBird();
 
       // Game Over panel
-      const panelW = 200;
-      const panelH = 120;
+      const panelW = 133;
+      const panelH = 90;
       const panelX = flr((W - panelW) / 2);
-      const panelY = flr((H - panelH) / 2) - 20;
+      const panelY = flr((H - panelH) / 2) - 15;
 
       // Panel background
       rectf(panelX, panelY, panelW, panelH, 0);
@@ -1035,30 +1035,30 @@
       rect(panelX + 2, panelY + 2, panelW - 4, panelH - 4, 1);
 
       // "GAME OVER"
-      textBigCenter("GAME OVER", panelY + 10, 3);
+      textBigCenter("GAME OVER", panelY + 8, 3);
 
       // Divider line
-      line(panelX + 10, panelY + 28, panelX + panelW - 10, panelY + 28, 1);
+      line(panelX + 7, panelY + 21, panelX + panelW - 7, panelY + 21, 1);
 
       // Score
-      text("SCORE", panelX + 20, panelY + 38, 2);
+      text("SCORE", panelX + 13, panelY + 29, 2);
       const sStr = "" + score;
-      text(sStr, panelX + panelW - 20 - textWidth(sStr), panelY + 38, 3);
+      text(sStr, panelX + panelW - 13 - textWidth(sStr), panelY + 29, 3);
 
       // Best
-      text("BEST", panelX + 20, panelY + 52, 2);
+      text("BEST", panelX + 13, panelY + 39, 2);
       const bStr = "" + bestScore;
-      text(bStr, panelX + panelW - 20 - textWidth(bStr), panelY + 52, 3);
+      text(bStr, panelX + panelW - 13 - textWidth(bStr), panelY + 39, 3);
 
       // New best indicator
       if (score === bestScore && score > 0) {
-        text("NEW!", panelX + panelW - 55 - textWidth(bStr), panelY + 52, 2);
+        text("NEW!", panelX + panelW - 37 - textWidth(bStr), panelY + 39, 2);
         // Draw medal
-        sprT(11, panelX + 8, panelY + 42);
+        sprT(11, panelX + 6, panelY + 32);
       }
 
       // Divider
-      line(panelX + 10, panelY + 65, panelX + panelW - 10, panelY + 65, 1);
+      line(panelX + 7, panelY + 49, panelX + panelW - 7, panelY + 49, 1);
 
       // Rating
       let rating = "TRY AGAIN";
@@ -1066,13 +1066,13 @@
       if (score >= 15) rating = "GREAT";
       if (score >= 25) rating = "AMAZING";
       if (score >= 40) rating = "LEGENDARY";
-      textCenter(rating, panelY + 75, score >= 15 ? 3 : 2);
+      textCenter(rating, panelY + 56, score >= 15 ? 3 : 2);
 
       // Prompt
       if (deathTimer > 20) {
         const blink = flr(deathTimer / 10) % 2;
         if (blink) {
-          textCenter("PRESS Z TO CONTINUE", panelY + 98, 2);
+          textCenter("PRESS Z TO CONTINUE", panelY + 74, 2);
         }
       }
 

@@ -52,9 +52,9 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
-  const SCALE = 2;
+  const W = 320;
+  const H = 240;
+  const SCALE = 3;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -292,14 +292,14 @@
   // --- Constants ---
   const COLS = 10;
   const ROWS = 20;
-  const CELL = 14; // pixel size per block
+  const CELL = 11; // pixel size per block
   const FIELD_W = COLS * CELL;
   const FIELD_H = ROWS * CELL;
-  const FIELD_X = Math.floor((W - FIELD_W) / 2) - 40; // shifted left for side panel
+  const FIELD_X = Math.floor((W - FIELD_W) / 2) - 30; // shifted left for side panel
   const FIELD_Y = Math.floor((H - FIELD_H) / 2);
 
   // Panel positions (right side)
-  const PANEL_X = FIELD_X + FIELD_W + 20;
+  const PANEL_X = FIELD_X + FIELD_W + 14;
 
   // Tetromino definitions: each piece has 4 rotation states
   // Stored as array of [row, col] offsets
@@ -552,7 +552,7 @@
   }
 
   function drawSmallBlock(x, y, color) {
-    const sz = 8;
+    const sz = 6;
     rectf(x, y, sz - 1, sz - 1, color);
   }
 
@@ -627,8 +627,8 @@
     const py = FIELD_Y + 10;
     text("NEXT", px, py - 10, 3);
     // Box
-    rect(px - 2, py - 2, 42, 36, 1);
-    rectf(px - 1, py - 1, 40, 34, 0);
+    rect(px - 2, py - 2, 32, 28, 1);
+    rectf(px - 1, py - 1, 30, 26, 0);
 
     const blocks = getBlocks(nextPiece, 0);
     const color = PIECES[nextPiece].color;
@@ -638,12 +638,12 @@
       minC = min(minC, dc); maxC = _max(maxC, dc);
       minR = min(minR, dr); maxR = _max(maxR, dr);
     }
-    const pw = (maxC - minC + 1) * 8;
-    const ph = (maxR - minR + 1) * 8;
-    const ox = px + flr((36 - pw) / 2);
-    const oy = py + flr((30 - ph) / 2);
+    const pw = (maxC - minC + 1) * 6;
+    const ph = (maxR - minR + 1) * 6;
+    const ox = px + flr((28 - pw) / 2);
+    const oy = py + flr((24 - ph) / 2);
     for (const [dr, dc] of blocks) {
-      drawSmallBlock(ox + (dc - minC) * 8, oy + (dr - minR) * 8, color);
+      drawSmallBlock(ox + (dc - minC) * 6, oy + (dr - minR) * 6, color);
     }
   }
 
@@ -651,20 +651,20 @@
     const px = PANEL_X;
 
     // Score
-    text("SCORE", px, FIELD_Y + 60, 2);
-    text(String(score), px, FIELD_Y + 70, 3);
+    text("SCORE", px, FIELD_Y + 48, 2);
+    text(String(score), px, FIELD_Y + 58, 3);
 
     // Level
-    text("LEVEL", px, FIELD_Y + 95, 2);
-    text(String(level), px, FIELD_Y + 105, 3);
+    text("LEVEL", px, FIELD_Y + 78, 2);
+    text(String(level), px, FIELD_Y + 88, 3);
 
     // Lines
-    text("LINES", px, FIELD_Y + 130, 2);
-    text(String(totalLines), px, FIELD_Y + 140, 3);
+    text("LINES", px, FIELD_Y + 108, 2);
+    text(String(totalLines), px, FIELD_Y + 118, 3);
 
     // High score
-    text("HIGH", px, FIELD_Y + 170, 2);
-    text(String(highScore), px, FIELD_Y + 180, 3);
+    text("HIGH", px, FIELD_Y + 148, 2);
+    text(String(highScore), px, FIELD_Y + 158, 3);
   }
 
   // --- Title screen ---
@@ -683,13 +683,13 @@
 
     // Title with big blocky letters
     const tx = W / 2;
-    const ty = 60;
+    const ty = 30;
 
     // Draw decorative tetromino blocks around title
     const t = titleAnim;
     // Falling blocks animation
-    for (let i = 0; i < 8; i++) {
-      const bx = 40 + i * 55;
+    for (let i = 0; i < 6; i++) {
+      const bx = 20 + i * 52;
       const by = ((t * (1 + i * 0.3)) % (H + 40)) - 20;
       const c = (i % 2 === 0) ? 2 : 3;
       drawBlock(bx, by, c, false);
@@ -724,15 +724,15 @@
 
     // Blinking start text
     if (flr(t / 15) % 2 === 0) {
-      text("PRESS ENTER TO START", flr(W / 2) - 50, 180, 3);
+      text("PRESS ENTER TO START", flr(W / 2) - 50, 120, 3);
     }
 
     // Controls
-    text("LEFT/RIGHT  MOVE", flr(W / 2) - 45, 220, 1);
-    text("DOWN  SOFT DROP", flr(W / 2) - 45, 232, 1);
-    text("UP  HARD DROP", flr(W / 2) - 45, 244, 1);
-    text("Z  ROTATE CW", flr(W / 2) - 45, 256, 1);
-    text("X  ROTATE CCW", flr(W / 2) - 45, 268, 1);
+    text("LEFT/RIGHT  MOVE", flr(W / 2) - 45, 150, 1);
+    text("DOWN  SOFT DROP", flr(W / 2) - 45, 162, 1);
+    text("UP  HARD DROP", flr(W / 2) - 45, 174, 1);
+    text("Z  ROTATE CW", flr(W / 2) - 45, 186, 1);
+    text("X  ROTATE CCW", flr(W / 2) - 45, 198, 1);
 
     // Bottom
     text("(C) GRAYBOX 2026", flr(W / 2) - 40, H - 16, 1);
@@ -930,18 +930,18 @@
 
     // Game over text box
     const bx = flr(W / 2) - 60;
-    const by = flr(H / 2) - 35;
-    rectf(bx, by, 120, 70, 0);
-    rect(bx, by, 120, 70, 2);
-    rect(bx + 1, by + 1, 118, 68, 1);
+    const by = flr(H / 2) - 30;
+    rectf(bx, by, 120, 60, 0);
+    rect(bx, by, 120, 60, 2);
+    rect(bx + 1, by + 1, 118, 58, 1);
 
-    text("GAME OVER", bx + 22, by + 10, 3);
-    text("SCORE " + String(score), bx + 14, by + 26, 2);
+    text("GAME OVER", bx + 22, by + 8, 3);
+    text("SCORE " + String(score), bx + 14, by + 22, 2);
     if (score >= highScore && score > 0) {
-      text("NEW HIGH SCORE!", bx + 8, by + 38, 3);
+      text("NEW HIGH SCORE!", bx + 8, by + 34, 3);
     }
     if (gameOverTimer > 60 && flr(gameOverTimer / 12) % 2 === 0) {
-      text("PRESS ENTER", bx + 18, by + 54, 2);
+      text("PRESS ENTER", bx + 18, by + 46, 2);
     }
   }
 

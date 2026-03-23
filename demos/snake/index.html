@@ -52,9 +52,9 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
-  const SCALE = 2;
+  const W = 320;
+  const H = 240;
+  const SCALE = 3;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -291,10 +291,10 @@
 
   // --- Grid config ---
   const CELL = 8;             // 8x8 pixel cells
-  const BORDER_X = 8;         // border offset in pixels
-  const BORDER_Y = 16;        // top border offset (room for HUD)
-  const GRID_W = 57;          // (480 - 16) / 8 = 58, use 57 for border
-  const GRID_H = 36;          // (320 - 16 - 8) / 8 = 37, use 36 for border
+  const BORDER_X = 4;         // border offset in pixels
+  const BORDER_Y = 12;        // top border offset (room for HUD)
+  const GRID_W = 37;          // (320 - 8) / 8 = 39, use 37 for border
+  const GRID_H = 26;          // (240 - 12 - 8) / 8 = 27, use 26 for border
   const FIELD_PX_W = GRID_W * CELL;
   const FIELD_PX_H = GRID_H * CELL;
   const FIELD_X = BORDER_X + 4;
@@ -468,19 +468,19 @@
 
     if (state === "title") {
       // Draw decorative border
-      rect(20, 20, W - 40, H - 40, 1);
-      rect(22, 22, W - 44, H - 44, 1);
+      rect(13, 15, W - 26, H - 30, 1);
+      rect(15, 17, W - 30, H - 34, 1);
 
       // Title
-      textCenter("SNAKE", 60, 3);
+      textCenter("SNAKE", 45, 3);
       // Big blocky title using rectf
       const titleStr = "SNAKE";
-      const bigW = 20, bigH = 24, bigGap = 6;
+      const bigW = 14, bigH = 18, bigGap = 4;
       const totalW = titleStr.length * (bigW + bigGap) - bigGap;
       const startX = flr((W - totalW) / 2);
       for (let i = 0; i < titleStr.length; i++) {
         const bx = startX + i * (bigW + bigGap);
-        const by = 70;
+        const by = 53;
         const c = (i + flr(titleAnim / 15)) % 2 === 0 ? 3 : 2;
         rectf(bx, by, bigW, bigH, c);
         // Draw letter centered in block
@@ -488,29 +488,29 @@
       }
 
       // Animated snake on title
-      const snakeY = 120;
+      const snakeY = 90;
       const snakeLen = 10;
       for (let i = 0; i < snakeLen; i++) {
-        const sx = 140 + i * 10 + sin(titleAnim * 0.06 + i * 0.5) * 8;
-        const sy = snakeY + cos(titleAnim * 0.08 + i * 0.4) * 6;
+        const sx = 93 + i * 8 + sin(titleAnim * 0.06 + i * 0.5) * 6;
+        const sy = snakeY + cos(titleAnim * 0.08 + i * 0.4) * 5;
         const c = i === 0 ? 3 : 2;
         rectf(flr(sx), flr(sy), CELL, CELL, c);
       }
 
       // Instructions
       if (flr(titleAnim / 20) % 2 === 0) {
-        textCenter("PRESS ENTER TO START", 180, 3);
+        textCenter("PRESS ENTER TO START", 135, 3);
       }
 
-      textCenter("ARROWS TO MOVE", 210, 2);
-      textCenter("EAT FOOD TO GROW", 222, 2);
-      textCenter("DON'T HIT WALLS OR YOURSELF", 234, 2);
+      textCenter("ARROWS TO MOVE", 158, 2);
+      textCenter("EAT FOOD TO GROW", 167, 2);
+      textCenter("DON'T HIT WALLS OR YOURSELF", 176, 2);
 
       if (highScore > 0) {
-        textCenter("HIGH SCORE: " + highScore, 260, 2);
+        textCenter("HIGH SCORE: " + highScore, 195, 2);
       }
 
-      textCenter("GRAYBOX DEMO", 290, 1);
+      textCenter("GRAYBOX DEMO", 218, 1);
       return;
     }
 
@@ -520,13 +520,13 @@
     rectf(0, 0, W, BORDER_Y - 2, 0);
 
     // HUD
-    text("SCORE:" + score, 8, 4, 3);
-    text("LEN:" + snake.length, 160, 4, 2);
-    text("HI:" + highScore, W - 80, 4, 2);
+    text("SCORE:" + score, 5, 3, 3);
+    text("LEN:" + snake.length, 107, 3, 2);
+    text("HI:" + highScore, W - 60, 3, 2);
 
     // Speed indicator
     const speed = 9 - moveInterval;
-    text("SPD:" + speed, 280, 4, 1);
+    text("SPD:" + speed, 187, 3, 1);
 
     // Field border
     rect(FIELD_X - 1, FIELD_Y - 1, FIELD_PX_W + 2, FIELD_PX_H + 2, 1);
@@ -588,26 +588,26 @@
     // Game over overlay
     if (state === "gameover") {
       // Darken overlay using scattered pixels
-      for (let py = 80; py < 200; py += 2) {
-        for (let px = 100; px < 380; px += 2) {
+      for (let py = 60; py < 150; py += 2) {
+        for (let px = 67; px < 253; px += 2) {
           pix(px, py, 0);
         }
       }
-      rectf(120, 100, 240, 80, 0);
-      rect(120, 100, 240, 80, 1);
-      rect(122, 102, 236, 76, 2);
+      rectf(80, 75, 160, 60, 0);
+      rect(80, 75, 160, 60, 1);
+      rect(82, 77, 156, 56, 2);
 
-      textCenter("GAME OVER", 115, 3);
-      textCenter("SCORE: " + score, 132, 2);
-      textCenter("LENGTH: " + snake.length, 144, 2);
+      textCenter("GAME OVER", 86, 3);
+      textCenter("SCORE: " + score, 99, 2);
+      textCenter("LENGTH: " + snake.length, 108, 2);
 
       if (score >= highScore && score > 0) {
-        textCenter("NEW HIGH SCORE!", 158, 3);
+        textCenter("NEW HIGH SCORE!", 119, 3);
       }
 
       if (gameOverTimer > 30) {
         if (flr(gameOverTimer / 15) % 2 === 0) {
-          textCenter("PRESS ENTER", 170, 2);
+          textCenter("PRESS ENTER", 128, 2);
         }
       }
     }

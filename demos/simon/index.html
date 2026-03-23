@@ -52,9 +52,9 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
-  const SCALE = 2;
+  const W = 320;
+  const H = 240;
+  const SCALE = 3;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -290,10 +290,10 @@
           min, max: _max, sin, cos } = API;
 
   // --- Game constants ---
-  const CX = W / 2;   // 240 center
-  const CY = 150;     // center of quadrant area (shifted up for HUD)
-  const QS = 80;      // quadrant size
-  const GAP = 6;      // gap between quadrants
+  const CX = W / 2;   // 160 center
+  const CY = 112;     // center of quadrant area (shifted up for HUD)
+  const QS = 53;      // quadrant size
+  const GAP = 4;      // gap between quadrants
 
   // Quadrant definitions: 0=up, 1=down, 2=left, 3=right
   // Positions relative to center cross
@@ -318,10 +318,10 @@
   ];
 
   // Quadrant layout: 4 panels in a diamond/cross pattern
-  const PAD = 20;
-  const QW = 100;  // quadrant width
-  const QH = 80;   // quadrant height
-  const QGAP = 8;
+  const PAD = 13;
+  const QW = 67;   // quadrant width
+  const QH = 60;   // quadrant height
+  const QGAP = 6;
 
   const quadPos = [
     // 0: UP - top center
@@ -639,21 +639,21 @@
 
   function drawHUD() {
     // Round number - top left
-    text("ROUND " + round, 10, 10, 3);
+    text("ROUND " + round, 7, 8, 3);
 
     // Best score - top right
     const bStr = "BEST " + bestScore;
     const bW = bStr.length * (FONT_W + 1) - 1;
-    text(bStr, W - 10 - bW, 10, 2);
+    text(bStr, W - 7 - bW, 8, 2);
 
     // Sequence length indicator - bottom
     const seqStr = "LENGTH " + sequence.length;
     const seqW = seqStr.length * (FONT_W + 1) - 1;
-    text(seqStr, flr(CX - seqW / 2), H - 30, 2);
+    text(seqStr, flr(CX - seqW / 2), H - 22, 2);
 
     // Progress dots during input phase
     if (phase === "input") {
-      const dotY = H - 18;
+      const dotY = H - 14;
       const totalDots = sequence.length;
       const dotSpacing = 6;
       const totalW = totalDots * dotSpacing;
@@ -669,12 +669,12 @@
     // Title
     const pulse = flr(titlePulse / 15) % 2;
 
-    textCentered("SIMON", 60, 3);
+    textCentered("SIMON", 45, 3);
 
     // Decorative quadrants on title screen
-    const demoY = 110;
-    const demoSize = 40;
-    const demoGap = 8;
+    const demoY = 82;
+    const demoSize = 27;
+    const demoGap = 6;
     const demoX = CX - demoSize - demoGap / 2;
 
     // Animate: cycle through quadrants
@@ -700,16 +700,16 @@
     }
 
     // Instructions
-    textCentered("REPEAT THE PATTERN", 200, 2);
-    textCentered("USE ARROW KEYS", 215, 2);
+    textCentered("REPEAT THE PATTERN", 150, 2);
+    textCentered("USE ARROW KEYS", 161, 2);
 
     if (pulse === 0) {
-      textCentered("PRESS ENTER TO START", 250, 3);
+      textCentered("PRESS ENTER TO START", 188, 3);
     }
 
     // Best score
     if (bestScore > 0) {
-      textCentered("BEST: " + bestScore, 280, 2);
+      textCentered("BEST: " + bestScore, 210, 2);
     }
   }
 
@@ -721,14 +721,14 @@
       rect(pos.x, pos.y, QW, QH, 1);
     }
 
-    textCentered("GAME OVER", 80, 3);
+    textCentered("GAME OVER", 60, 3);
 
-    textCentered("ROUND REACHED: " + round, 120, 2);
-    textCentered("BEST: " + bestScore, 140, 2);
+    textCentered("ROUND REACHED: " + round, 90, 2);
+    textCentered("BEST: " + bestScore, 105, 2);
 
     const pulse = flr(titlePulse / 15) % 2;
     if (pulse === 0) {
-      textCentered("PRESS ENTER", 200, 3);
+      textCentered("PRESS ENTER", 150, 3);
     }
   }
 

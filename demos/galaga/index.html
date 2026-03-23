@@ -52,9 +52,9 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
-  const SCALE = 2;
+  const W = 320;
+  const H = 240;
+  const SCALE = 3;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -412,13 +412,13 @@
   // Formation grid config
   const FORM_COLS = 10;
   const FORM_ROWS = 4;
-  const FORM_CELL_W = 18;
-  const FORM_CELL_H = 16;
+  const FORM_CELL_W = 12;
+  const FORM_CELL_H = 12;
   const FORM_BASE_X = (W - FORM_COLS * FORM_CELL_W) / 2;
-  const FORM_BASE_Y = 40;
+  const FORM_BASE_Y = 30;
 
   function resetGame() {
-    player = { x: W / 2 - 4, y: H - 30, speed: 3 };
+    player = { x: W / 2 - 4, y: H - 24, speed: 3 };
     bullets = [];
     eBullets = [];
     enemies = [];
@@ -505,9 +505,9 @@
     // Create a bezier-like dive path
     const startX = enemy.x;
     const startY = enemy.y;
-    const midX = startX + (rnd(200) - 100);
-    const midY = H * 0.4 + rnd(60);
-    const endX = player.x + (rnd(80) - 40);
+    const midX = startX + (rnd(133) - 67);
+    const midY = H * 0.4 + rnd(45);
+    const endX = player.x + (rnd(53) - 27);
     const endY = H + 20;
     enemy.divePath = { sx: startX, sy: startY, mx: midX, my: midY, ex: endX, ey: endY };
     enemy.diveSpeed = 2 + rnd(1) + wave * 0.15;
@@ -573,8 +573,8 @@
 
     // Formation movement (sway left/right)
     formationX += formationDir * formationSpeed;
-    if (formationX > 30) { formationDir = -1; }
-    if (formationX < -30) { formationDir = 1; }
+    if (formationX > 20) { formationDir = -1; }
+    if (formationX < -20) { formationDir = 1; }
 
     // Enemy entrance and formation
     const aliveEnemies = enemies.length;
@@ -589,7 +589,7 @@
         const flyInDuration = 30;
         if (e.enterT <= flyInDuration) {
           const t = e.enterT / flyInDuration;
-          const startX = W / 2 + sin(e.formCol * 0.8) * 100;
+          const startX = W / 2 + sin(e.formCol * 0.8) * 67;
           e.x = startX + (target.x - startX) * t;
           e.y = -10 + (target.y + 10) * t;
         } else {
@@ -618,7 +618,7 @@
         }
         // Enemy shoots while diving
         e.shootTimer--;
-        if (e.shootTimer <= 0 && e.y > 0 && e.y < H - 40) {
+        if (e.shootTimer <= 0 && e.y > 0 && e.y < H - 30) {
           eBullets.push({ x: e.x + 3, y: e.y + 8 });
           e.shootTimer = 30 + flr(rnd(40));
         }
@@ -750,12 +750,12 @@
     for (const s of stars) pix(s.x, s.y, s.bright);
 
     if (state === "title") {
-      const ty = 70 + sin(API.frame * 0.05) * 5;
+      const ty = 53 + sin(API.frame * 0.05) * 5;
 
       // Title
-      text("GALAGA", 205, flr(ty), 3);
-      text("GALAGA", 206, flr(ty) + 1, 1);
-      rectf(170, flr(ty) + 12, 140, 1, 2);
+      text("GALAGA", 145, flr(ty), 3);
+      text("GALAGA", 146, flr(ty) + 1, 1);
+      rectf(113, flr(ty) + 12, 93, 1, 2);
 
       // Show some enemies on title
       const bx = W / 2 - 40;
@@ -765,25 +765,25 @@
       spr(3, bx + 60, flr(ty) + 27 + sin(API.frame * 0.08 + 3) * 3);
       spr(4, bx + 80, flr(ty) + 25 + sin(API.frame * 0.08 + 4) * 3);
 
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", 170, 200, 3);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO START", 120, 150, 3);
 
       // Score table
-      text("-SCORE TABLE-", 185, 230, 2);
-      spr(4, 190, 244); text("  BOSS   40 PTS", 200, 246, 2);
-      spr(3, 190, 258); text("  WING   20 PTS", 200, 260, 2);
-      spr(2, 190, 272); text("  BEE    10 PTS", 200, 274, 2);
+      text("-SCORE TABLE-", 128, 173, 2);
+      spr(4, 130, 183); text("  BOSS   40 PTS", 140, 185, 2);
+      spr(3, 130, 194); text("  WING   20 PTS", 140, 195, 2);
+      spr(2, 130, 205); text("  BEE    10 PTS", 140, 206, 2);
 
-      text("GRAYBOX DEMO V0.1", 168, 305, 1);
+      text("GRAYBOX DEMO V0.1", 118, 229, 1);
       return;
     }
 
     if (state === "gameover") {
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      text("GAME OVER", 195, 120, 3);
-      text("SCORE: " + score, 195, 145, 2);
-      text("WAVE: " + wave, 207, 160, 2);
-      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 158, 210, 3);
+      text("GAME OVER", 138, 90, 3);
+      text("SCORE: " + score, 138, 109, 2);
+      text("WAVE: " + wave, 148, 120, 2);
+      if (flr(API.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 113, 158, 3);
       return;
     }
 
@@ -823,14 +823,14 @@
     // HUD
     rectf(0, 0, W, 12, 0);
     text("SCORE:" + score, 4, 3, 3);
-    text("WAVE:" + wave, W / 2 - 20, 3, 2);
+    text("WAVE:" + wave, W / 2 - 15, 3, 2);
     for (let i = 0; i < lives; i++) spr(9, W - 36 + i * 10, 2);
 
     // Wave announcement
     if (waveMessage > 0) {
-      const msgY = 150 + sin(waveMessage * 0.1) * 3;
-      text("WAVE " + wave, 210, flr(msgY), 3);
-      if (waveMessage > 60) text("GET READY!", 195, flr(msgY) + 14, 2);
+      const msgY = 113 + sin(waveMessage * 0.1) * 3;
+      text("WAVE " + wave, 143, flr(msgY), 3);
+      if (waveMessage > 60) text("GET READY!", 135, flr(msgY) + 14, 2);
     }
   };
 

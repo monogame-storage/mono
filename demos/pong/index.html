@@ -52,9 +52,9 @@
   // ============================================================
   // GrayBox Runtime (inline)
   // ============================================================
-  const W = 480;
-  const H = 320;
-  const SCALE = 2;
+  const W = 320;
+  const H = 240;
+  const SCALE = 3;
   const FPS = 30;
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
   const canvas = document.getElementById("screen");
@@ -291,18 +291,18 @@
 
   // --- Constants ---
   const PADDLE_W = 6;
-  const PADDLE_H = 32;
+  const PADDLE_H = 24;
   const BALL_SIZE = 4;
   const PADDLE_SPEED = 4;
   const BALL_INIT_SPEED = 3.5;
   const BALL_SPEED_INC = 0.15;   // speed increase per rally hit
   const BALL_MAX_SPEED = 7;
   const WIN_SCORE = 11;
-  const COURT_TOP = 20;          // leave room for score
-  const COURT_BOTTOM = H - 4;
-  const PADDLE_MARGIN = 20;      // distance from edge to paddle
+  const COURT_TOP = 15;          // leave room for score
+  const COURT_BOTTOM = H - 3;
+  const PADDLE_MARGIN = 13;      // distance from edge to paddle
   const AI_REACTION_SPEED = 3.2;
-  const AI_ERROR = 12;           // max pixels of imperfection
+  const AI_ERROR = 9;            // max pixels of imperfection
 
   // --- Game state ---
   let state = "title";
@@ -420,7 +420,7 @@
         aiTarget = predicted + (rnd(AI_ERROR * 2) - AI_ERROR);
       } else {
         // Ball moving away, drift toward center
-        aiTarget = H / 2 + (rnd(30) - 15);
+        aiTarget = H / 2 + (rnd(22) - 11);
       }
       aiUpdateTimer = 8 + flr(rnd(6));  // recalculate every 8-14 frames
     }
@@ -523,24 +523,24 @@
 
     if (state === "title") {
       // Title screen
-      text("PONG", W / 2 - 10, 80, 3);
+      text("PONG", W / 2 - 10, 60, 3);
 
       // Draw decorative paddles and ball on title
-      rectf(W / 2 - 60, 120, PADDLE_W, PADDLE_H, 2);
-      rectf(W / 2 + 54, 120, PADDLE_W, PADDLE_H, 2);
-      rectf(W / 2 - 2, 134, BALL_SIZE, BALL_SIZE, 3);
+      rectf(W / 2 - 40, 90, PADDLE_W, PADDLE_H, 2);
+      rectf(W / 2 + 34, 90, PADDLE_W, PADDLE_H, 2);
+      rectf(W / 2 - 2, 100, BALL_SIZE, BALL_SIZE, 3);
 
       // Dashed center line on title too
-      for (let y = 110; y < 160; y += 8) {
+      for (let y = 82; y < 120; y += 8) {
         rectf(W / 2 - 1, y, 2, 4, 1);
       }
 
       if (titleBlink) {
-        text("PRESS START", W / 2 - 27, 190, 3);
+        text("PRESS START", W / 2 - 27, 142, 3);
       }
 
-      text("FIRST TO 11 WINS", W / 2 - 42, 220, 1);
-      text("UP/DOWN TO MOVE", W / 2 - 37, 235, 1);
+      text("FIRST TO 11 WINS", W / 2 - 40, 165, 1);
+      text("UP/DOWN TO MOVE", W / 2 - 37, 176, 1);
       return;
     }
 
@@ -558,12 +558,12 @@
     // Scores
     const pScoreStr = String(playerScore);
     const aScoreStr = String(aiScore);
-    text(pScoreStr, W / 2 - 30, 6, 2);
-    text(aScoreStr, W / 2 + 22, 6, 2);
+    text(pScoreStr, W / 2 - 20, 5, 2);
+    text(aScoreStr, W / 2 + 15, 5, 2);
 
     // Player label and AI label
-    text("P1", W / 2 - 50, 6, 1);
-    text("CPU", W / 2 + 35, 6, 1);
+    text("P1", W / 2 - 33, 5, 1);
+    text("CPU", W / 2 + 23, 5, 1);
 
     // Paddles
     rectf(PADDLE_MARGIN, playerY, PADDLE_W, PADDLE_H, 3);
@@ -577,12 +577,12 @@
     // Game over overlay
     if (state === "gameover") {
       // Dim overlay
-      rectf(W / 2 - 70, H / 2 - 30, 140, 50, 0);
-      rect(W / 2 - 70, H / 2 - 30, 140, 50, 1);
-      text(winMessage, W / 2 - flr(winMessage.length * 2.5), H / 2 - 15, 3);
-      text(playerScore + " - " + aiScore, W / 2 - 15, H / 2 - 2, 2);
+      rectf(W / 2 - 47, H / 2 - 22, 94, 38, 0);
+      rect(W / 2 - 47, H / 2 - 22, 94, 38, 1);
+      text(winMessage, W / 2 - flr(winMessage.length * 2.5), H / 2 - 11, 3);
+      text(playerScore + " - " + aiScore, W / 2 - 10, H / 2 - 2, 2);
       if (titleBlink) {
-        text("PRESS START", W / 2 - 27, H / 2 + 12, 3);
+        text("PRESS START", W / 2 - 27, H / 2 + 9, 3);
       }
     }
   };
