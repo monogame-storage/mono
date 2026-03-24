@@ -345,16 +345,17 @@
   }
 
   .action-btns {
-    display: flex;
-    gap: 12px;
-    align-items: flex-end;
+    position: relative;
+    width: 120px;
+    height: 100px;
     pointer-events: auto;
     padding: 20px;
     margin: -20px;
   }
   .action-btn {
-    width: 56px;
-    height: 56px;
+    position: absolute;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     background: rgba(176,176,176,0.25);
     border: 2px solid rgba(176,176,176,0.4);
@@ -373,8 +374,9 @@
     background: rgba(176,176,176,0.5);
     border-color: rgba(232,232,232,0.7);
   }
-  .btn-b { margin-bottom: 24px; }
-  .btn-a { margin-bottom: 0; }
+  /* Nintendo layout: B left-down, A right-up */
+  .btn-b { left: 0; bottom: 0; }
+  .btn-a { right: 0; top: 0; }
 
   /* ── Haptic Slider ── */
   .haptic-panel {
