@@ -300,38 +300,48 @@
     width: 130px;
     height: 130px;
     pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
-  .dpad-btn {
+  .dpad-zone {
     position: absolute;
-    width: 44px;
-    height: 44px;
-    background: rgba(176,176,176,0.25);
-    border: 2px solid rgba(176,176,176,0.4);
-    border-radius: 8px;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(107,107,107,0.12);
+    border: 2px solid rgba(176,176,176,0.2);
+  }
+  .dpad-arrow {
+    position: absolute;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(232,232,232,0.6);
-    font-size: 18px;
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: none;
+    color: rgba(232,232,232,0.3);
+    font-size: 14px;
+    pointer-events: none;
   }
-  .dpad-btn:active, .dpad-btn.pressed {
-    background: rgba(176,176,176,0.5);
-    border-color: rgba(232,232,232,0.7);
-    color: rgba(232,232,232,0.9);
-  }
-  .dpad-up    { left: 43px; top: 0; }
-  .dpad-down  { left: 43px; bottom: 0; }
-  .dpad-left  { left: 0; top: 43px; }
-  .dpad-right { right: 0; top: 43px; }
-  .dpad-center {
+  .dpad-arrow.active { color: rgba(232,232,232,0.9); }
+  .dpad-arrow-up    { left: 51px; top: 4px; }
+  .dpad-arrow-down  { left: 51px; bottom: 4px; }
+  .dpad-arrow-left  { left: 4px; top: 51px; }
+  .dpad-arrow-right { right: 4px; top: 51px; }
+  .dpad-knob {
     position: absolute;
-    left: 43px; top: 43px;
-    width: 44px; height: 44px;
-    background: rgba(107,107,107,0.15);
-    border-radius: 4px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(176,176,176,0.35);
+    border: 2px solid rgba(176,176,176,0.5);
+    left: 43px;
+    top: 43px;
+    pointer-events: none;
+    transition: transform 0.05s;
+  }
+  .dpad-knob.active {
+    background: rgba(176,176,176,0.55);
+    border-color: rgba(232,232,232,0.7);
   }
 
   .action-btns {
@@ -423,12 +433,13 @@
 
 <!-- Mobile Gamepad -->
 <div class="gamepad" id="gamepad">
-  <div class="dpad">
-    <div class="dpad-center"></div>
-    <div class="dpad-btn dpad-up" data-key="ArrowUp">▲</div>
-    <div class="dpad-btn dpad-down" data-key="ArrowDown">▼</div>
-    <div class="dpad-btn dpad-left" data-key="ArrowLeft">◀</div>
-    <div class="dpad-btn dpad-right" data-key="ArrowRight">▶</div>
+  <div class="dpad" id="dpad">
+    <div class="dpad-zone"></div>
+    <div class="dpad-arrow dpad-arrow-up" id="dpadUp">▲</div>
+    <div class="dpad-arrow dpad-arrow-down" id="dpadDown">▼</div>
+    <div class="dpad-arrow dpad-arrow-left" id="dpadLeft">◀</div>
+    <div class="dpad-arrow dpad-arrow-right" id="dpadRight">▶</div>
+    <div class="dpad-knob" id="dpadKnob"></div>
   </div>
   <div class="action-btns">
     <div class="action-btn btn-b" data-key="x">B</div>
@@ -688,9 +699,103 @@ function sendKey(key, type) {
   } catch(e) {}
 }
 
+// ── D-Pad: analog joystick style ──
+const dpad = document.getElementById("dpad");
+const dpadKnob = document.getElementById("dpadKnob");
+const dpadArrows = {
+  up: document.getElementById("dpadUp"),
+  down: document.getElementById("dpadDown"),
+  left: document.getElementById("dpadLeft"),
+  right: document.getElementById("dpadRight")
+};
+const dpadKeyMap = { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" };
+const dpadState = { up: false, down: false, left: false, right: false };
+let dpadTouchId = null;
+let dpadCenterX = 0, dpadCenterY = 0;
+
+function dpadUpdate(tx, ty) {
+  const dx = tx - dpadCenterX;
+  const dy = ty - dpadCenterY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const maxDist = 35;
+  const deadzone = 12;
+
+  // Clamp knob visual
+  const clampDist = Math.min(dist, maxDist);
+  const angle = Math.atan2(dy, dx);
+  const kx = clampDist * Math.cos(angle);
+  const ky = clampDist * Math.sin(angle);
+  dpadKnob.style.transform = `translate(${kx}px, ${ky}px)`;
+  dpadKnob.classList.toggle("active", dist > deadzone);
+
+  // Determine direction
+  const newState = { up: false, down: false, left: false, right: false };
+  if (dist > deadzone) {
+    const deg = angle * 180 / Math.PI;
+    // 8-way with overlap zones for diagonals
+    if (deg > -67.5 && deg < 67.5) newState.right = true;
+    if (deg > 22.5 && deg < 157.5) newState.down = true;
+    if (deg > 112.5 || deg < -112.5) newState.left = true;
+    if (deg > -157.5 && deg < -22.5) newState.up = true;
+  }
+
+  // Diff and send key events
+  for (const dir of ["up", "down", "left", "right"]) {
+    if (newState[dir] && !dpadState[dir]) {
+      sendKey(dpadKeyMap[dir], "keydown");
+      dpadArrows[dir].classList.add("active");
+    } else if (!newState[dir] && dpadState[dir]) {
+      sendKey(dpadKeyMap[dir], "keyup");
+      dpadArrows[dir].classList.remove("active");
+    }
+    dpadState[dir] = newState[dir];
+  }
+}
+
+function dpadRelease() {
+  dpadKnob.style.transform = "translate(0, 0)";
+  dpadKnob.classList.remove("active");
+  for (const dir of ["up", "down", "left", "right"]) {
+    if (dpadState[dir]) {
+      sendKey(dpadKeyMap[dir], "keyup");
+      dpadArrows[dir].classList.remove("active");
+      dpadState[dir] = false;
+    }
+  }
+  dpadTouchId = null;
+}
+
+dpad.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  if (dpadTouchId !== null) return;
+  const t = e.changedTouches[0];
+  dpadTouchId = t.identifier;
+  const rect = dpad.getBoundingClientRect();
+  dpadCenterX = rect.left + rect.width / 2;
+  dpadCenterY = rect.top + rect.height / 2;
+  dpadUpdate(t.clientX, t.clientY);
+}, { passive: false });
+
+dpad.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier === dpadTouchId) {
+      dpadUpdate(t.clientX, t.clientY);
+      break;
+    }
+  }
+}, { passive: false });
+
+dpad.addEventListener("touchend", (e) => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === dpadTouchId) { dpadRelease(); break; }
+  }
+});
+dpad.addEventListener("touchcancel", () => dpadRelease());
+
+// ── Action buttons (A/B) ──
 document.querySelectorAll("[data-key]").forEach(btn => {
   const key = btn.dataset.key;
-  // A button also triggers "start" so it works on title screens
   const keys = key === "z" ? ["z", "Enter"] : [key];
 
   btn.addEventListener("touchstart", (e) => {
@@ -705,7 +810,7 @@ document.querySelectorAll("[data-key]").forEach(btn => {
     keys.forEach(k => sendKey(k, "keyup"));
   }, { passive: false });
 
-  btn.addEventListener("touchcancel", (e) => {
+  btn.addEventListener("touchcancel", () => {
     btn.classList.remove("pressed");
     keys.forEach(k => sendKey(k, "keyup"));
   });
