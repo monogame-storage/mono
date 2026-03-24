@@ -22,10 +22,41 @@
           spr, sprRot, text, btn, btnp, note, stop, rnd, flr,
           abs: _abs, min, max: _max, sin, cos, atan2, PI, sqrt } = Mono;
 
-  // --- Sprites ---
+  // --- 8→16 upscale helper ---
+  function up(d) {
+    let o = "";
+    for (let r = 0; r < 8; r++) {
+      let row = "";
+      for (let c = 0; c < 8; c++) {
+        const ch = d[r * 8 + c];
+        row += ch + ch;
+      }
+      o += row + row;
+    }
+    return o;
+  }
+
+  // --- Circle collision helper ---
+  function circCollide(x1, y1, r1, x2, y2, r2) {
+    const dx = x1 - x2, dy = y1 - y2;
+    const d2 = dx * dx + dy * dy;
+    const rSum = r1 + r2;
+    return d2 < rSum * rSum;
+  }
+
+  // --- Constants ---
+  const HALF = 8;            // half of 16x16 sprite
+  const PLAYER_R = 6;        // player hitbox radius
+  const ENEMY_R = 6;         // normal enemy hitbox radius
+  const BOSS_R = 9;          // boss hitbox radius
+  const BULLET_R = 3;        // player bullet hitbox radius
+  const EBULLET_R = 3;       // enemy bullet hitbox radius
+  const PARA_R = 8;          // parachutist rescue radius
+
+  // --- Sprites (8x8 data upscaled to 16x16) ---
 
   // 1: Player plane (facing right) - sleek fighter
-  defSprite(1,
+  defSprite(1, up(
     "00033000" +
     "00333300" +
     "03333330" +
@@ -34,10 +65,10 @@
     "03333330" +
     "00333300" +
     "00033000"
-  );
+  ));
 
   // 2: 1910 Biplane - boxy with struts
-  defSprite(2,
+  defSprite(2, up(
     "00011000" +
     "01111110" +
     "00011000" +
@@ -46,10 +77,10 @@
     "00011000" +
     "00010000" +
     "00000000"
-  );
+  ));
 
   // 3: 1940 Prop fighter - WW2 style
-  defSprite(3,
+  defSprite(3, up(
     "00010000" +
     "00111000" +
     "01111100" +
@@ -58,10 +89,10 @@
     "01111100" +
     "00111000" +
     "00010000"
-  );
+  ));
 
   // 4: 1970 Jet - delta wing
-  defSprite(4,
+  defSprite(4, up(
     "00001000" +
     "00011100" +
     "00111110" +
@@ -70,10 +101,10 @@
     "00111110" +
     "00011100" +
     "00001000"
-  );
+  ));
 
   // 5: 1982 Helicopter
-  defSprite(5,
+  defSprite(5, up(
     "33333330" +
     "00130000" +
     "01133100" +
@@ -82,10 +113,10 @@
     "00111000" +
     "00020000" +
     "00222000"
-  );
+  ));
 
   // 6: 2001 UFO - flying saucer
-  defSprite(6,
+  defSprite(6, up(
     "00333000" +
     "03333300" +
     "33333330" +
@@ -94,10 +125,10 @@
     "03333300" +
     "00333000" +
     "00010100"
-  );
+  ));
 
   // 7: Player bullet
-  defSprite(7,
+  defSprite(7, up(
     "00000000" +
     "00000000" +
     "00030000" +
@@ -106,10 +137,10 @@
     "00030000" +
     "00000000" +
     "00000000"
-  );
+  ));
 
   // 8: Enemy bullet
-  defSprite(8,
+  defSprite(8, up(
     "00000000" +
     "00000000" +
     "00010000" +
@@ -118,10 +149,10 @@
     "00010000" +
     "00000000" +
     "00000000"
-  );
+  ));
 
   // 9: Explosion frame 1
-  defSprite(9,
+  defSprite(9, up(
     "00000000" +
     "00200100" +
     "01003000" +
@@ -130,10 +161,10 @@
     "01000010" +
     "00100000" +
     "00000000"
-  );
+  ));
 
   // 10: Explosion frame 2
-  defSprite(10,
+  defSprite(10, up(
     "20010020" +
     "01000010" +
     "00203200" +
@@ -142,10 +173,10 @@
     "01000300" +
     "20001001" +
     "00200010"
-  );
+  ));
 
   // 11: Parachutist
-  defSprite(11,
+  defSprite(11, up(
     "03333300" +
     "33333330" +
     "03333300" +
@@ -154,10 +185,10 @@
     "00100000" +
     "01010000" +
     "01010000"
-  );
+  ));
 
   // 12: Life icon
-  defSprite(12,
+  defSprite(12, up(
     "00000000" +
     "00033000" +
     "00333300" +
@@ -166,10 +197,10 @@
     "00333300" +
     "00000000" +
     "00000000"
-  );
+  ));
 
   // 13: Cloud small
-  defSprite(13,
+  defSprite(13, up(
     "00000000" +
     "00110000" +
     "01111000" +
@@ -178,10 +209,10 @@
     "01111100" +
     "00000000" +
     "00000000"
-  );
+  ));
 
   // 14: Cloud big part
-  defSprite(14,
+  defSprite(14, up(
     "00011000" +
     "01111100" +
     "11111110" +
@@ -190,10 +221,10 @@
     "11111110" +
     "01111100" +
     "00000000"
-  );
+  ));
 
   // 15: Boss indicator arrow
-  defSprite(15,
+  defSprite(15, up(
     "00030000" +
     "00330000" +
     "03330000" +
@@ -202,7 +233,7 @@
     "03330000" +
     "00330000" +
     "00030000"
-  );
+  ));
 
   // --- ERA config ---
   const ERAS = [
@@ -328,7 +359,7 @@
     for (let i = 0; i < count; i++) {
       const spd = big ? 3 : 2;
       particles.push({
-        x: x + 4, y: y + 4,
+        x: x + HALF, y: y + HALF,
         vx: rnd(spd * 2) - spd, vy: rnd(spd * 2) - spd,
         life: 8 + flr(rnd(12)),
         color: flr(rnd(3)) + 1
@@ -375,7 +406,7 @@
       }
     },
     draw() {
-      const bgCol = 0; cls(bgCol);
+      cls(0);
       drawTitle();
     }
   });
@@ -385,16 +416,16 @@
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--; if (p.life <= 0) particles.splice(i, 1); }
-      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
+      if (btnp("start") || btnp("a")) { Mono.go(TITLE); return; }
     },
     draw() {
-      const bgCol = 0; cls(bgCol);
+      cls(0);
       drawGameOver();
     }
   });
 
   function playerDeath() {
-    addExplosion(player.x - 4, player.y - 4, true);
+    addExplosion(player.x - HALF, player.y - HALF, true);
     sfxDeath();
     lives--;
     invTimer = 90;
@@ -531,14 +562,18 @@
         e.shootTimer = ERAS[era].eShootRate + flr(rnd(40));
       }
 
-      // Bullet-enemy collision
+      // Bullet-enemy collision (circle)
+      const eCx = e.x, eCy = e.y;
       for (let j = bullets.length - 1; j >= 0; j--) {
         const b = bullets[j];
-        if (dist(b.x, b.y, e.x, e.y) < 7) {
+        const bCx = b.x, bCy = b.y;
+        Mono.dbgC(flr(bCx - camX), flr(bCy - camY), BULLET_R);
+        Mono.dbgC(flr(eCx - camX), flr(eCy - camY), ENEMY_R);
+        if (circCollide(bCx, bCy, BULLET_R, eCx, eCy, ENEMY_R)) {
           bullets.splice(j, 1);
           e.hp--;
           if (e.hp <= 0) {
-            addExplosion(e.x - 4, e.y - 4, false);
+            addExplosion(e.x - HALF, e.y - HALF, false);
             score += e.pts;
             killCount++;
             sfxHit();
@@ -601,19 +636,23 @@
         boss.shootTimer = 25 + flr(rnd(15));
       }
 
-      // Bullet-boss collision
+      // Bullet-boss collision (circle)
+      const bossCx = boss.x, bossCy = boss.y;
       for (let j = bullets.length - 1; j >= 0; j--) {
         const b = bullets[j];
-        if (dist(b.x, b.y, boss.x, boss.y) < 10) {
+        const bCx = b.x, bCy = b.y;
+        Mono.dbgC(flr(bCx - camX), flr(bCy - camY), BULLET_R);
+        Mono.dbgC(flr(bossCx - camX), flr(bossCy - camY), BOSS_R);
+        if (circCollide(bCx, bCy, BULLET_R, bossCx, bossCy, BOSS_R)) {
           bullets.splice(j, 1);
           boss.hp--;
           boss.flashTimer = 4;
           score += 50;
           sfxBossHit();
           if (boss.hp <= 0) {
-            addExplosion(boss.x - 4, boss.y - 4, true);
-            addExplosion(boss.x + 4, boss.y + 2, true);
-            addExplosion(boss.x - 2, boss.y + 6, true);
+            addExplosion(boss.x - HALF, boss.y - HALF, true);
+            addExplosion(boss.x + HALF, boss.y + 2, true);
+            addExplosion(boss.x - 2, boss.y + HALF, true);
             score += boss.pts;
             sfxBossDead();
             // Era transition
@@ -636,27 +675,41 @@
       b.x += b.vx; b.y += b.vy; b.life--;
       if (b.life <= 0) { eBullets.splice(i, 1); continue; }
 
-      // Hit player
-      if (invTimer <= 0 && dist(b.x, b.y, player.x, player.y) < 5) {
+      // Hit player (circle)
+      const bCx = b.x, bCy = b.y;
+      const pCx = player.x, pCy = player.y;
+      Mono.dbgC(flr(bCx - camX), flr(bCy - camY), EBULLET_R);
+      Mono.dbgC(flr(pCx - camX), flr(pCy - camY), PLAYER_R);
+      if (invTimer <= 0 && circCollide(bCx, bCy, EBULLET_R, pCx, pCy, PLAYER_R)) {
         eBullets.splice(i, 1);
         playerDeath();
       }
     }
 
-    // --- Enemy-player collision ---
+    // --- Enemy-player collision (circle) ---
     if (invTimer <= 0) {
       for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
-        if (dist(e.x, e.y, player.x, player.y) < 6) {
-          addExplosion(e.x - 4, e.y - 4, false);
+        const eCx = e.x, eCy = e.y;
+        const pCx = player.x, pCy = player.y;
+        Mono.dbgC(flr(eCx - camX), flr(eCy - camY), ENEMY_R);
+        Mono.dbgC(flr(pCx - camX), flr(pCy - camY), PLAYER_R);
+        if (circCollide(eCx, eCy, ENEMY_R, pCx, pCy, PLAYER_R)) {
+          addExplosion(e.x - HALF, e.y - HALF, false);
           enemies.splice(i, 1);
           playerDeath();
           break;
         }
       }
-      // Boss collision
-      if (boss && dist(boss.x, boss.y, player.x, player.y) < 10) {
-        playerDeath();
+      // Boss collision (circle)
+      if (boss) {
+        const bossCx = boss.x, bossCy = boss.y;
+        const pCx = player.x, pCy = player.y;
+        Mono.dbgC(flr(bossCx - camX), flr(bossCy - camY), BOSS_R);
+        Mono.dbgC(flr(pCx - camX), flr(pCy - camY), PLAYER_R);
+        if (circCollide(bossCx, bossCy, BOSS_R, pCx, pCy, PLAYER_R)) {
+          playerDeath();
+        }
       }
     }
 
@@ -668,8 +721,12 @@
       p.timer--;
       if (p.timer <= 0) { parachutists.splice(i, 1); continue; }
 
-      // Rescue check
-      if (dist(p.x, p.y, player.x, player.y) < 12) {
+      // Rescue check (circle)
+      const paraCx = p.x, paraCy = p.y;
+      const pCx = player.x, pCy = player.y;
+      Mono.dbgC(flr(paraCx - camX), flr(paraCy - camY), PARA_R);
+      Mono.dbgC(flr(pCx - camX), flr(pCy - camY), PLAYER_R);
+      if (circCollide(paraCx, paraCy, PARA_R, pCx, pCy, PLAYER_R)) {
         score += 500;
         sfxRescue();
         // Small particle burst
@@ -697,8 +754,7 @@
     },
     draw() {
     // Background color based on era
-    const bgCol = era === 4 ? 0 : 0;
-    cls(bgCol);
+    cls(0);
 
     // --- Draw clouds (parallax) ---
     for (const c of clouds) {
@@ -713,34 +769,34 @@
         spr(13, flr(wx), flr(wy));
       } else if (c.size === 1) {
         spr(14, flr(wx), flr(wy));
-        spr(13, flr(wx) + 7, flr(wy) + 1);
+        spr(13, flr(wx) + 14, flr(wy) + 2);
       } else {
         spr(14, flr(wx), flr(wy));
-        spr(14, flr(wx) + 7, flr(wy) - 1);
-        spr(13, flr(wx) + 14, flr(wy) + 1);
+        spr(14, flr(wx) + 14, flr(wy) - 2);
+        spr(13, flr(wx) + 28, flr(wy) + 2);
       }
     }
 
     // --- Draw parachutists ---
     for (const p of parachutists) {
       const sx = p.x - camX, sy = p.y - camY;
-      if (sx > -8 && sx < W + 8 && sy > -8 && sy < H + 8) {
-        spr(11, flr(sx) - 4, flr(sy) - 4);
+      if (sx > -16 && sx < W + 16 && sy > -16 && sy < H + 16) {
+        spr(11, flr(sx) - HALF, flr(sy) - HALF);
       }
     }
 
     // --- Draw enemy bullets ---
     for (const b of eBullets) {
       const sx = b.x - camX, sy = b.y - camY;
-      if (sx > -4 && sx < W + 4 && sy > -4 && sy < H + 4) {
-        spr(8, flr(sx) - 4, flr(sy) - 4);
+      if (sx > -8 && sx < W + 8 && sy > -8 && sy < H + 8) {
+        spr(8, flr(sx) - HALF, flr(sy) - HALF);
       }
     }
 
     // --- Draw enemies ---
     for (const e of enemies) {
       const sx = e.x - camX, sy = e.y - camY;
-      if (sx > -12 && sx < W + 12 && sy > -12 && sy < H + 12) {
+      if (sx > -20 && sx < W + 20 && sy > -20 && sy < H + 20) {
         sprRot(e.type, flr(sx), flr(sy), e.angle);
       }
     }
@@ -748,38 +804,38 @@
     // --- Draw boss ---
     if (boss) {
       const sx = boss.x - camX, sy = boss.y - camY;
-      if (sx > -20 && sx < W + 20 && sy > -20 && sy < H + 20) {
+      if (sx > -30 && sx < W + 30 && sy > -30 && sy < H + 30) {
         if (boss.flashTimer > 0 && flr(Mono.frame / 2) % 2) {
-          // Draw bigger for boss (2x)
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
+          // Flash effect: draw offset copies
+          for (let dy = -2; dy <= 2; dy += 2) {
+            for (let dx = -2; dx <= 2; dx += 2) {
               sprRot(boss.type, flr(sx) + dx, flr(sy) + dy, boss.angle);
             }
           }
         } else {
           // Draw boss larger: 3 overlapping sprites
           sprRot(boss.type, flr(sx), flr(sy), boss.angle);
-          sprRot(boss.type, flr(sx) + 1, flr(sy), boss.angle);
-          sprRot(boss.type, flr(sx), flr(sy) + 1, boss.angle);
+          sprRot(boss.type, flr(sx) + 2, flr(sy), boss.angle);
+          sprRot(boss.type, flr(sx), flr(sy) + 2, boss.angle);
         }
         // Boss HP bar
         const barW = 30;
         const hpRatio = boss.hp / boss.maxHP;
-        rectf(flr(sx) - barW/2 + 4, flr(sy) - 10, barW, 3, 1);
-        rectf(flr(sx) - barW/2 + 4, flr(sy) - 10, flr(barW * hpRatio), 3, 3);
+        rectf(flr(sx) - barW/2 + HALF, flr(sy) - 14, barW, 3, 1);
+        rectf(flr(sx) - barW/2 + HALF, flr(sy) - 14, flr(barW * hpRatio), 3, 3);
       } else {
         // Boss off screen - draw arrow indicator
         const ax = _max(5, min(W - 5, sx));
         const ay = _max(12, min(H - 6, sy));
-        circf(flr(ax), flr(ay), 3, 3);
+        circf(flr(ax), flr(ay), 4, 3);
       }
     }
 
     // --- Draw player bullets ---
     for (const b of bullets) {
       const sx = b.x - camX, sy = b.y - camY;
-      if (sx > -4 && sx < W + 4 && sy > -4 && sy < H + 4) {
-        spr(7, flr(sx) - 4, flr(sy) - 4);
+      if (sx > -8 && sx < W + 8 && sy > -8 && sy < H + 8) {
+        spr(7, flr(sx) - HALF, flr(sy) - HALF);
       }
     }
 
@@ -789,18 +845,21 @@
       sprRot(1, px, py, player.angle);
       // Thrust flame
       if (btn("up")) {
-        const fx = px - cos(player.angle) * 7;
-        const fy = py - sin(player.angle) * 7;
+        const fx = px - cos(player.angle) * 12;
+        const fy = py - sin(player.angle) * 12;
         const fc = (Mono.frame % 4 < 2) ? 2 : 3;
         pix(flr(fx), flr(fy), fc);
-        pix(flr(fx) - cos(player.angle) * 1, flr(fy) - sin(player.angle) * 1, 1);
+        pix(flr(fx) - 1, flr(fy), 1);
+        pix(flr(fx) + 1, flr(fy), 1);
+        pix(flr(fx), flr(fy) - 1, 1);
+        pix(flr(fx), flr(fy) + 1, 1);
       }
     }
 
     // --- Draw explosions ---
     for (const e of explosions) {
       const sx = e.x - camX, sy = e.y - camY;
-      if (sx > -16 && sx < W + 16 && sy > -16 && sy < H + 16) {
+      if (sx > -20 && sx < W + 20 && sy > -20 && sy < H + 20) {
         const sprId = e.timer > 6 ? 9 : 10;
         spr(sprId, flr(sx), flr(sy));
       }
@@ -832,29 +891,29 @@
 
   function drawHUD() {
     // Top bar
-    rectf(0, 0, W, 10, 0);
-    line(0, 10, W, 10, 1);
+    rectf(0, 0, W, 12, 0);
+    line(0, 12, W, 12, 1);
 
     text("SCORE:" + score, 3, 3, 3);
     text(ERAS[era].name, W/2 - 10, 3, 2);
 
     // Lives
-    for (let i = 0; i < lives; i++) spr(12, W - 27 + i * 7, 2);
+    for (let i = 0; i < lives; i++) spr(12, W - 52 + i * 16, 0);
 
     // Kill counter / boss bar
     const e = ERAS[era];
     if (!bossActive) {
       const progress = min(killCount, e.killReq);
-      text("KILLS:" + progress + "/" + e.killReq, 3, H - 8, 2);
+      text("KILLS:" + progress + "/" + e.killReq, 3, H - 9, 2);
     } else {
-      text("BOSS!", 3, H - 8, 3);
+      text("BOSS!", 3, H - 9, 3);
     }
 
     // Era name bottom right
-    text(ERAS[era].label, W - ERAS[era].label.length * 5 - 3, H - 8, 1);
+    text(ERAS[era].label, W - ERAS[era].label.length * 5 - 3, H - 9, 1);
 
     // Compass / direction indicator
-    const cx = W - 13, cy = 22;
+    const cx = W - 16, cy = 28;
     circ(cx, cy, 10, 1);
     const nx = cx + cos(player.angle) * 8;
     const ny = cy + sin(player.angle) * 8;
@@ -887,7 +946,7 @@
     // Show era enemies
     const ey = flr(ty) + 49;
     for (let i = 0; i < 5; i++) {
-      const ex = W/2 - 33 + i * 17;
+      const ex = W/2 - 40 + i * 20;
       const bob = sin(Mono.frame * 0.06 + i * 1.2) * 3;
       sprRot(ERAS[i].enemySpr, ex, ey + flr(bob), -PI/2 + sin(Mono.frame * 0.03 + i) * 0.3);
     }

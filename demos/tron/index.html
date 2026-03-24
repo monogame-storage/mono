@@ -19,12 +19,31 @@
   "use strict";
   const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
-          spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos, gpix } = Mono;
+          spr, sprT, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
+          min, max: _max, sin, cos, gpix, dbg, dbgC, overlap } = Mono;
 
-  // --- Sprites ---
+  // --- Low-level access for fast trail rendering ---
+  const COLOR_U32 = Mono._COLOR_U32;
+  const getBuf32 = () => Mono._buf32;
+
+  // --- 8x8 -> 16x16 upscale helper ---
+  function up(d) {
+    let o = "";
+    for (let r = 0; r < 8; r++) {
+      let row = "";
+      for (let c = 0; c < 8; c++) {
+        const ch = d[r * 8 + c];
+        row += ch + ch;
+      }
+      o += row + row;
+    }
+    return o;
+  }
+
+  // --- Sprites (8x8 designs, upscaled to 16x16) ---
+
   // 1: Player cycle facing right
-  defSprite(1,
+  defSprite(1, up(
     "00000000" +
     "00333300" +
     "03333330" +
@@ -33,9 +52,9 @@
     "03333300" +
     "00333000" +
     "00000000"
-  );
+  ));
   // 2: AI cycle
-  defSprite(2,
+  defSprite(2, up(
     "00000000" +
     "00111100" +
     "01111110" +
@@ -44,9 +63,9 @@
     "01111100" +
     "00111000" +
     "00000000"
-  );
+  ));
   // 3: Explosion frame 1
-  defSprite(3,
+  defSprite(3, up(
     "00000000" +
     "00200100" +
     "01002000" +
@@ -55,9 +74,9 @@
     "01000010" +
     "00100000" +
     "00000000"
-  );
+  ));
   // 4: Explosion frame 2
-  defSprite(4,
+  defSprite(4, up(
     "20010020" +
     "01000010" +
     "00203200" +
@@ -66,9 +85,9 @@
     "01000300" +
     "20001001" +
     "00200010"
-  );
+  ));
   // 5: Crown/trophy
-  defSprite(5,
+  defSprite(5, up(
     "00000000" +
     "30300300" +
     "33333330" +
@@ -77,9 +96,9 @@
     "03333300" +
     "03333300" +
     "00000000"
-  );
+  ));
   // 6: Boost icon
-  defSprite(6,
+  defSprite(6, up(
     "00000000" +
     "00030000" +
     "00330000" +
@@ -88,13 +107,13 @@
     "00030000" +
     "00000000" +
     "00000000"
-  );
+  ));
 
-  // --- Arena constants ---
+  // --- Arena constants (fits 320x240 with HUD) ---
   const ARENA_X = 5;
-  const ARENA_Y = 15;
-  const ARENA_W = W - 10;
-  const ARENA_H = H - 22;
+  const ARENA_Y = 16;
+  const ARENA_W = W - 10;   // 310
+  const ARENA_H = H - 22;   // 218
   const ARENA_R = ARENA_X + ARENA_W - 1;
   const ARENA_B = ARENA_Y + ARENA_H - 1;
 
@@ -118,6 +137,29 @@
       grid[gridIdx(x, y)] = v;
   }
 
+  // --- Collision: check a rect region of the grid ---
+  function gridRectHit(cx, cy, hw, hh, ownId) {
+    for (let dy = -hh; dy <= hh; dy++) {
+      for (let dx = -hw; dx <= hw; dx++) {
+        const gx = cx + dx;
+        const gy = cy + dy;
+        const v = gridGet(gx, gy);
+        if (v === 255) return true; // wall
+        if (v !== 0 && v !== ownId) return true; // other trail
+      }
+    }
+    return false;
+  }
+
+  // --- Stamp a rect region in the grid ---
+  function gridRectSet(cx, cy, hw, hh, v) {
+    for (let dy = -hh; dy <= hh; dy++) {
+      for (let dx = -hw; dx <= hw; dx++) {
+        gridSet(cx + dx, cy + dy, v);
+      }
+    }
+  }
+
   // --- Scenes ---
   const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   const ROUNDEND = "roundend";
@@ -130,6 +172,10 @@
   let boostFuel, boostMax, boostActive, boostCooldown;
   let titlePulse;
   let crashedIds; // set of crashed cycle indices this round
+
+  // Cycle head half-sizes for collision
+  const CYCLE_HW = 1; // half width
+  const CYCLE_HH = 1; // half height
 
   function makeCycle(id, x, y, dir, isPlayer, color) {
     return {
@@ -145,7 +191,6 @@
   }
 
   function spawnPositions(count) {
-    // Place cycles evenly spaced in the arena
     const positions = [];
     const cx = flr(ARENA_X + ARENA_W / 2);
     const cy = flr(ARENA_Y + ARENA_H / 2);
@@ -155,15 +200,12 @@
     positions.push({ x: ARENA_X + margin, y: cy, dir: 1 });
 
     if (count >= 2) {
-      // First AI starts right side going left
       positions.push({ x: ARENA_R - margin, y: cy, dir: 3 });
     }
     if (count >= 3) {
-      // Second AI starts top going down
       positions.push({ x: cx, y: ARENA_Y + margin, dir: 2 });
     }
     if (count >= 4) {
-      // Third AI starts bottom going up
       positions.push({ x: cx, y: ARENA_B - margin, dir: 0 });
     }
     return positions;
@@ -181,18 +223,18 @@
 
     // Player
     const pp = positions[0];
-    cycles.push(makeCycle(1, pp.x, pp.y, pp.dir, true, 3)); // color 3 = bright
+    cycles.push(makeCycle(1, pp.x, pp.y, pp.dir, true, 3));
 
     // AIs
     for (let i = 1; i < totalCycles; i++) {
       const ap = positions[i];
-      cycles.push(makeCycle(i + 1, ap.x, ap.y, ap.dir, false, 2)); // color 2 = medium
+      cycles.push(makeCycle(i + 1, ap.x, ap.y, ap.dir, false, 2));
     }
 
-    // Place initial positions on grid
+    // Place initial positions on grid (stamp rect for each cycle)
     for (const c of cycles) {
       const gv = c.isPlayer ? 1 : c.id;
-      gridSet(c.x, c.y, gv);
+      gridRectSet(c.x, c.y, CYCLE_HW, CYCLE_HH, gv);
     }
 
     boostFuel = boostMax;
@@ -217,7 +259,6 @@
 
   function nextRound() {
     round++;
-    // More AI opponents in later rounds
     if (round >= 4) numAI = 3;
     else if (round >= 3) numAI = 2;
     else numAI = 1;
@@ -265,7 +306,6 @@
     const speed = getCurrentSpeed();
     const lookAhead = flr(12 + speed * 5);
 
-    // Check what's ahead, left, and right
     const ahead = c.dir;
     const left = (c.dir + 3) % 4;
     const right = (c.dir + 1) % 4;
@@ -274,12 +314,9 @@
     const leftDist = scanDir(c.x, c.y, left, lookAhead);
     const rightDist = scanDir(c.x, c.y, right, lookAhead);
 
-    // If ahead is clear enough, keep going (with some randomness)
     if (aheadDist >= lookAhead && rnd(1) < 0.85) return;
 
-    // Danger ahead - pick best turn
     if (aheadDist < 4) {
-      // Urgent turn
       if (leftDist > rightDist) {
         c.dir = left;
       } else if (rightDist > leftDist) {
@@ -291,8 +328,6 @@
     }
 
     if (aheadDist < lookAhead * 0.6) {
-      // Try to be strategic: head toward open space
-      // Add some randomness for variety
       if (rnd(1) < 0.4) {
         if (leftDist > rightDist + 3) c.dir = left;
         else if (rightDist > leftDist + 3) c.dir = right;
@@ -305,12 +340,11 @@
     if (rnd(1) < 0.08 && aheadDist > 15) {
       const player = cycles[0];
       if (player.alive) {
-        // Try to cut off player
         const dx = player.x - c.x;
         const dy = player.y - c.y;
         if (_abs(dx) > _abs(dy)) {
           const wantDir = dx > 0 ? 1 : 3;
-          if (wantDir !== (c.dir + 2) % 4) { // not reverse
+          if (wantDir !== (c.dir + 2) % 4) {
             const dist = scanDir(c.x, c.y, wantDir, lookAhead);
             if (dist > 10) c.dir = wantDir;
           }
@@ -331,7 +365,8 @@
     for (let d = 1; d <= maxDist; d++) {
       const nx = x + dx * d;
       const ny = y + dy * d;
-      if (nx <= ARENA_X || nx >= ARENA_R || ny <= ARENA_Y || ny >= ARENA_B) return d - 1;
+      if (nx <= ARENA_X + CYCLE_HW || nx >= ARENA_R - CYCLE_HW ||
+          ny <= ARENA_Y + CYCLE_HH || ny >= ARENA_B - CYCLE_HH) return d - 1;
       if (gridGet(nx, ny) !== 0) return d - 1;
     }
     return maxDist;
@@ -341,7 +376,6 @@
     return baseSpeed + (round - 1) * speedIncrement;
   }
 
-  // --- Init ---
   // --- Title Scene ---
   Mono.scene(TITLE, {
     init() { resetGame(); },
@@ -357,8 +391,11 @@
     init() { particles = []; },
     update() {
       titlePulse++;
-      for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--; if (p.life <= 0) particles.splice(i, 1); }
-      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("start") || btnp("a")) { Mono.go(TITLE); return; }
     },
     draw() { cls(0); drawGameOver(); }
   });
@@ -368,8 +405,14 @@
     init() { roundTimer = 0; },
     update() {
       titlePulse++;
-      for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--; if (p.life <= 0) particles.splice(i, 1); }
-      for (let i = explosions.length - 1; i >= 0; i--) { explosions[i].timer--; if (explosions[i].timer <= 0) explosions.splice(i, 1); }
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      for (let i = explosions.length - 1; i >= 0; i--) {
+        explosions[i].timer--;
+        if (explosions[i].timer <= 0) explosions.splice(i, 1);
+      }
       roundTimer++;
       if (roundTimer > 90) {
         if (playerScore >= winsNeeded) { Mono.go(GAMEOVER); return; }
@@ -389,112 +432,117 @@
   Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
-    titlePulse++;
+      titlePulse++;
 
-    // --- Play state ---
-    if (roundMessage > 0) {
-      roundMessage--;
-      if (roundMessage === 60) roundStartSound();
-      return; // freeze during countdown
-    }
-
-    roundTimer++;
-
-    // Player input
-    const player = cycles[0];
-    if (player.alive) {
-      if (btnp("up") && player.dir !== 2) { player.dir = 0; turnSound(); }
-      else if (btnp("down") && player.dir !== 0) { player.dir = 2; turnSound(); }
-      else if (btnp("left") && player.dir !== 1) { player.dir = 3; turnSound(); }
-      else if (btnp("right") && player.dir !== 3) { player.dir = 1; turnSound(); }
-
-      // Boost
-      if (boostCooldown > 0) boostCooldown--;
-      if (btn("a") && boostFuel > 0 && boostCooldown <= 0) {
-        boostActive = true;
-        boostFuel--;
-        if (Mono.frame % 6 === 0) boostSound();
-      } else {
-        boostActive = false;
-        // Regenerate fuel slowly
-        if (boostFuel < boostMax && !btn("a")) boostFuel = min(boostMax, boostFuel + 0.2);
+      if (roundMessage > 0) {
+        roundMessage--;
+        if (roundMessage === 60) roundStartSound();
+        return;
       }
-    }
 
-    // AI thinking
-    for (let i = 1; i < cycles.length; i++) {
-      const c = cycles[i];
-      if (!c.alive) continue;
-      if (Mono.frame % 3 === 0) aiThink(c); // think every 3 frames
-    }
+      roundTimer++;
 
-    // Move all cycles
-    const speed = getCurrentSpeed();
-    const playerSpeed = boostActive ? speed * 1.7 : speed;
+      // Player input
+      const player = cycles[0];
+      if (player.alive) {
+        if (btnp("up") && player.dir !== 2) { player.dir = 0; turnSound(); }
+        else if (btnp("down") && player.dir !== 0) { player.dir = 2; turnSound(); }
+        else if (btnp("left") && player.dir !== 1) { player.dir = 3; turnSound(); }
+        else if (btnp("right") && player.dir !== 3) { player.dir = 1; turnSound(); }
 
-    for (const c of cycles) {
-      if (!c.alive) continue;
-
-      const s = c.isPlayer ? playerSpeed : speed;
-      c.moveAccum += s;
-
-      while (c.moveAccum >= 1 && c.alive) {
-        c.moveAccum -= 1;
-
-        const nx = c.x + DX[c.dir];
-        const ny = c.y + DY[c.dir];
-
-        // Check collision
-        if (nx <= ARENA_X || nx >= ARENA_R || ny <= ARENA_Y || ny >= ARENA_B || gridGet(nx, ny) !== 0) {
-          // Crash!
-          c.alive = false;
-          crashedIds.add(c.id);
-          addExplosion(c.x, c.y);
-          crashSound();
-          if (c.isPlayer && boostActive) {
-            boostActive = false;
-            boostCooldown = 30;
-          }
+        // Boost
+        if (boostCooldown > 0) boostCooldown--;
+        if (btn("a") && boostFuel > 0 && boostCooldown <= 0) {
+          boostActive = true;
+          boostFuel--;
+          if (Mono.frame % 6 === 0) boostSound();
         } else {
-          // Move forward
-          c.x = nx;
-          c.y = ny;
-          const gv = c.isPlayer ? 1 : c.id;
-          gridSet(c.x, c.y, gv);
-          c.trail.push({ x: c.x, y: c.y });
+          boostActive = false;
+          if (boostFuel < boostMax && !btn("a")) boostFuel = min(boostMax, boostFuel + 0.2);
         }
       }
-    }
 
-    // Update explosions
-    for (let i = explosions.length - 1; i >= 0; i--) {
-      explosions[i].timer--;
-      if (explosions[i].timer <= 0) explosions.splice(i, 1);
-    }
-    // Update particles
-    for (let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
-      if (p.life <= 0) particles.splice(i, 1);
-    }
-
-    // Check round end conditions
-    const playerAlive = cycles[0].alive;
-    const anyAIAlive = cycles.slice(1).some(c => c.alive);
-
-    if (!playerAlive || !anyAIAlive) {
-      // Determine winner
-      if (!playerAlive && !anyAIAlive) {
-        // Draw - no points
-      } else if (playerAlive) {
-        playerScore++;
-        winSound();
-      } else {
-        aiScore++;
-        loseSound();
+      // AI thinking
+      for (let i = 1; i < cycles.length; i++) {
+        const c = cycles[i];
+        if (!c.alive) continue;
+        if (Mono.frame % 3 === 0) aiThink(c);
       }
-      Mono.go(ROUNDEND); return;
-    }
+
+      // Move all cycles
+      const speed = getCurrentSpeed();
+      const playerSpeed = boostActive ? speed * 1.7 : speed;
+
+      for (const c of cycles) {
+        if (!c.alive) continue;
+
+        const s = c.isPlayer ? playerSpeed : speed;
+        c.moveAccum += s;
+
+        while (c.moveAccum >= 1 && c.alive) {
+          c.moveAccum -= 1;
+
+          const nx = c.x + DX[c.dir];
+          const ny = c.y + DY[c.dir];
+
+          // Collision: check if the cycle's hitbox at the new position hits anything
+          const ownGv = c.isPlayer ? 1 : c.id;
+          const hitWall = nx - CYCLE_HW <= ARENA_X || nx + CYCLE_HW >= ARENA_R ||
+                          ny - CYCLE_HH <= ARENA_Y || ny + CYCLE_HH >= ARENA_B;
+          const hitTrail = !hitWall && gridRectHit(nx, ny, CYCLE_HW, CYCLE_HH, ownGv);
+
+          if (hitWall || hitTrail) {
+            c.alive = false;
+            crashedIds.add(c.id);
+            addExplosion(c.x, c.y);
+            crashSound();
+            if (c.isPlayer && boostActive) {
+              boostActive = false;
+              boostCooldown = 30;
+            }
+          } else {
+            c.x = nx;
+            c.y = ny;
+            gridRectSet(c.x, c.y, CYCLE_HW, CYCLE_HH, ownGv);
+            c.trail.push({ x: c.x, y: c.y });
+          }
+        }
+      }
+
+      // Debug hitboxes for all alive cycles
+      for (const c of cycles) {
+        if (!c.alive) continue;
+        dbg(c.x - CYCLE_HW, c.y - CYCLE_HH, CYCLE_HW * 2 + 1, CYCLE_HH * 2 + 1);
+      }
+
+      // Update explosions
+      for (let i = explosions.length - 1; i >= 0; i--) {
+        explosions[i].timer--;
+        if (explosions[i].timer <= 0) explosions.splice(i, 1);
+      }
+      // Update particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+
+      // Check round end conditions
+      const playerAlive = cycles[0].alive;
+      const anyAIAlive = cycles.slice(1).some(c => c.alive);
+
+      if (!playerAlive || !anyAIAlive) {
+        if (!playerAlive && !anyAIAlive) {
+          // Draw - no points
+        } else if (playerAlive) {
+          playerScore++;
+          winSound();
+        } else {
+          aiScore++;
+          loseSound();
+        }
+        Mono.go(ROUNDEND); return;
+      }
     },
     draw() {
       cls(0);
@@ -537,22 +585,22 @@
     text("TRON", 150, flr(48 + bounce), 3);
     text("LIGHT CYCLES", 130, flr(60 + bounce), 2);
 
-    // Animated light cycles on title
-    const bikeY = 98;
+    // Animated light cycles on title (upscaled sprites = 16px tall)
+    const bikeY = 90;
     const bikeX1 = flr((Mono.frame * 2) % (W + 100)) - 50;
     const bikeX2 = W - bikeX1 + 50;
 
     // Trails behind title bikes
     for (let i = 0; i < 40; i++) {
-      pix(bikeX1 - i, bikeY + 3, i < 20 ? 3 : 2);
-      pix(bikeX1 - i, bikeY + 4, i < 20 ? 3 : 2);
+      pix(bikeX1 - i, bikeY + 7, i < 20 ? 3 : 2);
+      pix(bikeX1 - i, bikeY + 8, i < 20 ? 3 : 2);
     }
     for (let i = 0; i < 40; i++) {
-      pix(bikeX2 + i, bikeY + 13, i < 20 ? 2 : 1);
-      pix(bikeX2 + i, bikeY + 14, i < 20 ? 2 : 1);
+      pix(bikeX2 + i, bikeY + 23, i < 20 ? 2 : 1);
+      pix(bikeX2 + i, bikeY + 24, i < 20 ? 2 : 1);
     }
-    spr(1, bikeX1, bikeY);
-    spr(2, bikeX2, bikeY + 10, true);
+    sprT(1, bikeX1, bikeY);
+    sprT(2, bikeX2, bikeY + 16, true);
 
     // Instructions
     if (flr(Mono.frame / 20) % 2 === 0) {
@@ -560,14 +608,14 @@
     }
 
     // Rules
-    rectf(87, 150, 147, 64, 0);
-    rect(87, 150, 147, 64, 1);
-    text("HOW TO PLAY", 133, 155, 2);
-    text("ARROWS: TURN YOUR CYCLE", 103, 167, 2);
-    text("A: BOOST SPEED", 125, 176, 2);
-    text("AVOID WALLS AND TRAILS", 105, 185, 2);
-    text("TRAP YOUR OPPONENT!", 113, 194, 2);
-    text("BEST OF 5 ROUNDS", 120, 203, 1);
+    rectf(87, 146, 147, 64, 0);
+    rect(87, 146, 147, 64, 1);
+    text("HOW TO PLAY", 133, 151, 2);
+    text("ARROWS: TURN YOUR CYCLE", 103, 163, 2);
+    text("A: BOOST SPEED", 125, 172, 2);
+    text("AVOID WALLS AND TRAILS", 105, 181, 2);
+    text("TRAP YOUR OPPONENT!", 113, 190, 2);
+    text("BEST OF 5 ROUNDS", 120, 199, 1);
 
     text("MONO DEMO V0.1", 118, 229, 1);
   }
@@ -589,9 +637,9 @@
     rect(82, 62, 156, 101, won ? 2 : 1);
 
     if (won) {
-      spr(5, 147, 69);
-      spr(5, 165, 69);
-      text("YOU WIN!", 140, 81, 3);
+      sprT(5, 140, 68);
+      sprT(5, 164, 68);
+      text("YOU WIN!", 140, 88, 3);
     } else {
       text("GAME OVER", 138, 75, 3);
       text("DEREZZING...", 130, 86, 1);
@@ -607,22 +655,18 @@
   }
 
   function drawArena() {
-    // Arena border - double line for style
+    // Arena border - double line
     rect(ARENA_X, ARENA_Y, ARENA_W, ARENA_H, 2);
     rect(ARENA_X + 1, ARENA_Y + 1, ARENA_W - 2, ARENA_H - 2, 1);
 
     // Corner accents
     const cLen = 8;
-    // Top-left
     line(ARENA_X, ARENA_Y, ARENA_X + cLen, ARENA_Y, 3);
     line(ARENA_X, ARENA_Y, ARENA_X, ARENA_Y + cLen, 3);
-    // Top-right
     line(ARENA_R, ARENA_Y, ARENA_R - cLen, ARENA_Y, 3);
     line(ARENA_R, ARENA_Y, ARENA_R, ARENA_Y + cLen, 3);
-    // Bottom-left
     line(ARENA_X, ARENA_B, ARENA_X + cLen, ARENA_B, 3);
     line(ARENA_X, ARENA_B, ARENA_X, ARENA_B - cLen, 3);
-    // Bottom-right
     line(ARENA_R, ARENA_B, ARENA_R - cLen, ARENA_B, 3);
     line(ARENA_R, ARENA_B, ARENA_R, ARENA_B - cLen, 3);
 
@@ -636,6 +680,7 @@
 
   function drawTrails() {
     // Draw trails directly from grid for O(arena) performance
+    const buf32 = getBuf32();
     const aw = ARENA_W;
     const ax = ARENA_X;
     const ay = ARENA_Y;
@@ -656,7 +701,6 @@
     for (const c of cycles) {
       if (!c.alive) continue;
 
-      // Draw cycle head as a bright block with direction indicator
       const hx = c.x;
       const hy = c.y;
 
@@ -673,7 +717,6 @@
         // Boost glow
         if (boostActive) {
           pix(hx + DX[c.dir] * 3, hy + DY[c.dir] * 3, flr(Mono.frame / 2) % 2 === 0 ? 3 : 2);
-          // Side glow
           const perpX = DY[c.dir];
           const perpY = -DX[c.dir];
           pix(hx - DX[c.dir] * 2 + perpX, hy - DY[c.dir] * 2 + perpY, 2);
@@ -687,7 +730,6 @@
           }
         }
         pix(hx + DX[c.dir] * 2, hy + DY[c.dir] * 2, 2);
-        // Center bright
         pix(hx, hy, 3);
       }
     }
@@ -696,7 +738,7 @@
   function drawExplosions() {
     for (const e of explosions) {
       const sprId = e.timer > 9 ? 3 : 4;
-      spr(sprId, flr(e.x) - 4, flr(e.y) - 4);
+      sprT(sprId, flr(e.x) - 8, flr(e.y) - 8);
 
       // Extra explosion ring
       const r = 18 - e.timer;
@@ -714,8 +756,8 @@
 
   function drawHUD() {
     // Top bar background
-    rectf(0, 0, W, 14, 0);
-    line(0, 14, W, 14, 1);
+    rectf(0, 0, W, 15, 0);
+    line(0, 15, W, 15, 1);
 
     // Round info
     text("ROUND " + round, 3, 2, 2);
@@ -783,7 +825,6 @@
       const mx = flr((W - tw) / 2);
       const my = 113;
 
-      // Background box
       rectf(mx - 10, my - 5, tw + 20, 16, 0);
       rect(mx - 10, my - 5, tw + 20, 16, col);
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Mono — Demo: Scramble</title>
 <link rel="stylesheet" href="../../runtime/mono.css">
 </head>
@@ -22,9 +22,30 @@
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
           min, max: _max, sin, cos } = Mono;
 
-  // --- Sprites ---
+  // --- 8x8 -> 16x16 upscale helper ---
+  function up(d) {
+    let o = "";
+    for (let r = 0; r < 8; r++) {
+      let row = "";
+      for (let c = 0; c < 8; c++) {
+        const ch = d[r * 8 + c];
+        row += ch + ch;
+      }
+      o += row + row;
+    }
+    return o;
+  }
+
+  // --- Circle collision for bullets/bombs ---
+  function circHit(ax, ay, ar, bx, by, br) {
+    const dx = ax - bx, dy = ay - by;
+    return dx * dx + dy * dy < (ar + br) * (ar + br);
+  }
+
+  // --- Sprites (8x8 upscaled to 16x16) ---
+
   // 1: Player ship (right-facing jet)
-  defSprite(1,
+  defSprite(1, up(
     "00033000" +
     "03333300" +
     "33333330" +
@@ -33,9 +54,9 @@
     "03333300" +
     "00033000" +
     "00010000"
-  );
+  ));
   // 2: Player bullet (horizontal)
-  defSprite(2,
+  defSprite(2, up(
     "00000000" +
     "00000000" +
     "00000000" +
@@ -44,9 +65,9 @@
     "00000000" +
     "00000000" +
     "00000000"
-  );
+  ));
   // 3: Bomb (falling)
-  defSprite(3,
+  defSprite(3, up(
     "00000000" +
     "00030000" +
     "00333000" +
@@ -55,9 +76,9 @@
     "00030000" +
     "00000000" +
     "00000000"
-  );
+  ));
   // 4: Rocket (launching from ground)
-  defSprite(4,
+  defSprite(4, up(
     "00030000" +
     "00333000" +
     "00323000" +
@@ -66,9 +87,9 @@
     "00121000" +
     "00313000" +
     "00101000"
-  );
+  ));
   // 5: UFO
-  defSprite(5,
+  defSprite(5, up(
     "00000000" +
     "00333000" +
     "03323300" +
@@ -77,9 +98,9 @@
     "33333330" +
     "03333300" +
     "00000000"
-  );
+  ));
   // 6: Fuel tank (ground target)
-  defSprite(6,
+  defSprite(6, up(
     "00000000" +
     "00333300" +
     "03222230" +
@@ -88,9 +109,9 @@
     "03333330" +
     "03333330" +
     "00000000"
-  );
+  ));
   // 7: Explosion 1
-  defSprite(7,
+  defSprite(7, up(
     "00000000" +
     "00200100" +
     "01032000" +
@@ -99,9 +120,9 @@
     "01000010" +
     "00100000" +
     "00000000"
-  );
+  ));
   // 8: Explosion 2
-  defSprite(8,
+  defSprite(8, up(
     "20010020" +
     "01000010" +
     "00233200" +
@@ -110,9 +131,9 @@
     "01000300" +
     "20001001" +
     "00200010"
-  );
+  ));
   // 9: Life icon (small ship)
-  defSprite(9,
+  defSprite(9, up(
     "00000000" +
     "00330000" +
     "03333000" +
@@ -121,9 +142,9 @@
     "00330000" +
     "00000000" +
     "00000000"
-  );
+  ));
   // 10: Missile launcher (ground structure)
-  defSprite(10,
+  defSprite(10, up(
     "00000000" +
     "00000000" +
     "00030000" +
@@ -132,9 +153,9 @@
     "01133100" +
     "13333310" +
     "33333330"
-  );
+  ));
   // 11: Base core (end boss)
-  defSprite(11,
+  defSprite(11, up(
     "00333000" +
     "03323300" +
     "33222330" +
@@ -143,9 +164,9 @@
     "03323300" +
     "00333000" +
     "00030000"
-  );
+  ));
   // 12: Base wall
-  defSprite(12,
+  defSprite(12, up(
     "33333333" +
     "32323232" +
     "33333333" +
@@ -154,9 +175,9 @@
     "32323232" +
     "33333333" +
     "23232323"
-  );
+  ));
   // 13: Fireball (from volcano section)
-  defSprite(13,
+  defSprite(13, up(
     "00000000" +
     "00030000" +
     "00323000" +
@@ -165,9 +186,9 @@
     "00323000" +
     "00030000" +
     "00000000"
-  );
+  ));
   // 14: Ground turret
-  defSprite(14,
+  defSprite(14, up(
     "00000000" +
     "00000000" +
     "00330000" +
@@ -176,9 +197,9 @@
     "01331000" +
     "13333100" +
     "33333330"
-  );
+  ));
   // 15: Meteor/asteroid
-  defSprite(15,
+  defSprite(15, up(
     "00222000" +
     "02112200" +
     "21211220" +
@@ -187,7 +208,25 @@
     "02212200" +
     "00222000" +
     "00000000"
-  );
+  ));
+
+  // --- Hitbox constants ---
+  // Player: rect hitbox (inset from 16x16 sprite)
+  const PL_HBX = 2, PL_HBY = 2, PL_HBW = 12, PL_HBH = 12;
+  // Player bullet: circle (center of sprite, small radius)
+  const PB_CX = 8, PB_CY = 7, PB_R = 4;
+  // Bomb: circle
+  const BM_CX = 6, BM_CY = 6, BM_R = 5;
+  // Rocket: rect
+  const RK_HBX = 2, RK_HBY = 0, RK_HBW = 10, RK_HBH = 16;
+  // UFO: circle
+  const UFO_CX = 8, UFO_CY = 8, UFO_R = 7;
+  // Fireball: circle
+  const FB_CX = 8, FB_CY = 8, FB_R = 5;
+  // Meteor: circle
+  const MT_CX = 8, MT_CY = 7, MT_R = 6;
+  // Ground object hitbox (fuel, turret, etc.): rect
+  const GO_HBW = 14, GO_HBH = 14;
 
   // --- Terrain generation ---
   // Each section is 120 tiles wide (960 px). 6 sections = 720 tiles total.
@@ -196,7 +235,7 @@
   const TOTAL_SECTIONS = 6;
   const MAP_W = SECTION_W * TOTAL_SECTIONS + 70; // extra for base
   const TILE = 8;
-  const MAP_H = H / TILE; // 40 tiles tall
+  const MAP_H = H / TILE; // 30 tiles tall
 
   // Terrain arrays: ceiling height (in pixels from top) and floor height (in pixels from top)
   const ceilY = new Float32Array(MAP_W + 10);
@@ -433,13 +472,17 @@
     }
   }
 
-  // Collision check: point in rect
-  function pointInRect(px, py, rx, ry, rw, rh) {
-    return px >= rx && px < rx + rw && py >= ry && py < ry + rh;
-  }
-  // Rect overlap
+  // Collision check: rect overlap
   function rectsOverlap(x1, y1, w1, h1, x2, y2, w2, h2) {
     return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+  }
+
+  // Circle vs rect collision
+  function circVsRect(cx, cy, cr, rx, ry, rw, rh) {
+    const nearX = _max(rx, min(cx, rx + rw));
+    const nearY = _max(ry, min(cy, ry + rh));
+    const dx = cx - nearX, dy = cy - nearY;
+    return dx * dx + dy * dy < cr * cr;
   }
 
   function updateStars() {
@@ -478,42 +521,44 @@
       spr(4, W / 2 + 20, flr(ty) + 38 + sin(Mono.frame * 0.08 + 2) * 3);
       if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 130, 142, 3);
       text("-TARGETS-", 133, 165, 2);
-      spr(5, 127, 176); text("  UFO   100 PTS", 133, 177, 2);
-      spr(6, 127, 186); text("  FUEL  150 PTS", 133, 188, 2);
-      spr(4, 127, 196); text("  ROCKET 50 PTS", 133, 198, 2);
-      spr(15, 127, 207); text("  METEOR 30 PTS", 133, 208, 2);
+      spr(5, 127, 176); text("  UFO   100 PTS", 143, 180, 2);
+      spr(6, 127, 193); text("  FUEL  150 PTS", 143, 197, 2);
+      spr(4, 127, 210); text("  ROCKET 50 PTS", 143, 214, 2);
       text("MONO DEMO V0.1", 112, 229, 1);
     }
   });
 
   function checkBombHit(bx, by) {
     const bwx = scrollX + bx;
+    const bcx = bx + BM_CX, bcy = by + BM_CY;
     for (const obj of groundObjects) {
       if (obj.destroyed) continue;
       const owx = obj.tx * TILE;
-      if (_abs(bwx - owx) < 12) {
+      if (_abs(bwx - owx) < 20) {
         const ofy = getFloor(owx);
-        if (_abs(by - (ofy - 8)) < 16) {
+        const osx = owx - scrollX;
+        const ory = ofy - 16;
+        if (circVsRect(bcx, bcy, BM_R + 4, osx, ory, GO_HBW, GO_HBH)) {
           if (obj.type === "fuel") {
             obj.destroyed = true;
             fuel = min(maxFuel, fuel + 200);
             score += 150;
             fuelSound();
-            addExplosion(owx - scrollX, ofy - 12, true);
+            addExplosion(osx, ofy - 12, true);
           } else if (obj.type === "turret" || obj.type === "rocket") {
             obj.destroyed = true;
             score += 80;
             hitSound();
-            addExplosion(owx - scrollX, ofy - 12, true);
+            addExplosion(osx, ofy - 12, true);
           } else if (obj.type === "base_wall") {
             obj.destroyed = true;
             score += 50;
             hitSound();
-            addExplosion(owx - scrollX, ofy - 12, true);
+            addExplosion(osx, ofy - 12, true);
           } else if (obj.type === "base_core") {
             baseHP -= 3;
             hitSound();
-            addExplosion(owx - scrollX, ofy - 16, true);
+            addExplosion(osx, ofy - 16, true);
             if (baseHP <= 0) {
               baseDead = true;
               obj.destroyed = true;
@@ -534,9 +579,11 @@
       const osx = owx - scrollX;
       if (osx < -16 || osx > W + 16) continue;
       const ofy = getFloor(owx);
+      const ory = ofy - 16;
       for (let j = bullets.length - 1; j >= 0; j--) {
         const b = bullets[j];
-        if (rectsOverlap(b.x, b.y, 6, 2, osx, ofy - 10, 8, 10)) {
+        const bcx = b.x + PB_CX, bcy = b.y + PB_CY;
+        if (circVsRect(bcx, bcy, PB_R, osx, ory, GO_HBW, GO_HBH)) {
           bullets.splice(j, 1);
           if (obj.type === "fuel") {
             obj.destroyed = true;
@@ -625,7 +672,7 @@
       const pwx = scrollX + player.x;
       const pCeil = getCeil(pwx);
       const pFloor = getFloor(pwx);
-      if (player.y < pCeil + 2 || player.y + 6 > pFloor - 2) {
+      if (player.y + PL_HBY < pCeil + 2 || player.y + PL_HBY + PL_HBH > pFloor - 2) {
         player.alive = false;
         addExplosion(player.x, player.y, true);
         deathSound();
@@ -657,7 +704,7 @@
       const bwx = scrollX + bullets[i].x;
       const bc = getCeil(bwx);
       const bf = getFloor(bwx);
-      if (bullets[i].y < bc || bullets[i].y > bf) {
+      if (bullets[i].y + PB_CY < bc || bullets[i].y + PB_CY > bf) {
         addExplosion(bullets[i].x - 4, bullets[i].y - 4, false);
         bullets.splice(i, 1);
       }
@@ -672,7 +719,7 @@
       // Bomb vs floor
       const bwx = scrollX + b.x;
       const bf = getFloor(bwx);
-      if (b.y >= bf - 4 || b.y > H) {
+      if (b.y + BM_CY >= bf - 4 || b.y > H) {
         addExplosion(b.x - 4, b.y - 4, true);
         hitSound();
         // Check ground object hits
@@ -704,7 +751,10 @@
       }
 
       // Rocket vs player
-      if (player.alive && rectsOverlap(player.x, player.y, 8, 8, r.x, r.y, 6, 8)) {
+      if (player.alive && rectsOverlap(
+        player.x + PL_HBX, player.y + PL_HBY, PL_HBW, PL_HBH,
+        r.x + RK_HBX, r.y + RK_HBY, RK_HBW, RK_HBH
+      )) {
         addExplosion(r.x, r.y, true);
         rockets.splice(i, 1);
         player.alive = false;
@@ -714,9 +764,10 @@
         continue;
       }
 
-      // Bullet vs rocket
+      // Bullet vs rocket (circle vs rect)
       for (let j = bullets.length - 1; j >= 0; j--) {
-        if (rectsOverlap(bullets[j].x, bullets[j].y, 6, 2, r.x, r.y, 6, 8)) {
+        const bcx = bullets[j].x + PB_CX, bcy = bullets[j].y + PB_CY;
+        if (circVsRect(bcx, bcy, PB_R, r.x + RK_HBX, r.y + RK_HBY, RK_HBW, RK_HBH)) {
           addExplosion(r.x, r.y, false);
           score += 50;
           hitSound();
@@ -735,8 +786,12 @@
       u.y += sin(u.timer * 0.08) * 1.2;
       if (u.x < -16) { ufos.splice(i, 1); continue; }
 
-      // UFO vs player
-      if (player.alive && rectsOverlap(player.x, player.y, 8, 8, u.x, u.y, 8, 6)) {
+      const ucx = u.x + UFO_CX, ucy = u.y + UFO_CY;
+
+      // UFO vs player (circle vs rect)
+      if (player.alive && circVsRect(ucx, ucy, UFO_R,
+        player.x + PL_HBX, player.y + PL_HBY, PL_HBW, PL_HBH
+      )) {
         addExplosion(u.x, u.y, true);
         ufos.splice(i, 1);
         player.alive = false;
@@ -746,10 +801,11 @@
         continue;
       }
 
-      // Bullet vs UFO
+      // Bullet vs UFO (circle vs circle)
       let hit = false;
       for (let j = bullets.length - 1; j >= 0; j--) {
-        if (rectsOverlap(bullets[j].x, bullets[j].y, 6, 2, u.x, u.y, 8, 6)) {
+        const bcx = bullets[j].x + PB_CX, bcy = bullets[j].y + PB_CY;
+        if (circHit(bcx, bcy, PB_R, ucx, ucy, UFO_R)) {
           addExplosion(u.x, u.y, false);
           score += 100;
           hitSound();
@@ -771,8 +827,12 @@
       f.x = screenX;
       if (f.life <= 0 || screenX < -16 || screenX > W + 16) { fireballs.splice(i, 1); continue; }
 
-      // Fireball vs player
-      if (player.alive && rectsOverlap(player.x, player.y, 8, 8, f.x, f.y, 6, 6)) {
+      const fcx = f.x + FB_CX, fcy = f.y + FB_CY;
+
+      // Fireball vs player (circle vs rect)
+      if (player.alive && circVsRect(fcx, fcy, FB_R,
+        player.x + PL_HBX, player.y + PL_HBY, PL_HBW, PL_HBH
+      )) {
         addExplosion(f.x, f.y, false);
         fireballs.splice(i, 1);
         player.alive = false;
@@ -789,8 +849,12 @@
       m.y += m.vy;
       if (m.x < -16 || m.y > H + 16) { meteors.splice(i, 1); continue; }
 
-      // Meteor vs player
-      if (player.alive && rectsOverlap(player.x, player.y, 8, 8, m.x, m.y, 8, 7)) {
+      const mcx = m.x + MT_CX, mcy = m.y + MT_CY;
+
+      // Meteor vs player (circle vs rect)
+      if (player.alive && circVsRect(mcx, mcy, MT_R,
+        player.x + PL_HBX, player.y + PL_HBY, PL_HBW, PL_HBH
+      )) {
         addExplosion(m.x, m.y, true);
         meteors.splice(i, 1);
         player.alive = false;
@@ -800,9 +864,10 @@
         continue;
       }
 
-      // Bullet vs meteor
+      // Bullet vs meteor (circle vs circle)
       for (let j = bullets.length - 1; j >= 0; j--) {
-        if (rectsOverlap(bullets[j].x, bullets[j].y, 6, 2, m.x, m.y, 8, 7)) {
+        const bcx = bullets[j].x + PB_CX, bcy = bullets[j].y + PB_CY;
+        if (circHit(bcx, bcy, PB_R, mcx, mcy, MT_R)) {
           addExplosion(m.x, m.y, false);
           score += 30;
           hitSound();
@@ -821,12 +886,14 @@
       const baseObj = groundObjects.find(o => o.type === "base_core" && !o.destroyed);
       if (baseObj) {
         const bsx = baseObj.tx * TILE - scrollX;
-        // Bullet vs base
+        const baseY = getFloor(baseObj.tx * TILE) - 24;
+        // Bullet vs base (circle vs rect)
         for (let j = bullets.length - 1; j >= 0; j--) {
-          if (rectsOverlap(bullets[j].x, bullets[j].y, 6, 2, bsx, getFloor(baseObj.tx * TILE) - 24, 8, 16)) {
+          const bcx = bullets[j].x + PB_CX, bcy = bullets[j].y + PB_CY;
+          if (circVsRect(bcx, bcy, PB_R, bsx, baseY, 16, 24)) {
             bullets.splice(j, 1);
             baseHP--;
-            addExplosion(bsx + rnd(8), getFloor(baseObj.tx * TILE) - 20 + rnd(12), false);
+            addExplosion(bsx + rnd(8), baseY + rnd(12), false);
             hitSound();
             if (baseHP <= 0) {
               baseDead = true;
@@ -834,7 +901,7 @@
               score += 1000;
               for (let k = 0; k < 8; k++) {
                 setTimeout(() => {
-                  addExplosion(bsx - 8 + rnd(24), getFloor(baseObj.tx * TILE) - 28 + rnd(20), true);
+                  addExplosion(bsx - 8 + rnd(24), baseY + rnd(20), true);
                 }, k * 100);
               }
               winSound();
@@ -881,33 +948,38 @@
       if (obj.destroyed) continue;
       const owx = obj.tx * TILE;
       const osx = flr(owx - scrollX);
-      if (osx < -8 || osx > W + 8) continue;
+      if (osx < -16 || osx > W + 16) continue;
       const ofy = flr(getFloor(owx));
 
       switch (obj.type) {
         case "fuel":
-          spr(6, osx, ofy - 8);
+          spr(6, osx, ofy - 16);
           // Flashing "F" label
-          if (flr(Mono.frame / 10) % 2 === 0) text("F", osx + 2, ofy - 14, 3);
+          if (flr(Mono.frame / 10) % 2 === 0) text("F", osx + 4, ofy - 22, 3);
+          Mono.dbg(osx, ofy - 16, GO_HBW, GO_HBH);
           break;
         case "rocket":
-          spr(10, osx, ofy - 8);
+          spr(10, osx, ofy - 16);
+          Mono.dbg(osx, ofy - 16, GO_HBW, GO_HBH);
           break;
         case "turret":
-          spr(14, osx, ofy - 8);
+          spr(14, osx, ofy - 16);
+          Mono.dbg(osx, ofy - 16, GO_HBW, GO_HBH);
           break;
         case "base_wall":
-          spr(12, osx, ofy - 8);
           spr(12, osx, ofy - 16);
+          spr(12, osx, ofy - 32);
+          Mono.dbg(osx, ofy - 32, 16, 32);
           break;
         case "base_core":
           spr(11, osx, ofy - 16);
-          spr(11, osx, ofy - 24);
+          spr(11, osx, ofy - 32);
           // HP indicator
           if (baseHP > 0) {
-            const bw = flr((baseHP / 20) * 12);
-            rectf(osx - 2, ofy - 28, bw, 2, 3);
+            const bw = flr((baseHP / 20) * 14);
+            rectf(osx, ofy - 36, bw, 2, 3);
           }
+          Mono.dbg(osx, ofy - 32, 16, 32);
           break;
       }
     }
@@ -917,34 +989,40 @@
       spr(4, flr(r.x), flr(r.y));
       // Exhaust
       if (r.launched) {
-        pix(flr(r.x) + 3, flr(r.y) + 8, flr(Mono.frame / 2) % 2 === 0 ? 3 : 2);
-        pix(flr(r.x) + 3, flr(r.y) + 9, 1);
+        pix(flr(r.x) + 5, flr(r.y) + 16, flr(Mono.frame / 2) % 2 === 0 ? 3 : 2);
+        pix(flr(r.x) + 5, flr(r.y) + 17, 1);
       }
+      Mono.dbg(flr(r.x) + RK_HBX, flr(r.y) + RK_HBY, RK_HBW, RK_HBH);
     }
 
     // Fireballs
     for (const f of fireballs) {
       spr(13, flr(f.x), flr(f.y));
+      Mono.dbgC(flr(f.x) + FB_CX, flr(f.y) + FB_CY, FB_R);
     }
 
     // Meteors
     for (const m of meteors) {
       spr(15, flr(m.x), flr(m.y));
+      Mono.dbgC(flr(m.x) + MT_CX, flr(m.y) + MT_CY, MT_R);
     }
 
     // UFOs
     for (const u of ufos) {
       spr(5, flr(u.x), flr(u.y));
+      Mono.dbgC(flr(u.x) + UFO_CX, flr(u.y) + UFO_CY, UFO_R);
     }
 
     // Bombs
     for (const b of bombs) {
       spr(3, flr(b.x), flr(b.y));
+      Mono.dbgC(flr(b.x) + BM_CX, flr(b.y) + BM_CY, BM_R);
     }
 
     // Bullets
     for (const b of bullets) {
       spr(2, flr(b.x), flr(b.y));
+      Mono.dbgC(flr(b.x) + PB_CX, flr(b.y) + PB_CY, PB_R);
     }
 
     // Player
@@ -955,12 +1033,14 @@
         spr(1, flr(player.x), flr(player.y));
         // Engine exhaust
         const ex = flr(player.x) - 2;
-        const ey = flr(player.y) + 3;
+        const ey = flr(player.y) + 7;
         pix(ex, ey, flr(Mono.frame / 2) % 2 === 0 ? 3 : 2);
         pix(ex - 1, ey, 1);
         if (Mono.frame % 3 === 0) pix(ex - 2, ey + (rnd(3) - 1 | 0), 1);
       }
     }
+    // Player hitbox debug (always register, even when blinking)
+    Mono.dbg(flr(player.x) + PL_HBX, flr(player.y) + PL_HBY, PL_HBW, PL_HBH);
 
     // Explosions
     for (const e of explosions) {
@@ -973,7 +1053,7 @@
 
     // ---- HUD ----
     // Top bar background
-    rectf(0, 0, W, 11, 0);
+    rectf(0, 0, W, 12, 0);
 
     // Score
     text("SCORE:" + score, 3, 2, 3);
@@ -983,17 +1063,17 @@
     text("S" + (sec + 1), W / 2 - 7, 2, 2);
 
     // Lives
-    for (let i = 0; i < lives; i++) spr(9, W - 27 + i * 10, 2);
+    for (let i = 0; i < lives; i++) spr(9, W - 50 + i * 18, 0);
 
     // Fuel gauge - bottom of screen
-    rectf(0, H - 8, W, 8, 0);
-    text("FUEL", 3, H - 8, 2);
+    rectf(0, H - 10, W, 10, 0);
+    text("FUEL", 3, H - 9, 2);
     const fuelBarW = 80;
-    const fuelBarX = 20;
-    rect(fuelBarX, H - 8, fuelBarW + 2, 6, 1);
+    const fuelBarX = 28;
+    rect(fuelBarX, H - 9, fuelBarW + 2, 7, 1);
     const fuelPct = fuel / maxFuel;
     const fuelColor = fuelPct < 0.2 ? (flr(Mono.frame / 6) % 2 === 0 ? 3 : 1) : (fuelPct < 0.4 ? 2 : 3);
-    rectf(fuelBarX + 1, H - 7, flr(fuelPct * fuelBarW), 4, fuelColor);
+    rectf(fuelBarX + 1, H - 8, flr(fuelPct * fuelBarW), 5, fuelColor);
 
     // Altitude warning
     if (player.alive) {
@@ -1001,7 +1081,7 @@
       const pc = getCeil(pwx);
       const pf = getFloor(pwx);
       if (player.y - pc < 15 || pf - player.y < 15) {
-        if (flr(Mono.frame / 6) % 2 === 0) text("!WARNING!", 133, H - 8, 3);
+        if (flr(Mono.frame / 6) % 2 === 0) text("!WARNING!", 133, H - 9, 3);
       }
     }
 
