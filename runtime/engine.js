@@ -496,9 +496,6 @@ const Mono = (() => {
     return x1+w1>x2 && x1<x2+w2 && y1+h1>y2 && y1<y2+h2;
   };
 
-  // Vibration (mobile)
-  API.vibrate = function(ms) { if (navigator.vibrate) navigator.vibrate(ms || 0); };
-
   // --- Attract Mode (action-based input recording & playback) ---
   // Format: [[frame, bitmask], ...] — only stores when key state changes
   // 6 keys packed as bitmask: up=1 down=2 left=4 right=8 a=16 b=32
