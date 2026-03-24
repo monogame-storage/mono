@@ -349,6 +349,8 @@
     gap: 12px;
     align-items: flex-end;
     pointer-events: auto;
+    padding: 20px;
+    margin: -20px;
   }
   .action-btn {
     width: 56px;
@@ -867,29 +869,122 @@ dpad.addEventListener("touchend", (e) => {
 });
 dpad.addEventListener("touchcancel", () => dpadRelease());
 
-// ── Action buttons (A/B) ──
-document.querySelectorAll("[data-key]").forEach(btn => {
+// ── Action buttons (A/B) with adaptive hitbox ──
+const actionBtns = document.querySelectorAll("[data-key]");
+const btnState = new Map(); // per-button state
+
+actionBtns.forEach(btn => {
   const key = btn.dataset.key;
   const keys = key === "z" ? ["z", "Enter"] : [key];
+  btnState.set(btn, { lastTap: 0, expand: 0, pressed: false });
+
+  function press(b) {
+    const st = btnState.get(b);
+    if (st.pressed) return;
+    st.pressed = true;
+    b.classList.add("pressed");
+    const bKeys = b.dataset.key === "z" ? ["z", "Enter"] : [b.dataset.key];
+    bKeys.forEach(k => sendKey(k, "keydown"));
+    haptic();
+  }
+
+  function release(b) {
+    const st = btnState.get(b);
+    if (!st.pressed) return;
+    st.pressed = false;
+    b.classList.remove("pressed");
+    const bKeys = b.dataset.key === "z" ? ["z", "Enter"] : [b.dataset.key];
+    bKeys.forEach(k => sendKey(k, "keyup"));
+  }
 
   btn.addEventListener("touchstart", (e) => {
     e.preventDefault();
-    btn.classList.add("pressed");
-    keys.forEach(k => sendKey(k, "keydown"));
-    haptic();
+    const now = Date.now();
+    const st = btnState.get(btn);
+    const dt = now - st.lastTap;
+    // Rapid tap: expand hitbox (max 40%)
+    if (dt < 300) st.expand = Math.min(st.expand + 0.1, 0.4);
+    else st.expand = 0;
+    st.lastTap = now;
+    press(btn);
   }, { passive: false });
 
   btn.addEventListener("touchend", (e) => {
     e.preventDefault();
-    btn.classList.remove("pressed");
-    keys.forEach(k => sendKey(k, "keyup"));
+    release(btn);
   }, { passive: false });
 
-  btn.addEventListener("touchcancel", () => {
-    btn.classList.remove("pressed");
-    keys.forEach(k => sendKey(k, "keyup"));
-  });
+  btn.addEventListener("touchcancel", () => release(btn));
 });
+
+// Catch touches that land outside buttons but within expanded hitbox
+const actionBtnContainer = document.querySelector(".action-btns");
+if (actionBtnContainer) {
+  actionBtnContainer.addEventListener("touchstart", (e) => {
+    // Already handled by a button directly?
+    if (e.target.dataset && e.target.dataset.key) return;
+    e.preventDefault();
+
+    const touch = e.changedTouches[0];
+    const tx = touch.clientX, ty = touch.clientY;
+    let bestBtn = null, bestDist = Infinity;
+
+    actionBtns.forEach(btn => {
+      const r = btn.getBoundingClientRect();
+      const st = btnState.get(btn);
+      const expand = st.expand * Math.max(r.width, r.height);
+      // Expanded rect (but don't expand toward the other button)
+      const otherBtn = [...actionBtns].find(b => b !== btn);
+      const otherR = otherBtn ? otherBtn.getBoundingClientRect() : null;
+
+      let exL = r.left - expand;
+      let exR = r.right + expand;
+      let exT = r.top - expand;
+      let exB = r.bottom + expand;
+
+      // Clamp: don't expand toward the other button
+      if (otherR) {
+        const otherCX = (otherR.left + otherR.right) / 2;
+        const thisCX = (r.left + r.right) / 2;
+        if (otherCX < thisCX) exL = Math.max(exL, (r.left + otherR.right) / 2);
+        else exR = Math.min(exR, (r.right + otherR.left) / 2);
+      }
+
+      if (tx >= exL && tx <= exR && ty >= exT && ty <= exB) {
+        const dx = tx - (r.left + r.right) / 2;
+        const dy = ty - (r.top + r.bottom) / 2;
+        const dist = dx * dx + dy * dy;
+        if (dist < bestDist) { bestDist = dist; bestBtn = btn; }
+      }
+    });
+
+    if (bestBtn) {
+      const st = btnState.get(bestBtn);
+      const now = Date.now();
+      const dt = now - st.lastTap;
+      if (dt < 300) st.expand = Math.min(st.expand + 0.1, 0.4);
+      st.lastTap = now;
+      const bKeys = bestBtn.dataset.key === "z" ? ["z", "Enter"] : [bestBtn.dataset.key];
+      st.pressed = true;
+      bestBtn.classList.add("pressed");
+      bKeys.forEach(k => sendKey(k, "keydown"));
+      haptic();
+    }
+  }, { passive: false });
+
+  actionBtnContainer.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    actionBtns.forEach(btn => {
+      const st = btnState.get(btn);
+      if (st.pressed) {
+        st.pressed = false;
+        btn.classList.remove("pressed");
+        const bKeys = btn.dataset.key === "z" ? ["z", "Enter"] : [btn.dataset.key];
+        bKeys.forEach(k => sendKey(k, "keyup"));
+      }
+    });
+  }, { passive: false });
+}
 
 // ── Init ──
 render();
