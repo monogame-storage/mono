@@ -52,7 +52,8 @@
   const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, mget, mset, map: drawMap,
-          rnd, flr, abs: _abs, min, max: _max, sin, cos, overlap, vibrate } = GrayBox;
+          rnd, flr, abs: _abs, min, max: _max, sin, cos, overlap, vibrate,
+          bgm, bgmStop } = GrayBox;
 
   defSprite(1, "0003000000030000003330000033300003333300331133303330333001000010");
   defSprite(2, "0100001033303330331133300333330000333000003330000003000000030000");
@@ -121,6 +122,10 @@
       score = 0; lives = 3; spawnTimer = 0; diffLevel = 1;
       shakeTimer = 0; dashCooldown = 0; dashTimer = 0;
       initStars();
+      bgm([
+        "E4 - G4 - A4 - G4 - | E4 - C4 - D4 - E4 - | E4 - G4 - A4 - B4 - | C5 - - - - - - -",
+        "C3 - - - G2 - - - | A2 - - - E2 - - - | C3 - - - G2 - - - | C3 - - - - - - -",
+      ], 180);
     },
     update() {
       diffLevel = 1 + flr(score / 200) * 0.3;

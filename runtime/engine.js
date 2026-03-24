@@ -162,6 +162,8 @@ const GrayBox = (() => {
       demoState = "idle";
       demoIdleFrames = 0;
     }
+    // Auto-stop BGM on scene change (game can restart it in init)
+    if (bgmPlaying) API.bgmStop();
     currentSceneName = name;
     currentScene = scenes[name] || null;
     if (currentScene && currentScene.init) currentScene.init();
@@ -316,6 +318,113 @@ const GrayBox = (() => {
   API.stop = function(ch) {
     if(ch===undefined){API.stop(0);API.stop(1);return;}
     if(channels[ch]){try{channels[ch].stop();}catch(e){} channels[ch]=null;}
+  };
+
+  // --- BGM Sequencer (2 dedicated channels: melody + bass) ---
+  const bgmOsc = [null, null];
+  const bgmGain = [null, null];
+  let bgmData = null;       // { tracks: [[note,dur], ...], bpm, loop }
+  let bgmPlaying = false;
+  let bgmBeat = 0;          // current beat index
+  let bgmTimer = 0;         // frames until next beat
+  let bgmBPM = 120;
+  let bgmLoop = true;
+
+  function bgmEnsureChannels() {
+    ensureAudio();
+    for (let i = 0; i < 2; i++) {
+      if (!bgmGain[i]) {
+        bgmGain[i] = audioCtx.createGain();
+        bgmGain[i].gain.value = 0.08;
+        bgmGain[i].connect(audioCtx.destination);
+      }
+    }
+  }
+
+  function bgmNoteOn(ch, noteStr, dur) {
+    if (ch < 0 || ch > 1) return;
+    bgmNoteOff(ch);
+    if (!noteStr || noteStr === "-" || noteStr === ".") return;
+    const osc = audioCtx.createOscillator();
+    osc.type = "square";
+    osc.frequency.value = noteToFreq(noteStr);
+    osc.connect(bgmGain[ch]);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+    bgmOsc[ch] = osc;
+  }
+
+  function bgmNoteOff(ch) {
+    if (bgmOsc[ch]) { try { bgmOsc[ch].stop(); } catch(e) {} bgmOsc[ch] = null; }
+  }
+
+  function bgmTick() {
+    if (!bgmPlaying || !bgmData) return;
+    bgmTimer--;
+    if (bgmTimer > 0) return;
+
+    const beatDur = 60 / bgmBPM; // seconds per beat
+    const framesPerBeat = Math.round((60 / bgmBPM) * FPS);
+
+    // Play each track's current note
+    for (let t = 0; t < bgmData.tracks.length && t < 2; t++) {
+      const track = bgmData.tracks[t];
+      if (bgmBeat < track.length) {
+        const entry = track[bgmBeat];
+        if (entry && entry !== "-" && entry !== ".") {
+          bgmNoteOn(t, entry, beatDur * 0.9);
+        }
+      }
+    }
+
+    bgmBeat++;
+    bgmTimer = framesPerBeat;
+
+    // Check if all tracks finished
+    const maxLen = Math.max(...bgmData.tracks.map(t => t.length));
+    if (bgmBeat >= maxLen) {
+      if (bgmLoop) {
+        bgmBeat = 0;
+      } else {
+        bgmPlaying = false;
+      }
+    }
+  }
+
+  // Parse track string: "C4 E4 G4 - C5 | D4 F4 A4 - D5"
+  // Notes separated by spaces, "|" = bar line (ignored), "-" = rest
+  function parseTrack(str) {
+    return str.split(/\s+/).filter(s => s !== "|" && s !== "");
+  }
+
+  /**
+   * Play background music.
+   * @param {string[]} tracks - Array of 1-2 track strings (melody, bass)
+   *   Each track: space-separated notes like "C4 E4 G4 - C5"
+   *   "-" = rest (silence), "|" = bar line (visual only, ignored)
+   * @param {number} bpm - Beats per minute (default 120)
+   * @param {boolean} loop - Loop when finished (default true)
+   */
+  API.bgm = function(tracks, bpm, loop) {
+    bgmEnsureChannels();
+    bgmData = { tracks: tracks.map(parseTrack) };
+    bgmBPM = bpm || 120;
+    bgmLoop = loop !== false;
+    bgmBeat = 0;
+    bgmTimer = 1; // start on next tick
+    bgmPlaying = true;
+  };
+
+  API.bgmStop = function() {
+    bgmPlaying = false;
+    bgmNoteOff(0);
+    bgmNoteOff(1);
+    bgmBeat = 0;
+  };
+
+  API.bgmVol = function(vol) {
+    bgmEnsureChannels();
+    for (let i = 0; i < 2; i++) bgmGain[i].gain.value = Math.max(0, Math.min(1, vol));
   };
 
   // Seeded PRNG (Lehmer / Park-Miller)
@@ -481,6 +590,9 @@ const GrayBox = (() => {
         startDemoPlayback();
       }
     }
+
+    // --- BGM sequencer tick ---
+    bgmTick();
 
     // --- Update & Draw (scene-based or legacy) ---
     if (currentScene) {
