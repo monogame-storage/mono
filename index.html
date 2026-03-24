@@ -281,11 +281,124 @@
   footer a { color: var(--dark); text-decoration: none; }
   footer a:hover { color: var(--light); }
 
+  /* ── Gamepad ── */
+  .gamepad {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 160px;
+    z-index: 1001;
+    pointer-events: none;
+    padding: 10px 20px;
+  }
+  .gamepad.show { display: flex; justify-content: space-between; align-items: flex-end; }
+
+  .dpad {
+    position: relative;
+    width: 130px;
+    height: 130px;
+    pointer-events: auto;
+  }
+  .dpad-btn {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    background: rgba(176,176,176,0.25);
+    border: 2px solid rgba(176,176,176,0.4);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(232,232,232,0.6);
+    font-size: 18px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  .dpad-btn:active, .dpad-btn.pressed {
+    background: rgba(176,176,176,0.5);
+    border-color: rgba(232,232,232,0.7);
+    color: rgba(232,232,232,0.9);
+  }
+  .dpad-up    { left: 43px; top: 0; }
+  .dpad-down  { left: 43px; bottom: 0; }
+  .dpad-left  { left: 0; top: 43px; }
+  .dpad-right { right: 0; top: 43px; }
+  .dpad-center {
+    position: absolute;
+    left: 43px; top: 43px;
+    width: 44px; height: 44px;
+    background: rgba(107,107,107,0.15);
+    border-radius: 4px;
+  }
+
+  .action-btns {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    pointer-events: auto;
+  }
+  .action-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(176,176,176,0.25);
+    border: 2px solid rgba(176,176,176,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(232,232,232,0.7);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  .action-btn:active, .action-btn.pressed {
+    background: rgba(176,176,176,0.5);
+    border-color: rgba(232,232,232,0.7);
+  }
+  .btn-b { margin-bottom: 24px; }
+  .btn-a { margin-bottom: 0; }
+
+  .start-btn {
+    position: fixed;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1001;
+    pointer-events: auto;
+    width: 60px;
+    height: 28px;
+    border-radius: 14px;
+    background: rgba(107,107,107,0.3);
+    border: 1px solid rgba(176,176,176,0.3);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: rgba(232,232,232,0.5);
+    font-family: inherit;
+    font-size: 9px;
+    letter-spacing: 1px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  .start-btn.show { display: flex; }
+  .start-btn:active, .start-btn.pressed {
+    background: rgba(176,176,176,0.5);
+  }
+
   /* ── Responsive ── */
   @media (max-width: 600px) {
     header h1 { font-size: 28px; letter-spacing: 6px; }
     .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
     .player-frame { max-height: 50vh; }
+    .player-header { flex-wrap: wrap; }
+    .player-controls-hint { display: none; }
   }
 </style>
 </head>
@@ -295,7 +408,7 @@
   <h1>GRAYBOX</h1>
   <p>CONSTRAINT-DRIVEN GAME PLATFORM</p>
   <div class="spec-bar">
-    <span>480x320</span>
+    <span>320x240</span>
     <span>4 GRAY</span>
     <span>30 FPS</span>
     <span>8x8 SPR</span>
@@ -334,6 +447,22 @@
     <span>←↑↓→</span> MOVE &nbsp;&nbsp; <span>Z</span> A-BTN &nbsp;&nbsp; <span>X</span> B-BTN &nbsp;&nbsp; <span>ENTER</span> START &nbsp;&nbsp; <span>ESC</span> BACK
   </div>
 </div>
+
+<!-- Mobile Gamepad -->
+<div class="gamepad" id="gamepad">
+  <div class="dpad">
+    <div class="dpad-center"></div>
+    <div class="dpad-btn dpad-up" data-key="ArrowUp">▲</div>
+    <div class="dpad-btn dpad-down" data-key="ArrowDown">▼</div>
+    <div class="dpad-btn dpad-left" data-key="ArrowLeft">◀</div>
+    <div class="dpad-btn dpad-right" data-key="ArrowRight">▶</div>
+  </div>
+  <div class="action-btns">
+    <div class="action-btn btn-b" data-key="x">B</div>
+    <div class="action-btn btn-a" data-key="z">A</div>
+  </div>
+</div>
+<div class="start-btn" id="startBtn" data-key="Enter">START</div>
 
 <footer>
   <a href="docs/SPEC.md">SPEC</a> &nbsp;·&nbsp;
@@ -509,8 +638,9 @@ function openPlayer(index) {
   player.classList.add("open");
   document.body.style.overflow = "hidden";
   updateNavButtons();
-  playerFrame.onload = () => playerFrame.focus();
+  playerFrame.onload = () => { playerFrame.focus(); showGamepad(); };
   playerFrame.focus();
+  showGamepad();
 }
 
 function closePlayer() {
@@ -518,6 +648,7 @@ function closePlayer() {
   playerFrame.src = "";
   document.body.style.overflow = "";
   currentIndex = -1;
+  hideGamepad();
 }
 
 function navPlayer(delta) {
@@ -560,6 +691,55 @@ document.addEventListener("keydown", e => {
     closePlayer();
     e.preventDefault();
   }
+});
+
+// ── Mobile Gamepad ──
+const gamepad = document.getElementById("gamepad");
+const startBtnEl = document.getElementById("startBtn");
+const isTouchDevice = () => "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+function showGamepad() {
+  if (isTouchDevice()) {
+    gamepad.classList.add("show");
+    startBtnEl.classList.add("show");
+  }
+}
+function hideGamepad() {
+  gamepad.classList.remove("show");
+  startBtnEl.classList.remove("show");
+}
+
+function sendKey(key, type) {
+  try {
+    const w = playerFrame.contentWindow;
+    if (w) {
+      w.document.dispatchEvent(new KeyboardEvent(type, {
+        key: key, code: "Key" + key.toUpperCase(),
+        bubbles: true, cancelable: true
+      }));
+    }
+  } catch(e) {}
+}
+
+document.querySelectorAll("[data-key]").forEach(btn => {
+  const key = btn.dataset.key;
+
+  btn.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    btn.classList.add("pressed");
+    sendKey(key, "keydown");
+  }, { passive: false });
+
+  btn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    btn.classList.remove("pressed");
+    sendKey(key, "keyup");
+  }, { passive: false });
+
+  btn.addEventListener("touchcancel", (e) => {
+    btn.classList.remove("pressed");
+    sendKey(key, "keyup");
+  });
 });
 
 // ── Init ──
