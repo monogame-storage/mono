@@ -299,6 +299,7 @@ const GrayBox = (() => {
   API.max = Math.max;
   API.sin = Math.sin;
   API.cos = Math.cos;
+  API.vibrate = function(ms) { if (navigator.vibrate) navigator.vibrate(ms || 0); };
 
   // --- Global state ---
   API.frame = 0;

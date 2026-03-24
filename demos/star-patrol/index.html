@@ -314,6 +314,7 @@
   API.max = Math.max;
   API.sin = Math.sin;
   API.cos = Math.cos;
+  API.vibrate = function(ms) { if (navigator.vibrate) navigator.vibrate(ms || 0); };
   API.frame = 0;
   function tick() {
     for (const k in keys) keysPressed[k] = keys[k] && !keysPrev[k];

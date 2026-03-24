@@ -280,6 +280,7 @@
   API.max = Math.max;
   API.sin = Math.sin;
   API.cos = Math.cos;
+  API.vibrate = function(ms) { if (navigator.vibrate) navigator.vibrate(ms || 0); };
   API.atan2 = Math.atan2;
 
   function tick() {

@@ -374,6 +374,51 @@
   .btn-b { margin-bottom: 24px; }
   .btn-a { margin-bottom: 0; }
 
+  /* ── Haptic Slider ── */
+  .haptic-panel {
+    position: fixed;
+    bottom: 180px;
+    right: 12px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    pointer-events: auto;
+    z-index: 110;
+  }
+  .haptic-panel.show { display: flex; }
+  .haptic-label {
+    color: rgba(176,176,176,0.6);
+    font-size: 9px;
+    font-family: inherit;
+    letter-spacing: 1px;
+  }
+  .haptic-value {
+    color: rgba(232,232,232,0.8);
+    font-size: 11px;
+    font-family: inherit;
+    font-weight: 700;
+    min-width: 30px;
+    text-align: center;
+  }
+  .haptic-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100px;
+    height: 4px;
+    background: rgba(176,176,176,0.3);
+    border-radius: 2px;
+    outline: none;
+  }
+  .haptic-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--light);
+    border: 2px solid var(--white);
+    cursor: pointer;
+  }
 
   /* ── Responsive ── */
   @media (max-width: 600px) {
@@ -445,6 +490,13 @@
     <div class="action-btn btn-b" data-key="x">B</div>
     <div class="action-btn btn-a" data-key="z">A</div>
   </div>
+</div>
+
+<!-- Haptic Feedback Slider -->
+<div class="haptic-panel" id="hapticPanel">
+  <div class="haptic-label">HAPTIC</div>
+  <div class="haptic-value" id="hapticValue">15ms</div>
+  <input type="range" class="haptic-slider" id="hapticSlider" min="0" max="50" value="15" step="1">
 </div>
 
 <footer>
@@ -680,11 +732,32 @@ document.addEventListener("keydown", e => {
 const gamepad = document.getElementById("gamepad");
 const isTouchDevice = () => "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
+// ── Haptic Feedback ──
+const hapticPanel = document.getElementById("hapticPanel");
+const hapticSlider = document.getElementById("hapticSlider");
+const hapticValue = document.getElementById("hapticValue");
+let hapticMs = parseInt(localStorage.getItem("graybox_haptic") || "15");
+hapticSlider.value = hapticMs;
+hapticValue.textContent = hapticMs + "ms";
+hapticSlider.addEventListener("input", () => {
+  hapticMs = parseInt(hapticSlider.value);
+  hapticValue.textContent = hapticMs + "ms";
+  localStorage.setItem("graybox_haptic", hapticMs);
+  if (hapticMs > 0 && navigator.vibrate) navigator.vibrate(hapticMs);
+});
+function haptic() {
+  if (hapticMs > 0 && navigator.vibrate) navigator.vibrate(hapticMs);
+}
+
 function showGamepad() {
-  if (isTouchDevice()) gamepad.classList.add("show");
+  if (isTouchDevice()) {
+    gamepad.classList.add("show");
+    hapticPanel.classList.add("show");
+  }
 }
 function hideGamepad() {
   gamepad.classList.remove("show");
+  hapticPanel.classList.remove("show");
 }
 
 function sendKey(key, type) {
@@ -744,6 +817,7 @@ function dpadUpdate(tx, ty) {
     if (newState[dir] && !dpadState[dir]) {
       sendKey(dpadKeyMap[dir], "keydown");
       dpadArrows[dir].classList.add("active");
+      haptic();
     } else if (!newState[dir] && dpadState[dir]) {
       sendKey(dpadKeyMap[dir], "keyup");
       dpadArrows[dir].classList.remove("active");
@@ -802,6 +876,7 @@ document.querySelectorAll("[data-key]").forEach(btn => {
     e.preventDefault();
     btn.classList.add("pressed");
     keys.forEach(k => sendKey(k, "keydown"));
+    haptic();
   }, { passive: false });
 
   btn.addEventListener("touchend", (e) => {
