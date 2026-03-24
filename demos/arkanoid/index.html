@@ -562,7 +562,18 @@
     const pw = paddle.w / 2;
     if (btn("left")) paddle.x -= paddle.speed;
     if (btn("right")) paddle.x += paddle.speed;
-    paddle.x = _max(FIELD_L + pw + 1, min(FIELD_R - pw - 1, paddle.x));
+    if (breakWall) {
+      // Allow paddle to exit right
+      paddle.x = _max(FIELD_L + pw + 1, min(FIELD_R + pw + 20, paddle.x));
+      if (paddle.x - pw > FIELD_R) {
+        // Escaped! advance level
+        level++;
+        initLevel(level);
+        return;
+      }
+    } else {
+      paddle.x = _max(FIELD_L + pw + 1, min(FIELD_R - pw - 1, paddle.x));
+    }
 
     // Caught ball follows paddle
     if (catchBall) {
@@ -979,17 +990,19 @@
       else circ(ex.x, ex.y, _max(1, 8 - flr(ex.t / 2)), 1);
     }
 
-    // Break wall gap indicator
+    // Break wall exit on right side
     if (breakWall) {
-      const cx = (FIELD_L + FIELD_R) / 2;
       const blink = Mono.frame % 10 < 5 ? 3 : 2;
-      for (let i = -15; i <= 15; i += 5) {
-        pix(cx + i, FIELD_B + 2, blink);
-      }
-      text("EXIT", cx - 10, FIELD_B + 3, blink);
-    } else {
-      line(FIELD_L - 1, FIELD_B + 2, FIELD_R, FIELD_B + 2, 1);
+      const exitY = FIELD_B - 32;
+      // Gap in right wall
+      rectf(FIELD_R, exitY, 4, 20, 0);
+      text("E", FIELD_R + 1, exitY + 2, blink);
+      text("X", FIELD_R + 1, exitY + 9, blink);
+      // Arrow hint
+      if (Mono.frame % 20 < 12) line(FIELD_R - 8, exitY + 10, FIELD_R + 2, exitY + 10, blink);
     }
+    // Bottom wall
+    line(FIELD_L - 1, FIELD_B + 2, FIELD_R, FIELD_B + 2, 1);
 
     // --- HUD ---
     text("SCORE", 2, 2, 2);
@@ -1000,14 +1013,14 @@
 
     text("LIVES", W - 37, 2, 2);
     for (let i = 0; i < lives; i++) {
-      spr(14, W - 37 + i * 18, 8);
+      spr(14, W - 37 + i * 12, 8);
     }
 
     // Active power indicator
     if (activePower >= 0) {
       const pname = ["LASER","EXTEND","CATCH","SLOW","BREAK","LIFE","DISRUPT"][activePower];
       const blink = (powerTimer > 0 && powerTimer < 60) ? (Mono.frame % 6 < 3 ? 3 : 0) : 3;
-      text(pname, FIELD_L, FIELD_B + 5, blink);
+      text(pname, FIELD_L, FIELD_T + 2, blink);
     }
 
     // Level message
