@@ -212,8 +212,9 @@
 
   buildPlayfield(NUM_LANES);
 
-  // --- Game state ---
-  let state = "title";
+  // --- Scenes ---
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+
   let playerLane, score, lives, level, superzapper;
   let enemies, bullets, explosions, particles, spikes;
   let moveCooldown, shootCooldown, spawnTimer;
@@ -323,374 +324,13 @@
     setTimeout(() => note(0, "C6", 0.12), 240);
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        note(0, "C5", 0.08);
-        setTimeout(() => note(0, "G5", 0.1), 80);
-      }
-      return;
-    }
-
-    if (state === "gameover") {
-      // Update particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
-
-    // --- Play state ---
-
-    // Level clear check
-    if (levelClear) {
-      levelClearTimer++;
-      if (levelClearTimer > 90) {
-        level++;
-        superzapper = 1;
-        spawnWave();
-      }
-      return;
-    }
-
-    // Player movement
-    if (moveCooldown > 0) moveCooldown--;
-    if (btn("left") && moveCooldown <= 0) {
-      playerLane = (playerLane - 1 + NUM_LANES) % NUM_LANES;
-      moveCooldown = 4;
-    }
-    if (btn("right") && moveCooldown <= 0) {
-      playerLane = (playerLane + 1) % NUM_LANES;
-      moveCooldown = 4;
-    }
-
-    // Player shoot
-    if (shootCooldown > 0) shootCooldown--;
-    if (btnp("a") && shootCooldown <= 0) {
-      bullets.push({ lane: playerLane, depth: 1.0, speed: 0.04 });
-      shootCooldown = 6;
-      shootSound();
-    }
-
-    // Superzapper
-    if (btnp("b") && superzapper > 0) {
-      superzapper--;
-      zapFlash = 10;
-      zapSound();
-      // Kill all enemies on screen
-      for (const e of enemies) {
-        if (e.alive) {
-          const pos = lanePos(e.lane, e.depth);
-          addExplosion(pos.x, pos.y);
-          score += e.type === "tanker" ? 20 : (e.type === "spiker" ? 15 : 10);
-        }
-        e.alive = false;
-      }
-      enemies = enemies.filter(e => e.alive);
-    }
-
-    // Update bullets
-    for (let i = bullets.length - 1; i >= 0; i--) {
-      bullets[i].depth -= bullets[i].speed;
-      if (bullets[i].depth <= 0) {
-        bullets.splice(i, 1);
-      }
-    }
-
-    // Spawn enemies from queue
-    spawnTimer--;
-    if (spawnTimer <= 0 && enemiesToSpawn.length > 0) {
-      spawnEnemy(enemiesToSpawn.shift());
-      spawnTimer = _max(15, 40 - level * 3);
-    }
-
-    // Update enemies
-    for (let i = enemies.length - 1; i >= 0; i--) {
-      const e = enemies[i];
-      if (!e.alive) { enemies.splice(i, 1); continue; }
-
-      // Move toward rim
-      e.depth += e.speed;
-
-      // Flipper: randomly change lanes
-      if (e.type === "flipper") {
-        e.flipTimer--;
-        if (e.flipTimer <= 0 && e.depth < 0.85) {
-          e.lane = (e.lane + (rnd(1) < 0.5 ? 1 : -1) + NUM_LANES) % NUM_LANES;
-          e.flipTimer = 20 + flr(rnd(40));
-        }
-      }
-
-      // Spiker: leave spikes
-      if (e.type === "spiker" && e.depth > 0.2 && flr(GrayBox.frame) % 8 === 0) {
-        // Check if spike already exists at this lane+depth
-        const sd = flr(e.depth * LANE_DEPTH) / LANE_DEPTH;
-        const exists = spikes.some(s => s.lane === e.lane && _abs(s.depth - sd) < 0.05);
-        if (!exists) {
-          spikes.push({ lane: e.lane, depth: sd });
-        }
-      }
-
-      // Enemy reached the rim
-      if (e.depth >= 1.0) {
-        e.alive = false;
-        enemies.splice(i, 1);
-        // Check if player is in this lane
-        if (e.lane === playerLane) {
-          lives--;
-          deathSound();
-          addExplosion(lanePos(playerLane, 1.0).x, lanePos(playerLane, 1.0).y);
-          if (lives <= 0) {
-            state = "gameover";
-          }
-        }
-        continue;
-      }
-
-      // Bullet-enemy collision
-      for (let j = bullets.length - 1; j >= 0; j--) {
-        const b = bullets[j];
-        if (b.lane === e.lane && _abs(b.depth - e.depth) < 0.06) {
-          bullets.splice(j, 1);
-          e.hp--;
-          if (e.hp <= 0) {
-            const pos = lanePos(e.lane, e.depth);
-            addExplosion(pos.x, pos.y);
-
-            if (e.type === "tanker") {
-              // Split into two mini flippers
-              score += 20;
-              const l1 = (e.lane - 1 + NUM_LANES) % NUM_LANES;
-              const l2 = (e.lane + 1) % NUM_LANES;
-              enemies.push({
-                type: "miniflip", lane: l1, depth: e.depth,
-                speed: 0.008 + level * 0.002, alive: true, flipTimer: 15 + flr(rnd(20)),
-                hp: 1, spikeTrail: false
-              });
-              enemies.push({
-                type: "miniflip", lane: l2, depth: e.depth,
-                speed: 0.008 + level * 0.002, alive: true, flipTimer: 15 + flr(rnd(20)),
-                hp: 1, spikeTrail: false
-              });
-            } else if (e.type === "flipper") {
-              score += 10;
-            } else if (e.type === "spiker") {
-              score += 15;
-            } else {
-              score += 10; // miniflip
-            }
-
-            hitSound();
-            e.alive = false;
-            enemies.splice(i, 1);
-          }
-          break;
-        }
-      }
-    }
-
-    // Miniflip behavior (same as flipper)
-    for (const e of enemies) {
-      if (e.type === "miniflip") {
-        e.flipTimer--;
-        if (e.flipTimer <= 0 && e.depth < 0.85) {
-          e.lane = (e.lane + (rnd(1) < 0.5 ? 1 : -1) + NUM_LANES) % NUM_LANES;
-          e.flipTimer = 10 + flr(rnd(20));
-        }
-      }
-    }
-
-    // Bullet-spike collision
-    for (let i = bullets.length - 1; i >= 0; i--) {
-      const b = bullets[i];
-      for (let j = spikes.length - 1; j >= 0; j--) {
-        const s = spikes[j];
-        if (b.lane === s.lane && _abs(b.depth - s.depth) < 0.06) {
-          bullets.splice(i, 1);
-          spikes.splice(j, 1);
-          break;
-        }
-      }
-    }
-
-    // Explosions
-    for (let i = explosions.length - 1; i >= 0; i--) {
-      explosions[i].timer--;
-      if (explosions[i].timer <= 0) explosions.splice(i, 1);
-    }
-
-    // Particles
-    for (let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
-      if (p.life <= 0) particles.splice(i, 1);
-    }
-
-    // Zap flash
-    if (zapFlash > 0) zapFlash--;
-
-    // Check level clear
-    if (enemies.length === 0 && enemiesToSpawn.length === 0 && !levelClear) {
-      levelClear = true;
-      levelClearTimer = 0;
-      clearSound();
-    }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    if (state === "title") {
-      // Draw rotating playfield in background
-      const titleAngle = GrayBox.frame * 0.01;
-      for (let i = 0; i < NUM_LANES; i++) {
-        const a1 = (Math.PI * 2 * i / NUM_LANES) - Math.PI / 2 + titleAngle;
-        const a2 = (Math.PI * 2 * ((i + 1) % NUM_LANES) / NUM_LANES) - Math.PI / 2 + titleAngle;
-        const ox1 = CX + cos(a1) * OUTER_R;
-        const oy1 = CY + sin(a1) * OUTER_R;
-        const ox2 = CX + cos(a2) * OUTER_R;
-        const oy2 = CY + sin(a2) * OUTER_R;
-        const ix1 = CX + cos(a1) * INNER_R;
-        const iy1 = CY + sin(a1) * INNER_R;
-        // Rim edge
-        line(ox1, oy1, ox2, oy2, 1);
-        // Lane divider
-        line(ox1, oy1, ix1, iy1, 1);
-      }
-
-      const ty = 30 + sin(GrayBox.frame * 0.05) * 4;
-      text("TEMPEST", W / 2 - 18, flr(ty), 3);
-      text("TEMPEST", W / 2 - 17, flr(ty) + 1, 1);
-      rectf(W / 2 - 40, flr(ty) + 12, 80, 1, 2);
-
-      if (flr(GrayBox.frame / 20) % 2 === 0)
-        text("PRESS A TO START", W / 2 - 42, 180, 3);
-
-      // Score table
-      text("-ENEMIES-", W / 2 - 24, 195, 2);
-      text("FLIPPER  10 PTS", W / 2 - 38, 204, 2);
-      text("TANKER   20 PTS", W / 2 - 38, 212, 2);
-      text("SPIKER   15 PTS", W / 2 - 38, 219, 2);
-
-      text("GRAYBOX DEMO V0.1", W / 2 - 43, 231, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      // Draw faded playfield
-      drawPlayfield(1);
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-      text("GAME OVER", W / 2 - 24, 90, 3);
-      text("SCORE: " + score, W / 2 - 24, 109, 2);
-      text("LEVEL: " + level, W / 2 - 18, 120, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0)
-        text("PRESS A TO CONTINUE", W / 2 - 50, 158, 3);
-      return;
-    }
-
-    // --- Play state ---
-
-    // Zap flash background
-    if (zapFlash > 0 && zapFlash % 2 === 0) {
-      cls(1);
-    }
-
-    // Draw playfield
-    drawPlayfield(2);
-
-    // Draw spikes
-    for (const s of spikes) {
-      const p = lanePos(s.lane, s.depth);
-      // Small cross for spike
-      line(flr(p.x) - 2, flr(p.y), flr(p.x) + 2, flr(p.y), 2);
-      line(flr(p.x), flr(p.y) - 2, flr(p.x), flr(p.y) + 2, 2);
-    }
-
-    // Draw enemies
-    for (const e of enemies) {
-      if (!e.alive) continue;
-      const pos = lanePos(e.lane, e.depth);
-      const px = flr(pos.x) - 4;
-      const py = flr(pos.y) - 4;
-      // Scale size based on depth for perspective
-      if (e.type === "flipper") {
-        spr(2, px, py);
-      } else if (e.type === "tanker") {
-        spr(3, px, py);
-      } else if (e.type === "spiker") {
-        spr(4, px, py);
-      } else if (e.type === "miniflip") {
-        spr(9, px, py);
-      }
-    }
-
-    // Draw bullets
-    for (const b of bullets) {
-      const pos = lanePos(b.lane, b.depth);
-      // Draw as bright dot moving inward
-      const px = flr(pos.x);
-      const py = flr(pos.y);
-      pix(px, py, 3);
-      pix(px - 1, py, 3);
-      pix(px + 1, py, 3);
-      pix(px, py - 1, 3);
-      pix(px, py + 1, 3);
-    }
-
-    // Draw player on rim
-    drawPlayer();
-
-    // Explosions
-    for (const e of explosions) {
-      const sprId = e.timer > 6 ? 6 : 7;
-      spr(sprId, flr(e.x), flr(e.y));
-    }
-
-    // Particles
-    for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-    // HUD
-    rectf(0, 0, W, 12, 0);
-    text("SCORE:" + score, 4, 3, 3);
-    text("LVL:" + level, W / 2 - 14, 3, 2);
-    // Lives
-    for (let i = 0; i < lives; i++) spr(8, W - 40 + i * 10, 2);
-    // Superzapper indicator
-    if (superzapper > 0) {
-      text("ZAP", W - 54, 3, 3);
-    }
-
-    // Level clear message
-    if (levelClear) {
-      const msgY = 113 + sin(levelClearTimer * 0.08) * 3;
-      text("LEVEL CLEAR!", W / 2 - 30, flr(msgY), 3);
-    }
-  };
-
   function drawPlayfield(color) {
     for (let i = 0; i < NUM_LANES; i++) {
       const j = (i + 1) % NUM_LANES;
-      // Outer rim
       line(outerPts[i].x, outerPts[i].y, outerPts[j].x, outerPts[j].y, color);
-      // Inner rim
       line(innerPts[i].x, innerPts[i].y, innerPts[j].x, innerPts[j].y, 1);
-      // Lane dividers (spokes)
       line(outerPts[i].x, outerPts[i].y, innerPts[i].x, innerPts[i].y, 1);
     }
-    // Highlight player's lane
     const pi = playerLane % NUM_LANES;
     const pj = (playerLane + 1) % NUM_LANES;
     line(outerPts[pi].x, outerPts[pi].y, outerPts[pj].x, outerPts[pj].y, 3);
@@ -699,24 +339,133 @@
   }
 
   function drawPlayer() {
-    // Draw player claw at the midpoint of the outer edge of their lane
     const pos = lanePos(playerLane, 1.0);
     const px = flr(pos.x) - 4;
     const py = flr(pos.y) - 4;
     spr(1, px, py);
-
-    // Also draw a bright marker at player position
     const i = playerLane % NUM_LANES;
     const j = (playerLane + 1) % NUM_LANES;
     const mx = (outerPts[i].x + outerPts[j].x) / 2;
     const my = (outerPts[i].y + outerPts[j].y) / 2;
-    // Small crosshair
     pix(flr(mx), flr(my) - 5, 3);
     pix(flr(mx), flr(my) + 5, 3);
     pix(flr(mx) - 5, flr(my), 3);
     pix(flr(mx) + 5, flr(my), 3);
   }
 
+  function drawPlayState() {
+    cls(0);
+    if (zapFlash > 0 && zapFlash % 2 === 0) cls(1);
+    drawPlayfield(2);
+    for (const s of spikes) { const p = lanePos(s.lane, s.depth); line(flr(p.x) - 2, flr(p.y), flr(p.x) + 2, flr(p.y), 2); line(flr(p.x), flr(p.y) - 2, flr(p.x), flr(p.y) + 2, 2); }
+    for (const e of enemies) { if (!e.alive) continue; const pos = lanePos(e.lane, e.depth); const px = flr(pos.x) - 4; const py = flr(pos.y) - 4; if (e.type === "flipper") spr(2, px, py); else if (e.type === "tanker") spr(3, px, py); else if (e.type === "spiker") spr(4, px, py); else if (e.type === "miniflip") spr(9, px, py); }
+    for (const b of bullets) { const pos = lanePos(b.lane, b.depth); const px = flr(pos.x); const py = flr(pos.y); pix(px, py, 3); pix(px - 1, py, 3); pix(px + 1, py, 3); pix(px, py - 1, 3); pix(px, py + 1, 3); }
+    drawPlayer();
+    for (const e of explosions) { const sprId = e.timer > 6 ? 6 : 7; spr(sprId, flr(e.x), flr(e.y)); }
+    for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+    rectf(0, 0, W, 12, 0);
+    text("SCORE:" + score, 4, 3, 3);
+    text("LVL:" + level, W / 2 - 14, 3, 2);
+    for (let i = 0; i < lives; i++) spr(8, W - 40 + i * 10, 2);
+    if (superzapper > 0) text("ZAP", W - 54, 3, 3);
+    if (levelClear) { const msgY = 113 + sin(levelClearTimer * 0.08) * 3; text("LEVEL CLEAR!", W / 2 - 30, flr(msgY), 3); }
+  }
+
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); },
+    update() {
+      if (btnp("a") || btnp("a")) { note(0, "C5", 0.08); setTimeout(() => note(0, "G5", 0.1), 80); GrayBox.go(PLAY); return; }
+    },
+    draw() {
+      cls(0);
+      const titleAngle = GrayBox.frame * 0.01;
+      for (let i = 0; i < NUM_LANES; i++) {
+        const a1 = (Math.PI * 2 * i / NUM_LANES) - Math.PI / 2 + titleAngle;
+        const a2 = (Math.PI * 2 * ((i + 1) % NUM_LANES) / NUM_LANES) - Math.PI / 2 + titleAngle;
+        const ox1 = CX + cos(a1) * OUTER_R; const oy1 = CY + sin(a1) * OUTER_R;
+        const ox2 = CX + cos(a2) * OUTER_R; const oy2 = CY + sin(a2) * OUTER_R;
+        const ix1 = CX + cos(a1) * INNER_R; const iy1 = CY + sin(a1) * INNER_R;
+        line(ox1, oy1, ox2, oy2, 1); line(ox1, oy1, ix1, iy1, 1);
+      }
+      const ty = 30 + sin(GrayBox.frame * 0.05) * 4;
+      text("TEMPEST", W / 2 - 18, flr(ty), 3);
+      text("TEMPEST", W / 2 - 17, flr(ty) + 1, 1);
+      rectf(W / 2 - 40, flr(ty) + 12, 80, 1, 2);
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", W / 2 - 42, 180, 3);
+      text("-ENEMIES-", W / 2 - 24, 195, 2);
+      text("FLIPPER  10 PTS", W / 2 - 38, 204, 2);
+      text("TANKER   20 PTS", W / 2 - 38, 212, 2);
+      text("SPIKER   15 PTS", W / 2 - 38, 219, 2);
+      text("GRAYBOX DEMO V0.1", W / 2 - 43, 231, 1);
+    }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
+      if (levelClear) { levelClearTimer++; if (levelClearTimer > 90) { level++; superzapper = 1; spawnWave(); } return; }
+      if (moveCooldown > 0) moveCooldown--;
+      if (btn("left") && moveCooldown <= 0) { playerLane = (playerLane - 1 + NUM_LANES) % NUM_LANES; moveCooldown = 4; }
+      if (btn("right") && moveCooldown <= 0) { playerLane = (playerLane + 1) % NUM_LANES; moveCooldown = 4; }
+      if (shootCooldown > 0) shootCooldown--;
+      if (btnp("a") && shootCooldown <= 0) { bullets.push({ lane: playerLane, depth: 1.0, speed: 0.04 }); shootCooldown = 6; shootSound(); }
+      if (btnp("b") && superzapper > 0) { superzapper--; zapFlash = 10; zapSound(); for (const e of enemies) { if (e.alive) { const pos = lanePos(e.lane, e.depth); addExplosion(pos.x, pos.y); score += e.type === "tanker" ? 20 : (e.type === "spiker" ? 15 : 10); } e.alive = false; } enemies = enemies.filter(e => e.alive); }
+      for (let i = bullets.length - 1; i >= 0; i--) { bullets[i].depth -= bullets[i].speed; if (bullets[i].depth <= 0) bullets.splice(i, 1); }
+      spawnTimer--;
+      if (spawnTimer <= 0 && enemiesToSpawn.length > 0) { spawnEnemy(enemiesToSpawn.shift()); spawnTimer = _max(15, 40 - level * 3); }
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i]; if (!e.alive) { enemies.splice(i, 1); continue; }
+        e.depth += e.speed;
+        if (e.type === "flipper") { e.flipTimer--; if (e.flipTimer <= 0 && e.depth < 0.85) { e.lane = (e.lane + (rnd(1) < 0.5 ? 1 : -1) + NUM_LANES) % NUM_LANES; e.flipTimer = 20 + flr(rnd(40)); } }
+        if (e.type === "spiker" && e.depth > 0.2 && flr(GrayBox.frame) % 8 === 0) { const sd = flr(e.depth * LANE_DEPTH) / LANE_DEPTH; const exists = spikes.some(s => s.lane === e.lane && _abs(s.depth - sd) < 0.05); if (!exists) spikes.push({ lane: e.lane, depth: sd }); }
+        if (e.depth >= 1.0) { e.alive = false; enemies.splice(i, 1); if (e.lane === playerLane) { lives--; deathSound(); addExplosion(lanePos(playerLane, 1.0).x, lanePos(playerLane, 1.0).y); if (lives <= 0) { GrayBox.go(GAMEOVER); return; } } continue; }
+        for (let j = bullets.length - 1; j >= 0; j--) {
+          const b = bullets[j];
+          if (b.lane === e.lane && _abs(b.depth - e.depth) < 0.06) {
+            bullets.splice(j, 1); e.hp--;
+            if (e.hp <= 0) {
+              const pos = lanePos(e.lane, e.depth); addExplosion(pos.x, pos.y);
+              if (e.type === "tanker") { score += 20; const l1 = (e.lane - 1 + NUM_LANES) % NUM_LANES; const l2 = (e.lane + 1) % NUM_LANES; enemies.push({ type: "miniflip", lane: l1, depth: e.depth, speed: 0.008 + level * 0.002, alive: true, flipTimer: 15 + flr(rnd(20)), hp: 1, spikeTrail: false }); enemies.push({ type: "miniflip", lane: l2, depth: e.depth, speed: 0.008 + level * 0.002, alive: true, flipTimer: 15 + flr(rnd(20)), hp: 1, spikeTrail: false }); }
+              else if (e.type === "flipper") score += 10;
+              else if (e.type === "spiker") score += 15;
+              else score += 10;
+              hitSound(); e.alive = false; enemies.splice(i, 1);
+            }
+            break;
+          }
+        }
+      }
+      for (const e of enemies) { if (e.type === "miniflip") { e.flipTimer--; if (e.flipTimer <= 0 && e.depth < 0.85) { e.lane = (e.lane + (rnd(1) < 0.5 ? 1 : -1) + NUM_LANES) % NUM_LANES; e.flipTimer = 10 + flr(rnd(20)); } } }
+      for (let i = bullets.length - 1; i >= 0; i--) { const b = bullets[i]; for (let j = spikes.length - 1; j >= 0; j--) { const s = spikes[j]; if (b.lane === s.lane && _abs(b.depth - s.depth) < 0.06) { bullets.splice(i, 1); spikes.splice(j, 1); break; } } }
+      for (let i = explosions.length - 1; i >= 0; i--) { explosions[i].timer--; if (explosions[i].timer <= 0) explosions.splice(i, 1); }
+      for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--; if (p.life <= 0) particles.splice(i, 1); }
+      if (zapFlash > 0) zapFlash--;
+      if (enemies.length === 0 && enemiesToSpawn.length === 0 && !levelClear) { levelClear = true; levelClearTimer = 0; clearSound(); }
+    },
+    draw() { drawPlayState(); }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--; if (p.life <= 0) particles.splice(i, 1); }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      drawPlayfield(1);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      text("GAME OVER", W / 2 - 24, 90, 3);
+      text("SCORE: " + score, W / 2 - 24, 109, 2);
+      text("LEVEL: " + level, W / 2 - 18, 120, 2);
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", W / 2 - 50, 158, 3);
+    }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

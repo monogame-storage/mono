@@ -380,7 +380,7 @@
   // Doors: red doors have documents, normal doors are decorative
   // Lamps on each floor
 
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER, WIN } = GrayBox.SCENE;
   let player, bullets, eBullets, enemies, explosions, particles;
   let elevators, doors, lamps, escalators;
   let score, lives, camY, docsCollected, docsTotal;
@@ -658,44 +658,63 @@
     setTimeout(() => note(0, "C6", 0.2), 300);
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      drawTitle();
     }
+  });
 
-    if (state === "gameover") {
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      drawGameOver();
     }
+  });
 
-    if (state === "win") {
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+  // --- Win Scene ---
+  GrayBox.scene(WIN, {
+    init() {},
+    update() {
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      drawWin();
     }
+  });
 
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
     // --- Play state ---
     if (player.dead) {
       player.deathTimer--;
       if (player.deathTimer <= 0) {
         lives--;
         if (lives <= 0) {
-          state = "gameover";
+          GrayBox.go(GAMEOVER);
           return;
         }
         // Respawn at current floor
@@ -1136,46 +1155,15 @@
     // --- Win condition: reach bottom floor with all docs ---
     const playerFloor = flr((player.y + 8) / FLOOR_H);
     if (playerFloor >= NUM_FLOORS - 1 && docsCollected >= docsTotal) {
-      state = "win";
       winSound();
+      GrayBox.go(WIN); return;
       score += 2000;
     }
 
     updateCamera();
-  };
-
-  function killPlayer() {
-    if (player.dead || invincible > 0) return;
-    player.dead = true;
-    player.deathTimer = 45;
-    addExplosion(player.x, player.y);
-    deathSound();
-    if (player.onElevator) {
-      player.onElevator.hasPlayer = false;
-      player.onElevator = null;
-    }
-  }
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
-
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
-      drawGameOver();
-      return;
-    }
-
-    if (state === "win") {
-      drawWin();
-      return;
-    }
 
     // --- Play state rendering ---
     const cy = flr(camY);
@@ -1379,7 +1367,22 @@
         text("GET TO THE CAR!", 120, 16, 3);
       }
     }
-  };
+    }
+  });
+
+  function killPlayer() {
+    if (player.dead || invincible > 0) return;
+    player.dead = true;
+    player.deathTimer = 45;
+    addExplosion(player.x, player.y);
+    deathSound();
+    if (player.onElevator) {
+      player.onElevator.hasPlayer = false;
+      player.onElevator = null;
+    }
+  }
+
+  // (Play scene draw is defined above inside the scene)
 
   function drawBuilding(cy) {
     // Draw floor platforms, walls, and windows
@@ -1539,6 +1542,7 @@
     if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 127, 185, 3);
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

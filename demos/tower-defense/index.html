@@ -189,8 +189,9 @@
     "00000000"
   );
 
-  // --- Game State ---
-  let state = "title";
+  // --- Scenes ---
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+
   let grid; // 2D array: 0=empty, -1=path, >0=tower index+1
   let towers, enemies, bullets, particles;
   let cursorX, cursorY, selectedType;
@@ -234,7 +235,8 @@
     wave++;
     if (wave > MAX_WAVES) {
       gameWon = true;
-      state = "gameover";
+      gameWon = true;
+      GrayBox.go(GAMEOVER);
       return;
     }
     waveActive = true;
@@ -306,33 +308,54 @@
   }
   function sndCycle() { note(1, "E5", 0.03); }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        sndWave();
-      }
-      return;
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); },
+    update() {
+      if (btnp("a") || btnp("a")) { sndWave(); GrayBox.go(PLAY); return; }
+    },
+    draw() {
+      cls(0);
+      const ty = 37 + sin(GrayBox.frame * 0.04) * 3;
+      text("TOWER DEFENSE", 112, flr(ty), 3);
+      rectf(107, flr(ty) + 9, 107, 1, 2);
+      const bx = 113; const by = flr(ty) + 21;
+      spr(20, bx, by + sin(GrayBox.frame * 0.06) * 2);
+      spr(21, bx + 33, by + sin(GrayBox.frame * 0.06 + 1.5) * 2);
+      spr(22, bx + 67, by + sin(GrayBox.frame * 0.06 + 3) * 2);
+      for (let i = 0; i < 5; i++) { const ex = 93 + i * 30 + sin(GrayBox.frame * 0.05 + i) * 6; const ey = flr(ty) + 45 + sin(GrayBox.frame * 0.08 + i * 0.7) * 3; spr(30 + (i % 3), flr(ex), flr(ey)); }
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", 113, 135, 3);
+      text("-- TOWERS --", 124, 154, 2);
+      spr(20, 113, 164); text("BASIC   10G  MED RANGE", 121, 165, 2);
+      spr(21, 113, 174); text("SNIPER  20G  LONG RANGE", 121, 176, 2);
+      spr(22, 113, 184); text("RAPID   15G  SHORT RANGE", 121, 186, 2);
+      text("SURVIVE 20 WAVES!", 117, 206, 3);
+      text("GRAYBOX DEMO V0.1", 112, 229, 1);
     }
+  });
 
-    if (state === "gameover") {
-      // Update particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--; if (p.life <= 0) particles.splice(i, 1); }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      if (gameWon) { text("VICTORY!", 133, 75, 3); text("ALL 20 WAVES CLEARED!", 108, 94, 2); }
+      else { text("GAME OVER", 130, 75, 3); text("REACHED WAVE " + wave, 122, 94, 2); }
+      text("SCORE: " + score, 130, 113, 2);
+      text("TOWERS BUILT: " + towers.length, 117, 124, 1);
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 105, 158, 3);
     }
+  });
 
-    // --- Play state ---
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
 
     // Cursor movement (with repeat delay)
     if (btnp("up")) cursorY = _max(0, cursorY - 1);
@@ -397,8 +420,8 @@
         addParticles(e.x + 4, e.y + 4, 6, 1);
         enemies.splice(i, 1);
         if (lives <= 0) {
-          state = "gameover";
           gameWon = false;
+          GrayBox.go(GAMEOVER); return;
         }
         continue;
       }
@@ -498,270 +521,50 @@
       gold += 5 + wave * 2; // wave clear bonus
       if (wave >= MAX_WAVES) {
         gameWon = true;
-        state = "gameover";
         sndWin();
+        GrayBox.go(GAMEOVER); return;
       }
     }
 
     // Countdown to next wave
-    if (!waveActive && state === "play") {
+    if (!waveActive) {
       waveTimer--;
-      if (waveTimer <= 0) {
-        startNextWave();
-        sndWave();
-      }
+      if (waveTimer <= 0) { startNextWave(); sndWave(); }
     }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    if (state === "title") {
-      // Title screen
-      const ty = 37 + sin(GrayBox.frame * 0.04) * 3;
-
-      text("TOWER DEFENSE", 112, flr(ty), 3);
-      rectf(107, flr(ty) + 9, 107, 1, 2);
-
-      // Animated towers on title
-      const bx = 113;
-      const by = flr(ty) + 21;
-      spr(20, bx, by + sin(GrayBox.frame * 0.06) * 2);
-      spr(21, bx + 33, by + sin(GrayBox.frame * 0.06 + 1.5) * 2);
-      spr(22, bx + 67, by + sin(GrayBox.frame * 0.06 + 3) * 2);
-
-      // Animated enemies marching
-      for (let i = 0; i < 5; i++) {
-        const ex = 93 + i * 30 + sin(GrayBox.frame * 0.05 + i) * 6;
-        const ey = flr(ty) + 45 + sin(GrayBox.frame * 0.08 + i * 0.7) * 3;
-        spr(30 + (i % 3), flr(ex), flr(ey));
-      }
-
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", 113, 135, 3);
-
-      // Tower info
-      text("-- TOWERS --", 124, 154, 2);
-      spr(20, 113, 164); text("BASIC   10G  MED RANGE", 121, 165, 2);
-      spr(21, 113, 174); text("SNIPER  20G  LONG RANGE", 121, 176, 2);
-      spr(22, 113, 184); text("RAPID   15G  SHORT RANGE", 121, 186, 2);
-
-      text("SURVIVE 20 WAVES!", 117, 206, 3);
-      text("GRAYBOX DEMO V0.1", 112, 229, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      // Particles
+    },
+    draw() {
+      cls(0);
+      for (let gy = 0; gy < GRID_H; gy++) { for (let gx = 0; gx < GRID_W; gx++) { const px = gx * CELL + GRID_OX; const py = gy * CELL + GRID_OY; if (grid[gy][gx] === 0 && (gx + gy) % 2 === 0) pix(px + 4, py + 4, 1); } }
+      for (let i = 0; i < PATH.length; i++) { const p = PATH[i]; rectf(p.x * CELL + GRID_OX, p.y * CELL + GRID_OY, CELL, CELL, 1); }
+      for (let i = 0; i < PATH.length - 1; i += 3) { const p = PATH[i]; const pn = PATH[i + 1]; const cx = p.x * CELL + GRID_OX + 8; const cy = p.y * CELL + GRID_OY + 8; const dx = pn.x - p.x; const dy = pn.y - p.y; pix(cx + dx * 3, cy + dy * 3, 2); pix(cx + dx * 4, cy + dy * 4, 2); }
+      const ps = PATH[0]; const pe = PATH[PATH.length - 1];
+      text("IN", ps.x * CELL + GRID_OX + 2, ps.y * CELL + GRID_OY + 5, 3);
+      text("END", pe.x * CELL + GRID_OX - 2, pe.y * CELL + GRID_OY + 5, 3);
+      for (const t of towers) { const tt = TOWER_TYPES[t.type]; spr(tt.sprId, t.gx * CELL + GRID_OX + 4, t.gy * CELL + GRID_OY + 4); if (t.target) { const lx = t.x + cos(t.angle) * 8; const ly = t.y + sin(t.angle) * 8; line(t.x, t.y, flr(lx), flr(ly), 2); } if (cursorX === t.gx && cursorY === t.gy) circ(t.x, t.y, tt.range, 1); }
+      for (const e of enemies) { rectf(flr(e.x) + 1, flr(e.y) + 9, 6, 2, 1); if (e.hitFlash > 0) rectf(flr(e.x), flr(e.y), 8, 8, 3); else spr(e.sprId, flr(e.x), flr(e.y)); const hpW = 10; const hpX = flr(e.x) - 1; const hpY = flr(e.y) - 3; const hpFill = (e.hp / e.maxHp) * hpW; rectf(hpX, hpY, hpW, 2, 1); if (hpFill > 0) { const hpColor = e.hp > e.maxHp * 0.5 ? 3 : 2; rectf(hpX, hpY, flr(hpFill), 2, hpColor); } }
+      for (const b of bullets) rectf(flr(b.x) - 1, flr(b.y) - 1, 2, 2, 3);
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-      if (gameWon) {
-        text("VICTORY!", 133, 75, 3);
-        text("ALL 20 WAVES CLEARED!", 108, 94, 2);
-      } else {
-        text("GAME OVER", 130, 75, 3);
-        text("REACHED WAVE " + wave, 122, 94, 2);
-      }
-      text("SCORE: " + score, 130, 113, 2);
-      text("TOWERS BUILT: " + towers.length, 117, 124, 1);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 105, 158, 3);
-      return;
+      const curPx = cursorX * CELL + GRID_OX; const curPy = cursorY * CELL + GRID_OY;
+      const curBlink = flr(GrayBox.frame / 4) % 2; const curCol = curBlink ? 3 : 2;
+      line(curPx, curPy, curPx + 4, curPy, curCol); line(curPx, curPy, curPx, curPy + 4, curCol);
+      line(curPx + CELL - 1, curPy, curPx + CELL - 5, curPy, curCol); line(curPx + CELL - 1, curPy, curPx + CELL - 1, curPy + 4, curCol);
+      line(curPx, curPy + CELL - 1, curPx + 4, curPy + CELL - 1, curCol); line(curPx, curPy + CELL - 1, curPx, curPy + CELL - 5, curCol);
+      line(curPx + CELL - 1, curPy + CELL - 1, curPx + CELL - 5, curPy + CELL - 1, curCol); line(curPx + CELL - 1, curPy + CELL - 1, curPx + CELL - 1, curPy + CELL - 5, curCol);
+      if (grid[cursorY][cursorX] === 0) { const tt = TOWER_TYPES[selectedType]; circ(curPx + CELL / 2, curPy + CELL / 2, tt.range, 1); if (gold >= tt.cost) spr(tt.sprId, curPx + 4, curPy + 4); }
+      rectf(0, 0, W, HUD_TOP, 0); line(0, HUD_TOP - 1, W, HUD_TOP - 1, 1);
+      text("GOLD:" + gold, 3, 2, 3); text("SCORE:" + score, 67, 2, 2); text("WAVE:" + wave + "/" + MAX_WAVES, 140, 2, 2);
+      for (let i = 0; i < min(lives, 10); i++) spr(35, W - 10 - i * 9, 0);
+      const bottomY = H - 18; rectf(0, bottomY, W, 18, 0); line(0, bottomY, W, bottomY, 1);
+      const st = TOWER_TYPES[selectedType];
+      for (let i = 0; i < TOWER_TYPES.length; i++) { const tx = 5 + i * 53; const ty = bottomY + 3; if (i === selectedType) rect(tx - 2, ty - 2, 51, 15, 3); spr(TOWER_TYPES[i].sprId, tx, ty + 1); text(TOWER_TYPES[i].name, tx + 10, ty, i === selectedType ? 3 : 1); text(TOWER_TYPES[i].cost + "G", tx + 10, ty + 8, i === selectedType ? 2 : 1); }
+      text("A:PLACE B:CYCLE", 227, bottomY + 3, 1); text("RNG:" + st.range + " DMG:" + st.dmg, 227, bottomY + 10, 1);
+      if (gold < st.cost) text("NOT ENOUGH GOLD!", 227, bottomY + 3, 2);
+      if (waveMessageTimer > 0) { const msgY = 105 + sin(waveMessageTimer * 0.1) * 3; const msgX = 133; rectf(msgX - 20, flr(msgY) - 4, 93, 14, 0); rect(msgX - 20, flr(msgY) - 4, 93, 14, 2); text(waveMessage, msgX, flr(msgY), 3); if (waveMessageTimer > 30) text("GET READY!", msgX - 5, flr(msgY) + 9, 2); }
+      if (!waveActive && waveTimer > 0 && enemies.length === 0 && wave < MAX_WAVES) { const sec = flr(waveTimer / 30) + 1; text("NEXT WAVE IN " + sec, 122, 105, 2); text("BONUS: +" + (5 + wave * 2) + "G", 128, 114, 1); }
     }
+  });
 
-    // --- Play state ---
-
-    // Draw grid background (subtle)
-    for (let gy = 0; gy < GRID_H; gy++) {
-      for (let gx = 0; gx < GRID_W; gx++) {
-        const px = gx * CELL + GRID_OX;
-        const py = gy * CELL + GRID_OY;
-        // Checkerboard pattern for buildable cells
-        if (grid[gy][gx] === 0) {
-          if ((gx + gy) % 2 === 0) {
-            // very subtle lighter cell - draw a single dot pattern
-            pix(px + 4, py + 4, 1);
-          }
-        }
-      }
-    }
-
-    // Draw path
-    for (let i = 0; i < PATH.length; i++) {
-      const p = PATH[i];
-      rectf(p.x * CELL + GRID_OX, p.y * CELL + GRID_OY, CELL, CELL, 1);
-    }
-    // Path direction arrows
-    for (let i = 0; i < PATH.length - 1; i += 3) {
-      const p = PATH[i];
-      const pn = PATH[i + 1];
-      const cx = p.x * CELL + GRID_OX + 8;
-      const cy = p.y * CELL + GRID_OY + 8;
-      const dx = pn.x - p.x;
-      const dy = pn.y - p.y;
-      // Small direction indicator
-      pix(cx + dx * 3, cy + dy * 3, 2);
-      pix(cx + dx * 4, cy + dy * 4, 2);
-    }
-
-    // Draw path start/end markers
-    const ps = PATH[0];
-    const pe = PATH[PATH.length - 1];
-    text("IN", ps.x * CELL + GRID_OX + 2, ps.y * CELL + GRID_OY + 5, 3);
-    text("END", pe.x * CELL + GRID_OX - 2, pe.y * CELL + GRID_OY + 5, 3);
-
-    // Draw towers
-    for (const t of towers) {
-      const tt = TOWER_TYPES[t.type];
-      spr(tt.sprId, t.gx * CELL + GRID_OX + 4, t.gy * CELL + GRID_OY + 4);
-
-      // Draw barrel/aim line
-      if (t.target) {
-        const lx = t.x + cos(t.angle) * 8;
-        const ly = t.y + sin(t.angle) * 8;
-        line(t.x, t.y, flr(lx), flr(ly), 2);
-      }
-
-      // Range indicator when cursor is on this tower
-      if (cursorX === t.gx && cursorY === t.gy) {
-        circ(t.x, t.y, tt.range, 1);
-      }
-    }
-
-    // Draw enemies
-    for (const e of enemies) {
-      // Shadow
-      rectf(flr(e.x) + 1, flr(e.y) + 9, 6, 2, 1);
-
-      // Sprite (flash white on hit)
-      if (e.hitFlash > 0) {
-        // Draw white flash - fill the sprite area
-        rectf(flr(e.x), flr(e.y), 8, 8, 3);
-      } else {
-        spr(e.sprId, flr(e.x), flr(e.y));
-      }
-
-      // HP bar
-      const hpW = 10;
-      const hpX = flr(e.x) - 1;
-      const hpY = flr(e.y) - 3;
-      const hpFill = (e.hp / e.maxHp) * hpW;
-      rectf(hpX, hpY, hpW, 2, 1);
-      if (hpFill > 0) {
-        const hpColor = e.hp > e.maxHp * 0.5 ? 3 : 2;
-        rectf(hpX, hpY, flr(hpFill), 2, hpColor);
-      }
-    }
-
-    // Draw bullets
-    for (const b of bullets) {
-      rectf(flr(b.x) - 1, flr(b.y) - 1, 2, 2, 3);
-    }
-
-    // Draw particles
-    for (const p of particles) {
-      pix(flr(p.x), flr(p.y), p.color);
-    }
-
-    // Draw cursor
-    const curPx = cursorX * CELL + GRID_OX;
-    const curPy = cursorY * CELL + GRID_OY;
-    // Animated cursor
-    const curBlink = flr(GrayBox.frame / 4) % 2;
-    const curCol = curBlink ? 3 : 2;
-
-    // Draw 16x16 cursor brackets
-    // Top-left
-    line(curPx, curPy, curPx + 4, curPy, curCol);
-    line(curPx, curPy, curPx, curPy + 4, curCol);
-    // Top-right
-    line(curPx + CELL - 1, curPy, curPx + CELL - 5, curPy, curCol);
-    line(curPx + CELL - 1, curPy, curPx + CELL - 1, curPy + 4, curCol);
-    // Bottom-left
-    line(curPx, curPy + CELL - 1, curPx + 4, curPy + CELL - 1, curCol);
-    line(curPx, curPy + CELL - 1, curPx, curPy + CELL - 5, curCol);
-    // Bottom-right
-    line(curPx + CELL - 1, curPy + CELL - 1, curPx + CELL - 5, curPy + CELL - 1, curCol);
-    line(curPx + CELL - 1, curPy + CELL - 1, curPx + CELL - 1, curPy + CELL - 5, curCol);
-
-    // Show range preview when cursor on empty cell
-    if (grid[cursorY][cursorX] === 0) {
-      const tt = TOWER_TYPES[selectedType];
-      circ(curPx + CELL / 2, curPy + CELL / 2, tt.range, 1);
-      // Ghost tower preview
-      if (gold >= tt.cost) {
-        spr(tt.sprId, curPx + 4, curPy + 4);
-      }
-    }
-
-    // --- HUD ---
-    // Top bar
-    rectf(0, 0, W, HUD_TOP, 0);
-    line(0, HUD_TOP - 1, W, HUD_TOP - 1, 1);
-
-    // Gold
-    text("GOLD:" + gold, 3, 2, 3);
-
-    // Score
-    text("SCORE:" + score, 67, 2, 2);
-
-    // Wave
-    text("WAVE:" + wave + "/" + MAX_WAVES, 140, 2, 2);
-
-    // Lives
-    for (let i = 0; i < min(lives, 10); i++) {
-      spr(35, W - 10 - i * 9, 0);
-    }
-
-    // Bottom bar: selected tower info
-    const bottomY = H - 18;
-    rectf(0, bottomY, W, 18, 0);
-    line(0, bottomY, W, bottomY, 1);
-
-    const st = TOWER_TYPES[selectedType];
-    // Tower type selector
-    for (let i = 0; i < TOWER_TYPES.length; i++) {
-      const tx = 5 + i * 53;
-      const ty = bottomY + 3;
-      if (i === selectedType) {
-        rect(tx - 2, ty - 2, 51, 15, 3);
-      }
-      spr(TOWER_TYPES[i].sprId, tx, ty + 1);
-      text(TOWER_TYPES[i].name, tx + 10, ty, i === selectedType ? 3 : 1);
-      text(TOWER_TYPES[i].cost + "G", tx + 10, ty + 8, i === selectedType ? 2 : 1);
-    }
-
-    // Controls hint
-    text("A:PLACE B:CYCLE", 227, bottomY + 3, 1);
-    // Range info
-    text("RNG:" + st.range + " DMG:" + st.dmg, 227, bottomY + 10, 1);
-
-    // Can't afford indicator
-    if (gold < st.cost) {
-      text("NOT ENOUGH GOLD!", 227, bottomY + 3, 2);
-    }
-
-    // Wave announcement
-    if (waveMessageTimer > 0) {
-      const msgY = 105 + sin(waveMessageTimer * 0.1) * 3;
-      const msgX = 133;
-      rectf(msgX - 20, flr(msgY) - 4, 93, 14, 0);
-      rect(msgX - 20, flr(msgY) - 4, 93, 14, 2);
-      text(waveMessage, msgX, flr(msgY), 3);
-      if (waveMessageTimer > 30) {
-        text("GET READY!", msgX - 5, flr(msgY) + 9, 2);
-      }
-    }
-
-    // Wave countdown between waves
-    if (!waveActive && waveTimer > 0 && enemies.length === 0 && wave < MAX_WAVES) {
-      const sec = flr(waveTimer / 30) + 1;
-      text("NEXT WAVE IN " + sec, 122, 105, 2);
-      text("BONUS: +" + (5 + wave * 2) + "G", 128, 114, 1);
-    }
-  };
-
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

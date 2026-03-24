@@ -251,7 +251,7 @@
   );
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let paddle, balls, bricks, powerups, lasers, enemies, explosions;
   let score, lives, level, levelTimer;
   let activePower, powerTimer;
@@ -498,9 +498,10 @@
   function loseLife() {
     lives--;
     if (lives <= 0) {
-      state = "gameover";
       note(0, "C3", 0.3);
       setTimeout(() => { try { note(0, "A2", 0.4); } catch(e){} }, 300);
+      GrayBox.go(GAMEOVER);
+      return;
     } else {
       activePower = -1;
       paddle.w = 21;
@@ -538,17 +539,22 @@
     return false;
   }
 
-  // --- Update ---
-  GrayBox._update = function() {
-    if (state === "title") {
-      if (btnp("a")) { state = "play"; resetGame(); }
-      return;
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      if (btnp("a")) { GrayBox.go(PLAY); }
+    },
+    draw() {
+      cls(0);
+      drawTitle();
     }
-    if (state === "gameover") {
-      if (btnp("a")) state = "title";
-      return;
-    }
-    if (state !== "play") return;
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
 
     levelTimer++;
     if (msgTimer > 0) msgTimer--;
@@ -827,7 +833,30 @@
     if (breakableBricksLeft() === 0 && (!bossActive || bossHP <= 0)) {
       loadLevel(level + 1);
     }
-  };
+    },
+    draw() {
+      cls(0);
+
+      // Field border
+      rect(FIELD_L - 2, FIELD_T - 2, FIELD_W + 4, FIELD_B - FIELD_T + 6, 1);
+      rectf(FIELD_L - 2, FIELD_T - 2, 2, FIELD_B - FIELD_T + 6, 1);
+      rectf(FIELD_R, FIELD_T - 2, 2, FIELD_B - FIELD_T + 6, 1);
+      rectf(FIELD_L - 2, FIELD_T - 2, FIELD_W + 4, 2, 1);
+      drawPlayContent();
+    }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      if (btnp("a")) GrayBox.go(TITLE);
+    },
+    draw() {
+      cls(0);
+      drawGameOver();
+    }
+  });
 
   function bossDefeated() {
     score += 1000;
@@ -843,12 +872,7 @@
     msgTimer = 90;
   }
 
-  // --- Draw ---
-  GrayBox._draw = function() {
-    cls(0);
-
-    if (state === "title") { drawTitle(); return; }
-    if (state === "gameover") { drawGameOver(); return; }
+  function drawPlayContent() {
 
     // Field border
     rect(FIELD_L - 2, FIELD_T - 2, FIELD_W + 4, FIELD_B - FIELD_T + 6, 1);
@@ -1005,7 +1029,7 @@
       rectf(mx - 4, H / 2 - 24, msgText.length * 5 + 8, 14, 0);
       text(msgText, mx, H / 2 - 20, c);
     }
-  };
+  }
 
   function drawTitle() {
     const t = GrayBox.frame;
@@ -1083,6 +1107,7 @@
     }
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -257,7 +257,7 @@
   );
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, bullets, enemies, humans, electrodes, explosions, particles;
   let eBullets;
   let score, lives, wave, waveTimer, waveMessage;
@@ -409,26 +409,47 @@
     return dist(a, b) < (r || 7);
   }
 
-  // ---- UPDATE ----
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { titlePulse = 0; },
+    update() {
       titlePulse++;
       if (btnp("a")) {
         ensureAudio();
-        state = "play";
         resetGame();
         note(0, "C4", 0.1);
         note(1, "E4", 0.1);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      const blink = (titlePulse % 40) < 25;
+      text("ROBOTRON", W / 2 - 20, 45, 3);
+      text("2084", W / 2 - 10, 56, 2);
+      if ((titlePulse % 20) < 10) {
+        spr(2, W / 2 - 33, 75); spr(3, W / 2 - 24, 75); spr(4, W / 2 - 15, 75);
+        spr(16, W / 2 + 7, 75); spr(5, W / 2 + 16, 75); spr(13, W / 2 + 25, 75);
+      } else {
+        spr(6, W / 2 - 27, 75); spr(7, W / 2 - 13, 75); spr(8, W / 2, 75); spr(1, W / 2 + 13, 75);
+      }
+      text("SAVE THE LAST HUMAN FAMILY", W / 2 - 65, 98, 2);
+      if (blink) text("PRESS ENTER TO START", W / 2 - 50, 128, 3);
+      text("ARROWS  MOVE", W / 2 - 34, 150, 1);
+      text("Z  SHOOT IN MOVE DIR", W / 2 - 34, 159, 1);
+      text("HOLD Z + ARROWS  AIM", W / 2 - 34, 168, 1);
+      text("GRUNT 100  BRAIN 500", W / 2 - 50, 186, 2);
+      text("ENFORCER 150  SPHEROID 1000", W / 2 - 67, 195, 2);
+      text("RESCUE HUMANS FOR BONUS!", W / 2 - 60, 210, 3);
+      if (hiScore > 0) { text("HI " + hiScore, W / 2 - 15, 225, 1); }
     }
+  });
 
-    if (state === "gameover") {
-      if (btnp("a")) {
-        state = "title";
-      }
-      return;
-    }
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
+    titlePulse++;
 
     // --- PLAY state ---
     if (waveMessage > 0) {
@@ -792,8 +813,8 @@
     note(0, "C3", 0.15);
     note(1, "E2", 0.2);
     if (lives <= 0) {
-      state = "gameover";
       if (score > hiScore) hiScore = score;
+      GrayBox.go(GAMEOVER); return;
     } else {
       invincible = 90;
       player.x = W / 2 - 4;
@@ -802,61 +823,9 @@
     }
   }
 
-  // ---- DRAW ----
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
-
-    if (state === "title") {
-      // Title screen
-      const blink = (titlePulse % 40) < 25;
-
-      // Big title
-      text("ROBOTRON", W / 2 - 20, 45, 3);
-      text("2084", W / 2 - 10, 56, 2);
-
-      // Flashing robots
-      if ((titlePulse % 20) < 10) {
-        spr(2, W / 2 - 33, 75);
-        spr(3, W / 2 - 24, 75);
-        spr(4, W / 2 - 15, 75);
-        spr(16, W / 2 + 7, 75);
-        spr(5, W / 2 + 16, 75);
-        spr(13, W / 2 + 25, 75);
-      } else {
-        spr(6, W / 2 - 27, 75);
-        spr(7, W / 2 - 13, 75);
-        spr(8, W / 2, 75);
-        spr(1, W / 2 + 13, 75);
-      }
-
-      text("SAVE THE LAST HUMAN FAMILY", W / 2 - 65, 98, 2);
-
-      if (blink) text("PRESS ENTER TO START", W / 2 - 50, 128, 3);
-
-      text("ARROWS  MOVE", W / 2 - 34, 150, 1);
-      text("Z  SHOOT IN MOVE DIR", W / 2 - 34, 159, 1);
-      text("HOLD Z + ARROWS  AIM", W / 2 - 34, 168, 1);
-
-      text("GRUNT 100  BRAIN 500", W / 2 - 50, 186, 2);
-      text("ENFORCER 150  SPHEROID 1000", W / 2 - 67, 195, 2);
-      text("RESCUE HUMANS FOR BONUS!", W / 2 - 60, 210, 3);
-
-      if (hiScore > 0) {
-        text("HI " + hiScore, W / 2 - 15, 225, 1);
-      }
-
-      return;
-    }
-
-    if (state === "gameover") {
-      text("GAME OVER", W / 2 - 22, H / 2 - 30, 3);
-      text("SCORE  " + score, W / 2 - 24, H / 2, 2);
-      if (score >= hiScore) {
-        text("NEW HIGH SCORE!", W / 2 - 37, H / 2 + 16, 3);
-      }
-      text("PRESS ENTER", W / 2 - 27, H / 2 + 40, 1);
-      return;
-    }
 
     // --- PLAY state draw ---
     let sx = 0, sy = 0;
@@ -939,7 +908,25 @@
 
     // HUD
     drawHUD(sx, sy);
-  };
+    }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      if (btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      text("GAME OVER", W / 2 - 22, H / 2 - 30, 3);
+      text("SCORE  " + score, W / 2 - 24, H / 2, 2);
+      if (score >= hiScore) {
+        text("NEW HIGH SCORE!", W / 2 - 37, H / 2 + 16, 3);
+      }
+      text("PRESS ENTER", W / 2 - 27, H / 2 + 40, 1);
+    }
+  });
 
   function drawHUD(sx, sy) {
     // Score
@@ -958,6 +945,7 @@
   }
 
   // --- Start ---
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

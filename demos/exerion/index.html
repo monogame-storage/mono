@@ -213,7 +213,7 @@
   );
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, bullets, eBullets, enemies, explosions, particles;
   let stars1, stars2, stars3; // 3 parallax layers
   let score, lives, wave, waveTimer, waveMessage;
@@ -377,47 +377,76 @@
     }
   }
 
-  // ============================================================
-  // Title screen init
-  // ============================================================
-  stars1 = makeStars(30, 0.3, 0.6);
-  stars2 = makeStars(20, 0.8, 1.5);
-  stars3 = makeStars(10, 2.0, 3.0);
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    // Always update stars
+  function updateStarsAndAnim() {
     updateStars(stars1);
     updateStars(stars2);
     updateStars(stars3);
     titleAnim++;
-
     if (screenShake > 0) screenShake--;
+  }
 
-    if (state === "title") {
+  function drawStarsAll() {
+    const shakeX = screenShake > 0 ? flr(rnd(3)) - 1 : 0;
+    const shakeY = screenShake > 0 ? flr(rnd(3)) - 1 : 0;
+    for (const s of stars1) pix(s.x + shakeX, s.y + shakeY, 1);
+    for (const s of stars2) pix(s.x + shakeX, s.y + shakeY, s.bright);
+    for (const s of stars3) {
+      const sx = s.x + shakeX, sy = s.y + shakeY;
+      pix(sx, sy, 3);
+      pix(sx + 1, sy, 2);
+    }
+  }
+
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {
+      stars1 = makeStars(30, 0.3, 0.6);
+      stars2 = makeStars(20, 0.8, 1.5);
+      stars3 = makeStars(10, 2.0, 3.0);
+    },
+    update() {
+      updateStarsAndAnim();
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      drawStarsAll();
+      drawTitle();
     }
+  });
 
-    if (state === "gameover") {
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      updateStarsAndAnim();
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
       if (btnp("a") || btnp("a")) {
         if (score > hiScore) hiScore = score;
-        state = "title";
+        GrayBox.go(TITLE); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      drawStarsAll();
+      drawGameOver();
     }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
+    updateStarsAndAnim();
 
     // --- Play state ---
     if (waveMessage > 0) waveMessage--;
@@ -644,7 +673,7 @@
     }
 
     // Wave clear check
-    if (enemies.length === 0 && state === "play" && waveMessage <= 0) {
+    if (enemies.length === 0 && waveMessage <= 0) {
       waveTimer++;
       if (waveTimer === 1) waveClearSound();
       if (waveTimer > 90) {
@@ -654,75 +683,15 @@
     } else {
       waveTimer = 0;
     }
-  };
-
-  function playerHit() {
-    lives--;
-    addExplosion(player.x, player.y, true);
-    deathSound();
-    player.x = W / 2 - 4;
-    player.y = H - 30;
-    invincible = 60;
-    chargeTime = 0;
-    charging = false;
-    if (lives <= 0) {
-      state = "gameover";
-      if (score > hiScore) hiScore = score;
-    }
-  }
-
-  function fireDualShot() {
-    // Two diverging bullets
-    bullets.push({ x: player.x + 0, y: player.y - 2, vx: -0.8, vy: -6, power: 1 });
-    bullets.push({ x: player.x + 0, y: player.y - 2, vx: 0.8, vy: -6, power: 1 });
-    shootSound();
-  }
-
-  function fireChargeShot() {
-    // 5-way spread shot
-    const cx = player.x + 0;
-    const cy = player.y - 4;
-    const angles = [-0.35, -0.17, 0, 0.17, 0.35];
-    const spd = 7;
-    for (const a of angles) {
-      bullets.push({
-        x: cx, y: cy,
-        vx: sin(a) * spd,
-        vy: -cos(a) * spd,
-        power: 2,
-        charged: true
-      });
-    }
-  }
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
 
     const shakeX = screenShake > 0 ? flr(rnd(3)) - 1 : 0;
     const shakeY = screenShake > 0 ? flr(rnd(3)) - 1 : 0;
 
     // --- Parallax starfield ---
-    for (const s of stars1) pix(s.x + shakeX, s.y + shakeY, 1); // far = dim
-    for (const s of stars2) pix(s.x + shakeX, s.y + shakeY, s.bright);
-    for (const s of stars3) {
-      // Near stars are brighter and slightly bigger
-      const sx = s.x + shakeX, sy = s.y + shakeY;
-      pix(sx, sy, 3);
-      pix(sx + 1, sy, 2);
-    }
-
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
-      drawGameOver();
-      return;
-    }
+    drawStarsAll();
 
     // --- Play state rendering ---
 
@@ -736,9 +705,7 @@
     for (const e of enemies) {
       if (e.timer < 0) continue;
       const ex = flr(e.x) + shakeX, ey = flr(e.y) + shakeY;
-      // Flash when hit (damaged multi-hp enemies)
       if (e.type === 12 && e.hp < 3 && flr(GrayBox.frame / 3) % 2 === 0) {
-        // Draw slightly different (flash)
         spr(e.type, ex, ey);
       } else {
         spr(e.type, ex, ey);
@@ -759,20 +726,15 @@
     if (invincible <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
       const px = flr(player.x) + shakeX;
       const py = flr(player.y) + shakeY;
-      // Animate thrust
       const shipSpr = GrayBox.frame % 6 < 3 ? 1 : 2;
       spr(shipSpr, px, py);
 
-      // Charge indicator
       if (charging && chargeTime >= 10) {
         const chargePct = min(1, (chargeTime - 10) / 20);
-        const csize = flr(chargePct * 4) + 2;
         const ccolor = chargeTime >= 30 ? 3 : 2;
-        // Pulsing circle around ship
         if (chargeTime >= 30) {
           circ(px + 4, py + 4, 6 + sin(GrayBox.frame * 0.3) * 2, ccolor);
         } else {
-          // Growing charge ring
           const r = 3 + chargePct * 4;
           circ(px + 4, py + 4, flr(r), 1);
         }
@@ -812,7 +774,49 @@
       text("WAVE " + wave, W / 2 - 20, flr(msgY), 3);
       if (waveMessage > 60) text("GET READY!", W / 2 - 30, flr(msgY) + 10, 2);
     }
-  };
+    }
+  });
+
+  function playerHit() {
+    lives--;
+    addExplosion(player.x, player.y, true);
+    deathSound();
+    player.x = W / 2 - 4;
+    player.y = H - 30;
+    invincible = 60;
+    chargeTime = 0;
+    charging = false;
+    if (lives <= 0) {
+      if (score > hiScore) hiScore = score;
+      GrayBox.go(GAMEOVER); return;
+    }
+  }
+
+  function fireDualShot() {
+    // Two diverging bullets
+    bullets.push({ x: player.x + 0, y: player.y - 2, vx: -0.8, vy: -6, power: 1 });
+    bullets.push({ x: player.x + 0, y: player.y - 2, vx: 0.8, vy: -6, power: 1 });
+    shootSound();
+  }
+
+  function fireChargeShot() {
+    // 5-way spread shot
+    const cx = player.x + 0;
+    const cy = player.y - 4;
+    const angles = [-0.35, -0.17, 0, 0.17, 0.35];
+    const spd = 7;
+    for (const a of angles) {
+      bullets.push({
+        x: cx, y: cy,
+        vx: sin(a) * spd,
+        vy: -cos(a) * spd,
+        power: 2,
+        charged: true
+      });
+    }
+  }
+
+  // (Scene draw functions defined above)
 
   function drawTitle() {
     const ty = 30 + sin(titleAnim * 0.04) * 4;
@@ -871,6 +875,7 @@
     if (flr(titleAnim / 20) % 2 === 0) text("PRESS A TO CONTINUE", W / 2 - 52, 158, 3);
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -273,7 +273,9 @@
   // Particles/effects
   let particles, scorePopups;
   // Game state
-  let state, score, lives, level, levelTimer, respawnTimer;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  let score, lives, level, levelTimer, respawnTimer;
+  let levelClearShowing = false;
   let lastEnemyEscaping;
   // Walk sound timer
   let walkSndTimer;
@@ -318,7 +320,6 @@
     score = 0;
     lives = 3;
     level = 0;
-    state = "play";
     startLevel();
   }
 
@@ -544,42 +545,47 @@
     }
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Scenes ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
+    },
+    draw() { drawTitle(); }
+  });
 
-    if (state === "gameover") {
-      // Animate particles
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOver(); }
+  });
 
-    if (state === "levelclear") {
+  GrayBox.scene(CLEAR, {
+    init() { levelTimer = 0; levelClearShowing = true; },
+    update() {
       levelTimer++;
       if (levelTimer > 90) {
         startLevel();
-        state = "play";
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
+    },
+    draw() { drawPlayState(); }
+  });
 
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); levelClearShowing = false; },
+    update() {
     // --- Play state ---
     levelTimer++;
 
@@ -592,8 +598,7 @@
       }
       if (respawnTimer > 60) {
         if (lives <= 0) {
-          state = "gameover";
-          return;
+          GrayBox.go(GAMEOVER); return;
         }
         player.alive = true;
         player.gx = flr(GRID_W / 2);
@@ -963,11 +968,12 @@
     // Check level clear
     const aliveEnemies = enemies.filter(e => e.alive);
     if (aliveEnemies.length === 0 && player.alive) {
-      state = "levelclear";
-      levelTimer = 0;
       levelClearSound();
+      GrayBox.go(CLEAR); return;
     }
-  };
+    },
+    draw() { drawPlayState(); }
+  });
 
   function killPlayer() {
     if (!player.alive) return;
@@ -980,20 +986,10 @@
   }
 
   // ============================================================
-  // Draw
+  // Play Draw
   // ============================================================
-  GrayBox._draw = function() {
+  function drawPlayState() {
     cls(0);
-
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
-      drawGameOver();
-      return;
-    }
 
     // --- Draw playfield ---
 
@@ -1157,7 +1153,7 @@
     for (let i = 0; i < lives; i++) spr(14, W - 33 + i * 7, 2);
 
     // Level clear message
-    if (state === "levelclear") {
+    if (levelClearShowing) {
       rectf(FIELD_X + 27, FIELD_Y + 60, 93, 23, 0);
       rect(FIELD_X + 27, FIELD_Y + 60, 93, 23, 3);
       text("ROUND CLEAR!", FIELD_X + 44, FIELD_Y + 68, 3);
@@ -1165,7 +1161,7 @@
 
     // Bottom info
     text("ROUND " + level, 3, H - 8, 1);
-  };
+  }
 
   function drawTitle() {
     // Background with some dirt feel
@@ -1226,7 +1222,7 @@
   // ============================================================
   // Boot
   // ============================================================
-  state = "title";
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

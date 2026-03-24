@@ -178,7 +178,8 @@
   const PLAT_DRAW_H = 5;
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const DYING = 99; // extra scene constant
   let player, platforms, bullets, enemies, powerups, particles;
   let cameraY, score, bestScore, maxHeight;
   let jetpackTimer, springShoeCount;
@@ -624,10 +625,10 @@
       if (player.x + 5 > e.x + 1 && player.x + 3 < e.x + 7 &&
           player.y + 6 > e.y + 2 && player.y + 2 < e.y + 6 &&
           !(player.vy > 0 && player.y + 4 < e.y + 2)) {
-        state = "dying";
         deathTimer = 60;
         sfxDeath();
         spawnParticles(player.x + 4, player.y + 4, 12, 0, 5);
+        GrayBox.go(DYING); return;
       }
     }
 
@@ -659,9 +660,9 @@
 
     // Death: fell below camera
     if (player.y - cameraY > H + 20) {
-      state = "dying";
       deathTimer = 60;
       sfxDeath();
+      GrayBox.go(DYING); return;
     }
   }
 
@@ -734,8 +735,7 @@
   function updateTitle() {
     titleBounce++;
     if (btnp("a") || btnp("a")) {
-      state = "play";
-      resetGame();
+      GrayBox.go(PLAY); return;
     }
   }
 
@@ -785,7 +785,7 @@
   // --- Game over ---
   function updateGameOver() {
     if (btnp("a") || btnp("a")) {
-      state = "title";
+      GrayBox.go(TITLE); return;
     }
   }
 
@@ -825,7 +825,7 @@
 
     if (deathTimer <= 0) {
       if (score > bestScore) bestScore = score;
-      state = "gameover";
+      GrayBox.go(GAMEOVER); return;
     }
   }
 
@@ -851,25 +851,32 @@
     text("SCORE: " + score + "M", 4, 3, 0);
   }
 
-  // --- Main loop ---
-  GrayBox._update = function() {
-    switch (state) {
-      case "title": updateTitle(); break;
-      case "play": updateGame(); break;
-      case "dying": updateDying(); break;
-      case "gameover": updateGameOver(); break;
-    }
-  };
+  // --- Scenes ---
+  GrayBox.scene(TITLE, {
+    init() { titleBounce = 0; },
+    update() { updateTitle(); },
+    draw() { drawTitle(); }
+  });
 
-  GrayBox._draw = function() {
-    switch (state) {
-      case "title": drawTitle(); break;
-      case "play": drawGame(); break;
-      case "dying": drawDying(); break;
-      case "gameover": drawGameOver(); break;
-    }
-  };
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() { updateGame(); },
+    draw() { drawGame(); }
+  });
 
+  GrayBox.scene(DYING, {
+    init() {},
+    update() { updateDying(); },
+    draw() { drawDying(); }
+  });
+
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() { updateGameOver(); },
+    draw() { drawGameOver(); }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -344,7 +344,7 @@
   ];
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER, WIN } = GrayBox.SCENE;
   let player, enemies, projectiles, effects, particles;
   let score, lives, floor, timer, camX;
   let spawnTimer, bossSpawned, bossDefeated, floorComplete;
@@ -498,9 +498,8 @@
         floor++;
         if (floor >= 5) {
           // Game complete!
-          state = "win";
           gameOverTimer = 180;
-          return;
+          GrayBox.go(WIN); return;
         }
         initFloor();
       }
@@ -662,8 +661,8 @@
         lives--;
         if (lives <= 0) {
           if (score > hiScore) hiScore = score;
-          state = "gameover";
           gameOverTimer = 120;
+          GrayBox.go(GAMEOVER); return;
         } else {
           // Respawn
           p.x = camX + 27;
@@ -1253,45 +1252,46 @@
     }
   }
 
-  // --- Main update ---
-  GrayBox._update = function() {
-    if (state === "title") {
-      if (btnp("a")) {
-        state = "play";
-        resetGame();
-      }
-    } else if (state === "play") {
-      updateGame();
-    } else if (state === "gameover") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { titleBlink = 0; gameOverTimer = 0; },
+    update() {
+      if (btnp("a")) { resetGame(); GrayBox.go(PLAY); return; }
+    },
+    draw() { drawTitle(); }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() { updateGame(); },
+    draw() { drawGame(); }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
       gameOverTimer--;
-      if (gameOverTimer <= 0 && btnp("a")) {
-        state = "title";
-      }
-    } else if (state === "win") {
+      if (gameOverTimer <= 0 && btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOver(); }
+  });
+
+  // --- Win Scene ---
+  GrayBox.scene(WIN, {
+    init() {},
+    update() {
       gameOverTimer--;
       if (gameOverTimer <= 0 && btnp("a")) {
         if (score > hiScore) hiScore = score;
-        state = "title";
+        GrayBox.go(TITLE); return;
       }
-    }
-  };
+    },
+    draw() { drawWin(); }
+  });
 
-  // --- Main draw ---
-  GrayBox._draw = function() {
-    if (state === "title") {
-      drawTitle();
-    } else if (state === "play") {
-      drawGame();
-    } else if (state === "gameover") {
-      drawGameOver();
-    } else if (state === "win") {
-      drawWin();
-    }
-  };
-
-  // --- Boot ---
-  titleBlink = 0;
-  gameOverTimer = 0;
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

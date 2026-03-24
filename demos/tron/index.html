@@ -150,8 +150,9 @@
       grid[gridIdx(x, y)] = v;
   }
 
-  // --- Game state ---
-  let state = "title";
+  // --- Scenes ---
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const ROUNDEND = "roundend";
   let round, playerScore, aiScore, winsNeeded;
   let cycles; // array of cycle objects
   let explosions, particles;
@@ -373,64 +374,54 @@
   }
 
   // --- Init ---
-  resetGame();
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); },
+    update() {
+      titlePulse++;
+      if (btnp("a") || btnp("a")) { roundStartSound(); GrayBox.go(PLAY); return; }
+    },
+    draw() { cls(0); drawTitle(); }
+  });
 
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    titlePulse++;
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() { particles = []; },
+    update() {
+      titlePulse++;
+      for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--; if (p.life <= 0) particles.splice(i, 1); }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { cls(0); drawGameOver(); }
+  });
 
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        roundStartSound();
-      }
-      return;
-    }
-
-    if (state === "gameover") {
-      // Update particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
-
-    if (state === "roundend") {
-      // Update particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      for (let i = explosions.length - 1; i >= 0; i--) {
-        explosions[i].timer--;
-        if (explosions[i].timer <= 0) explosions.splice(i, 1);
-      }
+  // --- Round End Scene ---
+  GrayBox.scene(ROUNDEND, {
+    init() { roundTimer = 0; },
+    update() {
+      titlePulse++;
+      for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--; if (p.life <= 0) particles.splice(i, 1); }
+      for (let i = explosions.length - 1; i >= 0; i--) { explosions[i].timer--; if (explosions[i].timer <= 0) explosions.splice(i, 1); }
       roundTimer++;
       if (roundTimer > 90) {
-        // Check for match end
-        if (playerScore >= winsNeeded) {
-          state = "gameover";
-          particles = [];
-          return;
-        }
-        if (aiScore >= winsNeeded) {
-          state = "gameover";
-          particles = [];
-          return;
-        }
-        state = "play";
-        nextRound();
-        roundStartSound();
+        if (playerScore >= winsNeeded) { GrayBox.go(GAMEOVER); return; }
+        if (aiScore >= winsNeeded) { GrayBox.go(GAMEOVER); return; }
+        nextRound(); roundStartSound();
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      drawArena(); drawTrails(); drawCycles(); drawExplosions(); drawParticles(); drawHUD();
+      drawRoundResult();
     }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
+    titlePulse++;
 
     // --- Play state ---
     if (roundMessage > 0) {
@@ -534,43 +525,15 @@
         aiScore++;
         loseSound();
       }
-      state = "roundend";
-      roundTimer = 0;
+      GrayBox.go(ROUNDEND); return;
     }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    if (state === "title") {
-      drawTitle();
-      return;
+    },
+    draw() {
+      cls(0);
+      drawArena(); drawTrails(); drawCycles(); drawExplosions(); drawParticles(); drawHUD();
+      if (roundMessage > 0) drawCountdown();
     }
-
-    if (state === "gameover") {
-      drawGameOver();
-      return;
-    }
-
-    // --- Draw arena and game ---
-    drawArena();
-    drawTrails();
-    drawCycles();
-    drawExplosions();
-    drawParticles();
-    drawHUD();
-
-    if (roundMessage > 0) {
-      drawCountdown();
-    }
-
-    if (state === "roundend") {
-      drawRoundResult();
-    }
-  };
+  });
 
   function drawTitle() {
     // Background grid effect
@@ -887,6 +850,7 @@
     text("P:" + playerScore + " - CPU:" + aiScore, mx + 10, my + 10, 2);
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

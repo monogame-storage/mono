@@ -141,7 +141,7 @@
 
   // Brick types: 0=empty, 1=normal(1hp), 2=strong(2hp), 3=unbreakable
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
   let paddle, balls, bricks, powerups, particles;
   let score, lives, level;
   let ballOnPaddle;
@@ -383,50 +383,68 @@
            by < brick.y + BRICK_H && by + bh > brick.y;
   }
 
-  resetGame();
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      if (shakeTimer > 0) shakeTimer--;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) {
+        GrayBox.go(PLAY);
+        note(0, "C5", 0.08);
+        setTimeout(() => note(0, "E5", 0.08), 80);
+        setTimeout(() => note(0, "G5", 0.12), 160);
+      }
+    },
+    draw() {
+      cls(0);
+      const sx = shakeTimer > 0 ? flr(rnd(4)) - 2 : 0;
+      const sy = shakeTimer > 0 ? flr(rnd(4)) - 2 : 0;
+      // Background bricks decoration
+      for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < BRICK_COLS; c++) {
+          const bc = (r + c) % 3 === 0 ? 2 : (r + c) % 3 === 1 ? 1 : 0;
+          if (bc > 0) {
+            const bx = BRICK_AREA_X + c * (BRICK_W + BRICK_GAP);
+            const by = 22 + r * (BRICK_H + BRICK_GAP);
+            const alpha = (sin(GrayBox.frame * 0.04 + r * 0.5 + c * 0.3) + 1) * 0.5;
+            if (alpha > 0.3) rectf(bx, by, BRICK_W, BRICK_H, bc);
+          }
+        }
+      }
+      const titleY = 86;
+      text("BREAKOUT", W / 2 - 20, titleY, 3);
+      text("- BLOCK BREAKER -", W / 2 - 45, titleY + 12, 2);
+      const ballAnimX = W / 2 + sin(GrayBox.frame * 0.08) * 40;
+      const ballAnimY = 124 + _abs(sin(GrayBox.frame * 0.12)) * -20;
+      spr(1, ballAnimX - 4, ballAnimY - 4);
+      if (flr(GrayBox.frame / 20) % 2 === 0) {
+        text("PRESS Z OR ENTER", W / 2 - 40, 158, 3);
+      }
+      text("LEFT/RIGHT: MOVE", W / 2 - 40, 186, 1);
+      text("Z: LAUNCH BALL", W / 2 - 35, 196, 1);
+      drawParticles();
+    }
+  });
 
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {
+      resetGame();
+    },
+    update() {
     // Timers
     if (shakeTimer > 0) shakeTimer--;
-
     // Particles always update
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
-
-    // ---- TITLE ----
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        note(0, "C5", 0.08);
-        setTimeout(() => note(0, "E5", 0.08), 80);
-        setTimeout(() => note(0, "G5", 0.12), 160);
-      }
-      return;
-    }
-
-    // ---- GAME OVER ----
-    if (state === "gameover") {
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
-
-    // ---- LEVEL CLEAR ----
-    if (state === "levelclear") {
-      if (levelMsg > 0) levelMsg--;
-      if (levelMsg <= 0) {
-        state = "play";
-        nextLevel();
-      }
-      return;
-    }
-
     // ---- PLAY ----
     // Level message timer
     if (levelMsg > 0) levelMsg--;
@@ -496,7 +514,7 @@
           sndLoseLife();
           shakeTimer = 12;
           if (lives <= 0) {
-            state = "gameover";
+            GrayBox.go(GAMEOVER); return;
           } else {
             ballOnPaddle = true;
             wideTimer = 0;
@@ -613,87 +631,16 @@
 
     // Check level clear
     if (countBreakable() <= 0 && !ballOnPaddle) {
-      state = "levelclear";
+      GrayBox.go(CLEAR);
       levelMsg = 90;
       score += 500 + level * 100;
       sndLevelClear();
     }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
-
     const sx = shakeTimer > 0 ? flr(rnd(4)) - 2 : 0;
     const sy = shakeTimer > 0 ? flr(rnd(4)) - 2 : 0;
-
-    // ---- TITLE ----
-    if (state === "title") {
-      // Background bricks decoration
-      for (let r = 0; r < 6; r++) {
-        for (let c = 0; c < BRICK_COLS; c++) {
-          const bc = (r + c) % 3 === 0 ? 2 : (r + c) % 3 === 1 ? 1 : 0;
-          if (bc > 0) {
-            const bx = BRICK_AREA_X + c * (BRICK_W + BRICK_GAP);
-            const by = 22 + r * (BRICK_H + BRICK_GAP);
-            // Animate: pulse
-            const alpha = (sin(GrayBox.frame * 0.04 + r * 0.5 + c * 0.3) + 1) * 0.5;
-            if (alpha > 0.3) rectf(bx, by, BRICK_W, BRICK_H, bc);
-          }
-        }
-      }
-
-      // Title
-      const titleY = 86;
-      text("BREAKOUT", W / 2 - 20, titleY, 3);
-
-      // Korean subtitle
-      text("- BLOCK BREAKER -", W / 2 - 45, titleY + 12, 2);
-
-      // Bouncing ball animation
-      const ballAnimX = W / 2 + sin(GrayBox.frame * 0.08) * 40;
-      const ballAnimY = 124 + _abs(sin(GrayBox.frame * 0.12)) * -20;
-      spr(1, ballAnimX - 4, ballAnimY - 4);
-
-      // Blinking text
-      if (flr(GrayBox.frame / 20) % 2 === 0) {
-        text("PRESS Z OR ENTER", W / 2 - 40, 158, 3);
-      }
-
-      // Credits
-      text("LEFT/RIGHT: MOVE", W / 2 - 40, 186, 1);
-      text("Z: LAUNCH BALL", W / 2 - 35, 196, 1);
-
-      drawParticles();
-      return;
-    }
-
-    // ---- GAME OVER ----
-    if (state === "gameover") {
-      text("GAME OVER", W / 2 - 22, H / 2 - 20, 3);
-      text("SCORE: " + score, W / 2 - 25, H / 2, 2);
-      text("LEVEL: " + level, W / 2 - 18, H / 2 + 12, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) {
-        text("PRESS Z TO CONTINUE", W / 2 - 48, H / 2 + 36, 1);
-      }
-      drawParticles();
-      return;
-    }
-
-    // ---- LEVEL CLEAR ----
-    if (state === "levelclear") {
-      drawPlayfield(sx, sy);
-      // Overlay
-      rectf(W / 2 - 53, H / 2 - 15, 106, 30, 0);
-      rect(W / 2 - 53, H / 2 - 15, 106, 30, 2);
-      text("LEVEL " + level + " CLEAR!", W / 2 - 35, H / 2 - 8, 3);
-      text("BONUS: " + (500 + level * 100), W / 2 - 25, H / 2 + 6, 2);
-      return;
-    }
-
-    // ---- PLAY ----
     drawPlayfield(sx, sy);
 
     // Level message overlay
@@ -703,7 +650,58 @@
         text("LEVEL " + level, W / 2 - 18, H / 2 - 4, 3);
       }
     }
-  };
+    }
+  });
+
+  // --- Level Clear Scene ---
+  GrayBox.scene(CLEAR, {
+    init() {},
+    update() {
+      if (shakeTimer > 0) shakeTimer--;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (levelMsg > 0) levelMsg--;
+      if (levelMsg <= 0) {
+        GrayBox.go(PLAY);
+      }
+    },
+    draw() {
+      cls(0);
+      const sx = shakeTimer > 0 ? flr(rnd(4)) - 2 : 0;
+      const sy = shakeTimer > 0 ? flr(rnd(4)) - 2 : 0;
+      drawPlayfield(sx, sy);
+      rectf(W / 2 - 53, H / 2 - 15, 106, 30, 0);
+      rect(W / 2 - 53, H / 2 - 15, 106, 30, 2);
+      text("LEVEL " + level + " CLEAR!", W / 2 - 35, H / 2 - 8, 3);
+      text("BONUS: " + (500 + level * 100), W / 2 - 25, H / 2 + 6, 2);
+    }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) GrayBox.go(TITLE);
+    },
+    draw() {
+      cls(0);
+      text("GAME OVER", W / 2 - 22, H / 2 - 20, 3);
+      text("SCORE: " + score, W / 2 - 25, H / 2, 2);
+      text("LEVEL: " + level, W / 2 - 18, H / 2 + 12, 2);
+      if (flr(GrayBox.frame / 20) % 2 === 0) {
+        text("PRESS Z TO CONTINUE", W / 2 - 48, H / 2 + 36, 1);
+      }
+      drawParticles();
+    }
+  });
 
   function drawPlayfield(sx, sy) {
     // HUD bar at top
@@ -817,8 +815,8 @@
     }
   }
 
-  state = "title";
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

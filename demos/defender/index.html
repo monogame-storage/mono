@@ -258,7 +258,7 @@
   const PLAY_TOP = 23;
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, lasers, eBullets, aliens, humans, explosions, particles, stars;
   let score, lives, wave, bombs, scrollX;
   let shootCooldown, invincTimer, waveMessage, waveTimer;
@@ -409,32 +409,71 @@
     setTimeout(() => note(0, "C6", 0.15), 300);
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Scenes ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); },
+    update() {
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
+    },
+    draw() { drawTitle(); }
+  });
 
-    if (state === "gameover") {
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOver(); }
+  });
 
+  function drawTitle() {
+    cls(0);
+    for (const s of stars) {
+      const sx = worldToScreen(s.x);
+      if (sx >= 0 && sx < W) pix(sx, s.y, s.bright);
+    }
+    const ty = 45 + sin(GrayBox.frame * 0.05) * 5;
+    text("DEFENDER", 127, flr(ty), 3);
+    text("DEFENDER", 128, flr(ty) + 1, 1);
+    rectf(113, flr(ty) + 12, 93, 1, 2);
+    spr(1, W / 2 - 4, flr(ty) + 23 + sin(GrayBox.frame * 0.08) * 3);
+    const bx = W / 2 - 40;
+    spr(2, bx, flr(ty) + 38 + sin(GrayBox.frame * 0.07) * 2);
+    spr(3, bx + 20, flr(ty) + 39 + sin(GrayBox.frame * 0.07 + 1) * 2);
+    spr(5, bx + 40, flr(ty) + 38 + sin(GrayBox.frame * 0.07 + 2) * 2);
+    spr(4, bx + 60, flr(ty) + 39 + sin(GrayBox.frame * 0.07 + 3) * 2);
+    spr(2, bx + 80, flr(ty) + 38 + sin(GrayBox.frame * 0.07 + 4) * 2);
+    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS Z TO START", 118, 143, 3);
+    text("-SCORE TABLE-", 126, 165, 2);
+    spr(2, 127, 176); text("  LANDER  150 PTS", 133, 177, 2);
+    spr(3, 127, 186); text("  MUTANT  400 PTS", 133, 188, 2);
+    spr(5, 127, 197); text("  BOMBER  250 PTS", 133, 198, 2);
+    spr(4, 127, 207); text("  BAITER  500 PTS", 133, 209, 2);
+    text("RESCUE HUMANS  500 PTS", 106, 221, 2);
+    text("GRAYBOX DEMO V0.1", 116, 233, 1);
+  }
+
+  function drawGameOver() {
+    cls(0);
+    for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+    text("GAME OVER", 138, 90, 3);
+    text("SCORE: " + score, 127, 109, 2);
+    text("WAVE: " + wave, 137, 120, 2);
+    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS Z TO CONTINUE", 111, 158, 3);
+  }
+
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
     // --- Play state ---
     if (waveMessage > 0) waveMessage--;
     if (invincTimer > 0) invincTimer--;
@@ -669,7 +708,7 @@
         lives--;
         deathSound();
         invincTimer = 60;
-        if (lives <= 0) { state = "gameover"; addExplosion(player.x, player.y); }
+        if (lives <= 0) { addExplosion(player.x, player.y); GrayBox.go(GAMEOVER); return; }
       }
     }
 
@@ -687,7 +726,7 @@
         addExplosion(player.x, player.y);
         deathSound();
         invincTimer = 60;
-        if (lives <= 0) { state = "gameover"; }
+        if (lives <= 0) { GrayBox.go(GAMEOVER); return; }
       }
     }
 
@@ -757,60 +796,14 @@
     } else {
       waveTimer = 0;
     }
-  };
+    },
+    draw() { drawPlayState(); }
+  });
 
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+  function drawPlayState() {
     cls(0);
 
     const shake = shakeTimer > 0 ? flr(rnd(4)) - 2 : 0;
-
-    if (state === "title") {
-      // Stars
-      for (const s of stars) {
-        const sx = worldToScreen(s.x);
-        if (sx >= 0 && sx < W) pix(sx, s.y, s.bright);
-      }
-
-      const ty = 45 + sin(GrayBox.frame * 0.05) * 5;
-      text("DEFENDER", 127, flr(ty), 3);
-      text("DEFENDER", 128, flr(ty) + 1, 1);
-      rectf(113, flr(ty) + 12, 93, 1, 2);
-
-      // Show ship
-      spr(1, W / 2 - 4, flr(ty) + 23 + sin(GrayBox.frame * 0.08) * 3);
-
-      // Show aliens
-      const bx = W / 2 - 40;
-      spr(2, bx, flr(ty) + 38 + sin(GrayBox.frame * 0.07) * 2);
-      spr(3, bx + 20, flr(ty) + 39 + sin(GrayBox.frame * 0.07 + 1) * 2);
-      spr(5, bx + 40, flr(ty) + 38 + sin(GrayBox.frame * 0.07 + 2) * 2);
-      spr(4, bx + 60, flr(ty) + 39 + sin(GrayBox.frame * 0.07 + 3) * 2);
-      spr(2, bx + 80, flr(ty) + 38 + sin(GrayBox.frame * 0.07 + 4) * 2);
-
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS Z TO START", 118, 143, 3);
-
-      text("-SCORE TABLE-", 126, 165, 2);
-      spr(2, 127, 176); text("  LANDER  150 PTS", 133, 177, 2);
-      spr(3, 127, 186); text("  MUTANT  400 PTS", 133, 188, 2);
-      spr(5, 127, 197); text("  BOMBER  250 PTS", 133, 198, 2);
-      spr(4, 127, 207); text("  BAITER  500 PTS", 133, 209, 2);
-      text("RESCUE HUMANS  500 PTS", 106, 221, 2);
-
-      text("GRAYBOX DEMO V0.1", 116, 233, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-      text("GAME OVER", 138, 90, 3);
-      text("SCORE: " + score, 127, 109, 2);
-      text("WAVE: " + wave, 137, 120, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS Z TO CONTINUE", 111, 158, 3);
-      return;
-    }
 
     // --- Play state rendering ---
     const shakeY = shake;
@@ -881,7 +874,7 @@
     }
 
     // Player
-    if (state === "play") {
+    {
       if (invincTimer <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
         const flipX = player.dir === -1;
         const psx = worldToScreen(player.x);
@@ -990,10 +983,11 @@
       text("WAVE " + wave, 140, flr(msgY), 3);
       if (waveMessage > 60) text("GET READY!", 130, flr(msgY) + 14, 2);
     }
-  };
+  }
 
   // ============================================================
   // Boot
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

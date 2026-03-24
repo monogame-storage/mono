@@ -322,7 +322,7 @@
   );
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let score, lives, stage, loop;
   let scrollX, scrollSpeed, stageLen;
   let playerX, playerY, playerVY, onGround, jumping;
@@ -495,7 +495,7 @@
     hitSound();
     addParticle(playerX, playerY, 12, 3);
     if (lives <= 0) {
-      state = "gameover";
+      GrayBox.go(GAMEOVER); return;
     } else {
       invincible = true;
       invTimer = 60;
@@ -510,33 +510,40 @@
     return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    animFrame++;
-
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      animFrame++;
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
+    },
+    draw() { cls(0); drawTitle(); }
+  });
 
-    if (state === "gameover") {
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      animFrame++;
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { cls(0); drawGameOver(); }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
+    animFrame++;
 
     // Stage clear
     if (stageComplete) {
@@ -595,7 +602,71 @@
         addParticle(bsx + 4, b.y + 4, 6, 3);
       }
     }
-  };
+    },
+    draw() {
+      cls(0);
+
+      if (0) { /* play state rendering below */ }
+
+      // --- Play state ---
+      const camX = flr(scrollX);
+
+      // Draw background
+      drawBackground(camX);
+
+      // Stage-specific drawing
+      if (stage === 0) drawFireRingStage(camX);
+      else if (stage === 1) drawTightropeStage(camX);
+      else if (stage === 2) drawTrampolineStage(camX);
+      else if (stage === 3) drawHorseVaultStage(camX);
+      else if (stage === 4) drawTrapezeStage(camX);
+
+      // Draw bonuses
+      for (const b of bonuses) {
+        if (!b.alive) continue;
+        const sx = b.x - camX;
+        if (sx < -10 || sx > W + 10) continue;
+        const bobY = b.y + sin(animFrame * 0.1) * 3;
+        if (b.type === "star") spr(9, flr(sx), flr(bobY));
+        else if (b.type === "ball") spr(22, flr(sx), flr(bobY));
+      }
+
+      // Draw player
+      if (!invincible || flr(animFrame / 3) % 2 === 0) {
+        drawPlayer(camX);
+      }
+
+      // Draw particles
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+
+      // HUD
+      drawHUD();
+
+      // Stage announcement
+      if (stageTimer > 0) {
+        rectf(67, 98, 187, 45, 0);
+        rect(69, 100, 183, 42, 2);
+        text("STAGE " + (stage + 1), 128, 109, 3);
+        text(STAGE_NAMES[stage], 133 - STAGE_NAMES[stage].length * 2.5, 120, 2);
+        if (loop > 0) text("LOOP " + (loop + 1), 140, 131, 1);
+      }
+
+      // Stage clear
+      if (stageComplete) {
+        const flash = flr(stageClearTimer / 4) % 2;
+        rectf(93, 98, 133, 38, 0);
+        rect(95, 100, 129, 34, flash ? 3 : 2);
+        text("STAGE CLEAR!", 130, 107, 3);
+        text("BONUS: 1000", 133, 119, 2);
+      }
+
+      // Progress bar
+      const progress = min(1, scrollX / stageLen);
+      rectf(67, H - 8, 187, 4, 0);
+      rect(67, H - 8, 187, 4, 1);
+      rectf(68, H - 7, flr(185 * progress), 2, 2);
+    }
+  });
 
   // --- Stage 1: Fire Rings ---
   function updateFireRings() {
@@ -876,80 +947,7 @@
     }
   }
 
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
-      drawGameOver();
-      return;
-    }
-
-    // --- Play state ---
-    const camX = flr(scrollX);
-
-    // Draw background
-    drawBackground(camX);
-
-    // Stage-specific drawing
-    if (stage === 0) drawFireRingStage(camX);
-    else if (stage === 1) drawTightropeStage(camX);
-    else if (stage === 2) drawTrampolineStage(camX);
-    else if (stage === 3) drawHorseVaultStage(camX);
-    else if (stage === 4) drawTrapezeStage(camX);
-
-    // Draw bonuses
-    for (const b of bonuses) {
-      if (!b.alive) continue;
-      const sx = b.x - camX;
-      if (sx < -10 || sx > W + 10) continue;
-      const bobY = b.y + sin(animFrame * 0.1) * 3;
-      if (b.type === "star") spr(9, flr(sx), flr(bobY));
-      else if (b.type === "ball") spr(22, flr(sx), flr(bobY));
-    }
-
-    // Draw player
-    if (!invincible || flr(animFrame / 3) % 2 === 0) {
-      drawPlayer(camX);
-    }
-
-    // Draw particles
-    for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-    // HUD
-    drawHUD();
-
-    // Stage announcement
-    if (stageTimer > 0) {
-      rectf(67, 98, 187, 45, 0);
-      rect(69, 100, 183, 42, 2);
-      text("STAGE " + (stage + 1), 128, 109, 3);
-      text(STAGE_NAMES[stage], 133 - STAGE_NAMES[stage].length * 2.5, 120, 2);
-      if (loop > 0) text("LOOP " + (loop + 1), 140, 131, 1);
-    }
-
-    // Stage clear
-    if (stageComplete) {
-      const flash = flr(stageClearTimer / 4) % 2;
-      rectf(93, 98, 133, 38, 0);
-      rect(95, 100, 129, 34, flash ? 3 : 2);
-      text("STAGE CLEAR!", 130, 107, 3);
-      text("BONUS: 1000", 133, 119, 2);
-    }
-
-    // Progress bar
-    const progress = min(1, scrollX / stageLen);
-    rectf(67, H - 8, 187, 4, 0);
-    rect(67, H - 8, 187, 4, 1);
-    rectf(68, H - 7, flr(185 * progress), 2, 2);
-  };
+  // (Play draw is now inline in the PLAY scene above)
 
   function drawBackground(camX) {
     // Circus tent stripes at top
@@ -1201,6 +1199,7 @@
 
   // ============================================================
   // Boot
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -218,7 +218,7 @@
   const PLAYER_MIN_Y = (GRID_H - PLAYER_ROWS) * 8;
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, bullet, centipedes, mushrooms, spider, flea, explosions, particles;
   let score, lives, wave, waveTimer, waveMessage;
   let shootCooldown, respawnTimer;
@@ -335,32 +335,37 @@
     setTimeout(() => note(0, "C6", 0.12), 240);
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
+    },
+    draw() { drawTitle(); }
+  });
 
-    if (state === "gameover") {
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOver(); }
+  });
 
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
     // --- Play state ---
     if (waveMessage > 0) waveMessage--;
 
@@ -671,7 +676,7 @@
     // Wave clear check
     let totalSegs = 0;
     for (const segs of centipedes) totalSegs += segs.length;
-    if (totalSegs === 0 && state === "play") {
+    if (totalSegs === 0) {
       waveTimer++;
       if (waveTimer > 45) {
         waveTimer = 0;
@@ -681,14 +686,16 @@
     } else {
       waveTimer = 0;
     }
-  };
+    },
+    draw() { drawPlay(); }
+  });
 
   function playerDied() {
     lives--;
     addExplosion(player.x, player.y);
     deathSound();
     if (lives <= 0) {
-      state = "gameover";
+      GrayBox.go(GAMEOVER); return;
     } else {
       respawnTimer = 60;
       player.x = -100;
@@ -697,20 +704,10 @@
   }
 
   // ============================================================
-  // Draw
+  // Play Draw (inline in scene would be too large, so using a function)
   // ============================================================
-  GrayBox._draw = function() {
+  function drawPlay() {
     cls(0);
-
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
-      drawGameOver();
-      return;
-    }
 
     // --- Play state rendering ---
 
@@ -784,7 +781,7 @@
       text("WAVE " + wave, W / 2 - 17, flr(msgY), 3);
       if (waveMessage > 60) text("GET READY!", W / 2 - 27, flr(msgY) + 12, 2);
     }
-  };
+  }
 
   function drawTitle() {
     const ty = 38 + sin(GrayBox.frame * 0.04) * 4;
@@ -842,6 +839,7 @@
 
   // ============================================================
   // Boot
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

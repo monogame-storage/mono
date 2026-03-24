@@ -309,7 +309,7 @@
   const PLAYER_SPEED = 2.0;
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
   let player, cats, items, doors, trampolines, shockwaves, floatTexts;
   let score, lives, level, itemsLeft;
   let lastItemType, comboCount;
@@ -551,7 +551,7 @@
       p.deadTimer++;
       if (p.deadTimer > 60) {
         lives--;
-        if (lives <= 0) { state = "gameover"; }
+        if (lives <= 0) { GrayBox.go(GAMEOVER); return; }
         else { resetLevel(); }
       }
       return;
@@ -908,27 +908,33 @@
     spr(22, W / 2 - 4, H / 2 + 45);
   }
 
-  // --- State machine ---
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { titleBounce = 0; },
+    update() {
       titleBounce = (titleBounce || 0) + 1;
       if (btnp("a")) {
-        state = "play";
         resetGame();
+        GrayBox.go(PLAY); return;
       }
-    } else if (state === "play") {
-      updatePlay();
-    } else if (state === "gameover") {
-      titleBounce = (titleBounce || 0) + 1;
-      if (btnp("a")) { state = "title"; }
-    }
-  };
-
-  GrayBox._draw = function() {
-    cls(0);
-    if (state === "title") {
+    },
+    draw() {
+      cls(0);
       drawTitleScreen();
-    } else if (state === "play") {
+    }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
+      updatePlay();
+      if (levelClearTimer > 0 && levelClearTimer === 1) {
+        // About to clear — handled inside updatePlay
+      }
+    },
+    draw() {
+      cls(0);
       drawMansion();
       drawTrampolines();
       drawDoors();
@@ -942,17 +948,23 @@
         rectf(W / 2 - 40, H / 2 - 11, 80, 15, 0);
         text("LEVEL CLEAR!", W / 2 - 30, H / 2 - 8, 3);
       }
-    } else if (state === "gameover") {
+    }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      titleBounce = (titleBounce || 0) + 1;
+      if (btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
       drawGameOverScreen();
     }
-  };
+  });
 
-  // --- Init ---
-  GrayBox._init = function() {
-    state = "title";
-    titleBounce = 0;
-  };
-
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

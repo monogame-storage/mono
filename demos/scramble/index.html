@@ -332,7 +332,7 @@
   }
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER, WIN } = GrayBox.SCENE;
   let player, bullets, bombs, explosions, particles, stars;
   let rockets, ufos, fireballs, meteors;
   let score, lives, fuel, maxFuel;
@@ -474,56 +474,130 @@
     return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    // Stars
+  function updateStars() {
     for (const s of stars) {
       s.x -= scrollSpeed * 0.3;
       if (s.x < 0) { s.x = W; s.y = flr(rnd(H)); }
     }
+  }
 
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); },
+    update() {
+      updateStars();
       scrollX = (scrollX + 0.5) % 200;
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         sectionMsg = SECTION_NAMES[0];
         sectionMsgTimer = 90;
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      for (const s of stars) pix(flr(s.x), flr(s.y), s.bright);
+      drawTerrainSlice(0, W);
+      const ty = 45 + sin(GrayBox.frame * 0.05) * 4;
+      text("SCRAMBLE", 129, flr(ty), 3);
+      text("SCRAMBLE", 130, flr(ty) + 1, 1);
+      rectf(110, flr(ty) + 12, 100, 1, 2);
+      spr(1, W / 2 - 20, flr(ty) + 22 + sin(GrayBox.frame * 0.08) * 3);
+      spr(5, W / 2 + 10, flr(ty) + 21 + sin(GrayBox.frame * 0.08 + 1) * 3);
+      spr(4, W / 2 + 20, flr(ty) + 38 + sin(GrayBox.frame * 0.08 + 2) * 3);
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 130, 142, 3);
+      text("-TARGETS-", 133, 165, 2);
+      spr(5, 127, 176); text("  UFO   100 PTS", 133, 177, 2);
+      spr(6, 127, 186); text("  FUEL  150 PTS", 133, 188, 2);
+      spr(4, 127, 196); text("  ROCKET 50 PTS", 133, 198, 2);
+      spr(15, 127, 207); text("  METEOR 30 PTS", 133, 208, 2);
+      text("GRAYBOX DEMO V0.1", 112, 229, 1);
     }
+  });
 
-    if (state === "gameover") {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
+  function checkBombHit(bx, by) {
+    const bwx = scrollX + bx;
+    for (const obj of groundObjects) {
+      if (obj.destroyed) continue;
+      const owx = obj.tx * TILE;
+      if (_abs(bwx - owx) < 12) {
+        const ofy = getFloor(owx);
+        if (_abs(by - (ofy - 8)) < 16) {
+          if (obj.type === "fuel") {
+            obj.destroyed = true;
+            fuel = min(maxFuel, fuel + 200);
+            score += 150;
+            fuelSound();
+            addExplosion(owx - scrollX, ofy - 12, true);
+          } else if (obj.type === "turret" || obj.type === "rocket") {
+            obj.destroyed = true;
+            score += 80;
+            hitSound();
+            addExplosion(owx - scrollX, ofy - 12, true);
+          } else if (obj.type === "base_wall") {
+            obj.destroyed = true;
+            score += 50;
+            hitSound();
+            addExplosion(owx - scrollX, ofy - 12, true);
+          } else if (obj.type === "base_core") {
+            baseHP -= 3;
+            hitSound();
+            addExplosion(owx - scrollX, ofy - 16, true);
+            if (baseHP <= 0) {
+              baseDead = true;
+              obj.destroyed = true;
+              score += 1000;
+              winSound();
+              setTimeout(() => { winTimer = 0; GrayBox.go(WIN); }, 500);
+            }
+          }
+        }
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
     }
+  }
 
-    if (state === "win") {
-      winTimer++;
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
+  function checkGroundHits() {
+    for (const obj of groundObjects) {
+      if (obj.destroyed) continue;
+      const owx = obj.tx * TILE;
+      const osx = owx - scrollX;
+      if (osx < -16 || osx > W + 16) continue;
+      const ofy = getFloor(owx);
+      for (let j = bullets.length - 1; j >= 0; j--) {
+        const b = bullets[j];
+        if (rectsOverlap(b.x, b.y, 6, 2, osx, ofy - 10, 8, 10)) {
+          bullets.splice(j, 1);
+          if (obj.type === "fuel") {
+            obj.destroyed = true;
+            fuel = min(maxFuel, fuel + 200);
+            score += 150;
+            fuelSound();
+            addExplosion(osx, ofy - 12, true);
+          } else if (obj.type === "turret" || obj.type === "rocket") {
+            obj.destroyed = true;
+            score += 80;
+            hitSound();
+            addExplosion(osx, ofy - 12, false);
+          } else if (obj.type === "base_wall") {
+            obj.destroyed = true;
+            score += 50;
+            hitSound();
+            addExplosion(osx, ofy - 12, false);
+          }
+          break;
+        }
       }
-      // Celebratory particles
-      if (winTimer % 5 === 0) {
-        const px = rnd(W), py = rnd(H * 0.6);
-        for (let j = 0; j < 6; j++)
-          particles.push({ x: px, y: py, vx: rnd(4) - 2, vy: rnd(3) - 2, life: 15 + flr(rnd(15)), color: flr(rnd(3)) + 1 });
-      }
-      if (winTimer > 180 || btnp("a") || btnp("a")) state = "title";
-      return;
     }
+  }
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
+    updateStars();
 
     // --- Play state ---
     const prevSection = currentSection();
@@ -559,7 +633,7 @@
       if (respawnTimer <= 0) {
         lives--;
         if (lives <= 0) {
-          state = "gameover";
+          GrayBox.go(GAMEOVER);
           return;
         }
         player.alive = true;
@@ -796,7 +870,7 @@
                 }, k * 100);
               }
               winSound();
-              setTimeout(() => { state = "win"; winTimer = 0; }, 500);
+              setTimeout(() => { winTimer = 0; GrayBox.go(WIN); }, 500);
             }
           }
         }
@@ -819,144 +893,15 @@
     // Check if scrolled past end without destroying base
     if (scrollX > MAP_W * TILE && !baseDead) {
       // Loop back or game over
-      state = "gameover";
+      GrayBox.go(GAMEOVER); return;
     }
-  };
-
-  function checkBombHit(bx, by) {
-    const bwx = scrollX + bx;
-    for (const obj of groundObjects) {
-      if (obj.destroyed) continue;
-      const owx = obj.tx * TILE;
-      if (_abs(bwx - owx) < 12) {
-        const ofy = getFloor(owx);
-        if (_abs(by - (ofy - 8)) < 16) {
-          if (obj.type === "fuel") {
-            obj.destroyed = true;
-            fuel = min(maxFuel, fuel + 200);
-            score += 150;
-            fuelSound();
-            addExplosion(owx - scrollX, ofy - 12, true);
-          } else if (obj.type === "turret" || obj.type === "rocket") {
-            obj.destroyed = true;
-            score += 80;
-            hitSound();
-            addExplosion(owx - scrollX, ofy - 12, true);
-          } else if (obj.type === "base_wall") {
-            obj.destroyed = true;
-            score += 50;
-            hitSound();
-            addExplosion(owx - scrollX, ofy - 12, true);
-          } else if (obj.type === "base_core") {
-            baseHP -= 3;
-            hitSound();
-            addExplosion(owx - scrollX, ofy - 16, true);
-            if (baseHP <= 0) {
-              baseDead = true;
-              obj.destroyed = true;
-              score += 1000;
-              winSound();
-              setTimeout(() => { state = "win"; winTimer = 0; }, 500);
-            }
-          }
-        }
-      }
     }
-  }
-
-  function checkGroundHits() {
-    for (const obj of groundObjects) {
-      if (obj.destroyed) continue;
-      const owx = obj.tx * TILE;
-      const osx = owx - scrollX;
-      if (osx < -16 || osx > W + 16) continue;
-      const ofy = getFloor(owx);
-
-      // Bullets
-      for (let j = bullets.length - 1; j >= 0; j--) {
-        const b = bullets[j];
-        if (rectsOverlap(b.x, b.y, 6, 2, osx, ofy - 10, 8, 10)) {
-          bullets.splice(j, 1);
-          if (obj.type === "fuel") {
-            obj.destroyed = true;
-            fuel = min(maxFuel, fuel + 200);
-            score += 150;
-            fuelSound();
-            addExplosion(osx, ofy - 12, true);
-          } else if (obj.type === "turret" || obj.type === "rocket") {
-            obj.destroyed = true;
-            score += 80;
-            hitSound();
-            addExplosion(osx, ofy - 12, false);
-          } else if (obj.type === "base_wall") {
-            obj.destroyed = true;
-            score += 50;
-            hitSound();
-            addExplosion(osx, ofy - 12, false);
-          }
-          break;
-        }
-      }
-    }
-  }
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
 
     // Stars
     for (const s of stars) pix(flr(s.x), flr(s.y), s.bright);
-
-    if (state === "title") {
-      // Draw a bit of terrain for ambiance
-      drawTerrainSlice(0, W);
-
-      const ty = 45 + sin(GrayBox.frame * 0.05) * 4;
-      text("SCRAMBLE", 129, flr(ty), 3);
-      text("SCRAMBLE", 130, flr(ty) + 1, 1);
-      rectf(110, flr(ty) + 12, 100, 1, 2);
-
-      // Show ship
-      spr(1, W / 2 - 20, flr(ty) + 22 + sin(GrayBox.frame * 0.08) * 3);
-      // Show enemies
-      spr(5, W / 2 + 10, flr(ty) + 21 + sin(GrayBox.frame * 0.08 + 1) * 3);
-      spr(4, W / 2 + 20, flr(ty) + 38 + sin(GrayBox.frame * 0.08 + 2) * 3);
-
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 130, 142, 3);
-
-      // Score table
-      text("-TARGETS-", 133, 165, 2);
-      spr(5, 127, 176); text("  UFO   100 PTS", 133, 177, 2);
-      spr(6, 127, 186); text("  FUEL  150 PTS", 133, 188, 2);
-      spr(4, 127, 196); text("  ROCKET 50 PTS", 133, 198, 2);
-      spr(15, 127, 207); text("  METEOR 30 PTS", 133, 208, 2);
-
-      text("GRAYBOX DEMO V0.1", 112, 229, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-      text("GAME OVER", 130, 82, 3);
-      text("SCORE: " + score, 127, 105, 2);
-      const sec = min(currentSection() + 1, TOTAL_SECTIONS);
-      text("SECTION: " + sec + "/" + TOTAL_SECTIONS, 120, 116, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 129, 150, 3);
-      return;
-    }
-
-    if (state === "win") {
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-      text("MISSION COMPLETE!", 113, 75, 3);
-      text("SCORE: " + score, 130, 101, 2);
-      text("FUEL BONUS: " + flr(fuel), 119, 116, 2);
-      const finalScore = score + flr(fuel) * 2;
-      text("TOTAL: " + finalScore, 129, 131, 3);
-      if (flr(GrayBox.frame / 15) % 2 === 0) text("WELL DONE PILOT!", 117, 161, 3);
-      return;
-    }
 
     // --- Play state rendering ---
 
@@ -1098,7 +1043,61 @@
       text(sectionMsg, W / 2 - sectionMsg.length * 2.5, flr(my), 3);
       if (sectionMsgTimer > 60) text("SECTION " + (currentSection() + 1), W / 2 - 15, flr(my) + 9, 2);
     }
-  };
+    }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      updateStars();
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      for (const s of stars) pix(flr(s.x), flr(s.y), s.bright);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      text("GAME OVER", 130, 82, 3);
+      text("SCORE: " + score, 127, 105, 2);
+      const sec = min(currentSection() + 1, TOTAL_SECTIONS);
+      text("SECTION: " + sec + "/" + TOTAL_SECTIONS, 120, 116, 2);
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 129, 150, 3);
+    }
+  });
+
+  // --- Win Scene ---
+  GrayBox.scene(WIN, {
+    init() { winTimer = 0; },
+    update() {
+      updateStars();
+      winTimer++;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (winTimer % 5 === 0) {
+        const px = rnd(W), py = rnd(H * 0.6);
+        for (let j = 0; j < 6; j++)
+          particles.push({ x: px, y: py, vx: rnd(4) - 2, vy: rnd(3) - 2, life: 15 + flr(rnd(15)), color: flr(rnd(3)) + 1 });
+      }
+      if (winTimer > 180 || btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      for (const s of stars) pix(flr(s.x), flr(s.y), s.bright);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      text("MISSION COMPLETE!", 113, 75, 3);
+      text("SCORE: " + score, 130, 101, 2);
+      text("FUEL BONUS: " + flr(fuel), 119, 116, 2);
+      const finalScore = score + flr(fuel) * 2;
+      text("TOTAL: " + finalScore, 129, 131, 3);
+      if (flr(GrayBox.frame / 15) % 2 === 0) text("WELL DONE PILOT!", 117, 161, 3);
+    }
+  });
 
   function drawTerrainSlice(camX, width) {
     // Draw terrain as filled polygons
@@ -1154,6 +1153,7 @@
     }
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

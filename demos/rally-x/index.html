@@ -261,7 +261,7 @@
   }
 
   // --- State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, enemies, flags, smokes;
   let score, lives, level, fuel, maxFuel;
   let camX, camY;
@@ -355,21 +355,39 @@
   function sfxClear() { note(0,"C5",0.07); setTimeout(()=>note(0,"E5",0.07),100); setTimeout(()=>note(0,"G5",0.07),200); setTimeout(()=>note(0,"C6",0.12),300); }
   function sfxEngine() { if (engineSndTimer <= 0) { note(1,"A1",0.025); engineSndTimer = 6; } }
 
-  resetGame();
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      if (btnp("a") || btnp("a")) { resetGame(); note(0,"C5",0.07); setTimeout(()=>note(0,"G5",0.1),100); GrayBox.go(PLAY); return; }
+    },
+    draw() {
+      cls(0);
+      const ty = 41 + sin(GrayBox.frame*0.05)*4;
+      text("RALLY-X", 142, flr(ty), 3);
+      rectf(112, flr(ty)+10, 96, 1, 2);
+      const cx = W/2-30;
+      spr(1, cx, flr(ty)+20 + sin(GrayBox.frame*0.1)*3);
+      spr(5, cx+20, flr(ty)+22 + sin(GrayBox.frame*0.1+1)*3);
+      spr(2, cx+40, flr(ty)+20 + sin(GrayBox.frame*0.1+2)*3);
+      spr(9, cx+60, flr(ty)+20);
+      if (flr(GrayBox.frame/20)%2===0) text("PRESS Z TO START", 120, 128, 3);
+      text("COLLECT ALL FLAGS", 117, 149, 2);
+      text("AVOID ENEMY CARS", 120, 159, 2);
+      text("Z = DEPLOY SMOKE SCREEN", 102, 170, 2);
+      text("ARROWS = STEER CAR", 115, 180, 2);
+      text("-SCORING-", 137, 197, 2);
+      spr(9, 127, 206); text("  FLAG    100 PTS", 133, 207, 2);
+      spr(10, 127, 216); text("  SPECIAL  200 PTS", 133, 218, 2);
+      text("2X PTS AFTER SPECIAL!", 107, 230, 1);
+      text("GRAYBOX DEMO V0.1", 117, 236, 1);
+    }
+  });
 
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) { state = "play"; resetGame(); note(0,"C5",0.07); setTimeout(()=>note(0,"G5",0.1),100); }
-      return;
-    }
-    if (state === "gameover") {
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
-    if (state !== "play") return;
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
 
     // Level complete delay
     if (levelCompleteTimer > 0) { levelCompleteTimer--; if (levelCompleteTimer <= 0) startLevel(); return; }
@@ -388,7 +406,7 @@
     if (fuel <= 0) {
       fuel = 0; lives--;
       sfxDeath();
-      if (lives <= 0) { state = "gameover"; } else { respawnTimer = 60; fuel = maxFuel; }
+      if (lives <= 0) { GrayBox.go(GAMEOVER); } else { respawnTimer = 60; fuel = maxFuel; }
       return;
     }
 
@@ -466,7 +484,7 @@
       // Collision with player
       if (_abs(player.x - e.x) < 6 && _abs(player.y - e.y) < 6) {
         lives--; sfxDeath();
-        if (lives <= 0) { state = "gameover"; }
+        if (lives <= 0) { GrayBox.go(GAMEOVER); return; }
         else { respawnTimer = 60; fuel = min(fuel + 300, maxFuel); }
       }
     }
@@ -476,103 +494,9 @@
     camY = player.y - VIEW_H/2 + 4;
     camX = _max(0, min(MAZE_PX_W - VIEW_W, camX));
     camY = _max(0, min(MAZE_PX_H - VIEW_H, camY));
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  function sprW(id, wx, wy, fx, fy) {
-    const sx = flr(wx - camX + VIEW_X), sy = flr(wy - camY + VIEW_Y);
-    if (sx > -8 && sx < VIEW_X+VIEW_W && sy > -8 && sy < VIEW_Y+VIEW_H) spr(id,sx,sy,fx,fy);
-  }
-
-  function drawMaze() {
-    const stx = _max(0, flr(camX/TILE)), sty = _max(0, flr(camY/TILE));
-    const etx = min(MAZE_W, flr((camX+VIEW_W)/TILE)+2);
-    const ety = min(MAZE_H, flr((camY+VIEW_H)/TILE)+2);
-    for (let ty = sty; ty < ety; ty++)
-      for (let tx = stx; tx < etx; tx++) {
-        if (maze[ty][tx] === 1) {
-          const sx = flr(tx*TILE - camX + VIEW_X), sy = flr(ty*TILE - camY + VIEW_Y);
-          spr(12, sx, sy);
-        }
-      }
-  }
-
-  function drawRadar() {
-    rectf(RADAR_X-1, RADAR_Y-1, RADAR_W+2, RADAR_H+2, 0);
-    rect(RADAR_X-1, RADAR_Y-1, RADAR_W+2, RADAR_H+2, 1);
-    const sx = RADAR_W / MAZE_PX_W, sy = RADAR_H / MAZE_PX_H;
-    // Walls (sampled)
-    for (let ty = 0; ty < MAZE_H; ty += 2)
-      for (let tx = 0; tx < MAZE_W; tx += 2)
-        if (maze[ty][tx] === 1) pix(flr(RADAR_X+tx*TILE*sx), flr(RADAR_Y+ty*TILE*sy), 1);
-    // Flags
-    for (const f of flags) {
-      if (f.collected) continue;
-      const rx = flr(RADAR_X+f.x*sx), ry = flr(RADAR_Y+f.y*sy);
-      pix(rx,ry,3); pix(rx+1,ry,3);
-    }
-    // Enemies
-    for (const e of enemies) {
-      const rx = flr(RADAR_X+e.x*sx), ry = flr(RADAR_Y+e.y*sy);
-      if (GrayBox.frame % 6 < 4) { pix(rx,ry,2); pix(rx+1,ry,2); pix(rx,ry+1,2); }
-    }
-    // Player (blink)
-    if (GrayBox.frame % 4 < 3) {
-      const rx = flr(RADAR_X+player.x*sx), ry = flr(RADAR_Y+player.y*sy);
-      pix(rx,ry,3); pix(rx+1,ry,3); pix(rx,ry+1,3); pix(rx+1,ry+1,3);
-    }
-  }
-
-  function drawFuel() {
-    const gx = RADAR_X-1, gy = RADAR_Y + RADAR_H + 9;
-    const gw = RADAR_W+2, gh = 5;
-    text("FUEL", gx, gy-8, 2);
-    rect(gx, gy, gw, gh, 1);
-    const fw = flr((fuel/maxFuel)*(gw-2));
-    const fc = fuel < maxFuel*0.25 ? (GrayBox.frame%6<3?2:1) : 2;
-    rectf(gx+1, gy+1, fw, gh-2, fc);
-  }
-
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
-
-    if (state === "title") {
-      const ty = 41 + sin(GrayBox.frame*0.05)*4;
-      text("RALLY-X", 142, flr(ty), 3);
-      rectf(112, flr(ty)+10, 96, 1, 2);
-
-      // Animated cars
-      const cx = W/2-30;
-      spr(1, cx, flr(ty)+20 + sin(GrayBox.frame*0.1)*3);
-      spr(5, cx+20, flr(ty)+22 + sin(GrayBox.frame*0.1+1)*3);
-      spr(2, cx+40, flr(ty)+20 + sin(GrayBox.frame*0.1+2)*3);
-      spr(9, cx+60, flr(ty)+20);
-
-      if (flr(GrayBox.frame/20)%2===0) text("PRESS Z TO START", 120, 128, 3);
-
-      text("COLLECT ALL FLAGS", 117, 149, 2);
-      text("AVOID ENEMY CARS", 120, 159, 2);
-      text("Z = DEPLOY SMOKE SCREEN", 102, 170, 2);
-      text("ARROWS = STEER CAR", 115, 180, 2);
-
-      text("-SCORING-", 137, 197, 2);
-      spr(9, 127, 206); text("  FLAG    100 PTS", 133, 207, 2);
-      spr(10, 127, 216); text("  SPECIAL  200 PTS", 133, 218, 2);
-      text("2X PTS AFTER SPECIAL!", 107, 230, 1);
-
-      text("GRAYBOX DEMO V0.1", 117, 236, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      text("GAME OVER", 137, 75, 3);
-      text("SCORE: " + score, 130, 98, 2);
-      text("LEVEL: " + level, 135, 111, 2);
-      if (flr(GrayBox.frame/20)%2===0) text("PRESS Z TO CONTINUE", 110, 150, 3);
-      return;
-    }
 
     // --- Play ---
     // Clip view area
@@ -633,8 +557,79 @@
     else text("EMPTY", RADAR_X, smy+10, 1);
 
     if (doublePoints && GrayBox.frame%10<7) text("2X PTS!", RADAR_X-2, smy+22, 3);
-  };
+    }
+  });
 
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      text("GAME OVER", 137, 75, 3);
+      text("SCORE: " + score, 130, 98, 2);
+      text("LEVEL: " + level, 135, 111, 2);
+      if (flr(GrayBox.frame/20)%2===0) text("PRESS Z TO CONTINUE", 110, 150, 3);
+    }
+  });
+
+  function sprW(id, wx, wy, fx, fy) {
+    const sx = flr(wx - camX + VIEW_X), sy = flr(wy - camY + VIEW_Y);
+    if (sx > -8 && sx < VIEW_X+VIEW_W && sy > -8 && sy < VIEW_Y+VIEW_H) spr(id,sx,sy,fx,fy);
+  }
+
+  function drawMaze() {
+    const stx = _max(0, flr(camX/TILE)), sty = _max(0, flr(camY/TILE));
+    const etx = min(MAZE_W, flr((camX+VIEW_W)/TILE)+2);
+    const ety = min(MAZE_H, flr((camY+VIEW_H)/TILE)+2);
+    for (let ty = sty; ty < ety; ty++)
+      for (let tx = stx; tx < etx; tx++) {
+        if (maze[ty][tx] === 1) {
+          const sx = flr(tx*TILE - camX + VIEW_X), sy = flr(ty*TILE - camY + VIEW_Y);
+          spr(12, sx, sy);
+        }
+      }
+  }
+
+  function drawRadar() {
+    rectf(RADAR_X-1, RADAR_Y-1, RADAR_W+2, RADAR_H+2, 0);
+    rect(RADAR_X-1, RADAR_Y-1, RADAR_W+2, RADAR_H+2, 1);
+    const sx = RADAR_W / MAZE_PX_W, sy = RADAR_H / MAZE_PX_H;
+    // Walls (sampled)
+    for (let ty = 0; ty < MAZE_H; ty += 2)
+      for (let tx = 0; tx < MAZE_W; tx += 2)
+        if (maze[ty][tx] === 1) pix(flr(RADAR_X+tx*TILE*sx), flr(RADAR_Y+ty*TILE*sy), 1);
+    // Flags
+    for (const f of flags) {
+      if (f.collected) continue;
+      const rx = flr(RADAR_X+f.x*sx), ry = flr(RADAR_Y+f.y*sy);
+      pix(rx,ry,3); pix(rx+1,ry,3);
+    }
+    // Enemies
+    for (const e of enemies) {
+      const rx = flr(RADAR_X+e.x*sx), ry = flr(RADAR_Y+e.y*sy);
+      if (GrayBox.frame % 6 < 4) { pix(rx,ry,2); pix(rx+1,ry,2); pix(rx,ry+1,2); }
+    }
+    // Player (blink)
+    if (GrayBox.frame % 4 < 3) {
+      const rx = flr(RADAR_X+player.x*sx), ry = flr(RADAR_Y+player.y*sy);
+      pix(rx,ry,3); pix(rx+1,ry,3); pix(rx,ry+1,3); pix(rx+1,ry+1,3);
+    }
+  }
+
+  function drawFuel() {
+    const gx = RADAR_X-1, gy = RADAR_Y + RADAR_H + 9;
+    const gw = RADAR_W+2, gh = 5;
+    text("FUEL", gx, gy-8, 2);
+    rect(gx, gy, gw, gh, 1);
+    const fw = flr((fuel/maxFuel)*(gw-2));
+    const fc = fuel < maxFuel*0.25 ? (GrayBox.frame%6<3?2:1) : 2;
+    rectf(gx+1, gy+1, fw, gh-2, fc);
+  }
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

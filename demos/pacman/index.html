@@ -259,7 +259,7 @@
   );
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let score, lives, level;
   let pac, ghosts;
   let powerTimer, ghostEatCombo;
@@ -566,8 +566,7 @@
         lives--;
         if (lives <= 0) {
           if (score > hiScore) hiScore = score;
-          state = "gameover";
-          return;
+          GrayBox.go(GAMEOVER); return;
         }
         resetPositions();
         readyTimer = 60;
@@ -767,29 +766,28 @@
     }
   }
 
-  // --- Main ---
-  GrayBox._update = function() {
-    switch (state) {
-      case "title":
-        if (btnp("a")) { state = "play"; resetGame(); }
-        break;
-      case "play":
-        updatePlay();
-        break;
-      case "gameover":
-        if (btnp("a")) state = "title";
-        break;
-    }
-  };
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() { if (btnp("a")) { resetGame(); GrayBox.go(PLAY); return; } },
+    draw() { drawTitle(); }
+  });
 
-  GrayBox._draw = function() {
-    switch (state) {
-      case "title": drawTitle(); break;
-      case "play": drawPlay(); break;
-      case "gameover": drawGameOver(); break;
-    }
-  };
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() { updatePlay(); },
+    draw() { drawPlay(); }
+  });
 
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() { if (btnp("a")) { GrayBox.go(TITLE); return; } },
+    draw() { drawGameOver(); }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

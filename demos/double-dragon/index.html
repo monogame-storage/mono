@@ -495,7 +495,7 @@
   };
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, WIN, GAMEOVER } = GrayBox.SCENE;
   let player, enemies, weapons, effects, particles;
   let score, lives, section, scrollX, scrollTarget;
   let waveIndex, allEnemiesDead, goTimer, sectionClear;
@@ -701,46 +701,54 @@
     }
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    titleBlink++;
-
-    if (state === "title") {
+  // --- Scenes ---
+  GrayBox.scene(TITLE, {
+    init() { titleBlink = 0; },
+    update() {
+      titleBlink++;
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
+    },
+    draw() { drawTitleScreen(); }
+  });
 
-    if (state === "gameover") {
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      titleBlink++;
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOverScreen(); }
+  });
 
-    if (state === "win") {
+  GrayBox.scene(WIN, {
+    init() {},
+    update() {
+      titleBlink++;
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      // Victory particles
       if (GrayBox.frame % 8 === 0) {
         addParticles(flr(rnd(W)), flr(rnd(75)) + 75, 5, flr(rnd(3))+1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawWinScreen(); }
+  });
+
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
+    titleBlink++;
 
     // --- Play state ---
     const sec = SECTIONS[section];
@@ -753,7 +761,7 @@
 
     // Player dead check
     if (player.state === "dead") {
-      if (btnp("a")) state = "gameover";
+      if (btnp("a")) { GrayBox.go(GAMEOVER); return; }
       return;
     }
 
@@ -872,10 +880,9 @@
       if (goTimer > 90) {
         section++;
         if (section >= SECTIONS.length) {
-          state = "win";
           addParticles(W/2, H/2, 30, 3);
           bossDeathSound();
-          return;
+          GrayBox.go(WIN); return;
         }
         scrollX = 0;
         waveIndex = 0;
@@ -966,7 +973,9 @@
       p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
-  };
+    },
+    draw() { drawPlayScreen(); }
+  });
 
   // ============================================================
   // Draw
@@ -1083,13 +1092,10 @@
     }
   }
 
-  GrayBox._draw = function() {
+  function drawTitleScreen() {
     cls(0);
 
-    const shakeX = shakeTimer > 0 ? flr(rnd(5)) - 2 : 0;
-    const shakeY = shakeTimer > 0 ? flr(rnd(5)) - 2 : 0;
-
-    if (state === "title") {
+    {
       // Title screen
       rectf(0, 0, W, H, 0);
 
@@ -1137,39 +1143,44 @@
 
       // Credits
       text("GRAYBOX DEMO V0.1", 118, 229, 1);
-      return;
     }
+  }
 
-    if (state === "gameover") {
-      rectf(0, 0, W, H, 0);
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+  function drawGameOverScreen() {
+    cls(0);
+    rectf(0, 0, W, H, 0);
+    for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      text("GAME OVER", 138, 75, 3);
-      text("FINAL SCORE: " + score, 123, 98, 2);
-      text("SECTION: " + (section + 1), 130, 111, 2);
+    text("GAME OVER", 138, 75, 3);
+    text("FINAL SCORE: " + score, 123, 98, 2);
+    text("SECTION: " + (section + 1), 130, 111, 2);
 
-      if (flr(titleBlink / 18) % 2 === 0) {
-        text("PRESS START", 133, 150, 3);
-      }
-      return;
+    if (flr(titleBlink / 18) % 2 === 0) {
+      text("PRESS START", 133, 150, 3);
     }
+  }
 
-    if (state === "win") {
-      rectf(0, 0, W, H, 0);
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+  function drawWinScreen() {
+    cls(0);
+    rectf(0, 0, W, H, 0);
+    for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-      text("CONGRATULATIONS!", 120, 60, 3);
-      text("YOU DEFEATED ALL ENEMIES!", 98, 83, 2);
-      text("FINAL SCORE: " + score, 123, 105, 3);
+    text("CONGRATULATIONS!", 120, 60, 3);
+    text("YOU DEFEATED ALL ENEMIES!", 98, 83, 2);
+    text("FINAL SCORE: " + score, 123, 105, 3);
 
-      // Animate player victory pose
-      sprT(1, 153, 128 + sin(GrayBox.frame * 0.1) * 2);
+    sprT(1, 153, 128 + sin(GrayBox.frame * 0.1) * 2);
 
-      if (flr(titleBlink / 18) % 2 === 0) {
-        text("PRESS START", 133, 173, 3);
-      }
-      return;
+    if (flr(titleBlink / 18) % 2 === 0) {
+      text("PRESS START", 133, 173, 3);
     }
+  }
+
+  function drawPlayScreen() {
+    cls(0);
+
+    const shakeX = shakeTimer > 0 ? flr(rnd(5)) - 2 : 0;
+    const shakeY = shakeTimer > 0 ? flr(rnd(5)) - 2 : 0;
 
     // --- Play state rendering ---
 
@@ -1338,10 +1349,11 @@
         }
       }
     }
-  };
+  }
 
   // ============================================================
   // Boot
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

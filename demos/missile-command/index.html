@@ -129,7 +129,7 @@
   const BASE_MAX_AMMO = 10;
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
   let cursor, cities, bases, counterMissiles, explosions, enemyMissiles;
   let score, wave, waveTimer, waveMessage, bonusTally;
   let bonusCityNext, totalScore;
@@ -304,83 +304,60 @@
 
   resetGame();
 
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    titleFlash++;
+  function drawGameElements() {
+    // Ground
+    rectf(0, GROUND_Y, W, H - GROUND_Y, 1);
+    rectf(0, GROUND_Y, W, 2, 2);
 
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        startWave();
-        note(0, "C5", 0.08);
-        setTimeout(() => note(0, "G5", 0.12), 100);
-      }
-      return;
+    // Draw enemy missile trails
+    for (const m of enemyMissiles) {
+      if (!m.active) continue;
+      line(m.sx, m.sy, m.x, m.y, 2);
+      pix(m.x, m.y, 3); pix(m.x - 1, m.y, 3); pix(m.x + 1, m.y, 3); pix(m.x, m.y - 1, 3);
+      if (m.smart) { pix(m.x - 1, m.y - 1, 3); pix(m.x + 1, m.y - 1, 3); }
     }
 
-    if (state === "gameover") {
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+    // Draw counter-missile trails
+    for (const m of counterMissiles) { line(m.sx, m.sy, m.x, m.y, 3); pix(m.x, m.y, 3); }
+
+    // Draw target markers
+    for (const m of counterMissiles) {
+      pix(m.tx - 1, m.ty - 1, 2); pix(m.tx + 1, m.ty - 1, 2); pix(m.tx, m.ty, 2);
+      pix(m.tx - 1, m.ty + 1, 2); pix(m.tx + 1, m.ty + 1, 2);
     }
 
-    if (state === "bonus") {
-      // Bonus tally animation
-      if (!bonusTally) {
-        bonusTally = {
-          citiesLeft: countSurvivingCities(),
-          ammoLeft: countRemainingAmmo(),
-          cityCount: 0,
-          ammoCount: 0,
-          phase: 0, // 0=counting cities, 1=counting ammo, 2=done
-          timer: 0,
-          bonusTotal: 0
-        };
+    // Draw explosions
+    for (const e of explosions) {
+      const r = flr(e.r);
+      if (r > 0) {
+        if (r > 3) circf(e.x, e.y, r, 1);
+        if (r > 2) circf(e.x, e.y, flr(r * 0.7), 2);
+        circf(e.x, e.y, _max(1, flr(r * 0.4)), 3);
+        if (e.growing && GrayBox.frame % 3 === 0) circf(e.x, e.y, r, 3);
       }
-      bonusTally.timer++;
-      if (bonusTally.phase === 0) {
-        if (bonusTally.timer % 8 === 0 && bonusTally.cityCount < bonusTally.citiesLeft) {
-          bonusTally.cityCount++;
-          bonusTally.bonusTotal += 100;
-          score += 100;
-          note(0, "E5", 0.04);
-        }
-        if (bonusTally.cityCount >= bonusTally.citiesLeft) {
-          bonusTally.phase = 1;
-          bonusTally.timer = 0;
-        }
-      } else if (bonusTally.phase === 1) {
-        if (bonusTally.timer % 4 === 0 && bonusTally.ammoCount < bonusTally.ammoLeft) {
-          bonusTally.ammoCount++;
-          bonusTally.bonusTotal += 5;
-          score += 5;
-          note(0, "C5", 0.02);
-        }
-        if (bonusTally.ammoCount >= bonusTally.ammoLeft) {
-          bonusTally.phase = 2;
-          bonusTally.timer = 0;
-        }
-      } else {
-        if (bonusTally.timer > 60) {
-          // Check for bonus city
-          if (score >= bonusCityNext) {
-            bonusCityNext += BONUS_CITY_SCORE;
-            // Restore a destroyed city
-            for (let i = 0; i < 6; i++) {
-              if (!cities[i].alive) { cities[i].alive = true; bonusSound(); break; }
-            }
-          }
-          bonusTally = null;
-          state = "play";
-          startWave();
-        }
-      }
-      return;
     }
 
-    // --- Play state ---
+    // Draw cities
+    for (let i = 0; i < 6; i++) spr(cities[i].alive ? 1 : 2, cities[i].x, GROUND_Y - 8);
+
+    // Draw bases
+    for (let i = 0; i < 3; i++) {
+      spr(bases[i].alive ? 3 : 4, bases[i].x, GROUND_Y - 8);
+      if (bases[i].alive) {
+        const bx = bases[i].x;
+        for (let a = 0; a < bases[i].ammo; a++) {
+          const ax = bx + (a % 5) * 2; const ay = GROUND_Y + 4 + flr(a / 5) * 2;
+          pix(ax, ay, 3);
+        }
+      }
+    }
+
+    // HUD
+    text("SCORE:" + String(score).padStart(6, "0"), 4, HUD_Y, 3);
+    text("WAVE:" + wave, W - 50, HUD_Y, 2);
+  }
+
+  function updatePlayLogic() {
     if (waveMessage > 0) waveMessage--;
 
     // Cursor movement
@@ -392,43 +369,23 @@
     cursor.x = _max(4, min(W - 4, cursor.x));
     cursor.y = _max(12, min(GROUND_Y - 8, cursor.y));
 
-    // Fire counter-missile
-    if (btnp("a")) {
-      fireCounterMissile(cursor.x, cursor.y);
-    }
+    if (btnp("a")) fireCounterMissile(cursor.x, cursor.y);
 
     // Update counter-missiles
     for (let i = counterMissiles.length - 1; i >= 0; i--) {
       const m = counterMissiles[i];
-      m.x += m.vx;
-      m.y += m.vy;
-      // Check if reached target
-      const dx = m.x - m.tx;
-      const dy = m.y - m.ty;
+      m.x += m.vx; m.y += m.vy;
+      const dx = m.x - m.tx; const dy = m.y - m.ty;
       if (dx * dx + dy * dy < COUNTER_MISSILE_SPEED * COUNTER_MISSILE_SPEED + 4) {
-        addExplosion(m.tx, m.ty);
-        explosionSound();
-        counterMissiles.splice(i, 1);
+        addExplosion(m.tx, m.ty); explosionSound(); counterMissiles.splice(i, 1);
       }
     }
 
     // Update explosions
     for (let i = explosions.length - 1; i >= 0; i--) {
       const e = explosions[i];
-      if (e.growing) {
-        e.r += EXPLOSION_GROW_SPEED;
-        if (e.r >= e.maxR) {
-          e.growing = false;
-          e.timer = 15; // hold at max size
-        }
-      } else {
-        if (e.timer > 0) {
-          e.timer--;
-        } else {
-          e.r -= EXPLOSION_SHRINK_SPEED;
-          if (e.r <= 0) { explosions.splice(i, 1); continue; }
-        }
-      }
+      if (e.growing) { e.r += EXPLOSION_GROW_SPEED; if (e.r >= e.maxR) { e.growing = false; e.timer = 15; } }
+      else { if (e.timer > 0) e.timer--; else { e.r -= EXPLOSION_SHRINK_SPEED; if (e.r <= 0) { explosions.splice(i, 1); continue; } } }
     }
 
     // Update enemy missiles
@@ -436,13 +393,9 @@
       const m = enemyMissiles[i];
       if (m.delay > 0) { m.delay--; continue; }
       m.active = true;
-      m.x += m.vx;
-      m.y += m.vy;
-
-      // MIRV split
+      m.x += m.vx; m.y += m.vy;
       if (m.mirv && !m.split && m.y > 60 + rnd(45)) {
         m.split = true;
-        // Split into 3 warheads
         for (let j = 0; j < 2; j++) {
           const target = pickTarget();
           if (target) {
@@ -452,237 +405,149 @@
           }
         }
       }
-
-      // Check collision with explosions
       let destroyed = false;
       for (const e of explosions) {
-        const dx = m.x - e.x;
-        const dy = m.y - e.y;
-        if (dx * dx + dy * dy < e.r * e.r) {
-          destroyed = true;
-          score += 25;
-          // Chain explosion for destroyed missiles
-          addExplosion(m.x, m.y);
-          note(0, "A4", 0.03);
-          break;
-        }
+        const dx = m.x - e.x; const dy = m.y - e.y;
+        if (dx * dx + dy * dy < e.r * e.r) { destroyed = true; score += 25; addExplosion(m.x, m.y); note(0, "A4", 0.03); break; }
       }
       if (destroyed) { enemyMissiles.splice(i, 1); continue; }
-
-      // Check if hit ground
       if (m.y >= GROUND_Y) {
-        // Check if hit a city
-        for (let ci = 0; ci < 6; ci++) {
-          if (!cities[ci].alive) continue;
-          if (_abs(m.x - (cities[ci].x + 4)) < 10) {
-            destroyCity(ci);
-            break;
-          }
-        }
-        // Check if hit a base
-        for (let bi = 0; bi < 3; bi++) {
-          if (!bases[bi].alive) continue;
-          if (_abs(m.x - (bases[bi].x + 4)) < 10) {
-            destroyBase(bi);
-            break;
-          }
-        }
-        addExplosion(m.x, GROUND_Y - 4);
-        explosionSound();
-        enemyMissiles.splice(i, 1);
-        continue;
+        for (let ci = 0; ci < 6; ci++) { if (!cities[ci].alive) continue; if (_abs(m.x - (cities[ci].x + 4)) < 10) { destroyCity(ci); break; } }
+        for (let bi = 0; bi < 3; bi++) { if (!bases[bi].alive) continue; if (_abs(m.x - (bases[bi].x + 4)) < 10) { destroyBase(bi); break; } }
+        addExplosion(m.x, GROUND_Y - 4); explosionSound(); enemyMissiles.splice(i, 1); continue;
       }
     }
 
-    // Check bonus city
     if (score >= bonusCityNext) {
       bonusCityNext += BONUS_CITY_SCORE;
-      for (let i = 0; i < 6; i++) {
-        if (!cities[i].alive) { cities[i].alive = true; bonusSound(); break; }
-      }
+      for (let i = 0; i < 6; i++) { if (!cities[i].alive) { cities[i].alive = true; bonusSound(); break; } }
     }
 
-    // Check game over
     if (checkAllDestroyed()) {
-      // Wait for explosions to clear
-      if (explosions.length === 0 && enemyMissiles.length === 0) {
-        state = "gameover";
-        gameOverSound();
-      }
+      if (explosions.length === 0 && enemyMissiles.length === 0) { gameOverSound(); GrayBox.go(GAMEOVER); return; }
       return;
     }
 
-    // Check wave complete
     if (waveComplete() && counterMissiles.length === 0 && waveMessage === 0) {
       waveTimer++;
-      if (waveTimer > 30) {
-        state = "bonus";
-        bonusTally = null;
-      }
+      if (waveTimer > 30) { bonusTally = null; GrayBox.go(CLEAR); return; }
     }
-  };
+  }
 
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    if (state === "title") {
-      // Title screen
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { titleFlash = 0; },
+    update() {
+      titleFlash++;
+      if (btnp("a") || btnp("a")) {
+        resetGame(); startWave();
+        note(0, "C5", 0.08); setTimeout(() => note(0, "G5", 0.12), 100);
+        GrayBox.go(PLAY); return;
+      }
+    },
+    draw() {
+      cls(0);
       text("MISSILE COMMAND", W / 2 - 37, 45, 3);
-      // Korean subtitle
       text("- CITY DEFENSE -", W / 2 - 40, 59, 2);
-
-      // Draw some decorative cities
-      for (let i = 0; i < 6; i++) {
-        spr(1, 53 + i * 37, 150);
-      }
-      // Ground line
+      for (let i = 0; i < 6; i++) spr(1, 53 + i * 37, 150);
       rectf(0, 158, W, 2, 1);
-
-      // Animated missiles raining down (decorative)
-      for (let i = 0; i < 5; i++) {
-        const mx = 40 + i * 60;
-        const my = 75 + sin(titleFlash * 0.05 + i) * 22;
-        line(mx, my - 15, mx + 3, my, 2);
-      }
-
-      if (flr(titleFlash / 20) % 2 === 0) {
-        text("PRESS START", W / 2 - 27, 109, 3);
-      }
-
+      for (let i = 0; i < 5; i++) { const mx = 40 + i * 60; const my = 75 + sin(titleFlash * 0.05 + i) * 22; line(mx, my - 15, mx + 3, my, 2); }
+      if (flr(titleFlash / 20) % 2 === 0) text("PRESS START", W / 2 - 27, 109, 3);
       text("ARROWS:AIM  Z:FIRE  X:FAST AIM", W / 2 - 77, 188, 1);
       text("DEFEND YOUR CITIES!", W / 2 - 47, 203, 2);
-      return;
     }
+  });
 
-    // --- Draw game elements ---
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
+      titleFlash++;
+      updatePlayLogic();
+    },
+    draw() {
+      cls(0);
+      drawGameElements();
 
-    // Ground
-    rectf(0, GROUND_Y, W, H - GROUND_Y, 1);
-    // Ground top line
-    rectf(0, GROUND_Y, W, 2, 2);
-
-    // Draw enemy missile trails
-    for (const m of enemyMissiles) {
-      if (!m.active) continue;
-      line(m.sx, m.sy, m.x, m.y, 2);
-      // Warhead
-      pix(m.x, m.y, 3);
-      pix(m.x - 1, m.y, 3);
-      pix(m.x + 1, m.y, 3);
-      pix(m.x, m.y - 1, 3);
-      if (m.smart) {
-        pix(m.x - 1, m.y - 1, 3);
-        pix(m.x + 1, m.y - 1, 3);
-      }
-    }
-
-    // Draw counter-missile trails
-    for (const m of counterMissiles) {
-      line(m.sx, m.sy, m.x, m.y, 3);
-      // Trail head
-      pix(m.x, m.y, 3);
-    }
-
-    // Draw target markers for counter-missiles
-    for (const m of counterMissiles) {
-      // Small X at target
-      pix(m.tx - 1, m.ty - 1, 2);
-      pix(m.tx + 1, m.ty - 1, 2);
-      pix(m.tx, m.ty, 2);
-      pix(m.tx - 1, m.ty + 1, 2);
-      pix(m.tx + 1, m.ty + 1, 2);
-    }
-
-    // Draw explosions
-    for (const e of explosions) {
-      const r = flr(e.r);
-      if (r > 0) {
-        // Multi-layered explosion for visual effect
-        if (r > 3) circf(e.x, e.y, r, 1);
-        if (r > 2) circf(e.x, e.y, flr(r * 0.7), 2);
-        circf(e.x, e.y, _max(1, flr(r * 0.4)), 3);
-        // Flicker effect
-        if (e.growing && GrayBox.frame % 3 === 0) {
-          circf(e.x, e.y, r, 3);
-        }
-      }
-    }
-
-    // Draw cities
-    for (let i = 0; i < 6; i++) {
-      spr(cities[i].alive ? 1 : 2, cities[i].x, GROUND_Y - 8);
-    }
-
-    // Draw bases
-    for (let i = 0; i < 3; i++) {
-      spr(bases[i].alive ? 3 : 4, bases[i].x, GROUND_Y - 8);
-      // Ammo count display (dots below base)
-      if (bases[i].alive) {
-        const bx = bases[i].x;
-        for (let a = 0; a < bases[i].ammo; a++) {
-          const ax = bx + (a % 5) * 2;
-          const ay = GROUND_Y + 4 + flr(a / 5) * 2;
-          pix(ax, ay, 3);
-        }
-      }
-    }
-
-    // Draw crosshair cursor
-    if (state === "play") {
-      const cx = flr(cursor.x);
-      const cy = flr(cursor.y);
-      // Crosshair lines
-      line(cx - 6, cy, cx - 2, cy, 3);
-      line(cx + 2, cy, cx + 6, cy, 3);
-      line(cx, cy - 6, cx, cy - 2, 3);
-      line(cx, cy + 2, cx, cy + 6, 3);
-      // Center dot (blinking)
+      // Draw crosshair cursor
+      const cx = flr(cursor.x); const cy = flr(cursor.y);
+      line(cx - 6, cy, cx - 2, cy, 3); line(cx + 2, cy, cx + 6, cy, 3);
+      line(cx, cy - 6, cx, cy - 2, 3); line(cx, cy + 2, cx, cy + 6, 3);
       if (GrayBox.frame % 4 < 3) pix(cx, cy, 3);
-    }
 
-    // HUD
-    text("SCORE:" + String(score).padStart(6, "0"), 4, HUD_Y, 3);
-    text("WAVE:" + wave, W - 50, HUD_Y, 2);
-
-    // Wave message
-    if (waveMessage > 0 && state === "play") {
-      const msg = "WAVE " + wave;
-      if (waveMessage > 30 || flr(waveMessage / 5) % 2 === 0) {
-        text(msg, W / 2 - msg.length * 2.5, H / 2 - 20, 3);
+      // Wave message
+      if (waveMessage > 0) {
+        const msg = "WAVE " + wave;
+        if (waveMessage > 30 || flr(waveMessage / 5) % 2 === 0) text(msg, W / 2 - msg.length * 2.5, H / 2 - 20, 3);
+        text("DEFEND YOUR CITIES!", W / 2 - 47, H / 2 - 6, 2);
       }
-      text("DEFEND YOUR CITIES!", W / 2 - 47, H / 2 - 6, 2);
     }
+  });
 
-    // Bonus tally screen
-    if (state === "bonus" && bonusTally) {
-      rectf(W / 2 - 67, 53, 134, 105, 0);
-      rect(W / 2 - 67, 53, 134, 105, 2);
-      text("BONUS POINTS", W / 2 - 30, 62, 3);
-
-      text("CITIES:" + bonusTally.cityCount + " X 100", W / 2 - 47, 83, 2);
-      // Draw city icons
-      for (let i = 0; i < bonusTally.cityCount; i++) {
-        spr(1, W / 2 - 40 + i * 12, 93);
+  // --- Clear (Bonus) Scene ---
+  GrayBox.scene(CLEAR, {
+    init() {
+      bonusTally = {
+        citiesLeft: countSurvivingCities(), ammoLeft: countRemainingAmmo(),
+        cityCount: 0, ammoCount: 0, phase: 0, timer: 0, bonusTotal: 0
+      };
+    },
+    update() {
+      titleFlash++;
+      bonusTally.timer++;
+      if (bonusTally.phase === 0) {
+        if (bonusTally.timer % 8 === 0 && bonusTally.cityCount < bonusTally.citiesLeft) {
+          bonusTally.cityCount++; bonusTally.bonusTotal += 100; score += 100; note(0, "E5", 0.04);
+        }
+        if (bonusTally.cityCount >= bonusTally.citiesLeft) { bonusTally.phase = 1; bonusTally.timer = 0; }
+      } else if (bonusTally.phase === 1) {
+        if (bonusTally.timer % 4 === 0 && bonusTally.ammoCount < bonusTally.ammoLeft) {
+          bonusTally.ammoCount++; bonusTally.bonusTotal += 5; score += 5; note(0, "C5", 0.02);
+        }
+        if (bonusTally.ammoCount >= bonusTally.ammoLeft) { bonusTally.phase = 2; bonusTally.timer = 0; }
+      } else {
+        if (bonusTally.timer > 60) {
+          if (score >= bonusCityNext) {
+            bonusCityNext += BONUS_CITY_SCORE;
+            for (let i = 0; i < 6; i++) { if (!cities[i].alive) { cities[i].alive = true; bonusSound(); break; } }
+          }
+          startWave();
+          GrayBox.go(PLAY); return;
+        }
       }
-
-      text("AMMO:" + bonusTally.ammoCount + " X 5", W / 2 - 40, 109, 2);
-
-      text("TOTAL:" + bonusTally.bonusTotal, W / 2 - 37, 131, 3);
+    },
+    draw() {
+      cls(0);
+      drawGameElements();
+      if (bonusTally) {
+        rectf(W / 2 - 67, 53, 134, 105, 0); rect(W / 2 - 67, 53, 134, 105, 2);
+        text("BONUS POINTS", W / 2 - 30, 62, 3);
+        text("CITIES:" + bonusTally.cityCount + " X 100", W / 2 - 47, 83, 2);
+        for (let i = 0; i < bonusTally.cityCount; i++) spr(1, W / 2 - 40 + i * 12, 93);
+        text("AMMO:" + bonusTally.ammoCount + " X 5", W / 2 - 40, 109, 2);
+        text("TOTAL:" + bonusTally.bonusTotal, W / 2 - 37, 131, 3);
+      }
     }
+  });
 
-    // Game over screen
-    if (state === "gameover") {
-      rectf(W / 2 - 53, H / 2 - 22, 107, 45, 0);
-      rect(W / 2 - 53, H / 2 - 22, 107, 45, 2);
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      titleFlash++;
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      drawGameElements();
+      rectf(W / 2 - 53, H / 2 - 22, 107, 45, 0); rect(W / 2 - 53, H / 2 - 22, 107, 45, 2);
       text("GAME OVER", W / 2 - 22, H / 2 - 16, 3);
       text("THE END", W / 2 - 17, H / 2 - 2, 2);
       text("SCORE:" + String(score).padStart(6, "0"), W / 2 - 32, H / 2 + 10, 3);
     }
-  };
+  });
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

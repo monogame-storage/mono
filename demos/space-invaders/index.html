@@ -333,8 +333,9 @@
     return false;
   }
 
-  // --- Game State ---
-  let state = "title";
+  // --- Scenes ---
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+
   let player, bullet, eBullets, aliens, explosions, particles, stars;
   let score, hiScore, lives, wave;
   let shootCooldown, invulnTimer, respawnTimer;
@@ -466,314 +467,25 @@
     marchSoundIdx++;
   }
 
-  resetGame();
-  state = "title";
+  let _playing = false;
 
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    // --- Title ---
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); _playing = false; },
+    update() {
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
-
-    // --- Game Over ---
-    if (state === "gameover") {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
-
-    // --- Play State ---
-
-    // Respawn delay
-    if (respawnTimer > 0) {
-      respawnTimer--;
-      // Update explosions/particles during respawn
-      for (let i = explosions.length - 1; i >= 0; i--) {
-        explosions[i].timer--;
-        if (explosions[i].timer <= 0) explosions.splice(i, 1);
-      }
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      return;
-    }
-
-    // Invulnerability timer
-    if (invulnTimer > 0) invulnTimer--;
-
-    // Player movement
-    if (btn("left")) player.x -= 3;
-    if (btn("right")) player.x += 3;
-    player.x = _max(4, min(W - 12, player.x));
-
-    // Player shoot
-    if (shootCooldown > 0) shootCooldown--;
-    if (btnp("a") && bullet === null && shootCooldown <= 0) {
-      bullet = { x: player.x + 0, y: player.y - 4 };
-      shootCooldown = 6;
-      shootSound();
-    }
-
-    // Update player bullet
-    if (bullet) {
-      bullet.y -= 6;
-      if (bullet.y < -8) bullet = null;
-    }
-
-    // --- Alien March ---
-    marchTimer--;
-    if (marchTimer <= 0) {
-      // Move aliens one step
-      marchCount++;
-      marchSound();
-
-      let needDrop = false;
-
-      // Check edges
-      const liveAliens = aliens.filter(a => a.alive);
-      let leftMost = W, rightMost = 0;
-      for (const a of liveAliens) {
-        const pos = getAlienPos(a);
-        if (pos.x < leftMost) leftMost = pos.x;
-        if (pos.x + 8 > rightMost) rightMost = pos.x + 8;
-      }
-
-      if (marchDir === 1 && rightMost + 2 >= W - 4) {
-        needDrop = true;
-        marchDir = -1;
-      } else if (marchDir === -1 && leftMost - 2 <= 4) {
-        needDrop = true;
-        marchDir = 1;
-      }
-
-      if (needDrop) {
-        alienOffY += 6;
-        // Check if aliens reached player level
-        for (const a of liveAliens) {
-          const pos = getAlienPos(a);
-          if (pos.y + 8 >= player.y) {
-            // Aliens win — game over
-            state = "gameover";
-            addExplosion(player.x, player.y, true);
-            playerDeathSound();
-            if (score > hiScore) hiScore = score;
-            return;
-          }
-        }
-      } else {
-        alienOffX += marchDir * 4;
-      }
-
-      // Speed up based on how many aliens remain
-      const aliveCount = liveAliens.length;
-      if (aliveCount <= 1) marchSpeed = 1;
-      else if (aliveCount <= 4) marchSpeed = 2;
-      else if (aliveCount <= 10) marchSpeed = 3;
-      else if (aliveCount <= 20) marchSpeed = _max(3, marchBaseSpeed - 6);
-      else if (aliveCount <= 35) marchSpeed = _max(4, marchBaseSpeed - 3);
-      else marchSpeed = marchBaseSpeed;
-
-      marchTimer = marchSpeed;
-    }
-
-    // --- Bullet vs Alien collision ---
-    if (bullet) {
-      for (let i = 0; i < aliens.length; i++) {
-        const a = aliens[i];
-        if (!a.alive) continue;
-        const pos = getAlienPos(a);
-        if (bullet.x + 8 > pos.x && bullet.x < pos.x + 8 &&
-            bullet.y + 8 > pos.y && bullet.y < pos.y + 8) {
-          a.alive = false;
-          score += a.pts;
-          addExplosion(pos.x, pos.y, false);
-          alienHitSound();
-          bullet = null;
-          break;
-        }
-      }
-    }
-
-    // --- Bullet vs Shield collision (player bullet) ---
-    if (bullet) {
-      for (const s of shields) {
-        if (shieldHitTest(s, bullet.x, bullet.y, 2, 4)) {
-          damageShield(s, flr(bullet.x), flr(bullet.y), 3);
-          bullet = null;
-          break;
-        }
-      }
-    }
-
-    // --- Bullet vs UFO ---
-    if (bullet && ufo) {
-      if (bullet.x + 8 > ufo.x && bullet.x < ufo.x + 8 &&
-          bullet.y + 8 > ufo.y && bullet.y < ufo.y + 8) {
-        const ufoPoints = [50, 100, 150, 200, 300][flr(rnd(5))];
-        score += ufoPoints;
-        ufoScoreShow = ufoPoints;
-        ufoScoreTimer = 60;
-        ufoScoreX = ufo.x;
-        addExplosion(ufo.x, ufo.y, true);
-        ufoHitSound();
-        ufo = null;
-        bullet = null;
-      }
-    }
-
-    // --- Alien shooting ---
-    // Find bottom-most alive alien in each column and have them occasionally shoot
-    const liveAliens = aliens.filter(a => a.alive);
-    if (GrayBox.frame % _max(3, 15 - wave * 2) === 0 && liveAliens.length > 0) {
-      // Pick a random column with alive aliens
-      const cols = {};
-      for (const a of liveAliens) {
-        if (!cols[a.col] || a.row > cols[a.col].row) cols[a.col] = a;
-      }
-      const bottomAliens = Object.values(cols);
-      if (bottomAliens.length > 0 && eBullets.length < 3 + wave) {
-        const shooter = bottomAliens[flr(rnd(bottomAliens.length))];
-        const pos = getAlienPos(shooter);
-        eBullets.push({
-          x: pos.x + 0, y: pos.y + 8,
-          type: flr(rnd(2))
-        });
-      }
-    }
-
-    // --- Update enemy bullets ---
-    for (let i = eBullets.length - 1; i >= 0; i--) {
-      const b = eBullets[i];
-      b.y += 2.5 + wave * 0.2;
-
-      // Bullet vs shield
-      let hitShield = false;
-      for (const s of shields) {
-        if (shieldHitTest(s, b.x, b.y, 2, 4)) {
-          damageShield(s, flr(b.x), flr(b.y + 2), 3);
-          eBullets.splice(i, 1);
-          hitShield = true;
-          break;
-        }
-      }
-      if (hitShield) continue;
-
-      // Bullet vs player
-      if (invulnTimer <= 0 &&
-          b.x + 8 > player.x && b.x < player.x + 8 &&
-          b.y + 8 > player.y && b.y < player.y + 8) {
-        eBullets.splice(i, 1);
-        lives--;
-        addExplosion(player.x, player.y, true);
-        playerDeathSound();
-        if (lives <= 0) {
-          state = "gameover";
-          if (score > hiScore) hiScore = score;
-        } else {
-          respawnTimer = 45;
-          invulnTimer = 60;
-          player.x = W / 2 - 4;
-          bullet = null;
-        }
-        continue;
-      }
-
-      if (b.y > H + 8) eBullets.splice(i, 1);
-    }
-
-    // --- Aliens touching shields (erode from top) ---
-    for (const a of liveAliens) {
-      const pos = getAlienPos(a);
-      for (const s of shields) {
-        if (pos.x + 8 > s.x && pos.x < s.x + SHIELD_W &&
-            pos.y + 8 > s.y && pos.y < s.y + SHIELD_H) {
-          // Alien overlaps shield — destroy the overlapping area
-          for (let dy = 0; dy < 8; dy++) {
-            for (let dx = 0; dx < 8; dx++) {
-              const px = flr(pos.x + dx - s.x);
-              const py = flr(pos.y + dy - s.y);
-              if (px >= 0 && px < SHIELD_W && py >= 0 && py < SHIELD_H) {
-                s.pixels[py][px] = 0;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // --- UFO ---
-    ufoTimer--;
-    if (ufoTimer <= 0 && !ufo) {
-      const dir = rnd(1) > 0.5 ? 1 : -1;
-      ufo = { x: dir === 1 ? -10 : W + 10, y: 20, dir: dir, speed: 1.5 };
-      ufoTimer = 400 + flr(rnd(400));
-    }
-    if (ufo) {
-      ufo.x += ufo.dir * ufo.speed;
-      if (ufo.x < -16 || ufo.x > W + 16) ufo = null;
-      else if (GrayBox.frame % 8 === 0) ufoSound();
-    }
-    if (ufoScoreTimer > 0) ufoScoreTimer--;
-
-    // --- Explosions ---
-    for (let i = explosions.length - 1; i >= 0; i--) {
-      explosions[i].timer--;
-      if (explosions[i].timer <= 0) explosions.splice(i, 1);
-    }
-
-    // --- Particles ---
-    for (let i = particles.length - 1; i >= 0; i--) {
-      const p = particles[i];
-      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
-      if (p.life <= 0) particles.splice(i, 1);
-    }
-
-    // --- Wave clear check ---
-    if (liveAliens.length === 0 && state === "play") {
-      waveClearSound();
-      alienOffX = 0;
-      alienOffY = 0;
-      setTimeout(() => {
-        if (state === "play") spawnWave();
-      }, 1500);
-      // Temporarily set totalAliens to prevent re-trigger
-      // We'll use a flag
-      aliens.push({ alive: false, col: -1, row: -1, baseX: -100, baseY: -100, type: "squid", pts: 0 });
-    }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    // Stars
-    for (const s of stars) pix(s.x, s.y, s.bright);
-
-    // --- Title Screen ---
-    if (state === "title") {
+    },
+    draw() {
+      cls(0);
+      for (const s of stars) pix(s.x, s.y, s.bright);
       const ty = 38 + sin(GrayBox.frame * 0.05) * 4;
-
-      // Title text
       text("SPACE INVADERS", 126, flr(ty), 3);
       rectf(110, flr(ty) + 10, 100, 1, 2);
-
-      // Animated aliens parade
       const bx = W / 2 - 55;
       const by = flr(ty) + 22;
       const aFrame = flr(GrayBox.frame / 15) % 2;
@@ -782,93 +494,193 @@
       spr(aFrame ? 6 : 7, bx + 48, by + sin(GrayBox.frame * 0.08 + 2) * 2);
       spr(aFrame ? 4 : 5, bx + 72, by + sin(GrayBox.frame * 0.08 + 3) * 2);
       spr(aFrame ? 2 : 3, bx + 96, by + sin(GrayBox.frame * 0.08 + 4) * 2);
-
       if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", 120, 128, 3);
-
-      // Score table
       text("- SCORE TABLE -", 123, 146, 2);
       spr(8, 123, 158); text("  UFO     ???", 133, 160, 2);
       spr(2, 123, 168); text("  SQUID    30", 133, 170, 2);
       spr(4, 123, 178); text("  CRAB     20", 133, 180, 2);
       spr(6, 123, 188); text("  OCTOPUS  10", 133, 190, 2);
+      if (hiScore > 0) text("HI-SCORE: " + hiScore, 123, 210, 1);
+      text("GRAYBOX DEMO V0.1", 118, 229, 1);
+    }
+  });
 
-      if (hiScore > 0) {
-        text("HI-SCORE: " + hiScore, 123, 210, 1);
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); _playing = true; },
+    update() {
+      // Respawn delay
+      if (respawnTimer > 0) {
+        respawnTimer--;
+        for (let i = explosions.length - 1; i >= 0; i--) {
+          explosions[i].timer--;
+          if (explosions[i].timer <= 0) explosions.splice(i, 1);
+        }
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
+          if (p.life <= 0) particles.splice(i, 1);
+        }
+        return;
       }
 
-      text("GRAYBOX DEMO V0.1", 118, 229, 1);
-      return;
-    }
+      if (invulnTimer > 0) invulnTimer--;
+      if (btn("left")) player.x -= 3;
+      if (btn("right")) player.x += 3;
+      player.x = _max(4, min(W - 12, player.x));
+      if (shootCooldown > 0) shootCooldown--;
+      if (btnp("a") && bullet === null && shootCooldown <= 0) {
+        bullet = { x: player.x + 0, y: player.y - 4 };
+        shootCooldown = 6;
+        shootSound();
+      }
+      if (bullet) { bullet.y -= 6; if (bullet.y < -8) bullet = null; }
 
-    // --- Game Over ---
-    if (state === "gameover") {
+      // Alien March
+      marchTimer--;
+      if (marchTimer <= 0) {
+        marchCount++;
+        marchSound();
+        let needDrop = false;
+        const la = aliens.filter(a => a.alive);
+        let leftMost = W, rightMost = 0;
+        for (const a of la) { const pos = getAlienPos(a); if (pos.x < leftMost) leftMost = pos.x; if (pos.x + 8 > rightMost) rightMost = pos.x + 8; }
+        if (marchDir === 1 && rightMost + 2 >= W - 4) { needDrop = true; marchDir = -1; }
+        else if (marchDir === -1 && leftMost - 2 <= 4) { needDrop = true; marchDir = 1; }
+        if (needDrop) {
+          alienOffY += 6;
+          for (const a of la) { const pos = getAlienPos(a); if (pos.y + 8 >= player.y) { addExplosion(player.x, player.y, true); playerDeathSound(); if (score > hiScore) hiScore = score; GrayBox.go(GAMEOVER); return; } }
+        } else { alienOffX += marchDir * 4; }
+        const aliveCount = la.length;
+        if (aliveCount <= 1) marchSpeed = 1;
+        else if (aliveCount <= 4) marchSpeed = 2;
+        else if (aliveCount <= 10) marchSpeed = 3;
+        else if (aliveCount <= 20) marchSpeed = _max(3, marchBaseSpeed - 6);
+        else if (aliveCount <= 35) marchSpeed = _max(4, marchBaseSpeed - 3);
+        else marchSpeed = marchBaseSpeed;
+        marchTimer = marchSpeed;
+      }
+
+      // Bullet vs Alien
+      if (bullet) {
+        for (let i = 0; i < aliens.length; i++) {
+          const a = aliens[i]; if (!a.alive) continue;
+          const pos = getAlienPos(a);
+          if (bullet.x + 8 > pos.x && bullet.x < pos.x + 8 && bullet.y + 8 > pos.y && bullet.y < pos.y + 8) {
+            a.alive = false; score += a.pts; addExplosion(pos.x, pos.y, false); alienHitSound(); bullet = null; break;
+          }
+        }
+      }
+      // Bullet vs Shield
+      if (bullet) { for (const s of shields) { if (shieldHitTest(s, bullet.x, bullet.y, 2, 4)) { damageShield(s, flr(bullet.x), flr(bullet.y), 3); bullet = null; break; } } }
+      // Bullet vs UFO
+      if (bullet && ufo) {
+        if (bullet.x + 8 > ufo.x && bullet.x < ufo.x + 8 && bullet.y + 8 > ufo.y && bullet.y < ufo.y + 8) {
+          const ufoPoints = [50, 100, 150, 200, 300][flr(rnd(5))]; score += ufoPoints;
+          ufoScoreShow = ufoPoints; ufoScoreTimer = 60; ufoScoreX = ufo.x;
+          addExplosion(ufo.x, ufo.y, true); ufoHitSound(); ufo = null; bullet = null;
+        }
+      }
+
+      // Alien shooting
+      const liveAliens = aliens.filter(a => a.alive);
+      if (GrayBox.frame % _max(3, 15 - wave * 2) === 0 && liveAliens.length > 0) {
+        const cols = {};
+        for (const a of liveAliens) { if (!cols[a.col] || a.row > cols[a.col].row) cols[a.col] = a; }
+        const bottomAliens = Object.values(cols);
+        if (bottomAliens.length > 0 && eBullets.length < 3 + wave) {
+          const shooter = bottomAliens[flr(rnd(bottomAliens.length))];
+          const pos = getAlienPos(shooter);
+          eBullets.push({ x: pos.x + 0, y: pos.y + 8, type: flr(rnd(2)) });
+        }
+      }
+
+      // Update enemy bullets
+      for (let i = eBullets.length - 1; i >= 0; i--) {
+        const b = eBullets[i]; b.y += 2.5 + wave * 0.2;
+        let hitShield = false;
+        for (const s of shields) { if (shieldHitTest(s, b.x, b.y, 2, 4)) { damageShield(s, flr(b.x), flr(b.y + 2), 3); eBullets.splice(i, 1); hitShield = true; break; } }
+        if (hitShield) continue;
+        if (invulnTimer <= 0 && b.x + 8 > player.x && b.x < player.x + 8 && b.y + 8 > player.y && b.y < player.y + 8) {
+          eBullets.splice(i, 1); lives--; addExplosion(player.x, player.y, true); playerDeathSound();
+          if (lives <= 0) { if (score > hiScore) hiScore = score; GrayBox.go(GAMEOVER); return; }
+          else { respawnTimer = 45; invulnTimer = 60; player.x = W / 2 - 4; bullet = null; }
+          continue;
+        }
+        if (b.y > H + 8) eBullets.splice(i, 1);
+      }
+
+      // Aliens touching shields
+      for (const a of liveAliens) {
+        const pos = getAlienPos(a);
+        for (const s of shields) {
+          if (pos.x + 8 > s.x && pos.x < s.x + SHIELD_W && pos.y + 8 > s.y && pos.y < s.y + SHIELD_H) {
+            for (let dy = 0; dy < 8; dy++) { for (let dx = 0; dx < 8; dx++) { const px = flr(pos.x + dx - s.x); const py = flr(pos.y + dy - s.y); if (px >= 0 && px < SHIELD_W && py >= 0 && py < SHIELD_H) s.pixels[py][px] = 0; } }
+          }
+        }
+      }
+
+      // UFO
+      ufoTimer--;
+      if (ufoTimer <= 0 && !ufo) { const dir = rnd(1) > 0.5 ? 1 : -1; ufo = { x: dir === 1 ? -10 : W + 10, y: 20, dir: dir, speed: 1.5 }; ufoTimer = 400 + flr(rnd(400)); }
+      if (ufo) { ufo.x += ufo.dir * ufo.speed; if (ufo.x < -16 || ufo.x > W + 16) ufo = null; else if (GrayBox.frame % 8 === 0) ufoSound(); }
+      if (ufoScoreTimer > 0) ufoScoreTimer--;
+
+      // Explosions
+      for (let i = explosions.length - 1; i >= 0; i--) { explosions[i].timer--; if (explosions[i].timer <= 0) explosions.splice(i, 1); }
+      // Particles
+      for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--; if (p.life <= 0) particles.splice(i, 1); }
+
+      // Wave clear check
+      if (liveAliens.length === 0 && _playing) {
+        waveClearSound(); alienOffX = 0; alienOffY = 0;
+        setTimeout(() => { if (_playing) spawnWave(); }, 1500);
+        aliens.push({ alive: false, col: -1, row: -1, baseX: -100, baseY: -100, type: "squid", pts: 0 });
+      }
+    },
+    draw() {
+      cls(0);
+      for (const s of stars) pix(s.x, s.y, s.bright);
+      rectf(0, 229, W, 1, 1);
+      for (const s of shields) drawShield(s);
+      for (const a of aliens) { if (!a.alive) continue; const pos = getAlienPos(a); spr(getAlienSprite(a), flr(pos.x), flr(pos.y)); }
+      if (ufo) spr(8, flr(ufo.x), flr(ufo.y));
+      if (ufoScoreTimer > 0) text("" + ufoScoreShow, flr(ufoScoreX), 20, 3);
+      for (const b of eBullets) spr(b.type === 0 ? 10 : 11, flr(b.x), flr(b.y));
+      if (bullet) spr(9, flr(bullet.x), flr(bullet.y));
+      if (respawnTimer <= 0) { if (invulnTimer <= 0 || flr(GrayBox.frame / 3) % 2 === 0) spr(1, flr(player.x), flr(player.y)); }
+      for (const e of explosions) { const sprId = e.timer > 5 ? 12 : (e.timer > 2 ? 13 : 16); spr(sprId, flr(e.x), flr(e.y)); }
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      rectf(0, 0, W, 14, 0);
+      text("SCORE:" + score, 4, 4, 3);
+      text("WAVE:" + wave, W / 2 - 20, 4, 2);
+      text("" + lives, W - 48, 4, 3);
+      for (let i = 0; i < lives - 1; i++) spr(15, W - 38 + i * 10, 3);
+    }
+  });
 
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() { _playing = false; },
+    update() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      for (const s of stars) pix(s.x, s.y, s.bright);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
       text("GAME OVER", 138, 83, 3);
       text("SCORE: " + score, 130, 101, 2);
       text("WAVE: " + wave, 140, 113, 2);
       if (hiScore > 0) text("HI-SCORE: " + hiScore, 123, 128, 1);
       if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 113, 158, 3);
-      return;
     }
+  });
 
-    // --- Play State Rendering ---
-
-    // Ground line
-    rectf(0, 229, W, 1, 1);
-
-    // Shields
-    for (const s of shields) drawShield(s);
-
-    // Aliens
-    for (const a of aliens) {
-      if (!a.alive) continue;
-      const pos = getAlienPos(a);
-      spr(getAlienSprite(a), flr(pos.x), flr(pos.y));
-    }
-
-    // UFO
-    if (ufo) {
-      spr(8, flr(ufo.x), flr(ufo.y));
-    }
-    // UFO score display
-    if (ufoScoreTimer > 0) {
-      text("" + ufoScoreShow, flr(ufoScoreX), 20, 3);
-    }
-
-    // Enemy bullets
-    for (const b of eBullets) {
-      spr(b.type === 0 ? 10 : 11, flr(b.x), flr(b.y));
-    }
-
-    // Player bullet
-    if (bullet) spr(9, flr(bullet.x), flr(bullet.y));
-
-    // Player (blink during invulnerability)
-    if (respawnTimer <= 0) {
-      if (invulnTimer <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
-        spr(1, flr(player.x), flr(player.y));
-      }
-    }
-
-    // Explosions
-    for (const e of explosions) {
-      const sprId = e.timer > 5 ? 12 : (e.timer > 2 ? 13 : 16);
-      spr(sprId, flr(e.x), flr(e.y));
-    }
-
-    // Particles
-    for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-    // --- HUD ---
-    rectf(0, 0, W, 14, 0);
-    text("SCORE:" + score, 4, 4, 3);
-    text("WAVE:" + wave, W / 2 - 20, 4, 2);
-    // Lives
-    text("" + lives, W - 48, 4, 3);
-    for (let i = 0; i < lives - 1; i++) spr(15, W - 38 + i * 10, 3);
-  };
-
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

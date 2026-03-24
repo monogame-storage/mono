@@ -316,7 +316,7 @@
   );
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let grid = [];
   let pengo, enemies, slidingBlocks, explosions, particles;
   let score, lives, level, wallShakeTimer, wallShakeDir;
@@ -603,27 +603,7 @@
   // ============================================================
   // Update
   // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        note(0, "C5", 0.1);
-        setTimeout(() => note(0, "E5", 0.1), 100);
-        setTimeout(() => note(0, "G5", 0.15), 200);
-      }
-      return;
-    }
-
-    if (state === "gameover") {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
-
+  function updatePlay() {
     // --- Play state ---
     if (deathTimer > 0) {
       deathTimer--;
@@ -637,7 +617,7 @@
         if (explosions[i].timer <= 0) explosions.splice(i, 1);
       }
       if (deathTimer === 0) {
-        if (lives <= 0) { state = "gameover"; return; }
+        if (lives <= 0) { GrayBox.go(GAMEOVER); return; }
         pengo.cx = flr(COLS / 2);
         pengo.cy = ROWS - 1;
         pengo.invincible = 60;
@@ -861,16 +841,10 @@
       const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
-  };
+  }
 
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+  function drawPlayScene() {
     cls(0);
-
-    if (state === "title") { drawTitle(); return; }
-    if (state === "gameover") { drawGameOver(); return; }
 
     // --- Play state ---
     const shk = wallShakeTimer > 0 ? flr(sin(wallShakeTimer * 2) * 2) : 0;
@@ -1004,7 +978,7 @@
     rectf(0, H - 8, W, 8, 0);
     const ac = enemies.filter(e => e.alive).length;
     text("ENEMIES:" + ac + "  EGGS:" + hatchTimers.length, 3, H - 7, 1);
-  };
+  }
 
   // Draw an 8x8 sprite scaled to 12x12
   function draw12(x, y, sprId, flipX) {
@@ -1118,6 +1092,40 @@
     if (flr(GrayBox.frame / 20) % 2 === 0) text(cMsg, W / 2 - flr((cMsg.length * (FONT_W + 1)) / 2), 158, 3);
   }
 
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      if (btnp("a") || btnp("a")) {
+        resetGame();
+        note(0, "C5", 0.1); setTimeout(() => note(0, "E5", 0.1), 100); setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
+      }
+    },
+    draw() { cls(0); drawTitle(); }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() { updatePlay(); },
+    draw() { drawPlayScene(); }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { cls(0); drawGameOver(); }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

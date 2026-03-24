@@ -373,7 +373,7 @@
   }
 
   // --- State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let frogX, frogY;       // pixel position of frog (top-left of 8x8 sprite area within cell)
   let frogDir;             // 0=up,1=left,2=right,3=down
   let frogRow;             // current grid row
@@ -472,8 +472,7 @@
         lives--;
         if (lives <= 0) {
           if (score > hiScore) hiScore = score;
-          state = "gameover";
-          gameOverTimer = 0;
+          GrayBox.go(GAMEOVER);
           return;
         }
         resetFrog();
@@ -902,37 +901,40 @@
     }
   }
 
-  // --- Main ---
-  GrayBox._update = function() {
-    switch (state) {
-      case "title":
-        if (btnp("a")) {
-          note(0, "C4", 0.06);
-          note(1, "G4", 0.06);
-          resetGame();
-          state = "play";
-        }
-        break;
-      case "play":
-        updatePlay();
-        break;
-      case "gameover":
-        gameOverTimer++;
-        if (gameOverTimer > 90 && btnp("a")) {
-          state = "title";
-          gameOverTimer = 0;
-        }
-        break;
-    }
-  };
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      if (btnp("a")) {
+        note(0, "C4", 0.06);
+        note(1, "G4", 0.06);
+        resetGame();
+        GrayBox.go(PLAY); return;
+      }
+    },
+    draw() { drawTitle(); }
+  });
 
-  GrayBox._draw = function() {
-    switch (state) {
-      case "title": drawTitle(); break;
-      case "play": drawPlay(); break;
-      case "gameover": drawGameOver(); break;
-    }
-  };
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() { updatePlay(); },
+    draw() { drawPlay(); }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() { gameOverTimer = 0; },
+    update() {
+      gameOverTimer++;
+      if (gameOverTimer > 90 && btnp("a")) {
+        GrayBox.go(TITLE); return;
+      }
+    },
+    draw() { drawGameOver(); }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

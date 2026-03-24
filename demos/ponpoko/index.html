@@ -285,7 +285,7 @@
   }
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, enemies, items, fallingObjs, particles;
   let score, lives, stage, stageTimer;
   let camY; // camera scroll offset
@@ -543,35 +543,55 @@
   }
   function fallingObjSound() { note(1, "D3", 0.04); }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { titleAnim = 0; },
+    update() {
       titleAnim++;
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.1), 160);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
-
-    if (state === "gameover") {
-      // Update particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
+    },
+    draw() {
+      cls(0);
+      for (let y = 0; y < H; y += 16) {
+        for (let x = 0; x < W; x += 16) {
+          if ((x + y) % 32 === 0) pix(x, y, 1);
+        }
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+      const ty = 38 + sin(titleAnim * 0.06) * 3;
+      text("PONPOKO", flr(W / 2 - 7 * 2.5), flr(ty), 3);
+      text("PONPOKO", flr(W / 2 - 7 * 2.5) + 1, flr(ty) + 1, 1);
+      text("- RACCOON -", flr(W / 2 - 11 * 2.5), flr(ty) + 11, 2);
+      rectf(W / 2 - 40, flr(ty) + 18, 80, 1, 2);
+      const rx = W / 2 - 4;
+      const walkFrame = flr(titleAnim / 8) % 2 === 0 ? 1 : 2;
+      spr(walkFrame, flr(rx + sin(titleAnim * 0.08) * 20), flr(ty) + 26);
+      spr(30, W / 2 - 27, flr(ty) + 27 + flr(sin(titleAnim * 0.1) * 3));
+      spr(31, W / 2 + 21, flr(ty) + 29 + flr(sin(titleAnim * 0.1 + 1) * 3));
+      spr(32, W / 2 - 37, flr(ty) + 26 + flr(sin(titleAnim * 0.1 + 2) * 3));
+      spr(33, W / 2 + 32, flr(ty) + 27 + flr(sin(titleAnim * 0.1 + 3) * 3));
+      if (flr(titleAnim / 20) % 2 === 0) {
+        text("PRESS A TO START", flr(W / 2 - 16 * 2.5), 146, 3);
+      }
+      text("ARROWS: MOVE/CLIMB", flr(W / 2 - 18 * 2.5), 169, 2);
+      text("Z: JUMP", flr(W / 2 - 7 * 2.5), 178, 2);
+      text("REACH THE STAR!", flr(W / 2 - 15 * 2.5), 191, 2);
+      spr(20, W / 2 - 33, 203); text("SNAKE  200", W / 2 - 24, 205, 2);
+      spr(21, W / 2 - 33, 213); text("BIRD   200", W / 2 - 24, 215, 2);
+      spr(34, W / 2 - 33, 224); text("STAR   500+", W / 2 - 24, 226, 2);
+      text("GRAYBOX DEMO V0.1", flr(W / 2 - 17 * 2.5), 234, 1);
     }
+  });
 
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
     // --- Play state ---
     stageTimer++;
 
@@ -692,7 +712,7 @@
       lives--;
       invTimer = 60;
       if (lives <= 0) {
-        state = "gameover";
+        GrayBox.go(GAMEOVER); return;
         addParticles(pl.x + 4, pl.y, 20, 3);
         deathSound();
       } else {
@@ -775,7 +795,7 @@
           invTimer = 60;
           addParticles(pl.x + 4, pl.y + 4, 8, 3);
           if (lives <= 0) {
-            state = "gameover";
+            GrayBox.go(GAMEOVER); return;
             deathSound();
           } else {
             hitSound();
@@ -828,8 +848,8 @@
         invTimer = 60;
         addParticles(pl.x + 4, pl.y + 4, 8, 2);
         if (lives <= 0) {
-          state = "gameover";
           deathSound();
+          GrayBox.go(GAMEOVER); return;
         } else {
           hitSound();
         }
@@ -842,73 +862,9 @@
       p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
-
-    if (state === "title") {
-      // Background decorative pattern
-      for (let y = 0; y < H; y += 16) {
-        for (let x = 0; x < W; x += 16) {
-          if ((x + y) % 32 === 0) pix(x, y, 1);
-        }
-      }
-
-      const ty = 38 + sin(titleAnim * 0.06) * 3;
-
-      // Title
-      text("PONPOKO", flr(W / 2 - 7 * 2.5), flr(ty), 3);
-      text("PONPOKO", flr(W / 2 - 7 * 2.5) + 1, flr(ty) + 1, 1);
-
-      // Subtitle in Korean
-      text("- RACCOON -", flr(W / 2 - 11 * 2.5), flr(ty) + 11, 2);
-
-      rectf(W / 2 - 40, flr(ty) + 18, 80, 1, 2);
-
-      // Animated raccoon
-      const rx = W / 2 - 4;
-      const walkFrame = flr(titleAnim / 8) % 2 === 0 ? 1 : 2;
-      spr(walkFrame, flr(rx + sin(titleAnim * 0.08) * 20), flr(ty) + 26);
-
-      // Show some items
-      spr(30, W / 2 - 27, flr(ty) + 27 + flr(sin(titleAnim * 0.1) * 3));
-      spr(31, W / 2 + 21, flr(ty) + 29 + flr(sin(titleAnim * 0.1 + 1) * 3));
-      spr(32, W / 2 - 37, flr(ty) + 26 + flr(sin(titleAnim * 0.1 + 2) * 3));
-      spr(33, W / 2 + 32, flr(ty) + 27 + flr(sin(titleAnim * 0.1 + 3) * 3));
-
-      if (flr(titleAnim / 20) % 2 === 0) {
-        text("PRESS A TO START", flr(W / 2 - 16 * 2.5), 146, 3);
-      }
-
-      // Instructions
-      text("ARROWS: MOVE/CLIMB", flr(W / 2 - 18 * 2.5), 169, 2);
-      text("Z: JUMP", flr(W / 2 - 7 * 2.5), 178, 2);
-      text("REACH THE STAR!", flr(W / 2 - 15 * 2.5), 191, 2);
-
-      // Score table
-      spr(20, W / 2 - 33, 203); text("SNAKE  200", W / 2 - 24, 205, 2);
-      spr(21, W / 2 - 33, 213); text("BIRD   200", W / 2 - 24, 215, 2);
-      spr(34, W / 2 - 33, 224); text("STAR   500+", W / 2 - 24, 226, 2);
-
-      text("GRAYBOX DEMO V0.1", flr(W / 2 - 17 * 2.5), 234, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-      text("GAME OVER", flr(W / 2 - 9 * 2.5), 90, 3);
-      text("SCORE: " + score, flr(W / 2 - (7 + String(score).length) * 2.5), 109, 2);
-      text("STAGE: " + stage, flr(W / 2 - (7 + String(stage).length) * 2.5), 120, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) {
-        text("PRESS A TO CONTINUE", flr(W / 2 - 19 * 2.5), 150, 3);
-      }
-      return;
-    }
 
     // --- Play state rendering ---
 
@@ -1014,8 +970,33 @@
       text("STAGE CLEAR!", flr(W / 2 - 12 * 2.5), flr(msgY), 3);
       text("BONUS: " + (500 + stage * 100), flr(W / 2 - 12 * 2.5), flr(msgY) + 9, 2);
     }
-  };
+    }
+  });
 
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      text("GAME OVER", flr(W / 2 - 9 * 2.5), 90, 3);
+      text("SCORE: " + score, flr(W / 2 - (7 + String(score).length) * 2.5), 109, 2);
+      text("STAGE: " + stage, flr(W / 2 - (7 + String(stage).length) * 2.5), 120, 2);
+      if (flr(GrayBox.frame / 20) % 2 === 0) {
+        text("PRESS A TO CONTINUE", flr(W / 2 - 19 * 2.5), 150, 3);
+      }
+    }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

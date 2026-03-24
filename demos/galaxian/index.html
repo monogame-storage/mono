@@ -189,7 +189,7 @@
   );
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, playerBullet, eBullets, enemies, explosions, particles, stars;
   let score, hiScore, lives, wave, waveTimer, waveMessage;
   let formationX, formationDir, formationSpeed;
@@ -381,38 +381,60 @@
     return u*u*u*p0 + 3*u*u*t*p1 + 3*u*t*t*p2 + t*t*t*p3;
   }
 
-  resetGame();
+  function updateStarsGx() {
+    for (const s of stars) { s.y += s.speed; if (s.y > H) { s.y = 0; s.x = flr(rnd(W)); } }
+  }
 
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    // Stars always scroll
-    for (const s of stars) {
-      s.y += s.speed;
-      if (s.y > H) { s.y = 0; s.x = flr(rnd(W)); }
-    }
-
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); titleAnimT = 0; },
+    update() {
+      updateStarsGx();
       titleAnimT++;
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      for (const s of stars) pix(s.x, s.y, s.bright);
+      drawTitle();
     }
+  });
 
-    if (state === "gameover") {
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      updateStarsGx();
+      titleAnimT++;
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      for (const s of stars) pix(s.x, s.y, s.bright);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      text("GAME OVER", 138, 75, 3);
+      text("SCORE  " + padScore(score), 128, 98, 2);
+      text("HI     " + padScore(hiScore), 128, 109, 2);
+      text("WAVE   " + wave, 140, 124, 2);
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 133, 158, 3);
     }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
+    updateStarsGx();
 
     // --- Play state ---
 
@@ -625,7 +647,7 @@
     }
 
     // Wave clear
-    if (enemies.length === 0 && state === "play") {
+    if (enemies.length === 0) {
       waveTimer++;
       if (waveTimer === 1) waveClearSound();
       if (waveTimer > 70) {
@@ -633,49 +655,10 @@
         spawnWave();
       }
     }
-  };
-
-  function killPlayer() {
-    addExplosion(player.x, player.y);
-    deathSound();
-    player.alive = false;
-    lives--;
-    playerBullet = null;
-    if (lives <= 0) {
-      state = "gameover";
-      if (score > hiScore) hiScore = score;
-    } else {
-      respawnTimer = 60;
-    }
-  }
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
-
-    // Starfield
     for (const s of stars) pix(s.x, s.y, s.bright);
-
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
-      // Stars + particles
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-      text("GAME OVER", 138, 75, 3);
-      text("SCORE  " + padScore(score), 128, 98, 2);
-      text("HI     " + padScore(hiScore), 128, 109, 2);
-      text("WAVE   " + wave, 140, 124, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 133, 158, 3);
-      return;
-    }
-
-    // --- Play state rendering ---
 
     // Enemy bullets
     for (const b of eBullets) spr(7, flr(b.x), flr(b.y));
@@ -684,13 +667,8 @@
     for (const e of enemies) {
       if (e.state === "forming" && e.enterT < 0) continue;
       let sprId = e.type;
-      // Flagship flaps wings when diving
-      if (e.type === 4 && e.state === "diving" && flr(e.wingFlap / 4) % 2 === 0) {
-        sprId = 5;
-      }
-      // Flash damaged flagship
+      if (e.type === 4 && e.state === "diving" && flr(e.wingFlap / 4) % 2 === 0) { sprId = 5; }
       if (e.type === 4 && e.hp === 1 && flr(GrayBox.frame / 3) % 2 === 0) {
-        // Skip draw (flash effect)
       } else {
         spr(sprId, flr(e.x), flr(e.y));
       }
@@ -701,9 +679,7 @@
 
     // Player
     if (player.alive) {
-      // Blink briefly after respawn
       if (respawnTimer > 0 && respawnTimer < 20 && flr(GrayBox.frame / 3) % 2 === 0) {
-        // skip draw
       } else {
         spr(1, flr(player.x), flr(player.y));
       }
@@ -735,7 +711,24 @@
       text("WAVE " + wave, 140, flr(msgY), 3);
       if (waveMessage > 50) text("READY!", 142, flr(msgY) + 14, 2);
     }
-  };
+    }
+  });
+
+  function killPlayer() {
+    addExplosion(player.x, player.y);
+    deathSound();
+    player.alive = false;
+    lives--;
+    playerBullet = null;
+    if (lives <= 0) {
+      if (score > hiScore) hiScore = score;
+      GrayBox.go(GAMEOVER); return;
+    } else {
+      respawnTimer = 60;
+    }
+  }
+
+  // (Scene draw functions defined above)
 
   function padScore(n) {
     let s = String(n);
@@ -778,6 +771,7 @@
     text("GRAYBOX DEMO V0.1", 115, 229, 1);
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

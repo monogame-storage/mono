@@ -403,7 +403,7 @@
   );
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let score = 0;
   let highScore = 0;
   let lives = 3;
@@ -621,25 +621,7 @@
   }
 
   // --- UPDATE ---
-  function gameUpdate() {
-    if (state === "title") {
-      titleAnim++;
-      if (btnp("a")) {
-        state = "play";
-        resetGame();
-        note(0, "C5", 0.1);
-      }
-      return;
-    }
-
-    if (state === "gameover") {
-      gameOverTimer++;
-      if (gameOverTimer > 90 && btnp("a")) {
-        state = "title";
-      }
-      return;
-    }
-
+  function playUpdate() {
     // --- PLAY STATE ---
 
     // Scroll
@@ -662,9 +644,8 @@
       if (pDeadTimer > 60) {
         lives--;
         if (lives <= 0) {
-          state = "gameover";
-          gameOverTimer = 0;
           if (score > highScore) highScore = score;
+          GrayBox.go(GAMEOVER); return;
         } else {
           pDead = false;
           pInvuln = 90;
@@ -1005,56 +986,56 @@
     }
   }
 
-  // --- DRAW ---
-  function gameDraw() {
-    if (state === "title") {
-      cls(0);
+  // --- Title draw ---
+  function drawTitle() {
+    cls(0);
 
-      // Animated background
-      for (let i = 0; i < 30; i++) {
-        const yy = (titleAnim * 0.5 + i * 23) % H;
-        const xx = (i * 37 + flr(sin(titleAnim * 0.02 + i) * 10)) % W;
-        pix(xx, yy, 1);
-      }
-
-      // Title
-      const tx = 140;
-      rectf(tx - 10, 53, 107, 30, 0);
-      rect(tx - 10, 53, 107, 30, 2);
-      text("COMMANDO", tx, 60, 3);
-      text("GRAYBOX EDITION", 123, 71, 1);
-
-      // Soldier graphic
-      sprT(1, 156, 98);
-      sprT(10, 156, 89);
-
-      text("PRESS ENTER TO START", 110, 128, 2);
-
-      text("ARROWS - MOVE", 128, 158, 1);
-      text("Z - SHOOT", 138, 167, 1);
-      text("X - GRENADE", 133, 176, 1);
-
-      if (highScore > 0) {
-        text("HIGH SCORE " + highScore, 120, 203, 2);
-      }
-
-      text("2026 GRAYBOX", 130, 225, 1);
-      return;
+    // Animated background
+    for (let i = 0; i < 30; i++) {
+      const yy = (titleAnim * 0.5 + i * 23) % H;
+      const xx = (i * 37 + flr(sin(titleAnim * 0.02 + i) * 10)) % W;
+      pix(xx, yy, 1);
     }
 
-    if (state === "gameover") {
-      cls(0);
-      text("GAME OVER", 138, 98, 3);
-      text("SCORE " + score, 130, 116, 2);
-      if (score >= highScore && score > 0) {
-        text("NEW HIGH SCORE!", 123, 131, 3);
-      }
-      if (gameOverTimer > 90) {
-        text("PRESS ENTER", 133, 158, (flr(gameOverTimer / 15) % 2 === 0) ? 2 : 0);
-      }
-      return;
+    // Title
+    const tx = 140;
+    rectf(tx - 10, 53, 107, 30, 0);
+    rect(tx - 10, 53, 107, 30, 2);
+    text("COMMANDO", tx, 60, 3);
+    text("GRAYBOX EDITION", 123, 71, 1);
+
+    // Soldier graphic
+    sprT(1, 156, 98);
+    sprT(10, 156, 89);
+
+    text("PRESS ENTER TO START", 110, 128, 2);
+
+    text("ARROWS - MOVE", 128, 158, 1);
+    text("Z - SHOOT", 138, 167, 1);
+    text("X - GRENADE", 133, 176, 1);
+
+    if (highScore > 0) {
+      text("HIGH SCORE " + highScore, 120, 203, 2);
     }
 
+    text("2026 GRAYBOX", 130, 225, 1);
+  }
+
+  // --- Game Over draw ---
+  function drawGameOver() {
+    cls(0);
+    text("GAME OVER", 138, 98, 3);
+    text("SCORE " + score, 130, 116, 2);
+    if (score >= highScore && score > 0) {
+      text("NEW HIGH SCORE!", 123, 131, 3);
+    }
+    if (gameOverTimer > 90) {
+      text("PRESS ENTER", 133, 158, (flr(gameOverTimer / 15) % 2 === 0) ? 2 : 0);
+    }
+  }
+
+  // --- PLAY DRAW ---
+  function playDraw() {
     // --- PLAY DRAW ---
     // Background: dark ground
     cls(0);
@@ -1220,14 +1201,35 @@
     }
   }
 
-  // --- Main Loop Setup ---
-  GrayBox._update = gameUpdate;
-  GrayBox._draw = gameDraw;
+  // --- Scenes ---
+  GrayBox.scene(TITLE, {
+    init() { titleAnim = 0; },
+    update() {
+      titleAnim++;
+      if (btnp("a")) {
+        note(0, "C5", 0.1);
+        GrayBox.go(PLAY); return;
+      }
+    },
+    draw() { drawTitle(); }
+  });
 
-  // Kickstart
-  resetGame();
-  state = "title";
+  GrayBox.scene(GAMEOVER, {
+    init() { gameOverTimer = 0; },
+    update() {
+      gameOverTimer++;
+      if (gameOverTimer > 90 && btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOver(); }
+  });
 
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() { playUpdate(); },
+    draw() { playDraw(); }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -319,8 +319,10 @@
     return { grid: g, w, h, boxes: bxs, targets: tgts, px, py };
   }
 
-  // --- Game State ---
-  let state = "title";
+  // --- Scenes ---
+  const { TITLE, PLAY, CLEAR, WIN } = GrayBox.SCENE;
+  const SELECT = "select";
+
   let level = 0;
   let grid, gridW, gridH;
   let playerX, playerY, playerDir;
@@ -414,8 +416,8 @@
 
       if (checkWin()) {
         completeTimer = 90;
-        state = "complete";
         if (level + 1 > maxLevelReached) maxLevelReached = level + 1;
+        GrayBox.go(CLEAR);
         note(0, "C5", 0.15);
         setTimeout(() => { try { note(0, "E5", 0.15); } catch(e){} }, 150);
         setTimeout(() => { try { note(0, "G5", 0.25); } catch(e){} }, 300);
@@ -471,130 +473,87 @@
     text(str, flr((W - len) / 2), y, c);
   }
 
-  // ============ Title Screen ============
-  function updateTitle() {
-    animTimer++;
-    if (btnp("a")) {
-      state = "select";
-      selectCursor = min(maxLevelReached, LEVELS.length - 1);
-      note(0, "C4", 0.1);
-    }
-  }
-
-  function drawTitle() {
-    cls(0);
-
-    // Title text - large
-    const ty = 38;
-    textCenter("S O K O B A N", ty, 3);
-    // Underline
-    const ul = 13 * (FONT_W + 1) - 1;
-    line(flr((W - ul) / 2), ty + 8, flr((W + ul) / 2), ty + 8, 2);
-
-    // Draw decorative scene
-    const cx = flr(W / 2);
-    const sy = 82;
-    // Floor row
-    for (let i = -4; i <= 4; i++) spr2x(2, cx + i * TS - 8, sy);
-    // Walls on sides
-    spr2x(1, cx - 4 * TS - 8, sy);
-    spr2x(1, cx + 4 * TS - 8, sy);
-    // Wall top row
-    for (let i = -4; i <= 4; i++) spr2x(1, cx + i * TS - 8, sy - TS);
-    // Wall bottom row
-    for (let i = -4; i <= 4; i++) spr2x(1, cx + i * TS - 8, sy + TS);
-
-    // Animated player pushing box toward target
-    const phase = flr(animTimer / 30) % 6;
-    const pOff = min(phase, 3);
-    spr2x(PLAYER_SPR[3], cx - 3 * TS - 8 + pOff * TS, sy); // player
-    spr2x(4, cx - 2 * TS - 8 + pOff * TS, sy); // box
-    spr2x(3, cx + 2 * TS - 8, sy); // target
-
-    // Blinking prompt
-    if (flr(animTimer / 20) % 2 === 0) {
-      textCenter("PRESS ENTER", 150, 2);
-    }
-
-    textCenter("PUSH ALL BOXES ONTO TARGETS", 180, 1);
-    textCenter("ARROWS:MOVE  X:UNDO  Z:RESTART", 195, 1);
-  }
-
-  // ============ Level Select ============
-  function updateSelect() {
-    const maxIdx = min(maxLevelReached, LEVELS.length - 1);
-    if (btnp("up")) {
-      selectCursor--;
-      if (selectCursor < 0) selectCursor = maxIdx;
-      note(0, "C4", 0.03);
-    }
-    if (btnp("down")) {
-      selectCursor++;
-      if (selectCursor > maxIdx) selectCursor = 0;
-      note(0, "C4", 0.03);
-    }
-    if (btnp("a") || btnp("a")) {
-      level = selectCursor;
-      loadLevel(level);
-      state = "play";
-      note(0, "E4", 0.1);
-      note(1, "C4", 0.1);
-    }
-    if (btnp("b")) {
-      state = "title";
-      note(0, "C3", 0.06);
-    }
-  }
-
-  function drawSelect() {
-    cls(0);
-    textCenter("SELECT LEVEL", 12, 3);
-
-    const maxShow = min(LEVELS.length, maxLevelReached + 1);
-    const perPage = 12;
-    const page = flr(selectCursor / perPage);
-    const startI = page * perPage;
-    const endI = min(startI + perPage, maxShow);
-
-    const startY = 30;
-    for (let i = startI; i < endI; i++) {
-      const y = startY + (i - startI) * 15;
-      const sel = (i === selectCursor);
-      const c = sel ? 3 : 2;
-      const prefix = sel ? "> " : "  ";
-      text(prefix + "LEVEL " + (i + 1), 113, y, c);
-      // Small box icon for completed levels
-      if (i < maxLevelReached) {
-        spr(5, 103, y - 1);
+  // ============ Title Scene ============
+  GrayBox.scene(TITLE, {
+    init() { animTimer = 0; },
+    update() {
+      animTimer++;
+      if (btnp("a")) {
+        selectCursor = min(maxLevelReached, LEVELS.length - 1);
+        note(0, "C4", 0.1);
+        GrayBox.go(SELECT); return;
       }
+    },
+    draw() {
+      cls(0);
+      const ty = 38;
+      textCenter("S O K O B A N", ty, 3);
+      const ul = 13 * (FONT_W + 1) - 1;
+      line(flr((W - ul) / 2), ty + 8, flr((W + ul) / 2), ty + 8, 2);
+      const cx = flr(W / 2);
+      const sy = 82;
+      for (let i = -4; i <= 4; i++) spr2x(2, cx + i * TS - 8, sy);
+      spr2x(1, cx - 4 * TS - 8, sy);
+      spr2x(1, cx + 4 * TS - 8, sy);
+      for (let i = -4; i <= 4; i++) spr2x(1, cx + i * TS - 8, sy - TS);
+      for (let i = -4; i <= 4; i++) spr2x(1, cx + i * TS - 8, sy + TS);
+      const phase = flr(animTimer / 30) % 6;
+      const pOff = min(phase, 3);
+      spr2x(PLAYER_SPR[3], cx - 3 * TS - 8 + pOff * TS, sy);
+      spr2x(4, cx - 2 * TS - 8 + pOff * TS, sy);
+      spr2x(3, cx + 2 * TS - 8, sy);
+      if (flr(animTimer / 20) % 2 === 0) textCenter("PRESS ENTER", 150, 2);
+      textCenter("PUSH ALL BOXES ONTO TARGETS", 180, 1);
+      textCenter("ARROWS:MOVE  X:UNDO  Z:RESTART", 195, 1);
     }
-    if (maxShow < LEVELS.length) {
-      const y = startY + (endI - startI) * 15;
-      text("  ...", 113, y, 1);
+  });
+
+  // ============ Level Select Scene ============
+  GrayBox.scene(SELECT, {
+    init() {},
+    update() {
+      const maxIdx = min(maxLevelReached, LEVELS.length - 1);
+      if (btnp("up")) { selectCursor--; if (selectCursor < 0) selectCursor = maxIdx; note(0, "C4", 0.03); }
+      if (btnp("down")) { selectCursor++; if (selectCursor > maxIdx) selectCursor = 0; note(0, "C4", 0.03); }
+      if (btnp("a") || btnp("a")) {
+        level = selectCursor;
+        loadLevel(level);
+        note(0, "E4", 0.1);
+        note(1, "C4", 0.1);
+        GrayBox.go(PLAY); return;
+      }
+      if (btnp("b")) { note(0, "C3", 0.06); GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      textCenter("SELECT LEVEL", 12, 3);
+      const maxShow = min(LEVELS.length, maxLevelReached + 1);
+      const perPage = 12;
+      const page = flr(selectCursor / perPage);
+      const startI = page * perPage;
+      const endI = min(startI + perPage, maxShow);
+      const startY = 30;
+      for (let i = startI; i < endI; i++) {
+        const y = startY + (i - startI) * 15;
+        const sel = (i === selectCursor);
+        const c = sel ? 3 : 2;
+        const prefix = sel ? "> " : "  ";
+        text(prefix + "LEVEL " + (i + 1), 113, y, c);
+        if (i < maxLevelReached) spr(5, 103, y - 1);
+      }
+      if (maxShow < LEVELS.length) {
+        const y = startY + (endI - startI) * 15;
+        text("  ...", 113, y, 1);
+      }
+      textCenter("ENTER:START  X:BACK", 225, 1);
     }
+  });
 
-    textCenter("ENTER:START  X:BACK", 225, 1);
-  }
-
-  // ============ Play State ============
-  function updatePlay() {
-    animTimer++;
-    if (btnp("up")) tryMove(0, -1);
-    if (btnp("down")) tryMove(0, 1);
-    if (btnp("left")) tryMove(-1, 0);
-    if (btnp("right")) tryMove(1, 0);
-    if (btnp("b")) undo();
-    if (btnp("a")) resetCurrentLevel();
-  }
-
-  function drawPlay() {
+  // ============ Play Scene ============
+  function drawPlayField() {
     cls(0);
-
-    // Calculate offset to center the level
     const ox = flr((W - gridW * TS) / 2);
     const oy = flr((H - gridH * TS) / 2) + 8;
-
-    // Draw grid tiles
     for (let y = 0; y < gridH; y++) {
       for (let x = 0; x < gridW; x++) {
         const t = grid[y][x];
@@ -605,143 +564,105 @@
         else if (t === 3) spr2x(3, sx, sy);
       }
     }
-
-    // Draw boxes
     for (const b of boxes) {
       const onTarget = isTarget(b.x, b.y);
       spr2x(onTarget ? 5 : 4, ox + b.x * TS, oy + b.y * TS);
     }
-
-    // Draw player (blink on target to show it)
     spr2x(PLAYER_SPR[playerDir], ox + playerX * TS, oy + playerY * TS);
-
-    // HUD - top bar
     rectf(0, 0, W, 14, 0);
     text("LV." + (level + 1), 4, 2, 3);
     text("MOVES:" + moves, 40, 2, 2);
     text("PUSH:" + pushes, 107, 2, 2);
-
-    // Target progress
     let done = 0;
-    for (const t of targets) {
-      if (boxAt(t.x, t.y) >= 0) done++;
-    }
+    for (const t of targets) { if (boxAt(t.x, t.y) >= 0) done++; }
     const prog = done + "/" + targets.length;
     text(prog, W - prog.length * 5 - 4, 2, done === targets.length ? 3 : 2);
-
-    // Controls hint
     text("X:UNDO Z:RESET", 4, H - 10, 1);
-
-    // Undo available indicator
-    if (history.length > 0) {
-      text("UNDO:" + history.length, W - 37, H - 10, 1);
-    }
+    if (history.length > 0) text("UNDO:" + history.length, W - 37, H - 10, 1);
   }
 
-  // ============ Level Complete ============
-  function updateComplete() {
-    completeTimer--;
-    animTimer++;
-    if (completeTimer <= 0 || btnp("a")) {
-      if (level + 1 >= LEVELS.length) {
-        state = "allclear";
-        animTimer = 0;
-      } else {
-        level++;
-        loadLevel(level);
-        state = "play";
+  GrayBox.scene(PLAY, {
+    init() { animTimer = 0; },
+    update() {
+      animTimer++;
+      if (btnp("up")) tryMove(0, -1);
+      if (btnp("down")) tryMove(0, 1);
+      if (btnp("left")) tryMove(-1, 0);
+      if (btnp("right")) tryMove(1, 0);
+      if (btnp("b")) undo();
+      if (btnp("a")) resetCurrentLevel();
+    },
+    draw() { drawPlayField(); }
+  });
+
+  // ============ Level Complete Scene ============
+  GrayBox.scene(CLEAR, {
+    init() {},
+    update() {
+      completeTimer--;
+      animTimer++;
+      if (completeTimer <= 0 || btnp("a")) {
+        if (level + 1 >= LEVELS.length) {
+          animTimer = 0;
+          GrayBox.go(WIN); return;
+        } else {
+          level++;
+          loadLevel(level);
+          GrayBox.go(PLAY); return;
+        }
+      }
+    },
+    draw() {
+      drawPlayField();
+      for (let i = 0; i < buf32.length; i++) {
+        const v = buf32[i];
+        const r = ((v & 0xFF) >> 1);
+        const g = (((v >> 8) & 0xFF) >> 1);
+        const b = (((v >> 16) & 0xFF) >> 1);
+        buf32[i] = (255 << 24) | (b << 16) | (g << 8) | r;
+      }
+      const bw = 200, bh = 52;
+      const bx = flr((W - bw) / 2);
+      const by = flr((H - bh) / 2);
+      rectf(bx, by, bw, bh, 0);
+      rect(bx, by, bw, bh, 3);
+      rect(bx + 2, by + 2, bw - 4, bh - 4, 2);
+      textCenter("LEVEL COMPLETE!", by + 10, 3);
+      textCenter("MOVES: " + moves + "  PUSHES: " + pushes, by + 24, 2);
+      if (flr(animTimer / 15) % 2 === 0) {
+        if (level + 1 >= LEVELS.length) textCenter("ALL LEVELS DONE!", by + 38, 3);
+        else textCenter("NEXT LEVEL...", by + 38, 2);
       }
     }
-  }
+  });
 
-  function drawComplete() {
-    drawPlay();
-
-    // Dark overlay
-    for (let i = 0; i < buf32.length; i++) {
-      const v = buf32[i];
-      const r = ((v & 0xFF) >> 1);
-      const g = (((v >> 8) & 0xFF) >> 1);
-      const b = (((v >> 16) & 0xFF) >> 1);
-      buf32[i] = (255 << 24) | (b << 16) | (g << 8) | r;
-    }
-
-    // Popup box
-    const bw = 200, bh = 52;
-    const bx = flr((W - bw) / 2);
-    const by = flr((H - bh) / 2);
-    rectf(bx, by, bw, bh, 0);
-    rect(bx, by, bw, bh, 3);
-    rect(bx + 2, by + 2, bw - 4, bh - 4, 2);
-
-    textCenter("LEVEL COMPLETE!", by + 10, 3);
-    textCenter("MOVES: " + moves + "  PUSHES: " + pushes, by + 24, 2);
-
-    if (flr(animTimer / 15) % 2 === 0) {
-      if (level + 1 >= LEVELS.length) {
-        textCenter("ALL LEVELS DONE!", by + 38, 3);
-      } else {
-        textCenter("NEXT LEVEL...", by + 38, 2);
+  // ============ All Clear Scene ============
+  GrayBox.scene(WIN, {
+    init() { animTimer = 0; },
+    update() {
+      animTimer++;
+      if (btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      textCenter("CONGRATULATIONS!", 52, 3);
+      textCenter("ALL PUZZLES SOLVED!", 71, 2);
+      const cx = flr(W / 2);
+      const cy = 135;
+      for (let i = 0; i < 6; i++) {
+        const angle = animTimer * 0.04 + i * 1.047;
+        const bx = cx + flr(cos(angle) * 47) - 8;
+        const by = cy + flr(sin(angle) * 26) - 8;
+        spr2x(5, bx, by);
       }
+      const pd = flr(animTimer / 15) % 4;
+      spr2x(PLAYER_SPR[pd], cx - 8, cy - 8);
+      if (flr(animTimer / 20) % 2 === 0) textCenter("PRESS ENTER", 195, 2);
+      textCenter("THANKS FOR PLAYING!", 214, 1);
     }
-  }
+  });
 
-  // ============ All Clear ============
-  function updateAllClear() {
-    animTimer++;
-    if (btnp("a")) {
-      state = "title";
-    }
-  }
-
-  function drawAllClear() {
-    cls(0);
-    textCenter("CONGRATULATIONS!", 52, 3);
-    textCenter("ALL PUZZLES SOLVED!", 71, 2);
-
-    // Spinning boxes celebration
-    const cx = flr(W / 2);
-    const cy = 135;
-    for (let i = 0; i < 6; i++) {
-      const angle = animTimer * 0.04 + i * 1.047;
-      const bx = cx + flr(cos(angle) * 47) - 8;
-      const by = cy + flr(sin(angle) * 26) - 8;
-      spr2x(5, bx, by);
-    }
-    // Player in center
-    const pd = flr(animTimer / 15) % 4;
-    spr2x(PLAYER_SPR[pd], cx - 8, cy - 8);
-
-    if (flr(animTimer / 20) % 2 === 0) {
-      textCenter("PRESS ENTER", 195, 2);
-    }
-    textCenter("THANKS FOR PLAYING!", 214, 1);
-  }
-
-  // ============ Main Loop ============
-  GrayBox._update = function() {
-    switch (state) {
-      case "title": updateTitle(); break;
-      case "select": updateSelect(); break;
-      case "play": updatePlay(); break;
-      case "complete": updateComplete(); break;
-      case "allclear": updateAllClear(); break;
-    }
-  };
-
-  GrayBox._draw = function() {
-    switch (state) {
-      case "title": drawTitle(); break;
-      case "select": drawSelect(); break;
-      case "play": drawPlay(); break;
-      case "complete": drawComplete(); break;
-      case "allclear": drawAllClear(); break;
-    }
-  };
-
-  // Initialize
-  loadLevel(0);
-
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

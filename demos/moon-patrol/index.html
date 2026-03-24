@@ -222,7 +222,7 @@
   const CHECKPOINT_DIST = 800;
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let scrollX, scrollSpeed, distance;
   let buggy, bullets, bombs, ufos, explosions, particles;
   let terrain, obstacles, checkpoints;
@@ -339,34 +339,18 @@
 
   resetGame();
 
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        note(0, "C5", 0.1);
-        setTimeout(() => note(0, "E5", 0.1), 100);
-        setTimeout(() => note(0, "G5", 0.15), 200);
-      }
-      return;
+  function updateGameoverEffects() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
+      if (p.life <= 0) particles.splice(i, 1);
     }
-
-    if (state === "gameover") {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      for (let i = explosions.length - 1; i >= 0; i--) {
-        explosions[i].timer--;
-        if (explosions[i].timer <= 0) explosions.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+    for (let i = explosions.length - 1; i >= 0; i--) {
+      explosions[i].timer--;
+      if (explosions[i].timer <= 0) explosions.splice(i, 1);
     }
+  }
 
+  function updatePlay() {
     // --- Play state ---
 
     // Scrolling
@@ -593,7 +577,7 @@
       p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
-  };
+  }
 
   function killBuggy() {
     if (invincible > 0) return;
@@ -601,7 +585,7 @@
     addExplosion(buggy.x, buggy.y);
     deathSound();
     if (lives <= 0) {
-      state = "gameover";
+      GrayBox.go(GAMEOVER); return;
     } else {
       // Respawn
       buggy.y = BUGGY_Y;
@@ -630,265 +614,140 @@
     return s1 + s2;
   }
 
-  GrayBox._draw = function() {
-    cls(0);
-
-    // --- Stars ---
+  function drawStars() {
     const starSeed = seededRandom(123);
     for (let i = 0; i < 60; i++) {
       const sx = flr(starSeed() * W);
       const sy = flr(starSeed() * 90);
       const bright = starSeed() < 0.3 ? 2 : 1;
-      // Twinkle
       if (bright === 2 && (GrayBox.frame + i * 7) % 40 < 5) continue;
       pix(sx, sy, bright);
     }
+  }
 
-    if (state === "title") {
-      // Title screen
-
-      // Draw some mountains for atmosphere
-      for (let x = 0; x < W; x++) {
-        const mh = getMountainH(x * 3, 42);
-        const baseY = 135 + mh;
-        for (let y = flr(baseY); y < 165; y++) {
-          if (y >= 0 && y < H) pix(x, y, 1);
-        }
-      }
-
-      // Ground
-      rectf(0, 165, W, 75, 1);
-      line(0, 165, W, 165, 2);
-
-      // Title text
-      const ty = 45 + sin(GrayBox.frame * 0.05) * 3;
-      drawText("MOON PATROL", 105, flr(ty), 3);
-      drawText("MOON PATROL", 106, flr(ty) + 1, 1);
-      rectf(90, flr(ty) + 12, 140, 1, 2);
-
-      // Korean subtitle
-      drawText("- LUNAR PATROL -", 120, flr(ty) + 14, 2);
-
-      // Draw buggy on title
-      const bx = 133;
-      const by = 157;
-      spr(1, bx, by);
-      spr(1, bx + 8, by);
-      spr(3, bx + 6, by - 6);
-      spr(2, bx - 2, by + 6);
-      spr(2, bx + 10, by + 6);
-
-      // UFOs flying overhead
-      const u1x = (GrayBox.frame * 2) % (W + 40) - 20;
-      const u1y = 75 + sin(GrayBox.frame * 0.07) * 6;
-      spr(4, flr(u1x), flr(u1y));
-      const u2x = ((GrayBox.frame * 2) + 120) % (W + 40) - 20;
-      const u2y = 90 + sin(GrayBox.frame * 0.09 + 2) * 5;
-      spr(4, flr(u2x), flr(u2y));
-
-      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS START", 132, 195, 3);
-
-      // Score table
-      drawText("-HOW TO PLAY-", 127, 210, 2);
-      drawText("Z:JUMP  X:SHOOT  LR:SPEED", 95, 219, 2);
-
-      drawText("GRAYBOX DEMO V0.1", 118, 232, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-      for (const e of explosions) {
-        const sprId = e.timer > 6 ? 10 : 11;
-        sprTrans(sprId, flr(e.x), flr(e.y));
-      }
-
-      drawText("GAME OVER", 138, 75, 3);
-      drawText("SCORE: " + score, 130, 94, 2);
-      drawText("CHECKPOINT: " + String.fromCharCode(65 + min(checkpoint, 25)), 117, 106, 2);
-      drawText("DISTANCE: " + flr(distance), 117, 118, 1);
-      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS START", 132, 150, 3);
-      return;
-    }
-
-    // --- Play state rendering ---
-
+  function drawPlayScene() {
     // Parallax background: far mountains (scroll at 0.15x)
     const mScrollX = scrollX * 0.15;
     for (let x = 0; x < W; x++) {
       const wx = x + mScrollX;
       const mh = getMountainH(wx, mountainSeed);
       const baseY = 120 + mh;
-      for (let y = flr(baseY); y < 150; y++) {
-        if (y >= 0 && y < H) pix(x, y, 1);
-      }
+      for (let y = flr(baseY); y < 150; y++) { if (y >= 0 && y < H) pix(x, y, 1); }
     }
-
-    // Parallax: mid hills (scroll at 0.4x)
     const hScrollX = scrollX * 0.4;
     for (let x = 0; x < W; x++) {
       const wx = x + hScrollX;
       const hh = getHillH(wx, hillSeed);
       const baseY = 150 + hh;
-      for (let y = flr(baseY); y < 172; y++) {
-        if (y >= 0 && y < H) pix(x, y, 1);
-      }
+      for (let y = flr(baseY); y < 172; y++) { if (y >= 0 && y < H) pix(x, y, 1); }
     }
-
-    // Ground surface
     rectf(0, GROUND_Y, W, H - GROUND_Y, 1);
-
-    // Ground surface line
     for (let x = 0; x < W; x++) {
       const wx = x + scrollX;
       if (!isCrater(wx)) {
         pix(x, GROUND_Y, 2);
-        // Ground texture
         if ((wx + flr(sin(wx * 0.3) * 2)) % 7 === 0) pix(x, GROUND_Y + 1, 2);
         if (wx % 13 === 0) pix(x, GROUND_Y + 3, 0);
         if (wx % 19 === 0) pix(x, GROUND_Y + 5, 0);
       } else {
-        // Draw crater as a gap (black)
         for (let y = GROUND_Y; y < H; y++) pix(x, y, 0);
-        // Crater edge walls
         const craterObj = craters.find(c => wx >= c.x && wx < c.x + c.w);
         if (craterObj) {
-          if (wx === craterObj.x || wx === craterObj.x + craterObj.w - 1) {
-            for (let y = GROUND_Y; y < GROUND_Y + 22; y++) pix(x, y, 1);
-          }
-          // Crater bottom
+          if (wx === craterObj.x || wx === craterObj.x + craterObj.w - 1) { for (let y = GROUND_Y; y < GROUND_Y + 22; y++) pix(x, y, 1); }
           if (GROUND_Y + 21 < H) pix(x, GROUND_Y + 21, 1);
         }
       }
     }
-
-    // Draw rocks on ground
-    for (const r of groundRocks) {
-      if (!r.alive) continue;
-      const sx = r.x - scrollX;
-      if (sx > -10 && sx < W + 10) {
-        sprTrans(8, flr(sx), GROUND_Y - 7);
-      }
-    }
-
-    // Draw checkpoint markers
+    for (const r of groundRocks) { if (!r.alive) continue; const sx = r.x - scrollX; if (sx > -10 && sx < W + 10) sprTrans(8, flr(sx), GROUND_Y - 7); }
     for (let cp = 1; cp <= 26; cp++) {
       const cpx = cp * CHECKPOINT_DIST - scrollX;
-      if (cpx > -10 && cpx < W + 10) {
-        // Flag pole
-        line(flr(cpx), GROUND_Y - 20, flr(cpx), GROUND_Y, 2);
-        sprTrans(13, flr(cpx), GROUND_Y - 20);
-        // Letter
-        const letter = String.fromCharCode(64 + cp);
-        drawText(letter, flr(cpx) - 2, GROUND_Y + 3, 3);
-      }
+      if (cpx > -10 && cpx < W + 10) { line(flr(cpx), GROUND_Y - 20, flr(cpx), GROUND_Y, 2); sprTrans(13, flr(cpx), GROUND_Y - 20); drawText(String.fromCharCode(64 + cp), flr(cpx) - 2, GROUND_Y + 3, 3); }
     }
-
-    // Draw checkpoint progress bar at top
     const progressY = 14;
-    rectf(27, progressY, 266, 5, 0);
-    rect(27, progressY, 266, 5, 1);
-    // Mark checkpoints A-Z on bar
-    for (let i = 0; i < 26; i++) {
-      const px = 27 + flr(i * 266 / 26);
-      pix(px, progressY + 4, 2);
-      if (i <= checkpoint) {
-        rectf(27, progressY + 1, flr(min(checkpoint, 25) * 266 / 26), 3, 2);
-      }
-    }
-    // Current position marker
+    rectf(27, progressY, 266, 5, 0); rect(27, progressY, 266, 5, 1);
+    for (let i = 0; i < 26; i++) { const px = 27 + flr(i * 266 / 26); pix(px, progressY + 4, 2); if (i <= checkpoint) rectf(27, progressY + 1, flr(min(checkpoint, 25) * 266 / 26), 3, 2); }
     const posMarker = 27 + flr((distance % (26 * CHECKPOINT_DIST)) / (26 * CHECKPOINT_DIST) * 266);
     rectf(posMarker - 1, progressY - 1, 3, 7, 3);
-
-    // Progress letters
-    if (checkpoint > 0) {
-      drawText(String.fromCharCode(64 + min(checkpoint, 26)), 20, progressY - 1, 3);
-    }
+    if (checkpoint > 0) drawText(String.fromCharCode(64 + min(checkpoint, 26)), 20, progressY - 1, 3);
     const nextCp = min(checkpoint + 1, 26);
     drawText(String.fromCharCode(64 + nextCp), 297, progressY - 1, 2);
-
-    // Draw UFOs
-    for (const u of ufos) {
-      if (!u.alive) continue;
-      const sx = u.x - scrollX;
-      if (sx > -10 && sx < W + 10) {
-        sprTrans(4, flr(sx), flr(u.y));
-      }
-    }
-
-    // Draw bombs
-    for (const b of bombs) {
-      const sx = b.x - scrollX;
-      if (sx > -10 && sx < W + 10) {
-        sprTrans(7, flr(sx), flr(b.y));
-      }
-    }
-
-    // Draw bullets
-    for (const b of bullets) {
-      const sx = b.x - scrollX;
-      if (sx > -10 && sx < W + 10) {
-        const sprId = b.type === "fwd" ? 5 : 6;
-        sprTrans(sprId, flr(sx), flr(b.y));
-      }
-    }
-
-    // Draw buggy (blink when invincible)
+    for (const u of ufos) { if (!u.alive) continue; const sx = u.x - scrollX; if (sx > -10 && sx < W + 10) sprTrans(4, flr(sx), flr(u.y)); }
+    for (const b of bombs) { const sx = b.x - scrollX; if (sx > -10 && sx < W + 10) sprTrans(7, flr(sx), flr(b.y)); }
+    for (const b of bullets) { const sx = b.x - scrollX; if (sx > -10 && sx < W + 10) { const sprId = b.type === "fwd" ? 5 : 6; sprTrans(sprId, flr(sx), flr(b.y)); } }
     if (invincible <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
-      // Turret/antenna
       sprTrans(3, flr(buggy.x + 4), flr(buggy.y - 6));
-      // Body (two 8x8 sprites side by side for a 16-wide buggy)
-      spr(1, flr(buggy.x), flr(buggy.y));
-      spr(1, flr(buggy.x + 8), flr(buggy.y), true);
-
-      // Wheels (animated rotation via alternating sprites)
+      spr(1, flr(buggy.x), flr(buggy.y)); spr(1, flr(buggy.x + 8), flr(buggy.y), true);
       if (buggy.onGround) {
-        const wheelFrame = flr(buggy.wheelAnim) % 2;
-        spr(2, flr(buggy.x - 1), flr(buggy.y + 6));
-        spr(2, flr(buggy.x + 9), flr(buggy.y + 6));
-        // Dust particles when moving on ground
-        if (scrollSpeed > 1 && GrayBox.frame % 3 === 0) {
-          particles.push({
-            x: buggy.x - 2, y: GROUND_Y - 2,
-            vx: -rnd(2), vy: -rnd(1.5),
-            life: 5 + flr(rnd(5)),
-            color: 1
-          });
-        }
-      } else {
-        spr(2, flr(buggy.x - 1), flr(buggy.y + 6));
-        spr(2, flr(buggy.x + 9), flr(buggy.y + 6));
-      }
+        spr(2, flr(buggy.x - 1), flr(buggy.y + 6)); spr(2, flr(buggy.x + 9), flr(buggy.y + 6));
+        if (scrollSpeed > 1 && GrayBox.frame % 3 === 0) particles.push({ x: buggy.x - 2, y: GROUND_Y - 2, vx: -rnd(2), vy: -rnd(1.5), life: 5 + flr(rnd(5)), color: 1 });
+      } else { spr(2, flr(buggy.x - 1), flr(buggy.y + 6)); spr(2, flr(buggy.x + 9), flr(buggy.y + 6)); }
     }
-
-    // Explosions
-    for (const e of explosions) {
-      const sprId = e.timer > 6 ? 10 : 11;
-      sprTrans(sprId, flr(e.x), flr(e.y));
-    }
-
-    // Particles
+    for (const e of explosions) { const sprId = e.timer > 6 ? 10 : 11; sprTrans(sprId, flr(e.x), flr(e.y)); }
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-    // HUD
     rectf(0, 0, W, 12, 0);
     drawText("SCORE:" + score, 4, 3, 3);
     drawText("PT:" + String.fromCharCode(65 + min(checkpoint, 25)), W / 2 - 15, 3, 2);
-    // Lives
     for (let i = 0; i < lives; i++) sprTrans(12, W - 40 + i * 12, 1);
-
-    // Distance display
     drawText(flr(distance) + "M", W - 60, 3, 1);
-
-    // Checkpoint announcement
     if (checkpoint > 0 && distance - checkpoint * CHECKPOINT_DIST < 100) {
       const alpha = 1 - (distance - checkpoint * CHECKPOINT_DIST) / 100;
-      if (alpha > 0) {
-        drawText("CHECKPOINT " + String.fromCharCode(64 + min(checkpoint, 26)), 112, 30, 3);
-      }
+      if (alpha > 0) drawText("CHECKPOINT " + String.fromCharCode(64 + min(checkpoint, 26)), 112, 30, 3);
     }
-  };
+  }
 
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      if (btnp("a") || btnp("a")) {
+        resetGame();
+        note(0, "C5", 0.1); setTimeout(() => note(0, "E5", 0.1), 100); setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
+      }
+    },
+    draw() {
+      cls(0); drawStars();
+      for (let x = 0; x < W; x++) { const mh = getMountainH(x * 3, 42); const baseY = 135 + mh; for (let y = flr(baseY); y < 165; y++) { if (y >= 0 && y < H) pix(x, y, 1); } }
+      rectf(0, 165, W, 75, 1); line(0, 165, W, 165, 2);
+      const ty = 45 + sin(GrayBox.frame * 0.05) * 3;
+      drawText("MOON PATROL", 105, flr(ty), 3); drawText("MOON PATROL", 106, flr(ty) + 1, 1);
+      rectf(90, flr(ty) + 12, 140, 1, 2); drawText("- LUNAR PATROL -", 120, flr(ty) + 14, 2);
+      const bx = 133; const by = 157;
+      spr(1, bx, by); spr(1, bx + 8, by); spr(3, bx + 6, by - 6); spr(2, bx - 2, by + 6); spr(2, bx + 10, by + 6);
+      const u1x = (GrayBox.frame * 2) % (W + 40) - 20; const u1y = 75 + sin(GrayBox.frame * 0.07) * 6; spr(4, flr(u1x), flr(u1y));
+      const u2x = ((GrayBox.frame * 2) + 120) % (W + 40) - 20; const u2y = 90 + sin(GrayBox.frame * 0.09 + 2) * 5; spr(4, flr(u2x), flr(u2y));
+      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS START", 132, 195, 3);
+      drawText("-HOW TO PLAY-", 127, 210, 2); drawText("Z:JUMP  X:SHOOT  LR:SPEED", 95, 219, 2);
+      drawText("GRAYBOX DEMO V0.1", 118, 232, 1);
+    }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() { updatePlay(); },
+    draw() { cls(0); drawStars(); drawPlayScene(); }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      updateGameoverEffects();
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0); drawStars();
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      for (const e of explosions) { const sprId = e.timer > 6 ? 10 : 11; sprTrans(sprId, flr(e.x), flr(e.y)); }
+      drawText("GAME OVER", 138, 75, 3); drawText("SCORE: " + score, 130, 94, 2);
+      drawText("CHECKPOINT: " + String.fromCharCode(65 + min(checkpoint, 25)), 117, 106, 2);
+      drawText("DISTANCE: " + flr(distance), 117, 118, 1);
+      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS START", 132, 150, 3);
+    }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

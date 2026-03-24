@@ -245,8 +245,9 @@
     { name: "2001", label: "2001 UFOS",       enemySpr: 6, bgCol: 0, killReq: 35, eSpeed: 2.4, eShootRate: 35, bossHP: 16 },
   ];
 
-  // --- Game state ---
-  let state = "title";
+  // --- Scenes ---
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+
   let player, bullets, eBullets, enemies, explosions, particles, clouds, parachutists;
   let score, lives, era, killCount, bossActive, boss;
   let shootCooldown, invTimer, camX, camY;
@@ -393,34 +394,52 @@
     setTimeout(() => { note(0, "C6", 0.2); note(1, "E6", 0.2); }, 300);
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); titleAngle = 0; },
+    update() {
       titleAngle += 0.02;
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        invTimer = 60;
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      const bgCol = 0; cls(bgCol);
+      drawTitle();
     }
+  });
 
-    if (state === "gameover") {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--; if (p.life <= 0) particles.splice(i, 1); }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      const bgCol = 0; cls(bgCol);
+      drawGameOver();
     }
+  });
 
+  function playerDeath() {
+    addExplosion(player.x - 4, player.y - 4, true);
+    sfxDeath();
+    lives--;
+    invTimer = 90;
+    player.speed = 0;
+    if (lives <= 0) {
+      GrayBox.go(GAMEOVER);
+    }
+  }
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); invTimer = 60; },
+    update() {
     // --- Era transition ---
     if (eraTransition) {
       eraTransTimer--;
@@ -707,36 +726,11 @@
       p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
-  };
-
-  function playerDeath() {
-    addExplosion(player.x - 4, player.y - 4, true);
-    sfxDeath();
-    lives--;
-    invTimer = 90;
-    player.speed = 0;
-    if (lives <= 0) {
-      state = "gameover";
-    }
-  }
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+    },
+    draw() {
     // Background color based on era
     const bgCol = era === 4 ? 0 : 0;
     cls(bgCol);
-
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
-      drawGameOver();
-      return;
-    }
 
     // --- Draw clouds (parallax) ---
     for (const c of clouds) {
@@ -865,7 +859,8 @@
         rectf(13, H/2 + 9, barW, 3, 2);
       }
     }
-  };
+    }
+  });
 
   function drawHUD() {
     // Top bar
@@ -963,6 +958,7 @@
     }
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -322,7 +322,7 @@
   );
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
   let player, bullets, eBullets, enemies, explosions, particles;
   let powerups, wingmen;
   let score, lives, stage, loops;
@@ -557,50 +557,39 @@
     player.y = H - 30;
     invincTimer = 60;
     if (lives <= 0) {
-      state = "gameover";
       if (score > hiScore) hiScore = score;
+      GrayBox.go(GAMEOVER);
+      return;
     }
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    // Scroll terrain always
-    scrollY += 0.5;
-    scrollY2 += 0.25;
-
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); },
+    update() {
+      scrollY += 0.5;
+      scrollY2 += 0.25;
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
+        GrayBox.go(PLAY);
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      drawTerrain();
+      drawTitle();
     }
+  });
 
-    if (state === "gameover") {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
-
-    if (state === "stageclear") {
-      stageMsgTimer--;
-      if (stageMsgTimer <= 0) {
-        state = "play";
-        startStage();
-      }
-      return;
-    }
-
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
+    // Scroll terrain always
+    scrollY += 0.5;
+    scrollY2 += 0.25;
     // --- Play state ---
     stageTimer++;
     if (stageMsgTimer > 0) stageMsgTimer--;
@@ -851,14 +840,14 @@
           stageClearSound();
           score += stage * 1000; // stage clear bonus
           if (stage >= 8) {
-            state = "gameover";
             stageMsg = "CONGRATULATIONS!";
             stageMsgTimer = 0;
             if (score > hiScore) hiScore = score;
+            GrayBox.go(GAMEOVER);
           } else {
-            state = "stageclear";
             stageMsg = "STAGE " + stage + " CLEAR!";
             stageMsgTimer = 120;
+            GrayBox.go(CLEAR);
           }
         }
       }
@@ -923,38 +912,54 @@
       p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    // Scrolling ocean/island terrain
-    drawTerrain();
-
-    if (state === "title") {
-      drawTitle();
-      return;
+    },
+    draw() {
+      cls(0);
+      drawTerrain();
+      drawPlay();
     }
+  });
 
-    if (state === "gameover") {
-      drawGameOver();
-      return;
-    }
-
-    if (state === "stageclear") {
+  // --- Stage Clear Scene ---
+  GrayBox.scene(CLEAR, {
+    init() {},
+    update() {
+      scrollY += 0.5;
+      scrollY2 += 0.25;
+      stageMsgTimer--;
+      if (stageMsgTimer <= 0) {
+        GrayBox.go(PLAY);
+      }
+    },
+    draw() {
+      cls(0);
+      drawTerrain();
       drawPlay();
       rectf(W / 2 - 57, 96, 114, 33, 0);
       rect(W / 2 - 57, 96, 114, 33, 2);
       text(stageMsg, (320 - stageMsg.length * 5) / 2, 105, 3);
       text("BONUS: " + (stage * 1000), (320 - ("BONUS: " + (stage * 1000)).length * 5) / 2, 117, 2);
-      return;
     }
+  });
 
-    drawPlay();
-  };
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      scrollY += 0.5;
+      scrollY2 += 0.25;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) GrayBox.go(TITLE);
+    },
+    draw() {
+      cls(0);
+      drawTerrain();
+      drawGameOver();
+    }
+  });
 
   function drawTerrain() {
     // Parallax layer 1 - distant ocean waves
@@ -1156,6 +1161,7 @@
     if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS Z TO CONTINUE", (320 - 20 * 5) / 2, 165, 3);
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

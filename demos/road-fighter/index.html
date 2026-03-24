@@ -206,7 +206,7 @@
   const CHECKPOINT_DIST = 3000;  // distance per stage
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, traffic, oilSlicks, fuelItems, explosions, particles;
   let score, lives, speed, fuel, distance, stage;
   let roadCurve, roadCurveTarget, roadCurveTimer;
@@ -312,35 +312,64 @@
     fuelItems.push({ x: x, y: -12 });
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { titleCarY = 0; },
+    update() {
       titleCarY = (titleCarY || 0) + 1;
       if (titleCarY > H + 20) titleCarY = -20;
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         speed = 2;
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
-
-    if (state === "gameover") {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
+    },
+    draw() {
+      cls(0);
+      // Draw road lines for ambiance
+      rectf(0, 0, W, H, 0);
+      for (let y = 0; y < H; y++) {
+        const edges = getRoadEdges(y);
+        const left = flr(edges.left);
+        const right = flr(edges.right);
+        for (let x = _max(0, left); x < min(W, right); x++) {
+          buf32[y * W + x] = COLOR_U32[0];
+        }
+        if (left >= 0 && left < W) buf32[y * W + left] = COLOR_U32[1];
+        if (right - 1 >= 0 && right - 1 < W) buf32[y * W + right - 1] = COLOR_U32[1];
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
 
+      const ty = 38 + sin(GrayBox.frame * 0.04) * 4;
+      text("ROAD FIGHTER", 130, flr(ty), 3);
+      text("ROAD FIGHTER", 131, flr(ty) + 1, 1);
+      rectf(107, flr(ty) + 12, 107, 1, 2);
+
+      const carY1 = ((titleCarY || 0) * 2) % (H + 40) - 20;
+      const carY2 = ((titleCarY || 0) * 2 + 120) % (H + 40) - 20;
+      const carY3 = ((titleCarY || 0) * 2 + 240) % (H + 40) - 20;
+      spr(1, W / 2 - 4, flr(ty) + 24 + sin(GrayBox.frame * 0.1) * 2);
+      spr(2, W / 2 - 20, carY1);
+      spr(3, W / 2 + 16, carY2);
+      spr(4, W / 2 - 13, carY3);
+
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 132, 135, 3);
+      text("STEER TO AVOID TRAFFIC", 105, 158, 2);
+      text("COLLECT FUEL TO SURVIVE", 102, 166, 2);
+      text("REACH CHECKPOINTS", 117, 176, 2);
+      text("-SCORING-", 137, 195, 2);
+      spr(6, 125, 204); text("  FUEL    +100", 132, 206, 2);
+      spr(2, 125, 214); text("  CRASH    +50", 132, 216, 2);
+      text("GRAYBOX DEMO V0.1", 117, 229, 1);
+    }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); speed = 2; },
+    update() {
     // --- Play state ---
 
     // Invincibility timer
@@ -409,9 +438,9 @@
       speed *= 0.97;
       if (speed < 0.3) {
         // Out of fuel = game over
-        state = "gameover";
         addExplosion(player.x, player.y);
         crashSound();
+        GrayBox.go(GAMEOVER); return;
       }
     }
 
@@ -427,7 +456,7 @@
         player.x = playerEdges.center - 4;
         invincibleTimer = 60;
         if (lives <= 0) {
-          state = "gameover";
+          GrayBox.go(GAMEOVER); return;
         }
       }
     }
@@ -554,12 +583,8 @@
       p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
 
     // --- Draw road ---
@@ -609,66 +634,6 @@
           if (sx >= 0 && sx < W) buf32[y * W + sx] = COLOR_U32[1];
         }
       }
-    }
-
-    // --- Title screen ---
-    if (state === "title") {
-      // Darken the road a bit
-      rectf(0, 0, W, H, 0);
-      // Redraw some road lines for ambiance
-      for (let y = 0; y < H; y++) {
-        const edges = getRoadEdges(y);
-        const left = flr(edges.left);
-        const right = flr(edges.right);
-        for (let x = _max(0, left); x < min(W, right); x++) {
-          buf32[y * W + x] = COLOR_U32[0];
-        }
-        if (left >= 0 && left < W) buf32[y * W + left] = COLOR_U32[1];
-        if (right - 1 >= 0 && right - 1 < W) buf32[y * W + right - 1] = COLOR_U32[1];
-      }
-
-      const ty = 38 + sin(GrayBox.frame * 0.04) * 4;
-
-      // Title text with shadow
-      text("ROAD FIGHTER", 130, flr(ty), 3);
-      text("ROAD FIGHTER", 131, flr(ty) + 1, 1);
-
-      rectf(107, flr(ty) + 12, 107, 1, 2);
-
-      // Animated cars on title
-      const carY1 = ((titleCarY || 0) * 2) % (H + 40) - 20;
-      const carY2 = ((titleCarY || 0) * 2 + 120) % (H + 40) - 20;
-      const carY3 = ((titleCarY || 0) * 2 + 240) % (H + 40) - 20;
-      spr(1, W / 2 - 4, flr(ty) + 24 + sin(GrayBox.frame * 0.1) * 2);
-      spr(2, W / 2 - 20, carY1);
-      spr(3, W / 2 + 16, carY2);
-      spr(4, W / 2 - 13, carY3);
-
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 132, 135, 3);
-
-      // Instructions
-      text("STEER TO AVOID TRAFFIC", 105, 158, 2);
-      text("COLLECT FUEL TO SURVIVE", 102, 166, 2);
-      text("REACH CHECKPOINTS", 117, 176, 2);
-
-      // Score table
-      text("-SCORING-", 137, 195, 2);
-      spr(6, 125, 204); text("  FUEL    +100", 132, 206, 2);
-      spr(2, 125, 214); text("  CRASH    +50", 132, 216, 2);
-
-      text("GRAYBOX DEMO V0.1", 117, 229, 1);
-      return;
-    }
-
-    // --- Game over ---
-    if (state === "gameover") {
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-      text("GAME OVER", 137, 75, 3);
-      text("DISTANCE: " + score, 120, 98, 2);
-      text("STAGE: " + stage, 137, 109, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 132, 150, 3);
-      return;
     }
 
     // --- Play state rendering ---
@@ -774,8 +739,30 @@
         line(rx, ly, rx, ly + len, 1);
       }
     }
-  };
+    }
+  });
 
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      text("GAME OVER", 137, 75, 3);
+      text("DISTANCE: " + score, 120, 98, 2);
+      text("STAGE: " + stage, 137, 109, 2);
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 132, 150, 3);
+    }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -297,7 +297,7 @@
   const TOTAL_STAGES = 8;
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
   let player, platforms, enemies, bonusItems, particles, snowflakes;
   let score, lives, stage, cameraY, targetCameraY;
   let deathTimer, stageCompleteTimer, bonusTimer;
@@ -504,69 +504,78 @@
     }
   }
 
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
+  function updateSnow() {
     titleBounce = sin(GrayBox.frame * 0.06) * 4;
-
-    // Update snowflakes
     for (const s of snowflakes) {
       s.y += s.speed;
       s.x += sin(s.drift + GrayBox.frame * 0.03) * 0.3;
-      if (s.y > cameraY + H + 10) {
-        s.y = cameraY - 10;
-        s.x = rnd(W);
-      }
+      if (s.y > cameraY + H + 10) { s.y = cameraY - 10; s.x = rnd(W); }
     }
+  }
+  function updateParts() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
 
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); },
+    update() {
+      updateSnow();
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
+    },
+    draw() { drawTitleScene(); }
+  });
 
-    if (state === "gameover") {
-      // Update particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      updateSnow();
+      updateParts();
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOverScene(); }
+  });
 
-    if (state === "stageclear") {
+  // --- Stage Clear Scene ---
+  GrayBox.scene(CLEAR, {
+    init() {},
+    update() {
+      updateSnow();
       stageCompleteTimer--;
       if (bonusStage) {
         bonusTimer--;
-        if (bonusTimer <= 0) {
-          bonusStage = false;
-          stageCompleteTimer = 0;
-        }
+        if (bonusTimer <= 0) { bonusStage = false; stageCompleteTimer = 0; }
       }
       if (stageCompleteTimer <= 0 && !bonusStage) {
         stage++;
         if (stage > TOTAL_STAGES) {
-          state = "gameover"; // victory
           stageCompleteTimer = 999;
+          GrayBox.go(GAMEOVER); return;
         } else {
-          state = "play";
           startStage();
+          GrayBox.go(PLAY); return;
         }
       }
-      // Update particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      return;
-    }
+      updateParts();
+    },
+    draw() { drawStageClearScene(); }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
+    updateSnow();
 
     // --- Play state ---
 
@@ -580,7 +589,7 @@
       }
       if (deathTimer <= 0) {
         if (lives <= 0) {
-          state = "gameover";
+          GrayBox.go(GAMEOVER); return;
         } else {
           // Respawn at a safe platform near where they died
           player.x = W / 2 - 4;
@@ -618,8 +627,8 @@
       }
       if (bonusTimer <= 0 || bonusItems.every(b => b.collected)) {
         bonusStage = false;
-        state = "stageclear";
         stageCompleteTimer = 90;
+        GrayBox.go(CLEAR); return;
         stageClearSound();
       }
     }
@@ -759,7 +768,7 @@
 
     // Check if player reached summit
     const summitY = stageBottomY - (LAYERS_PER_STAGE + 1) * LAYER_H;
-    if (player.y < summitY + 8 && !bonusStage && state === "play") {
+    if (player.y < summitY + 8 && !bonusStage) {
       if (stageCompleteTimer === 0) {
         startBonusStage();
         stageClearSound();
@@ -825,15 +834,12 @@
 
     // Flash timer
     if (flashTimer > 0) flashTimer--;
-  };
+    },
+    draw() { drawPlayScene(); }
+  });
 
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+  function drawTitleScene() {
     cls(0);
-
-    if (state === "title") {
       // Mountain background
       drawMountainBg(0);
 
@@ -872,10 +878,10 @@
 
       text(TOTAL_STAGES + " MOUNTAINS TO CONQUER", 105, 211, 1);
       text("GRAYBOX DEMO V0.1", 118, 229, 1);
-      return;
-    }
+  }
 
-    if (state === "gameover") {
+  function drawGameOverScene() {
+    cls(0);
       drawMountainBg(0);
 
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
@@ -892,8 +898,12 @@
         text("MOUNTAIN: " + stage, 130, 120, 2);
       }
       if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 113, 165, 3);
-      return;
-    }
+  }
+
+  function drawStageClearScene() { drawPlayScene(); }
+
+  function drawPlayScene() {
+    cls(0);
 
     // --- Play / Stage Clear rendering ---
 
@@ -1027,7 +1037,7 @@
     for (let i = 0; i < lives; i++) sprAlpha(13, W - 40 + i * 10, 3);
 
     // Height indicator on right side
-    if (state === "play" || state === "stageclear") {
+    {
       const barX = W - 10;
       const barTop = 20;
       const barH = H - 30;
@@ -1043,7 +1053,7 @@
     }
 
     // Stage announcement
-    if (state === "play" && GrayBox.frame < 90) {
+    if (GrayBox.frame < 90) {
       const msgAlpha = GrayBox.frame < 60 ? 3 : (GrayBox.frame < 75 ? 2 : 1);
       text("MOUNTAIN " + stage, 133, 105, msgAlpha);
       text("START!", 145, 119, msgAlpha);
@@ -1057,14 +1067,14 @@
     }
 
     // Stage clear
-    if (state === "stageclear") {
+    if (stageCompleteTimer > 0) {
       text("STAGE CLEAR!", 130, 98, 3);
       text("BONUS: " + bonusScore, 130, 113, 2);
       if (stageCompleteTimer < 60 && flr(GrayBox.frame / 15) % 2 === 0) {
         text("NEXT MOUNTAIN...", 120, 135, 2);
       }
     }
-  };
+  }
 
   function drawMountainBg(offsetY) {
     // Simple mountain silhouette background for title/gameover
@@ -1091,6 +1101,7 @@
     }
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

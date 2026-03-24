@@ -318,7 +318,7 @@
   const SHIP_SPR = [1, 19, 2, 21, 3, 22, 4, 20];
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
   let player, bullets, eBullets, enemies, stations, mines, explosions, particles, stars;
   let score, lives, round, camX, camY;
   let shootCooldown, invTimer, respawnTimer;
@@ -485,53 +485,50 @@
     return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    titleBlink++;
-
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); },
+    update() {
+      titleBlink++;
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         invTimer = 60;
+        GrayBox.go(PLAY);
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
       }
-      return;
-    }
-
-    if (state === "gameover") {
-      // update particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
+    },
+    draw() {
+      cls(0);
+      for (const s of stars) { pix(s.x % W, s.y % H, s.bright); }
+      text("BOSCONIAN", W / 2 - 22, 52, 3);
+      text("SPACE PATROL", W / 2 - 30, 64, 2);
+      if (flr(titleBlink / 20) % 2 === 0) text("PRESS START", W / 2 - 27, 120, 3);
+      text("ARROWS  MOVE", W / 2 - 30, 157, 1);
+      text("Z  SHOOT FRONT+BACK", W / 2 - 50, 167, 1);
+      text("DESTROY ALL STATIONS", W / 2 - 50, 187, 2);
+      const cx = W / 2, cy = 98;
+      spr(6, cx - 4, cy - 4);
+      for (let p = 0; p < 6; p++) {
+        const a = p * Math.PI / 3;
+        spr(7, cx + Math.cos(a) * 16 - 4, cy + Math.sin(a) * 16 - 4);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
     }
+  });
 
-    if (state === "roundclear") {
-      condTimer++;
-      if (condTimer > 90) {
-        spawnRound();
-        invTimer = 60;
-        state = "play";
-      }
-      return;
-    }
-
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
+    titleBlink++;
     // === Play state ===
 
     if (respawnTimer > 0) {
       respawnTimer--;
       if (respawnTimer === 0) {
         if (lives <= 0) {
-          state = "gameover";
+          GrayBox.go(GAMEOVER);
           return;
         }
         player.x = wrap(camX, WORLD_W);
@@ -828,68 +825,57 @@
 
     // Check round clear
     if (stations.every(s => !s.alive)) {
-      state = "roundclear";
       condTimer = 0;
       roundClearSound();
+      GrayBox.go(CLEAR);
     }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    if (state === "title") {
-      // Starfield
-      for (const s of stars) {
-        const sx = s.x % W;
-        const sy = s.y % H;
-        pix(sx, sy, s.bright);
-      }
-
-      // Title
-      text("BOSCONIAN", W / 2 - 22, 52, 3);
-      text("SPACE PATROL", W / 2 - 30, 64, 2);
-
-      if (flr(titleBlink / 20) % 2 === 0) {
-        text("PRESS START", W / 2 - 27, 120, 3);
-      }
-
-      text("ARROWS  MOVE", W / 2 - 30, 157, 1);
-      text("Z  SHOOT FRONT+BACK", W / 2 - 50, 167, 1);
-      text("DESTROY ALL STATIONS", W / 2 - 50, 187, 2);
-
-      // Draw a sample station on title
-      const cx = W / 2;
-      const cy = 98;
-      spr(6, cx - 4, cy - 4);
-      for (let p = 0; p < 6; p++) {
-        const a = p * Math.PI / 3;
-        const px = cx + Math.cos(a) * 16 - 4;
-        const py = cy + Math.sin(a) * 16 - 4;
-        spr(7, px, py);
-      }
-      return;
+    },
+    draw() {
+      cls(0);
+      drawPlayView(false);
     }
+  });
 
-    if (state === "gameover") {
-      for (const s of stars) {
-        const sx = s.x % W;
-        const sy = s.y % H;
-        pix(sx, sy, s.bright);
+  // --- Round Clear Scene ---
+  GrayBox.scene(CLEAR, {
+    init() { condTimer = 0; },
+    update() {
+      titleBlink++;
+      condTimer++;
+      if (condTimer > 90) {
+        spawnRound();
+        invTimer = 60;
+        GrayBox.go(PLAY);
       }
-      for (const p of particles) {
-        pix(p.x % W, p.y % H, p.color);
+    },
+    draw() {
+      cls(0);
+      drawPlayView(true);
+    }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      titleBlink++;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
       }
+      if (btnp("a") || btnp("a")) GrayBox.go(TITLE);
+    },
+    draw() {
+      cls(0);
+      for (const s of stars) { pix(s.x % W, s.y % H, s.bright); }
+      for (const p of particles) { pix(p.x % W, p.y % H, p.color); }
       text("GAME OVER", W / 2 - 22, 98, 3);
       text("SCORE " + score, W / 2 - 33, 116, 2);
-      if (flr(titleBlink / 20) % 2 === 0) {
-        text("PRESS START", W / 2 - 27, 142, 3);
-      }
-      return;
+      if (flr(titleBlink / 20) % 2 === 0) text("PRESS START", W / 2 - 27, 142, 3);
     }
+  });
 
+  function drawPlayView(showClearOverlay) {
     // --- Draw play / roundclear ---
 
     // Draw stars (parallax in world)
@@ -1057,7 +1043,7 @@
     }
 
     // Round clear message
-    if (state === "roundclear") {
+    if (showClearOverlay) {
       rectf(W / 2 - 53, H / 2 - 12, 107, 24, 0);
       rect(W / 2 - 53, H / 2 - 12, 107, 24, 2);
       text("ROUND CLEAR!", W / 2 - 30, H / 2 - 4, 3);
@@ -1065,7 +1051,7 @@
     }
 
     // Direction arrows on edge of screen pointing to nearest station
-    if (state === "play") {
+    if (!showClearOverlay) {
       let nearest = null;
       let nearDist = Infinity;
       for (const st of stations) {
@@ -1095,8 +1081,9 @@
         }
       }
     }
-  };
+  }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

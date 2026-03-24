@@ -562,7 +562,7 @@
   // ============================================================
   // Game State
   // ============================================================
-  let state = "title";
+  const { TITLE, PLAY, CLEAR, WIN, GAMEOVER } = GrayBox.SCENE;
   let player, bullets, eBullets, enemies, explosions, particles;
   let score, lives, stage, level;
   let camX, scrollSpeed, autoScroll;
@@ -738,46 +738,126 @@
   // ============================================================
   resetGame();
 
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Scenes ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "G5", 0.12), 100);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      // Sky gradient
+      for (let y = 0; y < 90; y++) {
+        const c = y < 30 ? 0 : y < 60 ? 0 : 0;
+      }
+      for (let x = 0; x < W; x += 2) {
+        const h1 = 45 + sin(x * 0.01 + 1) * 23 + sin(x * 0.025) * 11;
+        const h2 = 60 + sin(x * 0.015 + 3) * 19 + sin(x * 0.04) * 8;
+        for (let y = flr(150 - h1); y < 150; y++) pix(x, y, 1);
+        for (let y = flr(150 - h1); y < 150; y++) pix(x + 1, y, 1);
+        for (let y = flr(165 - h2); y < 165; y++) { pix(x, y, 1); pix(x + 1, y, 1); }
+      }
+      rectf(0, 165, W, 75, 1);
+      rectf(0, 163, W, 2, 2);
+      const ty = 38 + sin(GrayBox.frame * 0.04) * 3;
+      text("CONTRA", 145, flr(ty), 3);
+      text("CONTRA", 146, flr(ty) + 1, 1);
+      rectf(132, flr(ty) + 10, 56, 2, 2);
+      text("GRAYBOX EDITION", 122, flr(ty) + 16, 2);
+      const pFrame = flr(GrayBox.frame / 6) % 2 === 0 ? 2 : 3;
+      sprT(pFrame, 133 + sin(GrayBox.frame * 0.06) * 3, 120 + sin(GrayBox.frame * 0.1) * 2);
+      sprT(10, 173, 122);
+      sprT(12, 193, 123);
+      if (flr(GrayBox.frame / 18) % 2 === 0) text("PRESS START", 132, 98, 3);
+      text("Z:JUMP  X:SHOOT  ARROWS:MOVE/AIM", 77, 210, 2);
+      text("ONE HIT DEATH - 3 LIVES", 100, 219, 1);
+      text("GRAYBOX DEMO V0.1", 117, 231, 1);
     }
+  });
 
-    if (state === "gameover") {
-      // Particles
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      rectf(0, 0, W, H, 0);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      text("GAME OVER", 137, 83, 3);
+      text("SCORE: " + score, 127, 101, 2);
+      text("STAGE: " + stage, 140, 113, 2);
+      if (flr(GrayBox.frame / 18) % 2 === 0) text("PRESS START", 132, 150, 3);
     }
+  });
 
-    if (state === "stageclear") {
+  GrayBox.scene(CLEAR, {
+    init() { stageClearTimer = 0; },
+    update() {
       stageClearTimer++;
       if (stageClearTimer > 120) {
         stage++;
         if (stage > 3) {
-          state = "win";
+          GrayBox.go(WIN); return;
         } else {
           startStage(stage);
-          state = "play";
+          GrayBox.go(PLAY); return;
         }
       }
-      return;
+      // Update explosions/particles in stage clear
+      for (let i = explosions.length - 1; i >= 0; i--) {
+        explosions[i].timer--;
+        if (explosions[i].timer <= 0) explosions.splice(i, 1);
+      }
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    },
+    draw() {
+      cls(0);
+      rectf(0, 0, W, H, 0);
+      text("STAGE " + stage + " CLEAR!", 125, 98, 3);
+      text("SCORE: " + score, 127, 120, 2);
+      if (stageClearTimer < 60 && stageClearTimer % 8 === 0) {
+        addExplosion(67 + rnd(187), 38 + rnd(150), true);
+      }
+      for (const e of explosions) {
+        const sid = e.timer > 5 ? 20 : 21;
+        sprT(sid, flr(e.x - camX), flr(e.y));
+      }
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
     }
+  });
 
-    if (state === "win") {
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+  GrayBox.scene(WIN, {
+    init() {},
+    update() {
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      rectf(0, 0, W, H, 0);
+      text("MISSION COMPLETE!", 117, 75, 3);
+      text("FINAL SCORE: " + score, 115, 98, 2);
+      text("YOU SAVED THE WORLD!", 110, 116, 2);
+      sprT(1, 153, 135 + sin(GrayBox.frame * 0.08) * 3);
+      if (flr(GrayBox.frame / 18) % 2 === 0) text("PRESS START", 132, 173, 3);
+      text("GRAYBOX DEMO V0.1", 117, 231, 1);
     }
+  });
 
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
     // ---- PLAY STATE ----
 
     if (player.dead) {
@@ -794,7 +874,7 @@
       if (deathTimer > 60) {
         lives--;
         if (lives <= 0) {
-          state = "gameover";
+          GrayBox.go(GAMEOVER); return;
         } else {
           player.dead = false;
           player.x = camX + 27;
@@ -1110,8 +1190,7 @@
               }
               score += 2000 + stage * 1000;
               sfxStageClear();
-              state = "stageclear";
-              stageClearTimer = 0;
+              GrayBox.go(CLEAR); return;
             }
             break;
           }
@@ -1147,7 +1226,9 @@
       p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
-  };
+    },
+    draw() { drawPlayState(); }
+  });
 
   function killPlayer() {
     if (player.dead) return;
@@ -1159,105 +1240,10 @@
   }
 
   // ============================================================
-  // Draw
+  // Play Draw
   // ============================================================
-  GrayBox._draw = function() {
+  function drawPlayState() {
     cls(0);
-
-    if (state === "title") {
-      // Sky gradient
-      for (let y = 0; y < 90; y++) {
-        const c = y < 30 ? 0 : y < 60 ? 0 : 0;
-        // just dark
-      }
-
-      // Mountains in background
-      for (let x = 0; x < W; x += 2) {
-        const h1 = 45 + sin(x * 0.01 + 1) * 23 + sin(x * 0.025) * 11;
-        const h2 = 60 + sin(x * 0.015 + 3) * 19 + sin(x * 0.04) * 8;
-        for (let y = flr(150 - h1); y < 150; y++) pix(x, y, 1);
-        for (let y = flr(150 - h1); y < 150; y++) pix(x + 1, y, 1);
-        for (let y = flr(165 - h2); y < 165; y++) { pix(x, y, 1); pix(x + 1, y, 1); }
-      }
-
-      // Ground
-      rectf(0, 165, W, 75, 1);
-      rectf(0, 163, W, 2, 2);
-
-      // Title
-      const ty = 38 + sin(GrayBox.frame * 0.04) * 3;
-      // Big CONTRA text
-      text("CONTRA", 145, flr(ty), 3);
-      // Shadow
-      text("CONTRA", 146, flr(ty) + 1, 1);
-      // Underline
-      rectf(132, flr(ty) + 10, 56, 2, 2);
-      text("GRAYBOX EDITION", 122, flr(ty) + 16, 2);
-
-      // Animated player sprite on title
-      const pFrame = flr(GrayBox.frame / 6) % 2 === 0 ? 2 : 3;
-      sprT(pFrame, 133 + sin(GrayBox.frame * 0.06) * 3, 120 + sin(GrayBox.frame * 0.1) * 2);
-      sprT(10, 173, 122);
-      sprT(12, 193, 123);
-
-      // Blink text
-      if (flr(GrayBox.frame / 18) % 2 === 0) {
-        text("PRESS START", 132, 98, 3);
-      }
-
-      // Controls info
-      text("Z:JUMP  X:SHOOT  ARROWS:MOVE/AIM", 77, 210, 2);
-      text("ONE HIT DEATH - 3 LIVES", 100, 219, 1);
-      text("GRAYBOX DEMO V0.1", 117, 231, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      rectf(0, 0, W, H, 0);
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-      text("GAME OVER", 137, 83, 3);
-      text("SCORE: " + score, 127, 101, 2);
-      text("STAGE: " + stage, 140, 113, 2);
-      if (flr(GrayBox.frame / 18) % 2 === 0) text("PRESS START", 132, 150, 3);
-      return;
-    }
-
-    if (state === "win") {
-      rectf(0, 0, W, H, 0);
-      text("MISSION COMPLETE!", 117, 75, 3);
-      text("FINAL SCORE: " + score, 115, 98, 2);
-      text("YOU SAVED THE WORLD!", 110, 116, 2);
-      // Victory animation
-      sprT(1, 153, 135 + sin(GrayBox.frame * 0.08) * 3);
-      if (flr(GrayBox.frame / 18) % 2 === 0) text("PRESS START", 132, 173, 3);
-      text("GRAYBOX DEMO V0.1", 117, 231, 1);
-      return;
-    }
-
-    if (state === "stageclear") {
-      rectf(0, 0, W, H, 0);
-      text("STAGE " + stage + " CLEAR!", 125, 98, 3);
-      text("SCORE: " + score, 127, 120, 2);
-      // Explosion particles
-      if (stageClearTimer < 60 && stageClearTimer % 8 === 0) {
-        addExplosion(67 + rnd(187), 38 + rnd(150), true);
-      }
-      for (const e of explosions) {
-        const sid = e.timer > 5 ? 20 : 21;
-        sprT(sid, flr(e.x - camX), flr(e.y));
-      }
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-      // Update them
-      for (let i = explosions.length - 1; i >= 0; i--) {
-        explosions[i].timer--;
-        if (explosions[i].timer <= 0) explosions.splice(i, 1);
-      }
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      return;
-    }
 
     // ---- PLAY STATE RENDERING ----
 
@@ -1442,10 +1428,11 @@
         text("GET READY!", 135, 124, 2);
       }
     }
-  };
+  }
 
   // ============================================================
   // Boot
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

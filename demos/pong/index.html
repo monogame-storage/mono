@@ -70,7 +70,7 @@
   const AI_ERROR = 9;            // max pixels of imperfection
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let playerY, aiY, ballX, ballY, ballVX, ballVY;
   let playerScore, aiScore;
   let serveTimer, serveDir;
@@ -136,211 +136,214 @@
     setTimeout(() => note(0, "A2", 0.25), 300);
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    titleBlink = (GrayBox.frame % 40) < 28;
-
-    // --- Title ---
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      titleBlink = (GrayBox.frame % 40) < 28;
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         note(0, "C5", 0.08);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
-
-    // --- Game Over ---
-    if (state === "gameover") {
-      if (btnp("a") || btnp("a")) {
-        state = "title";
-      }
-      return;
-    }
-
-    // --- Play state ---
-
-    // Serve timer countdown
-    if (serveTimer > 0) {
-      serveTimer--;
-      return;
-    }
-
-    // Player paddle movement
-    if (btn("up")) playerY -= PADDLE_SPEED;
-    if (btn("down")) playerY += PADDLE_SPEED;
-    playerY = _max(COURT_TOP, min(COURT_BOTTOM - PADDLE_H, playerY));
-
-    // AI paddle movement with imperfection
-    aiUpdateTimer--;
-    if (aiUpdateTimer <= 0) {
-      // Recalculate AI target periodically
-      if (ballVX > 0) {
-        // Ball moving toward AI
-        const predicted = predictBallY(W - PADDLE_MARGIN - PADDLE_W);
-        aiTarget = predicted + (rnd(AI_ERROR * 2) - AI_ERROR);
-      } else {
-        // Ball moving away, drift toward center
-        aiTarget = H / 2 + (rnd(22) - 11);
-      }
-      aiUpdateTimer = 8 + flr(rnd(6));  // recalculate every 8-14 frames
-    }
-
-    const aiCenter = aiY + PADDLE_H / 2;
-    const aiDiff = aiTarget - aiCenter;
-    if (_abs(aiDiff) > 2) {
-      const move = min(_abs(aiDiff), AI_REACTION_SPEED) * (aiDiff > 0 ? 1 : -1);
-      aiY += move;
-    }
-    aiY = _max(COURT_TOP, min(COURT_BOTTOM - PADDLE_H, aiY));
-
-    // Ball movement
-    ballX += ballVX;
-    ballY += ballVY;
-
-    // Top/bottom wall bounce
-    if (ballY < COURT_TOP) {
-      ballY = COURT_TOP;
-      ballVY = -ballVY;
-      wallBounceSound();
-    }
-    if (ballY + BALL_SIZE > COURT_BOTTOM) {
-      ballY = COURT_BOTTOM - BALL_SIZE;
-      ballVY = -ballVY;
-      wallBounceSound();
-    }
-
-    // Player paddle collision (left side)
-    const pPaddleX = PADDLE_MARGIN;
-    if (ballVX < 0 &&
-        ballX <= pPaddleX + PADDLE_W &&
-        ballX + BALL_SIZE >= pPaddleX &&
-        ballY + BALL_SIZE >= playerY &&
-        ballY <= playerY + PADDLE_H) {
-      // Bounce
-      ballX = pPaddleX + PADDLE_W;
-      rally++;
-      ballSpeed = min(BALL_MAX_SPEED, BALL_INIT_SPEED + rally * BALL_SPEED_INC);
-      // Angle based on where ball hits paddle
-      const hitPos = (ballY + BALL_SIZE / 2 - playerY) / PADDLE_H;  // 0..1
-      const angle = (hitPos - 0.5) * 1.4;  // max ~40 degrees
-      ballVX = Math.cos(angle) * ballSpeed;
-      ballVY = Math.sin(angle) * ballSpeed;
-      paddleBounceSound();
-    }
-
-    // AI paddle collision (right side)
-    const aiPaddleX = W - PADDLE_MARGIN - PADDLE_W;
-    if (ballVX > 0 &&
-        ballX + BALL_SIZE >= aiPaddleX &&
-        ballX <= aiPaddleX + PADDLE_W &&
-        ballY + BALL_SIZE >= aiY &&
-        ballY <= aiY + PADDLE_H) {
-      // Bounce
-      ballX = aiPaddleX - BALL_SIZE;
-      rally++;
-      ballSpeed = min(BALL_MAX_SPEED, BALL_INIT_SPEED + rally * BALL_SPEED_INC);
-      const hitPos = (ballY + BALL_SIZE / 2 - aiY) / PADDLE_H;
-      const angle = (hitPos - 0.5) * 1.4;
-      ballVX = -Math.cos(angle) * ballSpeed;
-      ballVY = Math.sin(angle) * ballSpeed;
-      paddleBounceSound();
-    }
-
-    // Score: ball off left edge
-    if (ballX + BALL_SIZE < 0) {
-      aiScore++;
-      scoreSound();
-      if (aiScore >= WIN_SCORE) {
-        state = "gameover";
-        winMessage = "CPU WINS";
-        loseSound();
-      } else {
-        serveDir = -1;
-        resetBall(serveDir);
-      }
-    }
-
-    // Score: ball off right edge
-    if (ballX > W) {
-      playerScore++;
-      scoreSound();
-      if (playerScore >= WIN_SCORE) {
-        state = "gameover";
-        winMessage = "YOU WIN!";
-        winSound();
-      } else {
-        serveDir = 1;
-        resetBall(serveDir);
-      }
-    }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    if (state === "title") {
-      // Title screen
+    },
+    draw() {
+      cls(0);
       text("PONG", W / 2 - 10, 60, 3);
-
-      // Draw decorative paddles and ball on title
       rectf(W / 2 - 40, 90, PADDLE_W, PADDLE_H, 2);
       rectf(W / 2 + 34, 90, PADDLE_W, PADDLE_H, 2);
       rectf(W / 2 - 2, 100, BALL_SIZE, BALL_SIZE, 3);
-
-      // Dashed center line on title too
       for (let y = 82; y < 120; y += 8) {
         rectf(W / 2 - 1, y, 2, 4, 1);
       }
-
       if (titleBlink) {
         text("PRESS START", W / 2 - 27, 142, 3);
       }
-
       text("FIRST TO 11 WINS", W / 2 - 40, 165, 1);
       text("UP/DOWN TO MOVE", W / 2 - 37, 176, 1);
-      return;
     }
+  });
 
-    // --- Draw court ---
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {
+      resetGame();
+    },
+    update() {
+      titleBlink = (GrayBox.frame % 40) < 28;
 
-    // Top and bottom walls
-    rectf(0, COURT_TOP - 2, W, 2, 1);
-    rectf(0, COURT_BOTTOM, W, 2, 1);
+      // Serve timer countdown
+      if (serveTimer > 0) {
+        serveTimer--;
+        return;
+      }
 
-    // Dashed center line
-    for (let y = COURT_TOP; y < COURT_BOTTOM; y += 8) {
-      rectf(W / 2 - 1, y, 2, 4, 1);
+      // Player paddle movement
+      if (btn("up")) playerY -= PADDLE_SPEED;
+      if (btn("down")) playerY += PADDLE_SPEED;
+      playerY = _max(COURT_TOP, min(COURT_BOTTOM - PADDLE_H, playerY));
+
+      // AI paddle movement with imperfection
+      aiUpdateTimer--;
+      if (aiUpdateTimer <= 0) {
+        if (ballVX > 0) {
+          const predicted = predictBallY(W - PADDLE_MARGIN - PADDLE_W);
+          aiTarget = predicted + (rnd(AI_ERROR * 2) - AI_ERROR);
+        } else {
+          aiTarget = H / 2 + (rnd(22) - 11);
+        }
+        aiUpdateTimer = 8 + flr(rnd(6));
+      }
+
+      const aiCenter = aiY + PADDLE_H / 2;
+      const aiDiff = aiTarget - aiCenter;
+      if (_abs(aiDiff) > 2) {
+        const move = min(_abs(aiDiff), AI_REACTION_SPEED) * (aiDiff > 0 ? 1 : -1);
+        aiY += move;
+      }
+      aiY = _max(COURT_TOP, min(COURT_BOTTOM - PADDLE_H, aiY));
+
+      // Ball movement
+      ballX += ballVX;
+      ballY += ballVY;
+
+      // Top/bottom wall bounce
+      if (ballY < COURT_TOP) {
+        ballY = COURT_TOP;
+        ballVY = -ballVY;
+        wallBounceSound();
+      }
+      if (ballY + BALL_SIZE > COURT_BOTTOM) {
+        ballY = COURT_BOTTOM - BALL_SIZE;
+        ballVY = -ballVY;
+        wallBounceSound();
+      }
+
+      // Player paddle collision (left side)
+      const pPaddleX = PADDLE_MARGIN;
+      if (ballVX < 0 &&
+          ballX <= pPaddleX + PADDLE_W &&
+          ballX + BALL_SIZE >= pPaddleX &&
+          ballY + BALL_SIZE >= playerY &&
+          ballY <= playerY + PADDLE_H) {
+        ballX = pPaddleX + PADDLE_W;
+        rally++;
+        ballSpeed = min(BALL_MAX_SPEED, BALL_INIT_SPEED + rally * BALL_SPEED_INC);
+        const hitPos = (ballY + BALL_SIZE / 2 - playerY) / PADDLE_H;
+        const angle = (hitPos - 0.5) * 1.4;
+        ballVX = Math.cos(angle) * ballSpeed;
+        ballVY = Math.sin(angle) * ballSpeed;
+        paddleBounceSound();
+      }
+
+      // AI paddle collision (right side)
+      const aiPaddleX = W - PADDLE_MARGIN - PADDLE_W;
+      if (ballVX > 0 &&
+          ballX + BALL_SIZE >= aiPaddleX &&
+          ballX <= aiPaddleX + PADDLE_W &&
+          ballY + BALL_SIZE >= aiY &&
+          ballY <= aiY + PADDLE_H) {
+        ballX = aiPaddleX - BALL_SIZE;
+        rally++;
+        ballSpeed = min(BALL_MAX_SPEED, BALL_INIT_SPEED + rally * BALL_SPEED_INC);
+        const hitPos = (ballY + BALL_SIZE / 2 - aiY) / PADDLE_H;
+        const angle = (hitPos - 0.5) * 1.4;
+        ballVX = -Math.cos(angle) * ballSpeed;
+        ballVY = Math.sin(angle) * ballSpeed;
+        paddleBounceSound();
+      }
+
+      // Score: ball off left edge
+      if (ballX + BALL_SIZE < 0) {
+        aiScore++;
+        scoreSound();
+        if (aiScore >= WIN_SCORE) {
+          winMessage = "CPU WINS";
+          loseSound();
+          GrayBox.go(GAMEOVER); return;
+        } else {
+          serveDir = -1;
+          resetBall(serveDir);
+        }
+      }
+
+      // Score: ball off right edge
+      if (ballX > W) {
+        playerScore++;
+        scoreSound();
+        if (playerScore >= WIN_SCORE) {
+          winMessage = "YOU WIN!";
+          winSound();
+          GrayBox.go(GAMEOVER); return;
+        } else {
+          serveDir = 1;
+          resetBall(serveDir);
+        }
+      }
+    },
+    draw() {
+      cls(0);
+
+      // Top and bottom walls
+      rectf(0, COURT_TOP - 2, W, 2, 1);
+      rectf(0, COURT_BOTTOM, W, 2, 1);
+
+      // Dashed center line
+      for (let y = COURT_TOP; y < COURT_BOTTOM; y += 8) {
+        rectf(W / 2 - 1, y, 2, 4, 1);
+      }
+
+      // Scores
+      const pScoreStr = String(playerScore);
+      const aScoreStr = String(aiScore);
+      text(pScoreStr, W / 2 - 20, 5, 2);
+      text(aScoreStr, W / 2 + 15, 5, 2);
+
+      // Player label and AI label
+      text("P1", W / 2 - 33, 5, 1);
+      text("CPU", W / 2 + 23, 5, 1);
+
+      // Paddles
+      rectf(PADDLE_MARGIN, playerY, PADDLE_W, PADDLE_H, 3);
+      rectf(W - PADDLE_MARGIN - PADDLE_W, aiY, PADDLE_W, PADDLE_H, 3);
+
+      // Ball (only if not in serve pause, or blink it)
+      if (serveTimer <= 0 || (serveTimer % 6) < 4) {
+        rectf(flr(ballX), flr(ballY), BALL_SIZE, BALL_SIZE, 3);
+      }
     }
+  });
 
-    // Scores
-    const pScoreStr = String(playerScore);
-    const aScoreStr = String(aiScore);
-    text(pScoreStr, W / 2 - 20, 5, 2);
-    text(aScoreStr, W / 2 + 15, 5, 2);
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      titleBlink = (GrayBox.frame % 40) < 28;
+      if (btnp("a") || btnp("a")) {
+        GrayBox.go(TITLE); return;
+      }
+    },
+    draw() {
+      cls(0);
 
-    // Player label and AI label
-    text("P1", W / 2 - 33, 5, 1);
-    text("CPU", W / 2 + 23, 5, 1);
+      // Still draw the court
+      rectf(0, COURT_TOP - 2, W, 2, 1);
+      rectf(0, COURT_BOTTOM, W, 2, 1);
+      for (let y = COURT_TOP; y < COURT_BOTTOM; y += 8) {
+        rectf(W / 2 - 1, y, 2, 4, 1);
+      }
+      const pScoreStr = String(playerScore);
+      const aScoreStr = String(aiScore);
+      text(pScoreStr, W / 2 - 20, 5, 2);
+      text(aScoreStr, W / 2 + 15, 5, 2);
+      text("P1", W / 2 - 33, 5, 1);
+      text("CPU", W / 2 + 23, 5, 1);
+      rectf(PADDLE_MARGIN, playerY, PADDLE_W, PADDLE_H, 3);
+      rectf(W - PADDLE_MARGIN - PADDLE_W, aiY, PADDLE_W, PADDLE_H, 3);
+      if (serveTimer <= 0 || (serveTimer % 6) < 4) {
+        rectf(flr(ballX), flr(ballY), BALL_SIZE, BALL_SIZE, 3);
+      }
 
-    // Paddles
-    rectf(PADDLE_MARGIN, playerY, PADDLE_W, PADDLE_H, 3);
-    rectf(W - PADDLE_MARGIN - PADDLE_W, aiY, PADDLE_W, PADDLE_H, 3);
-
-    // Ball (only if not in serve pause, or blink it)
-    if (serveTimer <= 0 || (serveTimer % 6) < 4) {
-      rectf(flr(ballX), flr(ballY), BALL_SIZE, BALL_SIZE, 3);
-    }
-
-    // Game over overlay
-    if (state === "gameover") {
       // Dim overlay
       rectf(W / 2 - 47, H / 2 - 22, 94, 38, 0);
       rect(W / 2 - 47, H / 2 - 22, 94, 38, 1);
@@ -350,8 +353,9 @@
         text("PRESS START", W / 2 - 27, H / 2 + 9, 3);
       }
     }
-  };
+  });
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

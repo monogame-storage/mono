@@ -230,7 +230,7 @@
   }
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let score, lives, level;
   let cubeColors; // 2D array: cubeColors[row][col] = current color index
   let targetColor; // color index cubes need to become
@@ -403,30 +403,47 @@
     if (type === "coily_egg") coilyActive = true;
   }
 
-  // --- Update ---
-  GrayBox._update = function() {
-    titleBlink = (GrayBox.frame % 40) < 25;
-
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { titleBlink = true; },
+    update() {
+      titleBlink = (GrayBox.frame % 40) < 25;
       if (btnp("a")) {
         ensureAudio();
-        state = "play";
         resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
-
-    if (state === "gameover") {
-      if (btnp("a")) {
-        state = "title";
+    },
+    draw() {
+      cls(0);
+      text("Q*BERT", W / 2 - 15, 45, 3);
+      text("GRAYBOX EDITION", W / 2 - 37, 57, 2);
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c <= r; c++) {
+          const p = cubePos(r, c);
+          const ox = 0, oy = 60;
+          drawCube(p.x + ox, p.y + oy,
+            (r + c) % 2 === 0 ? 2 : 3,
+            1, 1);
+        }
       }
-      return;
+      if (titleBlink) {
+        text("PRESS ENTER TO START", W / 2 - 50, 188, 3);
+      }
+      text("ARROWS TO HOP", W / 2 - 32, 206, 1);
+      text("CHANGE ALL CUBES TO WIN", W / 2 - 57, 218, 1);
     }
+  });
 
-    // --- Play state ---
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
+    titleBlink = (GrayBox.frame % 40) < 25;
+
     if (levelClearTimer > 0) {
       levelClearTimer--;
       flashTimer++;
@@ -441,7 +458,7 @@
       if (speechTimer > 0) speechTimer--;
       if (deathPause === 0) {
         if (lives <= 0) {
-          state = "gameover";
+          GrayBox.go(GAMEOVER); return;
         } else {
           respawnPlayer();
         }
@@ -699,45 +716,9 @@
         }
       }
     }
-  };
-
-  // --- Draw ---
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
-
-    if (state === "title") {
-      // Title screen
-      text("Q*BERT", W / 2 - 15, 45, 3);
-      text("GRAYBOX EDITION", W / 2 - 37, 57, 2);
-
-      // Draw a small demo pyramid
-      for (let r = 0; r < 4; r++) {
-        for (let c = 0; c <= r; c++) {
-          const p = cubePos(r, c);
-          const ox = 0, oy = 60;
-          drawCube(p.x + ox, p.y + oy,
-            (r + c) % 2 === 0 ? 2 : 3,
-            1, 1);
-        }
-      }
-
-      if (titleBlink) {
-        text("PRESS ENTER TO START", W / 2 - 50, 188, 3);
-      }
-
-      text("ARROWS TO HOP", W / 2 - 32, 206, 1);
-      text("CHANGE ALL CUBES TO WIN", W / 2 - 57, 218, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      text("GAME OVER", W / 2 - 22, 90, 3);
-      text("SCORE " + score, W / 2 - 22, 109, 2);
-      if (titleBlink) {
-        text("PRESS ENTER", W / 2 - 27, 135, 3);
-      }
-      return;
-    }
 
     // --- Play state ---
     // HUD
@@ -837,14 +818,29 @@
       rectf(W / 2 - 33, H / 2 - 9, 67, 15, 0);
       text("LEVEL CLEAR!", W / 2 - 30, H / 2 - 6, 3);
     }
-  };
+    }
+  });
 
-  // --- Init & Loop ---
-  GrayBox._init = function() {
-    state = "title";
-    titleBlink = true;
-  };
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      titleBlink = (GrayBox.frame % 40) < 25;
+      if (btnp("a")) {
+        GrayBox.go(TITLE); return;
+      }
+    },
+    draw() {
+      cls(0);
+      text("GAME OVER", W / 2 - 22, 90, 3);
+      text("SCORE " + score, W / 2 - 22, 109, 2);
+      if (titleBlink) {
+        text("PRESS ENTER", W / 2 - 27, 135, 3);
+      }
+    }
+  });
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -151,7 +151,7 @@
   );
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let sequence = [];      // array of quadrant indices (0-3)
   let seqIndex = 0;       // current position in sequence playback/input
   let round = 0;
@@ -223,151 +223,127 @@
     text(str, flr(CX - w / 2), y, c);
   }
 
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    titlePulse++;
-
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { titlePulse = 0; },
+    update() {
+      titlePulse++;
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      drawTitle();
     }
+  });
 
-    if (state === "gameover") {
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
+      titlePulse++;
+
+      // Decay input flash
+      if (inputLitTimer > 0) {
+        inputLitTimer--;
+        if (inputLitTimer <= 0) inputLitQuad = -1;
+      }
+
+      if (phase === "showing") {
+        if (showTimer > 0) { showTimer--; return; }
+        if (showGap > 0) { showGap--; litQuad = -1; return; }
+        if (showIndex < sequence.length) {
+          litQuad = sequence[showIndex];
+          litTimer = flashDuration();
+          playQuadTone(litQuad);
+          showIndex++;
+          showTimer = flashDuration();
+          showGap = gapDuration();
+        } else {
+          litQuad = -1;
+          phase = "input";
+          seqIndex = 0;
+        }
+        return;
+      }
+
+      if (phase === "input") {
+        for (let q = 0; q < 4; q++) {
+          if (btnp(QUAD_KEYS[q])) {
+            inputLitQuad = q;
+            inputLitTimer = 6;
+            playQuadTone(q);
+
+            if (q === sequence[seqIndex]) {
+              seqIndex++;
+              if (seqIndex >= sequence.length) {
+                phase = "success";
+                successTimer = 30;
+                playSuccessTone();
+              }
+            } else {
+              phase = "fail";
+              failTimer = 90;
+              playErrorTone();
+              if (round - 1 > bestScore) bestScore = round - 1;
+              litQuad = sequence[seqIndex];
+              litTimer = 30;
+            }
+            break;
+          }
+        }
+        return;
+      }
+
+      if (phase === "success") {
+        successTimer--;
+        if (successTimer <= 0) { nextRound(); }
+        return;
+      }
+
+      if (phase === "fail") {
+        litTimer--;
+        if (litTimer <= 0) litQuad = -1;
+        failTimer--;
+        if (failTimer <= 0) {
+          failTimer = 30;
+          GrayBox.go(GAMEOVER); return;
+        }
+        return;
+      }
+    },
+    draw() {
+      cls(0);
+      drawQuadrants();
+      drawHUD();
+      if (phase === "showing") { textCentered("WATCH", CY - 4, 3); }
+      else if (phase === "input") { textCentered("YOUR TURN", CY - 4, 2); }
+      else if (phase === "success") { textCentered("CORRECT!", CY - 4, 3); }
+      else if (phase === "fail") {
+        if (flr(titlePulse / 4) % 2 === 0) { textCentered("WRONG!", CY - 4, 3); }
+      }
+    }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      titlePulse++;
       failTimer--;
       if (failTimer <= 0 && (btnp("a") || btnp("a"))) {
-        state = "title";
+        GrayBox.go(TITLE); return;
       }
-      return;
-    }
-
-    // --- Play state ---
-
-    // Decay input flash
-    if (inputLitTimer > 0) {
-      inputLitTimer--;
-      if (inputLitTimer <= 0) inputLitQuad = -1;
-    }
-
-    if (phase === "showing") {
-      if (showTimer > 0) {
-        showTimer--;
-        return;
-      }
-      if (showGap > 0) {
-        showGap--;
-        litQuad = -1;
-        return;
-      }
-      if (showIndex < sequence.length) {
-        // Light up next in sequence
-        litQuad = sequence[showIndex];
-        litTimer = flashDuration();
-        playQuadTone(litQuad);
-        showIndex++;
-        showTimer = flashDuration();
-        showGap = gapDuration();
-      } else {
-        // Done showing, switch to input phase
-        litQuad = -1;
-        phase = "input";
-        seqIndex = 0;
-      }
-      return;
-    }
-
-    if (phase === "input") {
-      // Check for player input
-      for (let q = 0; q < 4; q++) {
-        if (btnp(QUAD_KEYS[q])) {
-          inputLitQuad = q;
-          inputLitTimer = 6;
-          playQuadTone(q);
-
-          if (q === sequence[seqIndex]) {
-            // Correct
-            seqIndex++;
-            if (seqIndex >= sequence.length) {
-              // Round complete
-              phase = "success";
-              successTimer = 30;
-              playSuccessTone();
-            }
-          } else {
-            // Wrong!
-            phase = "fail";
-            failTimer = 90;
-            playErrorTone();
-            if (round - 1 > bestScore) bestScore = round - 1;
-            // Flash the correct one
-            litQuad = sequence[seqIndex];
-            litTimer = 30;
-          }
-          break;
-        }
-      }
-      return;
-    }
-
-    if (phase === "success") {
-      successTimer--;
-      if (successTimer <= 0) {
-        nextRound();
-      }
-      return;
-    }
-
-    if (phase === "fail") {
-      litTimer--;
-      if (litTimer <= 0) litQuad = -1;
-      failTimer--;
-      if (failTimer <= 0) {
-        state = "gameover";
-        failTimer = 30; // cooldown before accepting input
-      }
-      return;
-    }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
+    },
+    draw() {
+      cls(0);
       drawGameOver();
-      return;
     }
-
-    // --- Play state ---
-    drawQuadrants();
-    drawHUD();
-
-    // Phase messages
-    if (phase === "showing") {
-      textCentered("WATCH", CY - 4, 3);
-    } else if (phase === "input") {
-      textCentered("YOUR TURN", CY - 4, 2);
-    } else if (phase === "success") {
-      textCentered("CORRECT!", CY - 4, 3);
-    } else if (phase === "fail") {
-      if (flr(titlePulse / 4) % 2 === 0) {
-        textCentered("WRONG!", CY - 4, 3);
-      }
-    }
-  };
+  });
 
   function drawQuadrants() {
     for (let q = 0; q < 4; q++) {
@@ -497,6 +473,7 @@
     }
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

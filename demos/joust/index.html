@@ -274,7 +274,7 @@
   const LAVA_Y = 230;
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, enemies, eggs, explosions, particles;
   let score, lives, wave, waveTimer, waveMessage, spawnQueue;
   let titleBob;
@@ -383,33 +383,73 @@
     if (ent.x > W) ent.x -= W + 8;
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); },
+    update() {
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      const lavaFrame = flr(GrayBox.frame / 8) % 2;
+      drawPlatforms();
+      drawLava(lavaFrame);
+      const ty = 38 + sin(GrayBox.frame * 0.05) * 4;
+      drawText("JOUST", 137, flr(ty) + 1, 1);
+      drawText("JOUST", 136, flr(ty), 3);
+      rectf(123, flr(ty) + 10, 73, 1, 2);
+      const px = 133 + sin(GrayBox.frame * 0.04) * 27;
+      const py = 75 + sin(GrayBox.frame * 0.06) * 11;
+      const wf = flr(GrayBox.frame / 6) % 3;
+      const sprId = wf === 0 ? 1 : wf === 1 ? 2 : 3;
+      spr(sprId, flr(px), flr(py));
+      const ex = 187 - sin(GrayBox.frame * 0.04) * 27;
+      const ey = 79 + sin(GrayBox.frame * 0.06 + 2) * 11;
+      const ef = flr(GrayBox.frame / 6) % 3;
+      const esprId = ef === 0 ? 4 : ef === 1 ? 5 : 6;
+      spr(esprId, flr(ex), flr(ey), true);
+      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS FLAP TO START", 112, 128, 3);
+      drawText("DEFEAT ENEMY KNIGHTS", 110, 150, 2);
+      drawText("HIGHER LANCE WINS", 117, 159, 2);
+      drawText("COLLECT EGGS FOR POINTS", 102, 168, 2);
+      drawText("BEWARE THE LAVA", 122, 177, 2);
+      drawText("GRAYBOX DEMO V0.1", 117, 229, 1);
     }
+  });
 
-    if (state === "gameover") {
-      // Animate particles
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      const lavaFrame = flr(GrayBox.frame / 8) % 2;
+      drawPlatforms();
+      drawLava(lavaFrame);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      drawText("GAME OVER", 137, 75, 3);
+      drawText("SCORE: " + score, 130, 94, 2);
+      drawText("WAVE: " + wave, 138, 105, 2);
+      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS FLAP TO CONTINUE", 105, 135, 3);
     }
+  });
 
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
     // --- Play state ---
 
     // Wave message timer
@@ -476,7 +516,7 @@
       player.vx = 0;
       player.vy = 0;
       player.invincible = 60;
-      if (lives <= 0) { state = "gameover"; addExplosion(player.x, player.y); }
+      if (lives <= 0) { addExplosion(player.x, player.y); GrayBox.go(GAMEOVER); return; }
     }
 
     // --- Enemy AI ---
@@ -579,7 +619,7 @@
             player.vx = 0;
             player.vy = 0;
             player.invincible = 60;
-            if (lives <= 0) { state = "gameover"; addExplosion(player.x, player.y); }
+            if (lives <= 0) { addExplosion(player.x, player.y); GrayBox.go(GAMEOVER); return; }
           } else {
             // Tie - bounce apart
             player.vx = dx > 0 ? 2 : -2;
@@ -665,7 +705,7 @@
     }
 
     // Wave clear check
-    if (enemies.length === 0 && eggs.length === 0 && spawnQueue.length === 0 && state === "play") {
+    if (enemies.length === 0 && eggs.length === 0 && spawnQueue.length === 0) {
       waveTimer++;
       if (waveTimer === 1) waveClearSound();
       if (waveTimer > 90) {
@@ -673,76 +713,14 @@
         spawnWave();
       }
     }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
-
     const lavaFrame = flr(GrayBox.frame / 8) % 2;
 
-    if (state === "title") {
-      // Draw platforms
-      drawPlatforms();
-      drawLava(lavaFrame);
-
-      const ty = 38 + sin(GrayBox.frame * 0.05) * 4;
-
-      // Title shadow
-      drawText("JOUST", 137, flr(ty) + 1, 1);
-      // Title
-      drawText("JOUST", 136, flr(ty), 3);
-      rectf(123, flr(ty) + 10, 73, 1, 2);
-
-      // Show animated player on title
-      const px = 133 + sin(GrayBox.frame * 0.04) * 27;
-      const py = 75 + sin(GrayBox.frame * 0.06) * 11;
-      const wf = flr(GrayBox.frame / 6) % 3;
-      const sprId = wf === 0 ? 1 : wf === 1 ? 2 : 3;
-      spr(sprId, flr(px), flr(py));
-
-      // Show enemy on other side
-      const ex = 187 - sin(GrayBox.frame * 0.04) * 27;
-      const ey = 79 + sin(GrayBox.frame * 0.06 + 2) * 11;
-      const ef = flr(GrayBox.frame / 6) % 3;
-      const esprId = ef === 0 ? 4 : ef === 1 ? 5 : 6;
-      spr(esprId, flr(ex), flr(ey), true);
-
-      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS FLAP TO START", 112, 128, 3);
-
-      // Score info
-      drawText("DEFEAT ENEMY KNIGHTS", 110, 150, 2);
-      drawText("HIGHER LANCE WINS", 117, 159, 2);
-      drawText("COLLECT EGGS FOR POINTS", 102, 168, 2);
-      drawText("BEWARE THE LAVA", 122, 177, 2);
-
-      drawText("GRAYBOX DEMO V0.1", 117, 229, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      drawPlatforms();
-      drawLava(lavaFrame);
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-      drawText("GAME OVER", 137, 75, 3);
-      drawText("SCORE: " + score, 130, 94, 2);
-      drawText("WAVE: " + wave, 138, 105, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS FLAP TO CONTINUE", 105, 135, 3);
-      return;
-    }
-
-    // --- Play state rendering ---
-
-    // Platforms
     drawPlatforms();
-
-    // Lava
     drawLava(lavaFrame);
 
-    // Eggs
     for (const eg of eggs) {
       if (eg.hatching && flr(GrayBox.frame / 4) % 2 === 0) {
         sprWrap(8, flr(eg.x), flr(eg.y));
@@ -751,11 +729,10 @@
       }
     }
 
-    // Enemies
     for (const e of enemies) {
       let sprBase;
       if (e.type === 1) {
-        sprBase = e.wingFrame === 1 ? 15 : 16; // shadow enemy
+        sprBase = e.wingFrame === 1 ? 15 : 16;
       } else {
         sprBase = e.wingFrame === 1 ? 4 : e.wingFrame === 2 ? 5 : 6;
       }
@@ -763,35 +740,31 @@
       sprWrap(sprBase, flr(e.x), flr(e.y), flip);
     }
 
-    // Player
     if (player.invincible <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
       const sprBase = player.wingFrame === 1 ? 1 : player.wingFrame === 2 ? 2 : 3;
       const flip = player.facing < 0;
       sprWrap(sprBase, flr(player.x), flr(player.y), flip);
     }
 
-    // Explosions
     for (const e of explosions) {
       const sprId = e.timer > 6 ? 9 : 10;
       spr(sprId, flr(e.x), flr(e.y));
     }
 
-    // Particles
     for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
 
-    // HUD
     rectf(0, 0, W, 12, 0);
     drawText("SCORE:" + score, 4, 3, 3);
     drawText("WAVE:" + wave, W / 2 - 25, 3, 2);
     for (let i = 0; i < lives; i++) spr(14, W - 36 + i * 10, 2);
 
-    // Wave announcement
     if (waveMessage > 0) {
       const msgY = 30 + sin(waveMessage * 0.1) * 3;
       drawText("WAVE " + wave, 140, flr(msgY), 3);
       if (waveMessage > 60) drawText("GET READY!", 135, flr(msgY) + 12, 2);
     }
-  };
+    }
+  });
 
   function drawPlatforms() {
     for (const p of platforms) {
@@ -817,6 +790,7 @@
     }
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

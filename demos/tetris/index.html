@@ -135,8 +135,9 @@
   };
   const PIECE_NAMES = ["I","O","T","S","Z","J","L"];
 
-  // --- Game state ---
-  let state = "title";
+  // --- Scenes ---
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+
   let board; // 2D array [row][col], 0=empty, 1-3=color
   let curPiece, curRot, curX, curY;
   let nextPiece;
@@ -196,10 +197,10 @@
 
     // Check if spawn position is blocked -> game over
     if (!canPlace(curPiece, curRot, curX, curY)) {
-      state = "gameover";
       gameOverTimer = 0;
       if (score > highScore) highScore = score;
       gameOverSound();
+      GrayBox.go(GAMEOVER);
     }
   }
 
@@ -437,10 +438,7 @@
 
   function updateTitle() {
     titleAnim++;
-    if (btnp("a")) {
-      state = "play";
-      resetGame();
-    }
+    if (btnp("a")) { GrayBox.go(PLAY); return; }
   }
 
   function drawTitle() {
@@ -673,10 +671,7 @@
   // --- Game Over ---
   function updateGameOver() {
     gameOverTimer++;
-    if (gameOverTimer > 60 && btnp("a")) {
-      state = "title";
-      titleAnim = 0;
-    }
+    if (gameOverTimer > 60 && btnp("a")) { GrayBox.go(TITLE); return; }
   }
 
   function drawGameOver() {
@@ -710,21 +705,26 @@
     }
   }
 
-  // --- Main loop ---
-  GrayBox._update = function() {
-    if (state === "title") updateTitle();
-    else if (state === "play") updatePlay();
-    else if (state === "gameover") updateGameOver();
-  };
+  // --- Scenes ---
+  GrayBox.scene(TITLE, {
+    init() { titleAnim = 0; },
+    update() { updateTitle(); },
+    draw() { drawTitle(); }
+  });
 
-  GrayBox._draw = function() {
-    if (state === "title") drawTitle();
-    else if (state === "play") drawPlay();
-    else if (state === "gameover") drawGameOver();
-  };
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() { updatePlay(); },
+    draw() { drawPlay(); }
+  });
 
-  titleAnim = 0;
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() { updateGameOver(); },
+    draw() { drawGameOver(); }
+  });
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

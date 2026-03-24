@@ -185,20 +185,16 @@
   const HUD_Y = 2;
   const TIMER_Y = H - 10;
 
-  const STATE_TITLE = 0;
-  const STATE_READY = 1;
-  const STATE_PLAY = 2;
-  const STATE_DYING = 3;
-  const STATE_LEVELUP = 4;
-  const STATE_GAMEOVER = 5;
-  const STATE_PAUSE = 6;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  // Internal sub-states for play
+  const SUB_READY = 1, SUB_PLAY = 2, SUB_DYING = 3;
 
   // Directions: 0=up, 1=right, 2=down, 3=left
   const DX = [0, 1, 0, -1];
   const DY = [-1, 0, 1, 0];
 
   // Game state
-  let state, stateTimer;
+  let subState, stateTimer;
   let score, lives, level;
   let snake; // array of {x, y}
   let dir, nextDir;
@@ -474,7 +470,7 @@
     lives = 3;
     level = 0;
     initLevel();
-    state = STATE_READY;
+    subState = SUB_READY;
     stateTimer = 60; // 2 seconds
   }
 
@@ -484,6 +480,7 @@
     if (btnp("a") || btnp("a")) {
       note(0, "C4", 0.1);
       startGame();
+      GrayBox.go(PLAY); return;
     }
   }
 
@@ -607,14 +604,11 @@
 
         if (foodEaten >= foodTotal) {
           // Level complete!
-          state = STATE_LEVELUP;
-          stateTimer = 90;
-          levelUpAnim = 0;
           score += timeLeft * 5; // time bonus
           note(0, "C5", 0.15);
           setTimeout(() => note(0, "E5", 0.15), 150);
           setTimeout(() => note(0, "G5", 0.2), 300);
-          return;
+          GrayBox.go(CLEAR); return;
         }
 
         placeFood();
@@ -661,7 +655,7 @@
   }
 
   function die() {
-    state = STATE_DYING;
+    subState = SUB_DYING;
     stateTimer = 45;
     deathFrame = 0;
     note(0, "C3", 0.3);
@@ -810,7 +804,7 @@
     stateTimer--;
     readyBlink++;
     if (stateTimer <= 0) {
-      state = STATE_PLAY;
+      subState = SUB_PLAY;
     }
   }
 
@@ -834,13 +828,13 @@
     if (stateTimer <= 0) {
       lives--;
       if (lives <= 0) {
-        state = STATE_GAMEOVER;
+        GrayBox.go(GAMEOVER); return;
         stateTimer = 120;
         if (score > hiScore) hiScore = score;
       } else {
         // Restart level
         initLevel();
-        state = STATE_READY;
+        subState = SUB_READY;
         stateTimer = 60;
       }
     }
@@ -878,8 +872,9 @@
     if (stateTimer <= 0) {
       level++;
       initLevel();
-      state = STATE_READY;
+      subState = SUB_READY;
       stateTimer = 60;
+      GrayBox.go(PLAY); return;
     }
   }
 
@@ -913,7 +908,7 @@
     stateTimer--;
     titleAnim++;
     if (stateTimer <= 0 && (btnp("a") || btnp("a"))) {
-      state = STATE_TITLE;
+      GrayBox.go(TITLE); return;
     }
   }
 
@@ -938,33 +933,44 @@
     }
   }
 
-  // --- Main Loop ---
-  state = STATE_TITLE;
-  stateTimer = 0;
-  titleAnim = 0;
+  // --- Scenes ---
+  GrayBox.scene(TITLE, {
+    init() { stateTimer = 0; titleAnim = 0; },
+    update() { updateTitle(); },
+    draw() { drawTitle(); }
+  });
 
-  GrayBox._update = function() {
-    switch (state) {
-      case STATE_TITLE: updateTitle(); break;
-      case STATE_READY: updateReady(); break;
-      case STATE_PLAY: updatePlay(); break;
-      case STATE_DYING: updateDying(); break;
-      case STATE_LEVELUP: updateLevelUp(); break;
-      case STATE_GAMEOVER: updateGameOver(); break;
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
+      switch (subState) {
+        case SUB_READY: updateReady(); break;
+        case SUB_PLAY: updatePlay(); break;
+        case SUB_DYING: updateDying(); break;
+      }
+    },
+    draw() {
+      switch (subState) {
+        case SUB_READY: drawReady(); break;
+        case SUB_PLAY: drawPlay(); break;
+        case SUB_DYING: drawDying(); break;
+      }
     }
-  };
+  });
 
-  GrayBox._draw = function() {
-    switch (state) {
-      case STATE_TITLE: drawTitle(); break;
-      case STATE_READY: drawReady(); break;
-      case STATE_PLAY: drawPlay(); break;
-      case STATE_DYING: drawDying(); break;
-      case STATE_LEVELUP: drawLevelUp(); break;
-      case STATE_GAMEOVER: drawGameOver(); break;
-    }
-  };
+  GrayBox.scene(CLEAR, {
+    init() { stateTimer = 90; levelUpAnim = 0; },
+    update() { updateLevelUp(); },
+    draw() { drawLevelUp(); }
+  });
 
+  GrayBox.scene(GAMEOVER, {
+    init() { stateTimer = 120; if (score > hiScore) hiScore = score; },
+    update() { updateGameOver(); },
+    draw() { drawGameOver(); }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

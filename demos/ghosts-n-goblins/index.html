@@ -485,7 +485,7 @@
   const WEAPON_NAMES = ["LANCE", "DAGGER", "TORCH", "AXE"];
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER, WIN } = GrayBox.SCENE;
   let player, camera, projectiles, enemies, particles, chests, pickups;
   let score, lives, timeLeft, timeTimer;
   let bossActive, boss;
@@ -722,38 +722,100 @@
     addExplosion(player.x, player.y);
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    titleAnim++;
-
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); },
+    update() {
+      titleAnim++;
       if (btnp("a") || btnp("a")) {
-        state = "play";
         resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.1), 160);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      const cx = flr(camera.x);
+      for (let i = 0; i < 40; i++) {
+        const sx = (i * 37 + titleAnim) % W;
+        const sy = 20 + (i * 23) % (H - 40);
+        pix(sx, sy, 1);
+      }
+      for (let x = 0; x < W; x += 8) {
+        sprT(22, x, GROUND_Y);
+        sprT(23, x, GROUND_Y + 8);
+      }
+      sprT(24, 40, GROUND_Y - 8);
+      sprT(24, 120, GROUND_Y - 8);
+      sprT(24, 227, GROUND_Y - 8);
+      sprT(25, 80, GROUND_Y - 8);
+      sprT(25, 187, GROUND_Y - 8);
+      sprT(25, 267, GROUND_Y - 8);
+      const ty = 38 + sin(titleAnim * 0.04) * 5;
+      drawText("GHOSTS N GOBLINS", 120, flr(ty), 3);
+      drawText("GHOSTS N GOBLINS", 121, flr(ty) + 1, 1);
+      rectf(110, flr(ty) + 12, 147, 1, 2);
+      const by = flr(ty) + 23;
+      sprT(1, 133, by + sin(titleAnim * 0.06) * 2);
+      sprT(15, 160, by + 2 + sin(titleAnim * 0.06 + 1) * 2);
+      sprT(17, 180, by - 2 + sin(titleAnim * 0.06 + 2) * 3);
+      sprT(18, 200, by + sin(titleAnim * 0.06 + 3) * 2);
+      sprT(20, 107, by + 2 + sin(titleAnim * 0.06 + 4) * 2);
+      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 135, 3);
+      drawText("Z:JUMP  X:THROW  ARROWS:MOVE", 88, 158, 2);
+      drawText("3 LIVES  2-HIT ARMOR  4 WEAPONS", 80, 169, 1);
+      drawText("GRAYBOX DEMO V0.1", 116, 229, 1);
     }
+  });
 
-    if (state === "gameover") {
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      titleAnim++;
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      const cx = flr(camera.x);
+      for (const p of particles) pix(flr(p.x - cx), flr(p.y), p.color);
+      drawText("GAME OVER", 138, 83, 3);
+      drawText("SCORE: " + score, 127, 105, 2);
+      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 150, 3);
     }
+  });
 
-    if (state === "win") {
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+  // --- Win Scene ---
+  GrayBox.scene(WIN, {
+    init() {},
+    update() {
+      titleAnim++;
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      drawText("CONGRATULATIONS!", 120, 60, 3);
+      sprT(1, 140, 98);
+      sprT(37, 160, 98);
+      drawText("ARTHUR RESCUED", 126, 120, 2);
+      drawText("THE PRINCESS!", 128, 131, 2);
+      drawText("SCORE: " + score, 127, 158, 3);
+      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 188, 3);
+      drawText("GRAYBOX DEMO V0.1", 116, 229, 1);
     }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
+    titleAnim++;
 
     // --- Play state ---
 
@@ -767,7 +829,7 @@
       deathTimer--;
       if (deathTimer <= 0) {
         lives--;
-        if (lives <= 0) { state = "gameover"; return; }
+        if (lives <= 0) { GrayBox.go(GAMEOVER); return; }
         player.alive = true;
         player.armor = 2;
         player.x = respawnX;
@@ -894,7 +956,7 @@
             addExplosion(boss.x + 8, boss.y + 8);
             addExplosion(boss.x - 4, boss.y + 4);
             sfxHit();
-            setTimeout(() => { state = "win"; }, 3000);
+            setTimeout(() => { GrayBox.go(WIN); }, 3000);
           }
         }
       }
@@ -1087,77 +1149,10 @@
       const p = particles[i];
       p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
-    }
-  };
-
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+    },
+    draw() {
     cls(0);
     const cx = flr(camera.x);
-
-    if (state === "title") {
-      // Starry dots
-      for (let i = 0; i < 40; i++) {
-        const sx = (i * 37 + titleAnim) % W;
-        const sy = 20 + (i * 23) % (H - 40);
-        pix(sx, sy, 1);
-      }
-      // Ground
-      for (let x = 0; x < W; x += 8) {
-        sprT(22, x, GROUND_Y);
-        sprT(23, x, GROUND_Y + 8);
-      }
-      // Decorations
-      sprT(24, 40, GROUND_Y - 8);
-      sprT(24, 120, GROUND_Y - 8);
-      sprT(24, 227, GROUND_Y - 8);
-      sprT(25, 80, GROUND_Y - 8);
-      sprT(25, 187, GROUND_Y - 8);
-      sprT(25, 267, GROUND_Y - 8);
-
-      // Title
-      const ty = 38 + sin(titleAnim * 0.04) * 5;
-      drawText("GHOSTS N GOBLINS", 120, flr(ty), 3);
-      drawText("GHOSTS N GOBLINS", 121, flr(ty) + 1, 1);
-      rectf(110, flr(ty) + 12, 147, 1, 2);
-
-      // Showcase
-      const by = flr(ty) + 23;
-      sprT(1, 133, by + sin(titleAnim * 0.06) * 2);
-      sprT(15, 160, by + 2 + sin(titleAnim * 0.06 + 1) * 2);
-      sprT(17, 180, by - 2 + sin(titleAnim * 0.06 + 2) * 3);
-      sprT(18, 200, by + sin(titleAnim * 0.06 + 3) * 2);
-      sprT(20, 107, by + 2 + sin(titleAnim * 0.06 + 4) * 2);
-
-      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 135, 3);
-
-      drawText("Z:JUMP  X:THROW  ARROWS:MOVE", 88, 158, 2);
-      drawText("3 LIVES  2-HIT ARMOR  4 WEAPONS", 80, 169, 1);
-      drawText("GRAYBOX DEMO V0.1", 116, 229, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      for (const p of particles) pix(flr(p.x - cx), flr(p.y), p.color);
-      drawText("GAME OVER", 138, 83, 3);
-      drawText("SCORE: " + score, 127, 105, 2);
-      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 150, 3);
-      return;
-    }
-
-    if (state === "win") {
-      drawText("CONGRATULATIONS!", 120, 60, 3);
-      sprT(1, 140, 98);
-      sprT(37, 160, 98);
-      drawText("ARTHUR RESCUED", 126, 120, 2);
-      drawText("THE PRINCESS!", 128, 131, 2);
-      drawText("SCORE: " + score, 127, 158, 3);
-      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 188, 3);
-      drawText("GRAYBOX DEMO V0.1", 116, 229, 1);
-      return;
-    }
 
     // --- Play rendering ---
 
@@ -1324,8 +1319,10 @@
     // Progress bar
     const progress = player.x / LEVEL_WIDTH;
     rectf(0, H - 2, flr(W * progress), 2, 2);
-  };
+    }
+  });
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

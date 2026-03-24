@@ -257,7 +257,7 @@
   const T_APPLE = 3;
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, ball, enemies, apples, explosions, particles;
   let score, lives, level, cherryCount, totalCherries;
   let extraLetters; // "EXTRA" collected
@@ -471,27 +471,7 @@
   // ============================================================
   // Update
   // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        note(0, "C5", 0.08);
-        setTimeout(() => note(0, "E5", 0.08), 80);
-        setTimeout(() => note(0, "G5", 0.12), 160);
-      }
-      return;
-    }
-
-    if (state === "gameover") {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
-
+  function updatePlay() {
     // --- Play state ---
     if (deathTimer > 0) {
       deathTimer--;
@@ -502,7 +482,7 @@
       }
       if (deathTimer === 0) {
         if (lives <= 0) {
-          state = "gameover";
+          GrayBox.go(GAMEOVER); return;
         } else {
           // Respawn
           const startTX = flr(MAP_W / 2);
@@ -857,7 +837,7 @@
       levelClearTimer = 90;
       clearSound();
     }
-  };
+  }
 
   function playerDeath() {
     lives--;
@@ -869,24 +849,18 @@
   // ============================================================
   // Draw
   // ============================================================
-  GrayBox._draw = function() {
+  function drawGameOverScreen() {
     cls(0);
+    for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+    text("GAME OVER", 130, 82, 3);
+    text("SCORE: " + score, 130, 101, 2);
+    text("LEVEL: " + level, 133, 112, 2);
+    if (extraLetters.length > 0) text("EXTRA: " + extraLetters, 127, 124, 2);
+    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 105, 158, 3);
+  }
 
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-      text("GAME OVER", 130, 82, 3);
-      text("SCORE: " + score, 130, 101, 2);
-      text("LEVEL: " + level, 133, 112, 2);
-      if (extraLetters.length > 0) text("EXTRA: " + extraLetters, 127, 124, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 105, 158, 3);
-      return;
-    }
-
+  function drawPlayScene() {
+    cls(0);
     // --- Play state rendering ---
 
     // Draw dirt and cherries
@@ -993,7 +967,7 @@
     rectf(0, H - 10, W, 10, 0);
     text("CHERRIES:" + cherryCount + "/" + totalCherries, 3, H - 8, 2);
     text("ENEMIES:" + enemies.length, W - 53, H - 8, 2);
-  };
+  }
 
   function drawTitle() {
     // Animated background dirt pattern
@@ -1051,6 +1025,40 @@
     text("GRAYBOX DEMO V0.1", 112, H - 10, 1);
   }
 
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      if (btnp("a") || btnp("a")) {
+        resetGame();
+        note(0, "C5", 0.08); setTimeout(() => note(0, "E5", 0.08), 80); setTimeout(() => note(0, "G5", 0.12), 160);
+        GrayBox.go(PLAY); return;
+      }
+    },
+    draw() { cls(0); drawTitle(); }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() { updatePlay(); },
+    draw() { drawPlayScene(); }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOverScreen(); }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -331,7 +331,7 @@
   const DAY_LENGTH = HOUSES_PER_DAY * HOUSE_SPACING + 133; // pixels per day
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
   let player, papers, obstacles, houses, score, lives, day, scrollX;
   let papersLeft, dayProgress, dayLength;
   let jumpTimer, jumpHeight, invTimer;
@@ -462,7 +462,7 @@
     crashSound();
     addParticles(player.x + 4, player.y + 4, 12, 2);
     if (lives <= 0) {
-      state = "gameover";
+      GrayBox.go(GAMEOVER); return;
     }
   }
 
@@ -475,47 +475,16 @@
   // ============================================================
   // Update
   // ============================================================
-  GrayBox._update = function() {
-    // Particles always update
+  function updateCommon() {
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
-
     if (screenShake > 0) screenShake--;
+  }
 
-    if (state === "title") {
-      titleBounce = sin(GrayBox.frame * 0.06) * 4;
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        note(0, "C5", 0.1);
-        setTimeout(() => note(0, "E5", 0.1), 100);
-        setTimeout(() => note(0, "G5", 0.15), 200);
-      }
-      return;
-    }
-
-    if (state === "gameover") {
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
-
-    if (state === "dayresult") {
-      resultTimer++;
-      if (resultTimer > 120 && (btnp("a") || btnp("a"))) {
-        if (day >= 7) {
-          state = "gameover"; // Won the week!
-        } else {
-          day++;
-          startDay();
-          state = "play";
-        }
-      }
-      return;
-    }
-
+  function updatePlayLogic() {
     // --- Play state ---
 
     // Scroll
@@ -689,27 +658,20 @@
       }
 
       dayResults = { delivered, missed, broken: Object.keys(brokenWindows).length };
-      state = "dayresult";
       resultTimer = 0;
       dayCompleteSound();
+      GrayBox.go(CLEAR); return;
 
       // Bonus points for perfect delivery
       if (missed === 0) {
         score += 500;
       }
     }
-  };
+  }
 
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    const shakeX = screenShake > 0 ? flr(rnd(4)) - 2 : 0;
-    const shakeY = screenShake > 0 ? flr(rnd(4)) - 2 : 0;
-
+  function drawTitleScreen() {
     cls(0);
-
-    if (state === "title") {
+    {
       // Sky
       rectf(0, 0, W, 60, 0);
       // Grass
@@ -756,30 +718,24 @@
       drawText("Z  THROW NEWSPAPER", 113, 204, 2);
       drawText("X  JUMP OBSTACLE", 118, 213, 2);
       drawText("7 DAYS TO DELIVER!", 113, 225, 1);
-
-      return;
     }
+  }
 
-    if (state === "gameover") {
-      cls(0);
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-      if (day >= 7 && lives > 0) {
-        drawText("CONGRATULATIONS!", 121, 75, 3);
-        drawText("YOU SURVIVED THE WEEK!", 106, 90, 2);
-      } else {
-        drawText("GAME OVER", 138, 75, 3);
-      }
-      drawText("FINAL SCORE: " + score, 115, 109, 2);
-      drawText("DAYS COMPLETED: " + (day >= 7 ? 7 : day - 1), 113, 120, 2);
-
-      if (flr(GrayBox.frame / 20) % 2 === 0) {
-        drawText("PRESS START", 133, 158, 3);
-      }
-      return;
+  function drawGameOverScreen() {
+    cls(0);
+    for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+    if (day >= 7 && lives > 0) {
+      drawText("CONGRATULATIONS!", 121, 75, 3);
+      drawText("YOU SURVIVED THE WEEK!", 106, 90, 2);
+    } else {
+      drawText("GAME OVER", 138, 75, 3);
     }
+    drawText("FINAL SCORE: " + score, 115, 109, 2);
+    drawText("DAYS COMPLETED: " + (day >= 7 ? 7 : day - 1), 113, 120, 2);
+    if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS START", 133, 158, 3);
+  }
 
-    if (state === "dayresult") {
+  function drawDayResultScreen() {
       cls(0);
       drawText("DAY " + day + " COMPLETE!", 123, 45, 3);
 
@@ -800,32 +756,25 @@
 
       // Count remaining subscribers
       let subCount = 0;
-      for (let i = 0; i < subscribers.length; i++) {
-        if (subscribers[i]) subCount++;
-      }
+      for (let i = 0; i < subscribers.length; i++) { if (subscribers[i]) subCount++; }
       drawText("SUBSCRIBERS: " + subCount + "/" + HOUSES_PER_DAY, 121, 161, 2);
-
       if (subCount === 0) {
         drawText("NO SUBSCRIBERS LEFT!", 108, 180, 1);
         drawText("YOU ARE FIRED!", 126, 191, 3);
-        // Force game over
-        if (resultTimer > 120 && (btnp("a") || btnp("a"))) {
-          state = "gameover";
-          return;
-        }
       } else if (day >= 7) {
         drawText("WEEK COMPLETE!", 126, 180, 3);
       } else {
         drawText("DAY " + (day + 1) + " NEXT...", 128, 180, 2);
       }
-
       if (resultTimer > 120 && flr(GrayBox.frame / 15) % 2 === 0) {
         drawText("PRESS START", 133, 210, 3);
       }
-      return;
-    }
+  }
 
-    // --- Play state rendering ---
+  function drawPlayScene() {
+    cls(0);
+    const shakeX = screenShake > 0 ? flr(rnd(4)) - 2 : 0;
+    const shakeY = screenShake > 0 ? flr(rnd(4)) - 2 : 0;
     const ox = shakeX;
     const oy = shakeY;
 
@@ -1001,8 +950,61 @@
         pix(8, ly, 1);
       }
     }
-  };
+  }
 
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      updateCommon();
+      titleBounce = sin(GrayBox.frame * 0.06) * 4;
+      if (btnp("a") || btnp("a")) {
+        resetGame();
+        note(0, "C5", 0.1); setTimeout(() => note(0, "E5", 0.1), 100); setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
+      }
+    },
+    draw() { drawTitleScreen(); }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() { updateCommon(); updatePlayLogic(); },
+    draw() { drawPlayScene(); }
+  });
+
+  // --- Clear (Day Result) Scene ---
+  GrayBox.scene(CLEAR, {
+    init() {},
+    update() {
+      updateCommon();
+      resultTimer++;
+      if (resultTimer > 120 && (btnp("a") || btnp("a"))) {
+        let subCount = 0;
+        for (let i = 0; i < subscribers.length; i++) { if (subscribers[i]) subCount++; }
+        if (subCount === 0 || day >= 7) {
+          GrayBox.go(GAMEOVER); return;
+        } else {
+          day++; startDay();
+          GrayBox.go(PLAY); return;
+        }
+      }
+    },
+    draw() { drawDayResultScreen(); }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      updateCommon();
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOverScreen(); }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

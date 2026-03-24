@@ -504,7 +504,7 @@
   };
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, barrels, fires, explosions, particles;
   let score, lives, level, levelData;
   let dkAnimT, dkThrowT, dkFrame;
@@ -677,33 +677,35 @@
   function walkSound() { note(1, "A2", 0.02); }
   function climbSound() { note(1, "D3", 0.02); }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Scenes ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
       }
-      return;
-    }
+    },
+    draw() { drawTitle(); }
+  });
 
-    if (state === "gameover") {
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOver(); }
+  });
 
-    if (state !== "play") return;
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
 
     // Level complete sequence
     if (levelComplete) {
@@ -1094,7 +1096,9 @@
       pt.life--;
       if (pt.life <= 0) particles.splice(i, 1);
     }
-  };
+    },
+    draw() { drawPlayState(); }
+  });
 
   function killPlayer() {
     lives--;
@@ -1102,7 +1106,7 @@
     deathSound();
     if (lives <= 0) {
       if (score > highScore) highScore = score;
-      state = "gameover";
+      GrayBox.go(GAMEOVER); return;
     } else {
       invincibleTimer = 60;
       player.x = levelData.playerStart.x;
@@ -1119,10 +1123,9 @@
   // ============================================================
   // Draw
   // ============================================================
-  GrayBox._draw = function() {
+  function drawTitle() {
     cls(0);
-
-    if (state === "title") {
+    {
       // Title screen
       const ty = 20 + sin(GrayBox.frame * 0.04) * 3;
 
@@ -1158,22 +1161,25 @@
       }
 
       text("GRAYBOX DEMO V0.1", 118, 228, 1);
-      return;
+    }
+  }
+
+  function drawGameOver() {
+    cls(0);
+    for (const pt of particles) {
+      if (pt.text) text(pt.text, flr(pt.x), flr(pt.y), pt.color);
+      else pix(flr(pt.x), flr(pt.y), pt.color);
     }
 
-    if (state === "gameover") {
-      for (const pt of particles) {
-        if (pt.text) text(pt.text, flr(pt.x), flr(pt.y), pt.color);
-        else pix(flr(pt.x), flr(pt.y), pt.color);
-      }
+    text("GAME OVER", 138, 83, 3);
+    text("SCORE: " + score, 135, 105, 2);
+    text("LEVEL: " + levelData.name, 135, 116, 2);
+    if (score >= highScore && score > 0) text("NEW HIGH SCORE!", 123, 131, 3);
+    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 113, 158, 3);
+  }
 
-      text("GAME OVER", 138, 83, 3);
-      text("SCORE: " + score, 135, 105, 2);
-      text("LEVEL: " + levelData.name, 135, 116, 2);
-      if (score >= highScore && score > 0) text("NEW HIGH SCORE!", 123, 131, 3);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 113, 158, 3);
-      return;
-    }
+  function drawPlayState() {
+    cls(0);
 
     // --- Play state rendering ---
 
@@ -1363,10 +1369,11 @@
         text("HAMMER!", W / 2 + 20, 4, 3);
       }
     }
-  };
+  }
 
   // ============================================================
   // Boot
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

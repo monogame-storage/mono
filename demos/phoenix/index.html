@@ -257,7 +257,7 @@
   const FORM_BASE_Y = 30;
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, bullets, eBullets, enemies, explosions, particles, stars;
   let score, lives, phase, loop, waveTimer, waveMessage;
   let shootCooldown;
@@ -455,7 +455,7 @@
     player.x = W / 2 - 4;
     invincibleTimer = 60;
     if (lives <= 0) {
-      state = "gameover";
+      GrayBox.go(GAMEOVER); return;
       if (score > hiScore) hiScore = score;
     }
   }
@@ -465,30 +465,11 @@
   // ============================================================
   // Update
   // ============================================================
-  GrayBox._update = function() {
-    // Stars always scroll
+  function updateStars() {
     for (const s of stars) { s.y += s.speed; if (s.y > H) { s.y = 0; s.x = flr(rnd(W)); } }
+  }
 
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        note(0, "C5", 0.1);
-        setTimeout(() => note(0, "E5", 0.1), 100);
-        setTimeout(() => note(0, "G5", 0.15), 200);
-      }
-      return;
-    }
-
-    if (state === "gameover") {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
-
+  function updatePlayState() {
     // --- Play state ---
     if (waveMessage > 0) waveMessage--;
     if (invincibleTimer > 0) invincibleTimer--;
@@ -691,7 +672,7 @@
     }
 
     // Phase clear check
-    if (enemies.length === 0 && !boss && state === "play") {
+    if (enemies.length === 0 && !boss ) {
       phaseClearSound();
       waveTimer++;
       if (waveTimer > 60) {
@@ -700,7 +681,7 @@
         spawnPhase();
       }
     }
-  };
+  }
 
   // --- Boss Update ---
   function updateBoss() {
@@ -813,7 +794,7 @@
     updateExplosionsParticles();
 
     // Phase clear
-    if (!boss && state === "play") {
+    if (!boss ) {
       phaseClearSound();
       waveTimer++;
       if (waveTimer > 60) {
@@ -839,25 +820,7 @@
   // ============================================================
   // Draw
   // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    // Stars
-    for (const s of stars) pix(s.x, s.y, s.bright);
-
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
-      drawGameOver();
-      return;
-    }
-
-    // --- Play state ---
-    drawPlay();
-  };
+  function drawStarsCommon() { for (const s of stars) pix(s.x, s.y, s.bright); }
 
   function drawTitle() {
     const ty = 45 + sin(GrayBox.frame * 0.05) * 5;
@@ -930,7 +893,7 @@
     for (const b of bullets) sprT(9, flr(b.x), flr(b.y));
 
     // Player
-    if (state === "play" && (invincibleTimer <= 0 || flr(GrayBox.frame / 3) % 2 === 0)) {
+    if (invincibleTimer <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
       sprT(1, flr(player.x), flr(player.y));
       // Shield visual
       if (shieldActive) {
@@ -1013,6 +976,42 @@
     if (hpFill > 0) rectf(hpX + 1, hpY + 1, hpFill, 3, b.hp < b.maxHp / 3 ? 3 : 2);
   }
 
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      updateStars();
+      if (btnp("a") || btnp("a")) {
+        resetGame();
+        note(0, "C5", 0.1); setTimeout(() => note(0, "E5", 0.1), 100); setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
+      }
+    },
+    draw() { cls(0); drawStarsCommon(); drawTitle(); }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() { updateStars(); updatePlayState(); },
+    draw() { cls(0); drawStarsCommon(); drawPlay(); }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      updateStars();
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { cls(0); drawStarsCommon(); drawGameOver(); }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

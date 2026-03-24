@@ -111,7 +111,7 @@
   );
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let board;
   let score, level, linesCleared, chain;
   let dropInterval, dropTimer;
@@ -472,7 +472,7 @@
   function updatePlay() {
     if (gameOver) {
       if (btnp("a")) {
-        state = "title";
+        GrayBox.go(TITLE); return;
       }
       return;
     }
@@ -651,33 +651,25 @@
     }
   }
 
-  // --- Main loop ---
-  GrayBox._update = function() {
-    switch (state) {
-      case "title":
-        if (btnp("a")) {
-          state = "play";
-          resetGame();
-        }
-        break;
-      case "play":
-        updatePlay();
-        break;
-    }
-  };
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      titleAnim++;
+      if (btnp("a")) { GrayBox.go(PLAY); return; }
+    },
+    draw() { drawTitle(); }
+  });
 
-  GrayBox._draw = function() {
-    switch (state) {
-      case "title":
-        drawTitle();
-        break;
-      case "play":
-        drawPlay();
-        break;
-    }
-  };
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() { updatePlay(); },
+    draw() { drawPlay(); }
+  });
 
   // Start game loop
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -357,7 +357,7 @@
   ]));
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let player, enemies, holes, score, lives, level, goldLeft, exitOpen;
   let levelData; // current level tile array (mutable)
   let animFrame = 0;
@@ -812,24 +812,8 @@
   // ============================================================
   // Update
   // ============================================================
-  GrayBox._update = function() {
+  function updatePlay() {
     animFrame++;
-
-    if (state === "title") {
-      if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
-        note(0, "C5", 0.1);
-        setTimeout(() => note(0, "E5", 0.1), 100);
-        setTimeout(() => note(0, "G5", 0.15), 200);
-      }
-      return;
-    }
-
-    if (state === "gameover") {
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
-    }
 
     // --- Play state ---
 
@@ -849,8 +833,7 @@
       deathTimer--;
       if (deathTimer <= 0) {
         if (lives <= 0) {
-          state = "gameover";
-          return;
+          GrayBox.go(GAMEOVER); return;
         }
         // Respawn
         loadLevel(level);
@@ -903,15 +886,10 @@
         holes.splice(i, 1);
       }
     }
-  };
+  }
 
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
+  function drawTitleScreen() {
     cls(0);
-
-    if (state === "title") {
       const ty = 38 + sin(GrayBox.frame * 0.05) * 5;
 
       text("LODE RUNNER", 133, flr(ty), 3);
@@ -940,17 +918,18 @@
       spr(3, 171, by + 8); spr(3, 176, by + 8); spr(3, 181, by + 8); spr(3, 187, by + 8);
 
       text("GRAYBOX DEMO V0.1", 118, 229, 1);
-      return;
-    }
+  }
 
-    if (state === "gameover") {
-      text("GAME OVER", 138, 90, 3);
-      text("SCORE: " + score, 130, 113, 2);
-      text("LEVEL: " + (level + 1), 138, 124, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 133, 158, 3);
-      return;
-    }
+  function drawGameOverScreen() {
+    cls(0);
+    text("GAME OVER", 138, 90, 3);
+    text("SCORE: " + score, 130, 113, 2);
+    text("LEVEL: " + (level + 1), 138, 124, 2);
+    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 133, 158, 3);
+  }
 
+  function drawPlayScene() {
+    cls(0);
     // --- Play state rendering ---
 
     // Draw tiles
@@ -1055,8 +1034,40 @@
       rect(120, 105, 80, 23, 2);
       text("LEVEL " + (level + 1), 137, 112, 3);
     }
-  };
+  }
 
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { animFrame = 0; },
+    update() {
+      animFrame++;
+      if (btnp("a") || btnp("a")) {
+        resetGame();
+        note(0, "C5", 0.1); setTimeout(() => note(0, "E5", 0.1), 100); setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
+      }
+    },
+    draw() { drawTitleScreen(); }
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() { updatePlay(); },
+    draw() { drawPlayScene(); }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      animFrame++;
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() { drawGameOverScreen(); }
+  });
+
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

@@ -291,7 +291,7 @@
   const DY = [-1, 1, 0, 0];
 
   // --- Game State ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let level, score, lives;
   let player, bullets, enemies, explosions, powerups;
   let spawnTimer, spawnCount, enemiesLeft, totalEnemies;
@@ -620,7 +620,7 @@
         baseAlive = false;
         addExplosion(eagleX, eagleY, true);
         sfxExplode(); bullets.splice(i,1);
-        state = "gameover"; gameOverTimer = 120; sfxGameOver();
+        GrayBox.go(GAMEOVER); gameOverTimer = 120; sfxGameOver();
         continue;
       }
 
@@ -660,7 +660,7 @@
               lives--;
               addExplosion(player.x, player.y, true); sfxExplode();
               if (lives <= 0) {
-                player.alive = false; state = "gameover"; gameOverTimer = 120; sfxGameOver();
+                player.alive = false; GrayBox.go(GAMEOVER); gameOverTimer = 120; sfxGameOver(); return;
               } else {
                 const ppx = flr(GRID_W/2)-5;
                 player.x = ARENA_X+ppx*TILE; player.y = ARENA_Y+(GRID_H-2)*TILE;
@@ -675,22 +675,35 @@
     }
   }
 
-  // --- Main update ---
-  GrayBox._update = function() {
-    titleBlink++;
-
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {},
+    update() {
+      titleBlink++;
       if (btnp("a")) {
-        state = "play"; level = 1; score = 0; lives = 3; startLevel();
+        level = 1; score = 0; lives = 3; startLevel();
+        GrayBox.go(PLAY);
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      text("BATTLE CITY", 133, 60, 3);
+      text("TANK GAME", 138, 75, 2);
+      spr(1, 147, 98); spr(10, 160, 98); spr(12, 173, 98);
+      if (flr(titleBlink/20) % 2 === 0)
+        text("PRESS ENTER TO START", 110, 135, 3);
+      text("ARROWS: MOVE  Z: SHOOT", 103, 165, 1);
+      text("DESTROY ALL ENEMY TANKS", 103, 180, 1);
+      text("PROTECT YOUR BASE!", 115, 192, 2);
+      text("GRAYBOX DEMO", 131, 225, 1);
     }
-    if (state === "gameover") {
-      gameOverTimer--;
-      if (gameOverTimer <= 0 && btnp("a")) state = "title";
-      return;
-    }
-    if (state !== "play") return;
+  });
+
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {},
+    update() {
+    titleBlink++;
 
     // Level complete
     if (enemiesLeft <= 0 && enemies.every(e => !e.alive)) {
@@ -748,7 +761,110 @@
 
     // Cleanup dead enemies
     enemies = enemies.filter(e => e.alive);
-  };
+    },
+    draw() {
+      cls(0);
+      titleBlink++;
+
+      // Arena background
+      rectf(ARENA_X, ARENA_Y, ARENA_PW, ARENA_PH, 0);
+
+      // Tiles (except trees)
+      for (let gy = 0; gy < GRID_H; gy++)
+        for (let gx = 0; gx < GRID_W; gx++) {
+          const t = grid[gy][gx];
+          const px = ARENA_X+gx*TILE, py = ARENA_Y+gy*TILE;
+          if (t === T_BRICK) spr(3, px, py);
+          else if (t === T_STEEL) spr(4, px, py);
+          else if (t === T_WATER) spr(5, px, py);
+          else if (t === T_ICE) spr(7, px, py);
+        }
+
+      // Eagle
+      const ebx = flr(GRID_W/2)-1, eby = GRID_H-2;
+      const ex = ARENA_X+ebx*TILE, ey = ARENA_Y+eby*TILE;
+      const eid = baseAlive ? 8 : 9;
+      spr(eid, ex, ey); spr(eid, ex+8, ey);
+      spr(eid, ex, ey+8); spr(eid, ex+8, ey+8);
+
+      // Power-ups
+      for (const p of powerups)
+        if (p.timer > 30 || GrayBox.frame%4 < 2) {
+          const sid = p.type==="star"?15:p.type==="shield"?16:p.type==="grenade"?17:18;
+          spr(sid, flr(p.x), flr(p.y));
+        }
+
+      // Player
+      if (player && player.alive) drawTank(player);
+
+      // Enemies
+      for (const e of enemies) drawTank(e);
+
+      // Bullets
+      for (const b of bullets) spr(2, flr(b.x)-3, flr(b.y)-3);
+
+      // Trees on top
+      for (let gy = 0; gy < GRID_H; gy++)
+        for (let gx = 0; gx < GRID_W; gx++)
+          if (grid[gy][gx] === T_TREE) spr(6, ARENA_X+gx*TILE, ARENA_Y+gy*TILE);
+
+      // Explosions
+      for (const ex2 of explosions) {
+        const sid = ex2.timer > (ex2.big?10:6) ? 13 : 14;
+        spr(sid, flr(ex2.x), flr(ex2.y));
+        if (ex2.big) {
+          spr(sid, flr(ex2.x)+8, flr(ex2.y));
+          spr(sid, flr(ex2.x), flr(ex2.y)+8);
+          spr(sid, flr(ex2.x)+8, flr(ex2.y)+8);
+        }
+      }
+
+      // --- HUD ---
+      const hudX = ARENA_X + ARENA_PW + 11;
+      text("ENEMY", hudX, 8, 2);
+      const rem = _max(0, totalEnemies-spawnCount) + enemies.filter(e => e.alive).length;
+      for (let i = 0; i < rem; i++) {
+        const ix = hudX + (i%2)*10, iy = 17 + flr(i/2)*10;
+        rectf(ix+2, iy+2, 4, 4, 1);
+      }
+      text("LV", hudX, 120, 2);
+      text(String(level), hudX+11, 120, 3);
+      text("P1", hudX, 135, 2);
+      for (let i = 0; i < lives; i++) spr(20, hudX+i*10, 143);
+      text("SCORE", hudX, 165, 2);
+      text(String(score), hudX, 173, 3);
+      text("BATTLE", 3, 8, 2);
+      text("CITY", 5, 15, 2);
+      if (shieldTimer > 0) text("SHIELD", 3, 38, 3);
+      if (freezeTimer > 0) text("FREEZE", 3, 45, 3);
+
+      // Level complete
+      if (levelCompleteTimer > 0) {
+        rectf(93, 105, 133, 30, 0); rect(93, 105, 133, 30, 3);
+        text("STAGE CLEAR!", 130, 111, 3);
+        text("SCORE: " + score, 133, 122, 2);
+      }
+    }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      titleBlink++;
+      gameOverTimer--;
+      if (gameOverTimer <= 0 && btnp("a")) GrayBox.go(TITLE);
+    },
+    draw() {
+      cls(0);
+      rectf(107, 90, 107, 60, 0); rect(107, 90, 107, 60, 3);
+      text("GAME OVER", 138, 101, 3);
+      text("SCORE: " + score, 130, 116, 2);
+      text("LEVEL: " + level, 130, 128, 2);
+      if (gameOverTimer <= 0 && flr(titleBlink/15)%2 === 0)
+        text("PRESS ENTER", 133, 139, 1);
+    }
+  });
 
   // --- Rotated sprite draw ---
   function drawRotSprite(id, x, y, dir) {
@@ -777,120 +893,9 @@
       spr(19, px, py);
   }
 
-  // --- Main draw ---
-  GrayBox._draw = function() {
-    cls(0);
 
-    if (state === "title") {
-      text("BATTLE CITY", 133, 60, 3);
-      text("TANK GAME", 138, 75, 2);
-      spr(1, 147, 98); spr(10, 160, 98); spr(12, 173, 98);
-      if (flr(titleBlink/20) % 2 === 0)
-        text("PRESS ENTER TO START", 110, 135, 3);
-      text("ARROWS: MOVE  Z: SHOOT", 103, 165, 1);
-      text("DESTROY ALL ENEMY TANKS", 103, 180, 1);
-      text("PROTECT YOUR BASE!", 115, 192, 2);
-      text("GRAYBOX DEMO", 131, 225, 1);
-      return;
-    }
 
-    // Arena background
-    rectf(ARENA_X, ARENA_Y, ARENA_PW, ARENA_PH, 0);
-
-    // Tiles (except trees)
-    for (let gy = 0; gy < GRID_H; gy++)
-      for (let gx = 0; gx < GRID_W; gx++) {
-        const t = grid[gy][gx];
-        const px = ARENA_X+gx*TILE, py = ARENA_Y+gy*TILE;
-        if (t === T_BRICK) spr(3, px, py);
-        else if (t === T_STEEL) spr(4, px, py);
-        else if (t === T_WATER) spr(5, px, py);
-        else if (t === T_ICE) spr(7, px, py);
-      }
-
-    // Eagle
-    const ebx = flr(GRID_W/2)-1, eby = GRID_H-2;
-    const ex = ARENA_X+ebx*TILE, ey = ARENA_Y+eby*TILE;
-    const eid = baseAlive ? 8 : 9;
-    spr(eid, ex, ey); spr(eid, ex+8, ey);
-    spr(eid, ex, ey+8); spr(eid, ex+8, ey+8);
-
-    // Power-ups
-    for (const p of powerups)
-      if (p.timer > 30 || GrayBox.frame%4 < 2) {
-        const sid = p.type==="star"?15:p.type==="shield"?16:p.type==="grenade"?17:18;
-        spr(sid, flr(p.x), flr(p.y));
-      }
-
-    // Player
-    if (player && player.alive) drawTank(player);
-
-    // Enemies
-    for (const e of enemies) drawTank(e);
-
-    // Bullets
-    for (const b of bullets) spr(2, flr(b.x)-3, flr(b.y)-3);
-
-    // Trees on top
-    for (let gy = 0; gy < GRID_H; gy++)
-      for (let gx = 0; gx < GRID_W; gx++)
-        if (grid[gy][gx] === T_TREE) spr(6, ARENA_X+gx*TILE, ARENA_Y+gy*TILE);
-
-    // Explosions
-    for (const ex2 of explosions) {
-      const sid = ex2.timer > (ex2.big?10:6) ? 13 : 14;
-      spr(sid, flr(ex2.x), flr(ex2.y));
-      if (ex2.big) {
-        spr(sid, flr(ex2.x)+8, flr(ex2.y));
-        spr(sid, flr(ex2.x), flr(ex2.y)+8);
-        spr(sid, flr(ex2.x)+8, flr(ex2.y)+8);
-      }
-    }
-
-    // --- HUD ---
-    const hudX = ARENA_X + ARENA_PW + 11;
-
-    // Enemy icons
-    text("ENEMY", hudX, 8, 2);
-    const rem = _max(0, totalEnemies-spawnCount) + enemies.filter(e => e.alive).length;
-    for (let i = 0; i < rem; i++) {
-      const ix = hudX + (i%2)*10, iy = 17 + flr(i/2)*10;
-      rectf(ix+2, iy+2, 4, 4, 1);
-    }
-
-    text("LV", hudX, 120, 2);
-    text(String(level), hudX+11, 120, 3);
-
-    text("P1", hudX, 135, 2);
-    for (let i = 0; i < lives; i++) spr(20, hudX+i*10, 143);
-
-    text("SCORE", hudX, 165, 2);
-    text(String(score), hudX, 173, 3);
-
-    // Left side
-    text("BATTLE", 3, 8, 2);
-    text("CITY", 5, 15, 2);
-    if (shieldTimer > 0) text("SHIELD", 3, 38, 3);
-    if (freezeTimer > 0) text("FREEZE", 3, 45, 3);
-
-    // Level complete
-    if (levelCompleteTimer > 0) {
-      rectf(93, 105, 133, 30, 0); rect(93, 105, 133, 30, 3);
-      text("STAGE CLEAR!", 130, 111, 3);
-      text("SCORE: " + score, 133, 122, 2);
-    }
-
-    // Game over
-    if (state === "gameover") {
-      rectf(107, 90, 107, 60, 0); rect(107, 90, 107, 60, 3);
-      text("GAME OVER", 138, 101, 3);
-      text("SCORE: " + score, 130, 116, 2);
-      text("LEVEL: " + level, 130, 128, 2);
-      if (gameOverTimer <= 0 && flr(titleBlink/15)%2 === 0)
-        text("PRESS ENTER", 133, 139, 1);
-    }
-  };
-
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

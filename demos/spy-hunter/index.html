@@ -243,8 +243,9 @@
   const ROAD_RIGHT = ROAD_CENTER + ROAD_W / 2;
   const LANE_W = ROAD_W / 4;  // 4 lanes
 
-  // --- Game State ---
-  let state = "title";
+  // --- Scenes ---
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+
   let player, bullets, enemies, explosions, particles, oilSlicks, bombs, smokeTrails;
   let score, lives, distance, scrollSpeed, baseSpeed;
   let roadOffset, roadCurve, roadCurveTarget, roadCurveSpeed;
@@ -403,7 +404,7 @@
     player.x = ROAD_CENTER - 4;
     scrollSpeed = baseSpeed;
     if (lives <= 0) {
-      state = "gameover";
+      GrayBox.go(GAMEOVER);
     }
   }
 
@@ -411,36 +412,66 @@
     return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
   }
 
-  resetGame();
-  titleCarY = H;
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() { resetGame(); titleCarY = H; },
+    update() {
       titleCarY -= 1.5;
       if (titleCarY < -20) titleCarY = H + 20;
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
+        GrayBox.go(PLAY); return;
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      const curveOff = flr(roadCurve);
+      const rl = ROAD_LEFT + curveOff;
+      const rr = ROAD_RIGHT + curveOff;
+      rectf(rl, 0, ROAD_W, H, 1);
+      rectf(rl, 0, 3, H, 3); rectf(rr - 3, 0, 3, H, 3);
+      for (let ly = -16; ly < H; ly += 16) { const dy = flr((ly + (GrayBox.frame * 2) % 16)); for (let lane = 1; lane < 4; lane++) { const lx = rl + lane * LANE_W; rectf(lx, dy, 2, 8, 2); } }
+      for (let ty = 0; ty < H; ty += 30) { const dy = (ty + flr(GrayBox.frame * 1.5) % 30); sprT(14, rl - 10, dy % H, false, false); sprT(14, rr + 4, (dy + 15) % H, false, false); }
+      sprT(1, ROAD_CENTER - 4 + sin(GrayBox.frame * 0.03) * 7, flr(titleCarY), false, false);
+      const ty = 38 + sin(GrayBox.frame * 0.04) * 4;
+      text("SPY HUNTER", 123, flr(ty), 3); rectf(113, flr(ty) + 10, 93, 1, 2);
+      text("TOP SECRET MISSION", 113, flr(ty) + 20, 2);
+      text("ARROWS  STEER/ACCEL", 113, 113, 2); text("Z  SHOOT FORWARD", 113, 122, 2); text("X  OIL/SMOKE", 113, 131, 2);
+      text("-TARGETS-", 130, 150, 2);
+      sprT(2, 120, 161); text("BLOCKER    50", 130, 162, 2);
+      sprT(3, 120, 171); text("ENFORCER  100", 130, 173, 2);
+      sprT(5, 120, 182); text("CHOPPER   200", 130, 183, 2);
+      sprT(4, 120, 192); text("CIVILIAN  NO!", 130, 194, 1);
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 130, 214, 3);
+      text("GRAYBOX DEMO V0.1", 113, 231, 1);
     }
+  });
 
-    if (state === "gameover") {
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) state = "title";
-      return;
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--; if (p.life <= 0) particles.splice(i, 1); }
+      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+    },
+    draw() {
+      cls(0);
+      const curveOff = flr(roadCurve);
+      const rl = ROAD_LEFT + curveOff;
+      rectf(rl, 0, ROAD_W, H, 1);
+      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
+      text("GAME OVER", 130, 80, 3); text("SCORE: " + score, 130, 100, 2);
+      text("DISTANCE: " + flr(distance), 113, 112, 2);
+      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS START", 130, 150, 3);
     }
+  });
 
-    // --- Play state ---
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() { resetGame(); },
+    update() {
 
     // Increase difficulty over time
     baseSpeed = 2.5 + distance / 8000;
@@ -774,88 +805,17 @@
 
     // Engine sound
     engineSound();
-  };
+    },
+    draw() {
+      cls(0);
+      const curveOff = flr(roadCurve);
+      const rl = ROAD_LEFT + curveOff;
+      const rr = ROAD_RIGHT + curveOff;
 
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
+      // --- Play state rendering ---
 
-    const curveOff = flr(roadCurve);
-    const rl = ROAD_LEFT + curveOff;
-    const rr = ROAD_RIGHT + curveOff;
-
-    if (state === "title") {
-      // Draw a road in the background
-      rectf(rl, 0, ROAD_W, H, 1);
-      // Shoulder lines
-      rectf(rl, 0, 3, H, 3);
-      rectf(rr - 3, 0, 3, H, 3);
-      // Lane dashes
-      for (let ly = -16; ly < H; ly += 16) {
-        const dy = flr((ly + (GrayBox.frame * 2) % 16));
-        for (let lane = 1; lane < 4; lane++) {
-          const lx = rl + lane * LANE_W;
-          rectf(lx, dy, 2, 8, 2);
-        }
-      }
-
-      // Trees
-      for (let ty = 0; ty < H; ty += 30) {
-        const dy = (ty + flr(GrayBox.frame * 1.5) % 30);
-        sprT(14, rl - 10, dy % H, false, false);
-        sprT(14, rr + 4, (dy + 15) % H, false, false);
-      }
-
-      // Title car driving up
-      sprT(1, ROAD_CENTER - 4 + sin(GrayBox.frame * 0.03) * 7, flr(titleCarY), false, false);
-
-      // Title text
-      const ty = 38 + sin(GrayBox.frame * 0.04) * 4;
-      text("SPY HUNTER", 123, flr(ty), 3);
-      rectf(113, flr(ty) + 10, 93, 1, 2);
-
-      text("TOP SECRET MISSION", 113, flr(ty) + 20, 2);
-
-      // Instructions
-      text("ARROWS  STEER/ACCEL", 113, 113, 2);
-      text("Z  SHOOT FORWARD", 113, 122, 2);
-      text("X  OIL/SMOKE", 113, 131, 2);
-
-      // Score table
-      text("-TARGETS-", 130, 150, 2);
-      sprT(2, 120, 161); text("BLOCKER    50", 130, 162, 2);
-      sprT(3, 120, 171); text("ENFORCER  100", 130, 173, 2);
-      sprT(5, 120, 182); text("CHOPPER   200", 130, 183, 2);
-      sprT(4, 120, 192); text("CIVILIAN  NO!", 130, 194, 1);
-
-      if (flr(GrayBox.frame / 20) % 2 === 0)
-        text("PRESS START", 130, 214, 3);
-
-      text("GRAYBOX DEMO V0.1", 113, 231, 1);
-      return;
-    }
-
-    if (state === "gameover") {
-      // Dark road bg
-      rectf(rl, 0, ROAD_W, H, 1);
-      for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-
-      text("GAME OVER", 130, 75, 3);
-      text("DISTANCE: " + flr(distance / 10), 117, 98, 2);
-      text("SCORE: " + score, 127, 109, 2);
-      text("ENEMIES DESTROYED:", 110, 128, 2);
-
-      if (flr(GrayBox.frame / 20) % 2 === 0)
-        text("PRESS START", 130, 165, 3);
-      return;
-    }
-
-    // --- Play state rendering ---
-
-    // Grass/ground
-    // Left grass
+      // Grass/ground
+      // Left grass
     rectf(0, 0, rl, H, 0);
     // Right grass
     rectf(rr, 0, W - rr, H, 0);
@@ -1007,8 +967,10 @@
     if (bridgeMode) {
       text("BRIDGE", W / 2 - 10, 15, 3);
     }
-  };
+    }
+  });
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>

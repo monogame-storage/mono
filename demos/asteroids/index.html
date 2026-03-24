@@ -131,7 +131,7 @@
   const UFO_LINE = [[-8, 0], [8, 0]]; // middle line
 
   // --- Game state ---
-  let state = "title";
+  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
   let ship, bullets, asteroids, particles, debris, stars;
   let ufo, ufoBullets, ufoTimer;
   let score, lives, level;
@@ -295,42 +295,35 @@
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  resetGame();
-
-  // ============================================================
-  // Update
-  // ============================================================
-  GrayBox._update = function() {
-    if (state === "title") {
+  // --- Title Scene ---
+  GrayBox.scene(TITLE, {
+    init() {
+      resetGame();
+      titlePulse = 0;
+    },
+    update() {
       titlePulse++;
       if (btnp("a") || btnp("a")) {
-        state = "play";
-        resetGame();
+        GrayBox.go(PLAY);
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
       }
-      return;
+    },
+    draw() {
+      cls(0);
+      // Stars background
+      for (const s of stars) pix(s.x, s.y, s.b);
+      drawTitle();
     }
+  });
 
-    if (state === "gameover") {
-      // Update particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx; p.y += p.vy; p.vx *= 0.98; p.vy *= 0.98; p.life--;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-      for (let i = debris.length - 1; i >= 0; i--) {
-        const d = debris[i];
-        d.x += d.vx; d.y += d.vy; d.angle += d.rotSpeed; d.life--;
-        if (d.life <= 0) debris.splice(i, 1);
-      }
-      if (btnp("a") || btnp("a")) {
-        state = "title";
-      }
-      return;
-    }
-
+  // --- Play Scene ---
+  GrayBox.scene(PLAY, {
+    init() {
+      resetGame();
+    },
+    update() {
     // --- Play state ---
     if (shakeTimer > 0) shakeTimer--;
 
@@ -423,7 +416,8 @@
           ship.invuln = 90;
         } else {
           if (score > hiScore) hiScore = score;
-          state = "gameover";
+          GrayBox.go(GAMEOVER);
+          return;
         }
       }
     }
@@ -621,7 +615,127 @@
       note(0, "C5", 0.08);
       setTimeout(() => note(0, "G5", 0.1), 100);
     }
-  };
+    },
+    draw() {
+      cls(0);
+
+      // Screen shake offset
+      let sx = 0, sy = 0;
+      if (shakeTimer > 0) {
+        sx = flr(rnd(5)) - 2;
+        sy = flr(rnd(5)) - 2;
+      }
+
+      // Stars background
+      for (const s of stars) pix(s.x + sx, s.y + sy, s.b);
+
+      // Asteroids
+      for (const a of asteroids) {
+        const col = a.size === 3 ? 3 : a.size === 2 ? 2 : 2;
+        drawPoly(a.shape, a.x + sx, a.y + sy, a.rot, a.radius, col);
+      }
+
+      // UFO
+      if (ufo) {
+        const s2 = ufo.small ? 0.7 : 1.0;
+        drawPoly(UFO_PTS, ufo.x + sx, ufo.y + sy, 0, s2, 3);
+        // Middle line
+        line(flr(ufo.x - 8 * s2 + sx), flr(ufo.y + sy), flr(ufo.x + 8 * s2 + sx), flr(ufo.y + sy), 2);
+        // Dome
+        const dw = ufo.small ? 2 : 3;
+        line(flr(ufo.x - dw + sx), flr(ufo.y - 2 * s2 + sy), flr(ufo.x + sx), flr(ufo.y - 5 * s2 + sy), 2);
+        line(flr(ufo.x + sx), flr(ufo.y - 5 * s2 + sy), flr(ufo.x + dw + sx), flr(ufo.y - 2 * s2 + sy), 2);
+      }
+
+      // UFO bullets
+      for (const b of ufoBullets) {
+        pix(flr(b.x + sx), flr(b.y + sy), 3);
+        pix(flr(b.x + sx) + 1, flr(b.y + sy), 2);
+        pix(flr(b.x + sx), flr(b.y + sy) + 1, 2);
+      }
+
+      // Player bullets
+      for (const b of bullets) {
+        pix(flr(b.x + sx), flr(b.y + sy), 3);
+        pix(flr(b.x + sx) + 1, flr(b.y + sy), 3);
+        pix(flr(b.x + sx), flr(b.y + sy) + 1, 2);
+      }
+
+      // Ship
+      if (ship.alive && hyperTimer <= 0) {
+        // Blink during invulnerability
+        if (ship.invuln <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+          drawPoly(SHIP_PTS, ship.x + sx, ship.y + sy, ship.angle, 1, 3);
+
+          // Thrust flame
+          if (btn("up")) {
+            const flicker = 0.6 + rnd(0.8);
+            const tc = flr(GrayBox.frame / 2) % 2 === 0 ? 3 : 2;
+            const c2 = cos(ship.angle), s2 = sin(ship.angle);
+            const bx = ship.x - c2 * 5 + sx;
+            const by = ship.y - s2 * 5 + sy;
+            const tx = bx - c2 * 6 * flicker;
+            const ty = by - s2 * 6 * flicker;
+            const px = -sin(ship.angle) * 3;
+            const py = cos(ship.angle) * 3;
+            line(flr(bx + px), flr(by + py), flr(tx), flr(ty), tc);
+            line(flr(bx - px), flr(by - py), flr(tx), flr(ty), tc);
+            // Thrust particles
+            if (GrayBox.frame % 2 === 0) {
+              particles.push({
+                x: tx, y: ty,
+                vx: -c2 * rnd(2) + rnd(1) - 0.5,
+                vy: -s2 * rnd(2) + rnd(1) - 0.5,
+                life: 4 + flr(rnd(6)),
+                color: flr(rnd(2)) + 1
+              });
+            }
+          }
+        }
+      }
+
+      // Particles
+      for (const p of particles) pix(flr(p.x + sx), flr(p.y + sy), p.color);
+
+      // Debris lines
+      for (const d of debris) {
+        const dx = cos(d.angle) * d.len * 0.5;
+        const dy = sin(d.angle) * d.len * 0.5;
+        const c = d.life < 5 ? 1 : d.color;
+        line(flr(d.x - dx + sx), flr(d.y - dy + sy), flr(d.x + dx + sx), flr(d.y + dy + sy), c);
+      }
+
+      // HUD
+      drawHUD();
+    }
+  });
+
+  // --- Game Over Scene ---
+  GrayBox.scene(GAMEOVER, {
+    init() {},
+    update() {
+      // Update particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.vx *= 0.98; p.vy *= 0.98; p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      for (let i = debris.length - 1; i >= 0; i--) {
+        const d = debris[i];
+        d.x += d.vx; d.y += d.vy; d.angle += d.rotSpeed; d.life--;
+        if (d.life <= 0) debris.splice(i, 1);
+      }
+      if (btnp("a") || btnp("a")) {
+        GrayBox.go(TITLE);
+      }
+    },
+    draw() {
+      cls(0);
+      // Stars background
+      for (const s of stars) pix(s.x, s.y, s.b);
+      drawGameOver();
+    }
+  });
 
   function killShip() {
     ship.alive = false;
@@ -647,113 +761,7 @@
     ship.vy = 0;
   }
 
-  // ============================================================
-  // Draw
-  // ============================================================
-  GrayBox._draw = function() {
-    cls(0);
-
-    // Screen shake offset
-    let sx = 0, sy = 0;
-    if (shakeTimer > 0) {
-      sx = flr(rnd(5)) - 2;
-      sy = flr(rnd(5)) - 2;
-    }
-
-    // Stars background
-    for (const s of stars) pix(s.x + sx, s.y + sy, s.b);
-
-    if (state === "title") {
-      drawTitle();
-      return;
-    }
-
-    if (state === "gameover") {
-      drawGameOver();
-      return;
-    }
-
-    // --- Play state rendering ---
-
-    // Asteroids
-    for (const a of asteroids) {
-      const col = a.size === 3 ? 3 : a.size === 2 ? 2 : 2;
-      drawPoly(a.shape, a.x + sx, a.y + sy, a.rot, a.radius, col);
-    }
-
-    // UFO
-    if (ufo) {
-      const s2 = ufo.small ? 0.7 : 1.0;
-      drawPoly(UFO_PTS, ufo.x + sx, ufo.y + sy, 0, s2, 3);
-      // Middle line
-      line(flr(ufo.x - 8 * s2 + sx), flr(ufo.y + sy), flr(ufo.x + 8 * s2 + sx), flr(ufo.y + sy), 2);
-      // Dome
-      const dw = ufo.small ? 2 : 3;
-      line(flr(ufo.x - dw + sx), flr(ufo.y - 2 * s2 + sy), flr(ufo.x + sx), flr(ufo.y - 5 * s2 + sy), 2);
-      line(flr(ufo.x + sx), flr(ufo.y - 5 * s2 + sy), flr(ufo.x + dw + sx), flr(ufo.y - 2 * s2 + sy), 2);
-    }
-
-    // UFO bullets
-    for (const b of ufoBullets) {
-      pix(flr(b.x + sx), flr(b.y + sy), 3);
-      pix(flr(b.x + sx) + 1, flr(b.y + sy), 2);
-      pix(flr(b.x + sx), flr(b.y + sy) + 1, 2);
-    }
-
-    // Player bullets
-    for (const b of bullets) {
-      pix(flr(b.x + sx), flr(b.y + sy), 3);
-      pix(flr(b.x + sx) + 1, flr(b.y + sy), 3);
-      pix(flr(b.x + sx), flr(b.y + sy) + 1, 2);
-    }
-
-    // Ship
-    if (ship.alive && hyperTimer <= 0) {
-      // Blink during invulnerability
-      if (ship.invuln <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
-        drawPoly(SHIP_PTS, ship.x + sx, ship.y + sy, ship.angle, 1, 3);
-
-        // Thrust flame
-        if (btn("up")) {
-          const flicker = 0.6 + rnd(0.8);
-          const tc = flr(GrayBox.frame / 2) % 2 === 0 ? 3 : 2;
-          const c2 = cos(ship.angle), s2 = sin(ship.angle);
-          const bx = ship.x - c2 * 5 + sx;
-          const by = ship.y - s2 * 5 + sy;
-          const tx = bx - c2 * 6 * flicker;
-          const ty = by - s2 * 6 * flicker;
-          const px = -sin(ship.angle) * 3;
-          const py = cos(ship.angle) * 3;
-          line(flr(bx + px), flr(by + py), flr(tx), flr(ty), tc);
-          line(flr(bx - px), flr(by - py), flr(tx), flr(ty), tc);
-          // Thrust particles
-          if (GrayBox.frame % 2 === 0) {
-            particles.push({
-              x: tx, y: ty,
-              vx: -c2 * rnd(2) + rnd(1) - 0.5,
-              vy: -s2 * rnd(2) + rnd(1) - 0.5,
-              life: 4 + flr(rnd(6)),
-              color: flr(rnd(2)) + 1
-            });
-          }
-        }
-      }
-    }
-
-    // Particles
-    for (const p of particles) pix(flr(p.x + sx), flr(p.y + sy), p.color);
-
-    // Debris lines
-    for (const d of debris) {
-      const dx = cos(d.angle) * d.len * 0.5;
-      const dy = sin(d.angle) * d.len * 0.5;
-      const c = d.life < 5 ? 1 : d.color;
-      line(flr(d.x - dx + sx), flr(d.y - dy + sy), flr(d.x + dx + sx), flr(d.y + dy + sy), c);
-    }
-
-    // HUD
-    drawHUD();
-  };
+  // (draw code moved into scenes above)
 
   function drawHUD() {
     text("SCORE", 3, 2, 2);
@@ -849,6 +857,7 @@
     }
   }
 
+  GrayBox.go(TITLE);
   GrayBox.boot("screen");
 })();
 </script>
