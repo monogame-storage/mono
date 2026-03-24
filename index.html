@@ -364,33 +364,6 @@
   .btn-b { margin-bottom: 24px; }
   .btn-a { margin-bottom: 0; }
 
-  .start-btn {
-    position: fixed;
-    bottom: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1001;
-    pointer-events: auto;
-    width: 60px;
-    height: 28px;
-    border-radius: 14px;
-    background: rgba(107,107,107,0.3);
-    border: 1px solid rgba(176,176,176,0.3);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    color: rgba(232,232,232,0.5);
-    font-family: inherit;
-    font-size: 9px;
-    letter-spacing: 1px;
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: none;
-  }
-  .start-btn.show { display: flex; }
-  .start-btn:active, .start-btn.pressed {
-    background: rgba(176,176,176,0.5);
-  }
 
   /* ── Responsive ── */
   @media (max-width: 600px) {
@@ -462,7 +435,6 @@
     <div class="action-btn btn-a" data-key="z">A</div>
   </div>
 </div>
-<div class="start-btn" id="startBtn" data-key="Enter">START</div>
 
 <footer>
   <a href="docs/SPEC.md">SPEC</a> &nbsp;·&nbsp;
@@ -695,18 +667,13 @@ document.addEventListener("keydown", e => {
 
 // ── Mobile Gamepad ──
 const gamepad = document.getElementById("gamepad");
-const startBtnEl = document.getElementById("startBtn");
 const isTouchDevice = () => "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
 function showGamepad() {
-  if (isTouchDevice()) {
-    gamepad.classList.add("show");
-    startBtnEl.classList.add("show");
-  }
+  if (isTouchDevice()) gamepad.classList.add("show");
 }
 function hideGamepad() {
   gamepad.classList.remove("show");
-  startBtnEl.classList.remove("show");
 }
 
 function sendKey(key, type) {
@@ -723,22 +690,24 @@ function sendKey(key, type) {
 
 document.querySelectorAll("[data-key]").forEach(btn => {
   const key = btn.dataset.key;
+  // A button also triggers "start" so it works on title screens
+  const keys = key === "z" ? ["z", "Enter"] : [key];
 
   btn.addEventListener("touchstart", (e) => {
     e.preventDefault();
     btn.classList.add("pressed");
-    sendKey(key, "keydown");
+    keys.forEach(k => sendKey(k, "keydown"));
   }, { passive: false });
 
   btn.addEventListener("touchend", (e) => {
     e.preventDefault();
     btn.classList.remove("pressed");
-    sendKey(key, "keyup");
+    keys.forEach(k => sendKey(k, "keyup"));
   }, { passive: false });
 
   btn.addEventListener("touchcancel", (e) => {
     btn.classList.remove("pressed");
-    sendKey(key, "keyup");
+    keys.forEach(k => sendKey(k, "keyup"));
   });
 });
 
