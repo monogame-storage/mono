@@ -1,17 +1,9 @@
 /**
- * Mono Runtime Engine v1.0 "Mono"
+ * Mono Runtime Engine v2.0 "Mono"
  *
- * 320×240, 4-color grayscale, 30fps, 2ch square wave
- * Standalone runtime — no game code included.
- *
- * Usage:
- *   <script src="runtime/engine.js"></script>
- *   <script>
- *     const { cls, spr, text, btn, ... } = Mono;
- *     Mono._update = function() { ... };
- *     Mono._draw = function() { ... };
- *     Mono.boot("screen");
- *   </script>
+ * 320x240, 4-color grayscale, 30fps, 2ch square wave
+ * Lua scripting via Wasmoon, 4KB RAM, rAF fixed timestep
+ * Input record/playback, savestate, postMessage IPC
  */
 const Mono = (() => {
   "use strict";
@@ -19,6 +11,7 @@ const Mono = (() => {
   const W = 320;
   const H = 240;
   const FPS = 30;
+  const FRAME_MS = 1000 / FPS;
   let SPR_SIZE = 16; // configurable via boot({ spriteSize: N })
   const COLORS = ["#1a1a1a", "#6b6b6b", "#b0b0b0", "#e8e8e8"];
 
@@ -80,7 +73,7 @@ const Mono = (() => {
     return 440 * Math.pow(2, (midi - 69) / 12);
   }
 
-  // --- Font (4×7 bitmap) ---
+  // --- Font (4x7 bitmap) ---
   const FONT_W = 4;
   const FONT_H = 7;
   const FONT = {};
@@ -131,9 +124,15 @@ const Mono = (() => {
   // --- API ---
   const API = {};
   API.frame = 0;
+  API.speed = 1; // multiplier for game speed
   API.WIDTH = W;
   API.HEIGHT = H;
   API.COLORS = COLORS;
+
+  // --- RAM ---
+  const RAM_SIZE = 4096;
+  const ram = new Uint8Array(RAM_SIZE);
+  API.ram = ram;
 
   // --- Scene system ---
   const VALID_SCENES = ["title","play","clear","gameover","win"];
@@ -150,41 +149,22 @@ const Mono = (() => {
     scenes[name] = handlers;
   };
 
-  API.go = function(name) {
+  API.go = function(name, opts) {
     if (VALID_SCENES.indexOf(name) === -1) {
-      throw new Error('Mono: "' + name + '" is not a valid scene. Use: ' + VALID_SCENES.join("/"));
+      console.warn('Mono: invalid scene "' + name + '"');
+      return;
     }
-    // Attract mode hooks
-    if (name === "play" && demoState !== "playback") {
-      // Start recording when entering play
-      demoState = "recording";
-      demoRecording = [];
-      demoRecFrame = 0;
-      demoLastBits = 0;
-      demoRecSeed = _seed;
-    }
-    if ((name === "gameover" || name === "win") && demoState === "recording") {
-      // Stop recording & save when leaving play
-      demoRecording.push([demoRecFrame, 0]);
-      saveDemoToStorage();
-      demoState = "idle";
-      demoIdleFrames = 0;
-    }
-    // Auto-stop BGM on scene change (game can restart it in init)
     if (bgmPlaying) API.bgmStop();
     paused = false;
     currentSceneName = name;
     currentScene = scenes[name] || null;
-    if (currentScene && currentScene.init) currentScene.init();
+    if (currentScene && currentScene.init && (!opts || !opts.skipInit)) {
+      currentScene.init();
+    }
   };
 
   API.currentScene = function() { return currentSceneName; };
   API.paused = function() { return paused; };
-
-  // Legacy support: _update/_draw still work for simple games
-  API._init = null;
-  API._update = null;
-  API._draw = null;
 
   // Graphics
   API.cls = function(c) { buf32.fill(COLOR_U32[c || 0]); };
@@ -500,52 +480,29 @@ const Mono = (() => {
     return x1+w1>x2 && x1<x2+w2 && y1+h1>y2 && y1<y2+h2;
   };
 
-  // --- Attract Mode (action-based input recording & playback) ---
-  // Format: [[frame, bitmask], ...] — only stores when key state changes
-  // 6 keys packed as bitmask: up=1 down=2 left=4 right=8 a=16 b=32
-  const KEY_BITS = ["up","down","left","right","a","b"];
+  // --- Demo Record/Playback (frame-level, scene-independent) ---
+  const KEY_BITS = ["up","down","left","right","a","b","start","select"];
   let demoState = "idle";       // idle | recording | playback
   let demoRecording = [];       // [[frame, bits], ...] action-based
   let demoRecFrame = 0;         // frame counter during recording
   let demoLastBits = 0;         // last recorded bitmask
+  let demoRecSeed = 1;          // seed captured at recording start
   let demoPlaybackData = null;  // loaded recording for playback
   let demoPlayIdx = 0;          // current index in playback data
   let demoPlayFrame = 0;        // frame counter during playback
   let demoPlayBits = 0;         // current key state during playback
-  let demoIdleFrames = 0;       // frames since last real input
-  const DEMO_IDLE_THRESHOLD = 150; // 5 seconds at 30fps
-  // No time limit — recording runs until go("gameover") or go("win")
   let gameId = "";              // derived from URL path
 
   function getDemoKey() { return "mono_demo_" + gameId; }
 
   function packKeys() {
     let bits = 0;
-    for (let i = 0; i < 6; i++) if (keys[KEY_BITS[i]]) bits |= (1 << i);
+    for (let i = 0; i < KEY_BITS.length; i++) if (keys[KEY_BITS[i]]) bits |= (1 << i);
     return bits;
   }
 
   function unpackKeys(bits) {
-    for (let i = 0; i < 6; i++) keys[KEY_BITS[i]] = !!(bits & (1 << i));
-  }
-
-  function demoTotalFrames(rec) {
-    return rec.length > 0 ? rec[rec.length - 1][0] : 0;
-  }
-
-  let demoRecSeed = 1; // seed captured at recording start
-
-  function saveDemoToStorage() {
-    if (demoRecording.length < 3) return;
-    try {
-      const payload = { seed: demoRecSeed, actions: demoRecording };
-      const existing = localStorage.getItem(getDemoKey());
-      if (existing) {
-        const old = JSON.parse(existing);
-        if (demoTotalFrames(old.actions || old) >= demoTotalFrames(demoRecording)) return;
-      }
-      localStorage.setItem(getDemoKey(), JSON.stringify(payload));
-    } catch(e) {}
+    for (let i = 0; i < KEY_BITS.length; i++) keys[KEY_BITS[i]] = !!(bits & (1 << i));
   }
 
   function loadDemoFromStorage() {
@@ -553,38 +510,92 @@ const Mono = (() => {
       const raw = localStorage.getItem(getDemoKey());
       if (!raw) return null;
       const data = JSON.parse(raw);
-      // Support new format {seed, actions} and legacy [actions]
       if (data.actions) return data;
       return { seed: 1, actions: data };
     } catch(e) {}
     return null;
   }
 
-  function startDemoPlayback() {
+  function notifyParent(event, data) {
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "mono", event, ...data }, "*");
+    }
+  }
+
+  API.demoRec = function() {
+    demoState = "recording";
+    demoRecording = [];
+    demoRecFrame = 0;
+    demoLastBits = 0;
+    demoRecSeed = _seed;
+    API.frame = 0;
+    notifyParent("state", { state: "recording" });
+  };
+
+  API.demoPlay = function() {
     const loaded = loadDemoFromStorage();
-    if (!loaded || !loaded.actions || loaded.actions.length < 3) return false;
+    if (!loaded) return false;
     demoPlaybackData = loaded.actions;
     demoState = "playback";
     demoPlayIdx = 0;
     demoPlayFrame = 0;
     demoPlayBits = 0;
     API.frame = 0;
-    // Restore seed for deterministic replay
     _seed = loaded.seed || 1;
     for (const k of KEY_BITS) { keys[k] = false; keysPrev[k] = false; }
+    if (scenes["title"]) {
+      currentSceneName = "title";
+      currentScene = scenes["title"];
+      if (currentScene.init) currentScene.init();
+    }
+    notifyParent("state", { state: "playback" });
     return true;
-  }
+  };
 
-  function stopDemoPlayback() {
+  API.demoStop = function() {
     demoState = "idle";
     demoPlaybackData = null;
-    demoPlayIdx = 0;
-    demoPlayFrame = 0;
-    demoIdleFrames = 0;
-    for (const k of KEY_BITS) { keys[k] = false; keysPrev[k] = false; }
+    notifyParent("state", { state: "idle" });
+  };
+
+  API.demoSave = function() {
+    if (demoState === "recording" && demoRecording.length >= 1) {
+      demoRecording.push([demoRecFrame, 0]);
+      try {
+        localStorage.setItem(getDemoKey(), JSON.stringify({ seed: demoRecSeed, actions: demoRecording }));
+      } catch(e) {}
+    }
+    API.demoStop();
+  };
+
+  // --- Savestate ---
+  API.save = function() {
+    return { ram: ram.slice(), frame: API.frame, seed: _seed, scene: currentSceneName };
+  };
+  API.load = function(state) {
+    ram.set(state.ram);
+    API.frame = state.frame;
+    _seed = state.seed;
+    currentSceneName = state.scene;
+    currentScene = scenes[state.scene] || null;
+    // No init call - state restored from RAM
+  };
+
+  // --- Visual Sprite Parser ---
+  function parseVisualSprite(str) {
+    const lines = str.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const h = lines.length;
+    const w = lines[0].length;
+    const data = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        const ch = lines[y][x] || '0';
+        data[y * w + x] = ch === '.' ? 0 : parseInt(ch) || 0;
+      }
+    return data;
   }
 
-  // --- Game loop ---
+  // --- Debug overlays ---
   function drawDebugLabel(str, x, col) {
     let cx = x;
     for (const ch of str) {
@@ -705,137 +716,323 @@ const Mono = (() => {
     debugFillBoxes.length = 0;
   }
 
-  function tick() {
-    // --- Attract mode: playback ---
+  function drawOverlayText(str, x, y, c) {
+    const col = COLOR_U32[c] || COLOR_U32[3];
+    let cx = x;
+    for (const ch of str) {
+      const glyph = FONT[ch];
+      if (glyph) for (let py = 0; py < FONT_H; py++) for (let px = 0; px < FONT_W; px++)
+        if (glyph[py * FONT_W + px]) {
+          const sx = cx + px, sy = y + py;
+          if (sx >= 0 && sx < W && sy >= 0 && sy < H) buf32[sy * W + sx] = col;
+        }
+      cx += FONT_W + 1;
+    }
+  }
+
+  function drawPauseOverlay() {
+    const pauseStr = "PAUSE";
+    const pw = pauseStr.length * (FONT_W + 1);
+    const px = (W - pw) >> 1;
+    const py = (H - FONT_H) >> 1;
+    // Draw black background box
+    for (let by = py - 3; by < py + FONT_H + 3; by++)
+      for (let bx = px - 4; bx < px + pw + 4; bx++)
+        if (bx >= 0 && bx < W && by >= 0 && by < H) buf32[by * W + bx] = COLOR_U32[0];
+    const blink = API.frame % 30 < 20;
+    if (blink) {
+      const col = COLOR_U32[3];
+      let cx = px;
+      for (const ch of pauseStr) {
+        const glyph = FONT[ch];
+        if (glyph) for (let ppy = 0; ppy < FONT_H; ppy++) for (let ppx = 0; ppx < FONT_W; ppx++)
+          if (glyph[ppy * FONT_W + ppx]) {
+            const sx = cx + ppx, sy = py + ppy;
+            if (sx >= 0 && sx < W && sy >= 0 && sy < H) buf32[sy * W + sx] = col;
+          }
+        cx += FONT_W + 1;
+      }
+    }
+  }
+
+  // --- Lua VM (module-scoped) ---
+  let lua = null;
+
+  // --- Lua API Bridge ---
+  function registerLuaAPI() {
+    // Graphics
+    lua.global.set('cls', (c) => API.cls(c || 0));
+    lua.global.set('pix', API.pix);
+    lua.global.set('line', API.line);
+    lua.global.set('rect', API.rect);
+    lua.global.set('rectf', API.rectf);
+    lua.global.set('circ', API.circ);
+    lua.global.set('circf', API.circf);
+    lua.global.set('spr', API.spr);
+    lua.global.set('sprT', API.sprT);
+    lua.global.set('sprRot', API.sprRot);
+    lua.global.set('gpix', API.gpix);
+    lua.global.set('text', API.text);
+
+    // Tilemap
+    lua.global.set('mget', API.mget);
+    lua.global.set('mset', API.mset);
+    lua.global.set('map', API.map);
+
+    // Input
+    lua.global.set('btn', API.btn);
+    lua.global.set('btnp', API.btnp);
+
+    // Sound
+    lua.global.set('note', API.note);
+    lua.global.set('sfx_stop', API.stop);
+    lua.global.set('bgm', (tracks, bpm, loop) => {
+      // tracks comes as Lua table, convert to JS array
+      const arr = [];
+      for (let i = 1; ; i++) {
+        const t = tracks.get(i); // Lua 1-indexed
+        if (t === undefined || t === null) break;
+        arr.push(t);
+      }
+      API.bgm(arr, bpm, loop);
+    });
+    lua.global.set('bgm_stop', API.bgmStop);
+
+    // Scene
+    lua.global.set('go', (name) => API.go(name));
+    lua.global.set('scene_name', () => API.currentScene());
+
+    // Math
+    lua.global.set('rnd', API.rnd);
+    lua.global.set('flr', Math.floor);
+    lua.global.set('abs', Math.abs);
+    lua.global.set('seed', API.seed);
+
+    // Debug
+    lua.global.set('dbg', API.dbg);
+    lua.global.set('dbgC', API.dbgC);
+    lua.global.set('dbgPt', API.dbgPt);
+
+    // Frame (as function since it changes)
+    lua.global.set('frame', () => API.frame);
+
+    // Overlap
+    lua.global.set('overlap', API.overlap);
+
+    // Sprite definition (supports visual format and classic)
+    lua.global.set('defSprite', (id, data) => {
+      if (typeof data === 'string' && data.includes('\n')) {
+        sprites[id] = parseVisualSprite(data);
+      } else {
+        API.sprite(id, data);
+      }
+    });
+
+    // RAM peek/poke
+    lua.global.set('peek', (addr) => ram[addr & 0xFFF]);
+    lua.global.set('poke', (addr, val) => { ram[addr & 0xFFF] = val & 0xFF; });
+    lua.global.set('peek16', (addr) => { addr &= 0xFFF; return ram[addr] | (ram[addr+1] << 8); });
+    lua.global.set('poke16', (addr, val) => { addr &= 0xFFF; ram[addr] = val & 0xFF; ram[addr+1] = (val >> 8) & 0xFF; });
+  }
+
+  // --- Declarative Game Table Parser ---
+  let spriteIdCounter = 1;
+  const spriteNames = {};
+
+  function parseVisualSprites(spritesTable) {
+    for (const [name, data] of spritesTable) {
+      const pixels = parseVisualSprite(data);
+      sprites[spriteIdCounter] = pixels;
+      spriteNames[name] = spriteIdCounter;
+      spriteIdCounter++;
+    }
+    // Expose sprite name lookup to Lua
+    lua.global.set('sprite_id', (name) => spriteNames[name] || 0);
+  }
+
+  function buildStateAccessors(stateTable) {
+    let offset = 0;
+    const layout = {};
+
+    for (const [name, type] of stateTable) {
+      if (typeof type === 'string') {
+        layout[name] = { offset, type };
+        if (type === 'u8' || type === 'i8') offset += 1;
+        else if (type === 'u16' || type === 'i16') offset += 2;
+        else if (type === 'u32' || type === 'i32') offset += 4;
+      }
+    }
+
+    lua.global.set('S_get', (name) => {
+      const l = layout[name]; if (!l) return 0;
+      if (l.type === 'u8') return ram[l.offset];
+      if (l.type === 'u16') return ram[l.offset] | (ram[l.offset+1] << 8);
+      if (l.type === 'i8') { const v = ram[l.offset]; return v > 127 ? v - 256 : v; }
+      if (l.type === 'i16') { const v = ram[l.offset] | (ram[l.offset+1] << 8); return v > 32767 ? v - 65536 : v; }
+      if (l.type === 'u32') return ram[l.offset] | (ram[l.offset+1] << 8) | (ram[l.offset+2] << 16) | (ram[l.offset+3] << 24);
+      if (l.type === 'i32') { const v = ram[l.offset] | (ram[l.offset+1] << 8) | (ram[l.offset+2] << 16) | (ram[l.offset+3] << 24); return v; }
+      return 0;
+    });
+    lua.global.set('S_set', (name, val) => {
+      const l = layout[name]; if (!l) return;
+      if (l.type === 'u8' || l.type === 'i8') { ram[l.offset] = val & 0xFF; }
+      else if (l.type === 'u16' || l.type === 'i16') { ram[l.offset] = val & 0xFF; ram[l.offset+1] = (val >> 8) & 0xFF; }
+      else if (l.type === 'u32' || l.type === 'i32') { ram[l.offset] = val & 0xFF; ram[l.offset+1] = (val >> 8) & 0xFF; ram[l.offset+2] = (val >> 16) & 0xFF; ram[l.offset+3] = (val >> 24) & 0xFF; }
+    });
+
+    // Create S as a proxy table in Lua
+    lua.doString(`
+      S = setmetatable({}, {
+        __index = function(_, k) return S_get(k) end,
+        __newindex = function(_, k, v) S_set(k, v) end,
+      })
+    `);
+  }
+
+  function registerSounds(soundsTable) {
+    // Sounds table: name → { note, dur } or similar
+    // Expose as Lua functions
+    for (const [name, def] of soundsTable) {
+      lua.global.set('sfx_' + name, () => {
+        if (typeof def === 'object' && def.get) {
+          const n = def.get('note') || def.get(1);
+          const d = def.get('dur') || def.get(2) || 0.1;
+          const ch = def.get('ch') || def.get(3) || 0;
+          API.note(ch, n, d);
+        }
+      });
+    }
+  }
+
+  function parseGameTable() {
+    const gameTable = lua.global.get('game');
+    if (!gameTable) return;
+
+    // Parse sprites (visual format)
+    const spritesT = gameTable.get('sprites');
+    if (spritesT) parseVisualSprites(spritesT);
+
+    // Parse state -> RAM layout
+    const stateT = gameTable.get('state');
+    if (stateT) buildStateAccessors(stateT);
+
+    // Parse sounds
+    const soundsT = gameTable.get('sounds');
+    if (soundsT) registerSounds(soundsT);
+  }
+
+  // --- Scene auto-detection from Lua globals ---
+  function autoDetectScenes() {
+    for (const name of VALID_SCENES) {
+      const initFn = lua.global.get(name + "_init");
+      const updateFn = lua.global.get(name + "_update");
+      const drawFn = lua.global.get(name + "_draw");
+      if (updateFn || drawFn) {
+        scenes[name] = {
+          init: typeof initFn === 'function' ? initFn : null,
+          update: typeof updateFn === 'function' ? updateFn : null,
+          draw: typeof drawFn === 'function' ? drawFn : null,
+        };
+      }
+    }
+  }
+
+  // --- Game Loop (rAF + fixed timestep) ---
+  let lastTime = 0;
+  let accumulated = 0;
+
+  function stepInput() {
+    // Demo recording
+    if (demoState === "recording") {
+      const bits = packKeys();
+      if (bits !== demoLastBits) {
+        demoRecording.push([demoRecFrame, bits]);
+        demoLastBits = bits;
+      }
+      demoRecFrame++;
+    }
+
+    // Demo playback (merge with real input)
     if (demoState === "playback") {
       while (demoPlayIdx < demoPlaybackData.length &&
              demoPlaybackData[demoPlayIdx][0] <= demoPlayFrame) {
         demoPlayBits = demoPlaybackData[demoPlayIdx][1];
         demoPlayIdx++;
       }
-      unpackKeys(demoPlayBits);
+      // Merge: playback bits OR real input
+      const realBits = packKeys();
+      const merged = demoPlayBits | realBits;
+      unpackKeys(merged);
       demoPlayFrame++;
-      // Loop when recording ends
+
+      // Check if playback exhausted
       if (demoPlayIdx >= demoPlaybackData.length &&
-          demoPlayFrame > demoTotalFrames(demoPlaybackData) + 30) {
-        const loaded = loadDemoFromStorage();
-        demoPlayIdx = 0;
-        demoPlayFrame = 0;
-        demoPlayBits = 0;
-        API.frame = 0;
-        _seed = (loaded && loaded.seed) || 1;
-        unpackKeys(0);
-        // Re-enter title scene for clean loop
-        if (scenes["title"]) {
-          currentSceneName = "title";
-          currentScene = scenes["title"];
-          if (currentScene.init) currentScene.init();
-        }
-      }
-    } else {
-      // --- Attract mode: idle detection & recording ---
-      let realKeyActive = false;
-      for (const k of KEY_BITS) if (keys[k]) { realKeyActive = true; break; }
-      if (realKeyActive) demoIdleFrames = 0; else demoIdleFrames++;
-
-      // Record key changes until go("gameover") or go("win") saves it
-      if (demoState === "recording") {
-        const bits = packKeys();
-        if (bits !== demoLastBits) {
-          demoRecording.push([demoRecFrame, bits]);
-          demoLastBits = bits;
-        }
-        demoRecFrame++;
-      }
-
-      // Start playback on title scene after idle threshold
-      if (demoState === "idle" && currentSceneName === "title" &&
-          demoIdleFrames >= DEMO_IDLE_THRESHOLD) {
-        startDemoPlayback();
+          demoPlayFrame > (demoPlaybackData.length > 0 ? demoPlaybackData[demoPlaybackData.length-1][0] : 0) + 30) {
+        API.demoStop();
       }
     }
 
-    // --- Start button: title → play ---
+    // Start button: title -> play
     if (keys["start"] && !keysPrev["start"] && currentSceneName === "title") {
       API.go("play");
     }
 
-    // --- Pause toggle (select button during play) ---
+    // Pause toggle
     if (keys["select"] && !keysPrev["select"] && currentSceneName === "play") {
       paused = !paused;
     }
 
-    if (paused) {
-      // Still draw the current frame but skip update
-      if (currentScene && currentScene.draw) currentScene.draw();
-      else if (API._draw) API._draw();
-      // Draw PAUSE overlay
-      const pauseStr = "PAUSE";
-      const pw = pauseStr.length * (FONT_W + 1);
-      const px = (W - pw) >> 1;
-      const py = (H - FONT_H) >> 1;
-      // Draw black background box
-      for (let by = py - 3; by < py + FONT_H + 3; by++)
-        for (let bx = px - 4; bx < px + pw + 4; bx++)
-          if (bx >= 0 && bx < W && by >= 0 && by < H) buf32[by * W + bx] = COLOR_U32[0];
-      const blink = API.frame % 30 < 20;
-      if (blink) {
-        const col = COLOR_U32[3];
-        let cx = px;
-        for (const ch of pauseStr) {
-          const glyph = FONT[ch];
-          if (glyph) for (let ppy = 0; ppy < FONT_H; ppy++) for (let ppx = 0; ppx < FONT_W; ppx++)
-            if (glyph[ppy * FONT_W + ppx]) {
-              const sx = cx + ppx, sy = py + ppy;
-              if (sx >= 0 && sx < W && sy >= 0 && sy < H) buf32[sy * W + sx] = col;
-            }
-          cx += FONT_W + 1;
-        }
-      }
-      drawDebugOverlays();
-      ctx.putImageData(buf, 0, 0);
-      for (const k in keys) keysPrev[k] = keys[k];
-      API.frame++;
-      return;
-    }
+    // Copy prev (must be at end so btnp works within this frame)
+    for (const k in keys) keysPrev[k] = keys[k];
+  }
 
-    // --- BGM sequencer tick ---
+  function stepUpdate() {
+    if (paused) return;
     bgmTick();
+    if (currentScene && currentScene.update) {
+      currentScene.update();
+    }
+  }
 
-    // --- Update & Draw (scene-based or legacy) ---
-    if (currentScene) {
-      if (currentScene.update) currentScene.update();
-      if (currentScene.draw) currentScene.draw();
-    } else {
-      // Legacy: _update/_draw for non-scene games
-      if (API._update) API._update();
-      if (API._draw) API._draw();
+  function stepRender() {
+    if (currentScene && currentScene.draw) {
+      currentScene.draw();
     }
 
-    // --- DEMO indicator overlay ---
+    // Pause overlay
+    if (paused) {
+      drawPauseOverlay();
+    }
+
+    // Demo indicators
     if (demoState === "playback") {
-      const col = COLOR_U32[API.frame % 40 < 20 ? 3 : 2];
-      let cx = W - 26;
-      for (const ch of "DEMO") {
-        const glyph = FONT[ch];
-        if (glyph) for (let py = 0; py < FONT_H; py++) for (let px = 0; px < FONT_W; px++)
-          if (glyph[py * FONT_W + px]) {
-            const sx = cx + px, sy = 2 + py;
-            if (sx >= 0 && sx < W && sy >= 0 && sy < H) buf32[sy * W + sx] = col;
-          }
-        cx += FONT_W + 1;
-      }
+      drawOverlayText("DEMO", W - 26, 2, API.frame % 40 < 20 ? 3 : 2);
+    }
+    if (demoState === "recording") {
+      drawOverlayText("REC", W - 20, 2, API.frame % 30 < 20 ? 3 : 1);
     }
 
     drawDebugOverlays();
-
     ctx.putImageData(buf, 0, 0);
-    for (const k in keys) keysPrev[k] = keys[k];
-    API.frame++;
+  }
+
+  function loop(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    accumulated += (timestamp - lastTime) * API.speed;
+    lastTime = timestamp;
+    if (accumulated > FRAME_MS * 5) accumulated = FRAME_MS * 5; // cap
+    while (accumulated >= FRAME_MS) {
+      stepInput();
+      stepUpdate();
+      accumulated -= FRAME_MS;
+      API.frame++;
+    }
+    stepRender();
+    requestAnimationFrame(loop);
   }
 
   // --- Boot ---
-  API.boot = function(canvasId, opts) {
+  API.boot = async function(canvasId, opts) {
     if (opts && opts.spriteSize) SPR_SIZE = opts.spriteSize;
     canvas = document.getElementById(canvasId || "screen");
     canvas.width = W;
@@ -865,11 +1062,6 @@ const Mono = (() => {
       if (e.key === "3") { debugFill = !debugFill; e.preventDefault(); return; }
       const k = keyMap[e.key];
       if (k) {
-        // If in playback mode, stop it on real input
-        if (demoState === "playback") {
-          stopDemoPlayback();
-          API.frame = 0;
-        }
         keys[k] = true;
         e.preventDefault();
       }
@@ -879,17 +1071,56 @@ const Mono = (() => {
       if (k) { keys[k] = false; e.preventDefault(); }
     });
     document.addEventListener("keydown", ensureAudio, { once: true });
-    document.addEventListener("click", e => {
-      ensureAudio();
-      // Touch/click also stops playback
-      if (demoState === "playback") {
-        stopDemoPlayback();
-        API.frame = 0;
-      }
-    }, { once: false });
+    document.addEventListener("click", ensureAudio, { once: true });
 
-    if (API._init) API._init();
-    setInterval(tick, 1000 / FPS);
+    // postMessage IPC
+    window.addEventListener("message", (e) => {
+      if (e.data && e.data.type === "mono") {
+        switch(e.data.cmd) {
+          case "rec": API.demoRec(); break;
+          case "play": API.demoPlay(); break;
+          case "stop": API.demoStop(); break;
+          case "save": API.demoSave(); break;
+        }
+      }
+    });
+
+    // --- Lua VM init ---
+    // Resolve wasm path relative to engine.js location
+    const scripts = document.getElementsByTagName('script');
+    let engineBase = '';
+    for (const s of scripts) {
+      if (s.src && s.src.includes('engine.js')) {
+        engineBase = s.src.substring(0, s.src.lastIndexOf('/') + 1);
+        break;
+      }
+    }
+    const wasmUri = engineBase + 'wasmoon/glue.wasm';
+    const factory = new wasmoon.LuaFactory(wasmUri);
+    lua = await factory.createEngine();
+
+    // Register all API functions as Lua globals
+    registerLuaAPI();
+
+    // Fetch and run game.lua
+    if (opts && opts.game) {
+      const src = await fetch(opts.game).then(r => r.text());
+      await lua.doString(src);
+    }
+
+    // Parse declarative game table (sprites, state, sounds)
+    parseGameTable();
+
+    // Auto-detect scenes from Lua globals
+    autoDetectScenes();
+
+    // Start first scene if title exists
+    if (scenes["title"]) {
+      API.go("title");
+    }
+
+    // Start game loop
+    requestAnimationFrame(loop);
   };
 
   // Low-level access for games needing custom rendering

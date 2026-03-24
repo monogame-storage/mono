@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mono — Lua Test</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
+</head>
+<body>
+<div id="frame">
+  <canvas id="screen"></canvas>
+</div>
+<script src="../../runtime/wasmoon/wasmoon.js"></script>
+<script src="../../runtime/engine.js"></script>
+<script>
+  Mono.boot("screen", { game: "game.lua" });
+</script>
+</body></html>
