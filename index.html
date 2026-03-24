@@ -234,6 +234,14 @@
     transition: all 0.15s;
   }
   .player-btn:hover { background: #444; border-color: var(--light); }
+  .player-btn:disabled { opacity: 0.3; cursor: default; }
+  .player-btn:disabled:hover { background: #333; border-color: #555; }
+
+  .demo-btn { min-width: 64px; text-align: center; font-size: 11px; }
+  .demo-btn.rec-active { background: #662222; border-color: #cc4444; color: #ff6666; }
+  .demo-btn.rec-active:hover { background: #773333; }
+  .demo-btn.play-active { background: #226622; border-color: #44cc44; color: #66ff66; }
+  .demo-btn.play-active:hover { background: #337733; }
 
   .player-frame {
     width: 960px;
@@ -458,6 +466,11 @@
 <div class="player-backdrop" id="player">
   <div class="player-header">
     <span class="player-title" id="playerTitle"></span>
+    <button class="player-btn demo-btn" id="recBtn" title="Record">⏺ REC</button>
+    <button class="player-btn demo-btn" id="playBtn" title="Play recording">▶ PLAY</button>
+    <button class="player-btn demo-btn" id="stopBtn" title="Stop" disabled>⏹ STOP</button>
+    <button class="player-btn demo-btn" id="saveBtn" title="Save recording" disabled>💾 SAVE</button>
+    <span style="flex:1"></span>
     <button class="player-btn" id="prevBtn">← PREV</button>
     <button class="player-btn" id="nextBtn">NEXT →</button>
     <button class="player-btn" onclick="closePlayer()">✕ CLOSE (ESC)</button>
@@ -618,7 +631,7 @@ function openPlayer(index) {
   player.classList.add("open");
   document.body.style.overflow = "hidden";
   updateNavButtons();
-  playerFrame.onload = () => { playerFrame.focus(); showGamepad(); };
+  playerFrame.onload = () => { playerFrame.focus(); showGamepad(); resetDemoUI(); };
   playerFrame.focus();
   showGamepad();
 }
@@ -629,6 +642,7 @@ function closePlayer() {
   document.body.style.overflow = "";
   currentIndex = -1;
   hideGamepad();
+  resetDemoUI();
 }
 
 function navPlayer(delta) {
@@ -646,6 +660,41 @@ function updateNavButtons() {
 
 prevBtn.onclick = () => navPlayer(-1);
 nextBtn.onclick = () => navPlayer(1);
+
+// ── Demo Controls (REC/PLAY/STOP/SAVE) ──
+const recBtn = document.getElementById("recBtn");
+const playBtn = document.getElementById("playBtn");
+const stopBtn = document.getElementById("stopBtn");
+const saveBtn = document.getElementById("saveBtn");
+
+function sendDemoCmd(cmd) {
+  try {
+    playerFrame.contentWindow.postMessage({ type: "mono", cmd: cmd }, "*");
+  } catch(e) {}
+}
+
+function updateDemoUI(state) {
+  recBtn.classList.toggle("rec-active", state === "recording");
+  playBtn.classList.toggle("play-active", state === "playback");
+  recBtn.disabled = (state === "playback" || state === "recording");
+  playBtn.disabled = (state === "recording");
+  stopBtn.disabled = (state === "idle");
+  saveBtn.disabled = (state !== "recording");
+}
+
+recBtn.onclick = () => { sendDemoCmd("rec"); playerFrame.focus(); };
+playBtn.onclick = () => { sendDemoCmd("play"); playerFrame.focus(); };
+stopBtn.onclick = () => { sendDemoCmd("stop"); playerFrame.focus(); };
+saveBtn.onclick = () => { sendDemoCmd("save"); playerFrame.focus(); };
+
+window.addEventListener("message", (e) => {
+  if (e.data && e.data.type === "mono" && e.data.event === "state") {
+    updateDemoUI(e.data.state);
+  }
+});
+
+// Reset demo UI on game open/switch
+function resetDemoUI() { updateDemoUI("idle"); }
 
 // Keep iframe focused for keyboard input
 player.addEventListener("click", (e) => {
