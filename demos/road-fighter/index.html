@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Road Fighter</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Road Fighter</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,14 +17,14 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr,  text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // Game-specific: rotation sprite draw (not in engine)
   function sprRot(id, x, y, angle) {
-    const s = GrayBox._sprites[id]; if(!s) return;
+    const s = Mono._sprites[id]; if(!s) return;
     x=Math.floor(x); y=Math.floor(y);
     const cs=Math.cos(angle), sn=Math.sin(angle);
     for(let py=-4;py<4;py++) for(let px=-4;px<4;px++){
@@ -206,7 +174,7 @@
   const CHECKPOINT_DIST = 3000;  // distance per stage
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let player, traffic, oilSlicks, fuelItems, explosions, particles;
   let score, lives, speed, fuel, distance, stage;
   let roadCurve, roadCurveTarget, roadCurveTimer;
@@ -313,18 +281,18 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titleCarY = 0; },
     update() {
       titleCarY = (titleCarY || 0) + 1;
       if (titleCarY > H + 20) titleCarY = -20;
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         speed = 2;
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -342,7 +310,7 @@
         if (right - 1 >= 0 && right - 1 < W) buf32[y * W + right - 1] = COLOR_U32[1];
       }
 
-      const ty = 38 + sin(GrayBox.frame * 0.04) * 4;
+      const ty = 38 + sin(Mono.frame * 0.04) * 4;
       text("ROAD FIGHTER", 130, flr(ty), 3);
       text("ROAD FIGHTER", 131, flr(ty) + 1, 1);
       rectf(107, flr(ty) + 12, 107, 1, 2);
@@ -350,24 +318,24 @@
       const carY1 = ((titleCarY || 0) * 2) % (H + 40) - 20;
       const carY2 = ((titleCarY || 0) * 2 + 120) % (H + 40) - 20;
       const carY3 = ((titleCarY || 0) * 2 + 240) % (H + 40) - 20;
-      spr(1, W / 2 - 4, flr(ty) + 24 + sin(GrayBox.frame * 0.1) * 2);
+      spr(1, W / 2 - 4, flr(ty) + 24 + sin(Mono.frame * 0.1) * 2);
       spr(2, W / 2 - 20, carY1);
       spr(3, W / 2 + 16, carY2);
       spr(4, W / 2 - 13, carY3);
 
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", 132, 135, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 132, 135, 3);
       text("STEER TO AVOID TRAFFIC", 105, 158, 2);
       text("COLLECT FUEL TO SURVIVE", 102, 166, 2);
       text("REACH CHECKPOINTS", 117, 176, 2);
       text("-SCORING-", 137, 195, 2);
       spr(6, 125, 204); text("  FUEL    +100", 132, 206, 2);
       spr(2, 125, 214); text("  CRASH    +50", 132, 216, 2);
-      text("GRAYBOX DEMO V0.1", 117, 229, 1);
+      text("MONO DEMO V0.1", 117, 229, 1);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); speed = 2; },
     update() {
     // --- Play state ---
@@ -440,7 +408,7 @@
         // Out of fuel = game over
         addExplosion(player.x, player.y);
         crashSound();
-        GrayBox.go(GAMEOVER); return;
+        Mono.go(GAMEOVER); return;
       }
     }
 
@@ -456,7 +424,7 @@
         player.x = playerEdges.center - 4;
         invincibleTimer = 60;
         if (lives <= 0) {
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         }
       }
     }
@@ -481,17 +449,17 @@
 
     // Spawn traffic
     const spawnRate = _max(8, 30 - stage * 3 - flr(speed));
-    if (GrayBox.frame % spawnRate === 0 && speed > 1) {
+    if (Mono.frame % spawnRate === 0 && speed > 1) {
       spawnTraffic();
     }
 
     // Spawn oil slicks
-    if (GrayBox.frame % 120 === 0 && speed > 2) {
+    if (Mono.frame % 120 === 0 && speed > 2) {
       spawnOil();
     }
 
     // Spawn fuel items
-    if (GrayBox.frame % 200 === 0 && speed > 1) {
+    if (Mono.frame % 200 === 0 && speed > 1) {
       spawnFuel();
     }
 
@@ -643,7 +611,7 @@
 
     // Fuel items (blink)
     for (const f of fuelItems) {
-      if (flr(GrayBox.frame / 6) % 2 === 0 || f.y > H * 0.3)
+      if (flr(Mono.frame / 6) % 2 === 0 || f.y > H * 0.3)
         spr(6, flr(f.x), flr(f.y));
     }
 
@@ -653,7 +621,7 @@
     }
 
     // Player car
-    if (invincibleTimer <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+    if (invincibleTimer <= 0 || flr(Mono.frame / 3) % 2 === 0) {
       if (spinTimer > 0) {
         sprRot(1, flr(player.x), flr(player.y), spinAngle);
       } else {
@@ -662,7 +630,7 @@
     }
 
     // Exhaustion particles when accelerating
-    if (speed > 3 && spinTimer <= 0 && GrayBox.frame % 2 === 0) {
+    if (speed > 3 && spinTimer <= 0 && Mono.frame % 2 === 0) {
       pix(player.x + 2 + flr(rnd(4)), player.y + 8 + flr(rnd(3)), flr(rnd(2)) + 1);
     }
 
@@ -709,11 +677,11 @@
     rectf(157, 3, 41, 6, 0);
     rect(157, 3, 41, 6, 2);
     const fuelBarW = flr((fuel / FUEL_MAX) * 39);
-    const fuelCol = fuel < 200 ? (flr(GrayBox.frame / 8) % 2 === 0 ? 3 : 1) : fuel < 400 ? 2 : 3;
+    const fuelCol = fuel < 200 ? (flr(Mono.frame / 8) % 2 === 0 ? 3 : 1) : fuel < 400 ? 2 : 3;
     rectf(158, 4, fuelBarW, 4, fuelCol);
 
     // Low fuel warning
-    if (fuel < 200 && flr(GrayBox.frame / 10) % 2 === 0) {
+    if (fuel < 200 && flr(Mono.frame / 10) % 2 === 0) {
       text("LOW FUEL!", 147, 12, 3);
     }
 
@@ -743,14 +711,14 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -758,12 +726,12 @@
       text("GAME OVER", 137, 75, 3);
       text("DISTANCE: " + score, 120, 98, 2);
       text("STAGE: " + stage, 137, 109, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", 132, 150, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 132, 150, 3);
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

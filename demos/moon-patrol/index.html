@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Moon Patrol</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Moon Patrol</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text: drawText, btn, btnp, note, stop, rnd, flr,
-          abs: _abs, min, max: _max, sin, cos } = GrayBox;
+          abs: _abs, min, max: _max, sin, cos } = Mono;
   const sprTrans = sprT;
 
   // --- Sprites ---
@@ -222,7 +190,7 @@
   const CHECKPOINT_DIST = 800;
 
   // --- Game State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let scrollX, scrollSpeed, distance;
   let buggy, bullets, bombs, ufos, explosions, particles;
   let terrain, obstacles, checkpoints;
@@ -443,7 +411,7 @@
     while (groundRocks.length > 0 && groundRocks[0].x < scrollX - 50) groundRocks.shift();
 
     // Spawn UFOs
-    if (GrayBox.frame % 60 === 0 && rnd(1) < 0.4 + distance * 0.00005) {
+    if (Mono.frame % 60 === 0 && rnd(1) < 0.4 + distance * 0.00005) {
       spawnUFO();
     }
 
@@ -451,7 +419,7 @@
     for (let i = ufos.length - 1; i >= 0; i--) {
       const u = ufos[i];
       u.x += u.vx;
-      u.y += sin(GrayBox.frame * 0.08 + u.sinOffset) * 0.5;
+      u.y += sin(Mono.frame * 0.08 + u.sinOffset) * 0.5;
       u.shootTimer--;
 
       // UFO drops bomb
@@ -585,7 +553,7 @@
     addExplosion(buggy.x, buggy.y);
     deathSound();
     if (lives <= 0) {
-      GrayBox.go(GAMEOVER); return;
+      Mono.go(GAMEOVER); return;
     } else {
       // Respawn
       buggy.y = BUGGY_Y;
@@ -620,7 +588,7 @@
       const sx = flr(starSeed() * W);
       const sy = flr(starSeed() * 90);
       const bright = starSeed() < 0.3 ? 2 : 1;
-      if (bright === 2 && (GrayBox.frame + i * 7) % 40 < 5) continue;
+      if (bright === 2 && (Mono.frame + i * 7) % 40 < 5) continue;
       pix(sx, sy, bright);
     }
   }
@@ -674,12 +642,12 @@
     for (const u of ufos) { if (!u.alive) continue; const sx = u.x - scrollX; if (sx > -10 && sx < W + 10) sprTrans(4, flr(sx), flr(u.y)); }
     for (const b of bombs) { const sx = b.x - scrollX; if (sx > -10 && sx < W + 10) sprTrans(7, flr(sx), flr(b.y)); }
     for (const b of bullets) { const sx = b.x - scrollX; if (sx > -10 && sx < W + 10) { const sprId = b.type === "fwd" ? 5 : 6; sprTrans(sprId, flr(sx), flr(b.y)); } }
-    if (invincible <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+    if (invincible <= 0 || flr(Mono.frame / 3) % 2 === 0) {
       sprTrans(3, flr(buggy.x + 4), flr(buggy.y - 6));
       spr(1, flr(buggy.x), flr(buggy.y)); spr(1, flr(buggy.x + 8), flr(buggy.y), true);
       if (buggy.onGround) {
         spr(2, flr(buggy.x - 1), flr(buggy.y + 6)); spr(2, flr(buggy.x + 9), flr(buggy.y + 6));
-        if (scrollSpeed > 1 && GrayBox.frame % 3 === 0) particles.push({ x: buggy.x - 2, y: GROUND_Y - 2, vx: -rnd(2), vy: -rnd(1.5), life: 5 + flr(rnd(5)), color: 1 });
+        if (scrollSpeed > 1 && Mono.frame % 3 === 0) particles.push({ x: buggy.x - 2, y: GROUND_Y - 2, vx: -rnd(2), vy: -rnd(1.5), life: 5 + flr(rnd(5)), color: 1 });
       } else { spr(2, flr(buggy.x - 1), flr(buggy.y + 6)); spr(2, flr(buggy.x + 9), flr(buggy.y + 6)); }
     }
     for (const e of explosions) { const sprId = e.timer > 6 ? 10 : 11; sprTrans(sprId, flr(e.x), flr(e.y)); }
@@ -696,45 +664,45 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         note(0, "C5", 0.1); setTimeout(() => note(0, "E5", 0.1), 100); setTimeout(() => note(0, "G5", 0.15), 200);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
       cls(0); drawStars();
       for (let x = 0; x < W; x++) { const mh = getMountainH(x * 3, 42); const baseY = 135 + mh; for (let y = flr(baseY); y < 165; y++) { if (y >= 0 && y < H) pix(x, y, 1); } }
       rectf(0, 165, W, 75, 1); line(0, 165, W, 165, 2);
-      const ty = 45 + sin(GrayBox.frame * 0.05) * 3;
+      const ty = 45 + sin(Mono.frame * 0.05) * 3;
       drawText("MOON PATROL", 105, flr(ty), 3); drawText("MOON PATROL", 106, flr(ty) + 1, 1);
       rectf(90, flr(ty) + 12, 140, 1, 2); drawText("- LUNAR PATROL -", 120, flr(ty) + 14, 2);
       const bx = 133; const by = 157;
       spr(1, bx, by); spr(1, bx + 8, by); spr(3, bx + 6, by - 6); spr(2, bx - 2, by + 6); spr(2, bx + 10, by + 6);
-      const u1x = (GrayBox.frame * 2) % (W + 40) - 20; const u1y = 75 + sin(GrayBox.frame * 0.07) * 6; spr(4, flr(u1x), flr(u1y));
-      const u2x = ((GrayBox.frame * 2) + 120) % (W + 40) - 20; const u2y = 90 + sin(GrayBox.frame * 0.09 + 2) * 5; spr(4, flr(u2x), flr(u2y));
-      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS A", 132, 195, 3);
+      const u1x = (Mono.frame * 2) % (W + 40) - 20; const u1y = 75 + sin(Mono.frame * 0.07) * 6; spr(4, flr(u1x), flr(u1y));
+      const u2x = ((Mono.frame * 2) + 120) % (W + 40) - 20; const u2y = 90 + sin(Mono.frame * 0.09 + 2) * 5; spr(4, flr(u2x), flr(u2y));
+      if (flr(Mono.frame / 20) % 2 === 0) drawText("PRESS START", 132, 195, 3);
       drawText("-HOW TO PLAY-", 127, 210, 2); drawText("Z:JUMP  X:SHOOT  LR:SPEED", 95, 219, 2);
-      drawText("GRAYBOX DEMO V0.1", 118, 232, 1);
+      drawText("MONO DEMO V0.1", 118, 232, 1);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() { updatePlay(); },
     draw() { cls(0); drawStars(); drawPlayScene(); }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       updateGameoverEffects();
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0); drawStars();
@@ -743,12 +711,12 @@
       drawText("GAME OVER", 138, 75, 3); drawText("SCORE: " + score, 130, 94, 2);
       drawText("CHECKPOINT: " + String.fromCharCode(65 + min(checkpoint, 25)), 117, 106, 2);
       drawText("DISTANCE: " + flr(distance), 117, 118, 1);
-      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS A", 132, 150, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) drawText("PRESS START", 132, 150, 3);
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

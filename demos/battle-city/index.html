@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Battle City</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Battle City</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,239 +17,399 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
-  // --- Sprite definitions ---
+  // --- Sprite definitions (16x16 upscaled from 8x8) ---
   // 1: Player tank facing up
   defSprite(1,
-    "00300300" +
-    "03333300" +
-    "32333230" +
-    "32333230" +
-    "33333330" +
-    "33233230" +
-    "33233230" +
-    "03300330"
+    "0000330000330000" +
+    "0000330000330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "3322333333223300" +
+    "3322333333223300" +
+    "3322333333223300" +
+    "3322333333223300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333223333223300" +
+    "3333223333223300" +
+    "3333223333223300" +
+    "3333223333223300" +
+    "0033330000333300" +
+    "0033330000333300"
   );
   // 2: Bullet
   defSprite(2,
-    "00000000" +
-    "00000000" +
-    "00030000" +
-    "00333000" +
-    "00333000" +
-    "00030000" +
-    "00000000" +
-    "00000000"
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000003300000000" +
+    "0000003300000000" +
+    "0000333333000000" +
+    "0000333333000000" +
+    "0000333333000000" +
+    "0000333333000000" +
+    "0000003300000000" +
+    "0000003300000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000"
   );
   // 3: Brick wall
   defSprite(3,
-    "33231323" +
-    "33231323" +
-    "11111111" +
-    "31323322" +
-    "31323322" +
-    "11111111" +
-    "33231323" +
-    "33231323"
+    "3333223311332233" +
+    "3333223311332233" +
+    "3333223311332233" +
+    "3333223311332233" +
+    "1111111111111111" +
+    "1111111111111111" +
+    "3311332233332222" +
+    "3311332233332222" +
+    "3311332233332222" +
+    "3311332233332222" +
+    "1111111111111111" +
+    "1111111111111111" +
+    "3333223311332233" +
+    "3333223311332233" +
+    "3333223311332233" +
+    "3333223311332233"
   );
   // 4: Steel wall
   defSprite(4,
-    "33333330" +
-    "32222230" +
-    "32333230" +
-    "32333230" +
-    "32333230" +
-    "32222230" +
-    "33333330" +
-    "00000000"
+    "3333333333333300" +
+    "3333333333333300" +
+    "3322222222223300" +
+    "3322222222223300" +
+    "3322333333223300" +
+    "3322333333223300" +
+    "3322333333223300" +
+    "3322333333223300" +
+    "3322333333223300" +
+    "3322333333223300" +
+    "3322222222223300" +
+    "3322222222223300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "0000000000000000" +
+    "0000000000000000"
   );
   // 5: Water
   defSprite(5,
-    "01010101" +
-    "10101010" +
-    "01010101" +
-    "10101010" +
-    "01010101" +
-    "10101010" +
-    "01010101" +
-    "10101010"
+    "0011001100110011" +
+    "0011001100110011" +
+    "1100110011001100" +
+    "1100110011001100" +
+    "0011001100110011" +
+    "0011001100110011" +
+    "1100110011001100" +
+    "1100110011001100" +
+    "0011001100110011" +
+    "0011001100110011" +
+    "1100110011001100" +
+    "1100110011001100" +
+    "0011001100110011" +
+    "0011001100110011" +
+    "1100110011001100" +
+    "1100110011001100"
   );
   // 6: Trees/bushes
   defSprite(6,
-    "02010201" +
-    "10201020" +
-    "01020102" +
-    "20102010" +
-    "02010201" +
-    "10201020" +
-    "01020102" +
-    "20102010"
+    "0022001100220011" +
+    "0022001100220011" +
+    "1100220011002200" +
+    "1100220011002200" +
+    "0011002200110022" +
+    "0011002200110022" +
+    "2200110022001100" +
+    "2200110022001100" +
+    "0022001100220011" +
+    "0022001100220011" +
+    "1100220011002200" +
+    "1100220011002200" +
+    "0011002200110022" +
+    "0011002200110022" +
+    "2200110022001100" +
+    "2200110022001100"
   );
   // 7: Ice
   defSprite(7,
-    "22322232" +
-    "23222322" +
-    "22322232" +
-    "32223222" +
-    "22322232" +
-    "23222322" +
-    "22322232" +
-    "32223222"
+    "2222332222223322" +
+    "2222332222223322" +
+    "2233222222332222" +
+    "2233222222332222" +
+    "2222332222223322" +
+    "2222332222223322" +
+    "3322222233222222" +
+    "3322222233222222" +
+    "2222332222223322" +
+    "2222332222223322" +
+    "2233222222332222" +
+    "2233222222332222" +
+    "2222332222223322" +
+    "2222332222223322" +
+    "3322222233222222" +
+    "3322222233222222"
   );
   // 8: Eagle/base alive
   defSprite(8,
-    "03333300" +
-    "33333330" +
-    "33033030" +
-    "33300330" +
-    "33033030" +
-    "33033030" +
-    "33333330" +
-    "03333300"
+    "0033333333330000" +
+    "0033333333330000" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333003333003300" +
+    "3333003333003300" +
+    "3333330000333300" +
+    "3333330000333300" +
+    "3333003333003300" +
+    "3333003333003300" +
+    "3333003333003300" +
+    "3333003333003300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "0033333333330000" +
+    "0033333333330000"
   );
   // 9: Eagle/base destroyed
   defSprite(9,
-    "00100010" +
-    "01001000" +
-    "10001001" +
-    "01000010" +
-    "00100100" +
-    "01010010" +
-    "10001001" +
-    "00100010"
+    "0000110000001100" +
+    "0000110000001100" +
+    "0011000000110000" +
+    "0011000000110000" +
+    "1100000000110000" +
+    "1100000000110011" +
+    "0011000000000011" +
+    "0011000000000011" +
+    "0000001100001100" +
+    "0000001100001100" +
+    "0011001100001100" +
+    "0011001100001100" +
+    "1100000000110000" +
+    "1100000000110011" +
+    "0000110000001100" +
+    "0000110000001100"
   );
   // 10: Enemy basic tank
   defSprite(10,
-    "00300300" +
-    "01111100" +
-    "12111210" +
-    "12111210" +
-    "11111110" +
-    "11211210" +
-    "11211210" +
-    "01100110"
+    "0000330000330000" +
+    "0000330000330000" +
+    "0011111111110000" +
+    "0011111111110000" +
+    "1122111111221100" +
+    "1122111111221100" +
+    "1122111111221100" +
+    "1122111111221100" +
+    "1111111111111100" +
+    "1111111111111100" +
+    "1111221111221100" +
+    "1111221111221100" +
+    "1111221111221100" +
+    "1111221111221100" +
+    "0011110000111100" +
+    "0011110000111100"
   );
   // 11: Enemy fast tank
   defSprite(11,
-    "00300300" +
-    "02222200" +
-    "21222120" +
-    "21222120" +
-    "22222220" +
-    "22122120" +
-    "22122120" +
-    "02200220"
+    "0000330000330000" +
+    "0000330000330000" +
+    "0022222222220000" +
+    "0022222222220000" +
+    "2211222222112200" +
+    "2211222222112200" +
+    "2211222222112200" +
+    "2211222222112200" +
+    "2222222222222200" +
+    "2222222222222200" +
+    "2222112222112200" +
+    "2222112222112200" +
+    "2222112222112200" +
+    "2222112222112200" +
+    "0022220000222200" +
+    "0022220000222200"
   );
   // 12: Enemy armored tank
   defSprite(12,
-    "00300300" +
-    "03333300" +
-    "33333330" +
-    "33333330" +
-    "33333330" +
-    "33233230" +
-    "33233230" +
-    "03300330"
+    "0000330000330000" +
+    "0000330000330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333223333223300" +
+    "3333223333223300" +
+    "3333223333223300" +
+    "3333223333223300" +
+    "0033330000333300" +
+    "0033330000333300"
   );
   // 13: Explosion frame 1
   defSprite(13,
-    "00000000" +
-    "00201000" +
-    "01003000" +
-    "00031000" +
-    "00130200" +
-    "01000010" +
-    "00100000" +
-    "00000000"
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000220011000000" +
+    "0000220011000000" +
+    "0011000033000000" +
+    "0011000033000000" +
+    "0000003311000000" +
+    "0000003311000000" +
+    "0000113300220000" +
+    "0000113300220000" +
+    "0011000000001100" +
+    "0011000000001100" +
+    "0000110000000000" +
+    "0000110000000000" +
+    "0000000000000000" +
+    "0000000000000000"
   );
   // 14: Explosion frame 2
   defSprite(14,
-    "20010020" +
-    "01000010" +
-    "00203200" +
-    "03033030" +
-    "00232000" +
-    "01000300" +
-    "20001001" +
-    "00200010"
+    "2200001100002200" +
+    "2200001100002200" +
+    "0011000000001100" +
+    "0011000000001100" +
+    "0000220033220000" +
+    "0000220033220000" +
+    "0033003333003300" +
+    "0033003333003300" +
+    "0000223322000000" +
+    "0000223322000000" +
+    "0011000033000000" +
+    "0011000033000000" +
+    "2200000011000011" +
+    "2200000011000011" +
+    "0000220000001100" +
+    "0000220000001100"
   );
   // 15: Power-up star
   defSprite(15,
-    "00030000" +
-    "00030000" +
-    "03333300" +
-    "00333000" +
-    "00333000" +
-    "03030300" +
-    "03000300" +
-    "00000000"
+    "0000003300000000" +
+    "0000003300000000" +
+    "0000003300000000" +
+    "0000003300000000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0000333333000000" +
+    "0000333333000000" +
+    "0000333333000000" +
+    "0000333333000000" +
+    "0033003300330000" +
+    "0033003300330000" +
+    "0033000000330000" +
+    "0033000000330000" +
+    "0000000000000000" +
+    "0000000000000000"
   );
   // 16: Power-up shield
   defSprite(16,
-    "03333300" +
-    "33333330" +
-    "33233330" +
-    "33233330" +
-    "33333330" +
-    "03333300" +
-    "00333000" +
-    "00030000"
+    "0033333333330000" +
+    "0033333333330000" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333223333333300" +
+    "3333223333333300" +
+    "3333223333333300" +
+    "3333223333333300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0000333333000000" +
+    "0000333333000000" +
+    "0000003300000000" +
+    "0000003300000000"
   );
   // 17: Power-up grenade
   defSprite(17,
-    "00003300" +
-    "00033000" +
-    "00333000" +
-    "03333300" +
-    "03333300" +
-    "03333300" +
-    "03333300" +
-    "00333000"
+    "0000000033330000" +
+    "0000000033330000" +
+    "0000003333000000" +
+    "0000003333000000" +
+    "0000333333000000" +
+    "0000333333000000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0000333333000000" +
+    "0000333333000000"
   );
   // 18: Power-up shovel
   defSprite(18,
-    "00330000" +
-    "00330000" +
-    "00330000" +
-    "00330000" +
-    "01331000" +
-    "03333300" +
-    "03333300" +
-    "01111100"
+    "0000333300000000" +
+    "0000333300000000" +
+    "0000333300000000" +
+    "0000333300000000" +
+    "0000333300000000" +
+    "0000333300000000" +
+    "0000333300000000" +
+    "0000333300000000" +
+    "0011333311000000" +
+    "0011333311000000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0011111111110000" +
+    "0011111111110000"
   );
   // 19: Shield effect overlay
   defSprite(19,
-    "02222200" +
-    "20000020" +
-    "20000020" +
-    "20000020" +
-    "20000020" +
-    "20000020" +
-    "20000020" +
-    "02222200"
+    "0022222222220000" +
+    "0022222222220000" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "0022222222220000" +
+    "0022222222220000"
   );
   // 20: Life icon
   defSprite(20,
-    "00000000" +
-    "00300300" +
-    "03333300" +
-    "32333230" +
-    "33333330" +
-    "33233230" +
-    "03300330" +
-    "00000000"
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000330000330000" +
+    "0000330000330000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "3322333333223300" +
+    "3322333333223300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333223333223300" +
+    "3333223333223300" +
+    "0033330000333300" +
+    "0033330000333300" +
+    "0000000000000000" +
+    "0000000000000000"
   );
 
   // --- Game Constants ---
   const ARENA_X = 53;
   const ARENA_Y = 6;
-  const GRID_W = 26;
-  const GRID_H = 26;
-  const TILE = 8;
+  const GRID_W = 13;
+  const GRID_H = 13;
+  const TILE = 16;
   const ARENA_PW = GRID_W * TILE;
   const ARENA_PH = GRID_H * TILE;
 
@@ -291,7 +419,7 @@
   const DY = [-1, 1, 0, 0];
 
   // --- Game State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let level, score, lives;
   let player, bullets, enemies, explosions, powerups;
   let spawnTimer, spawnCount, enemiesLeft, totalEnemies;
@@ -449,8 +577,8 @@
 
   function tankHitsTerrain(t) {
     const pts = [
-      [t.x,t.y],[t.x+13,t.y],[t.x,t.y+13],[t.x+13,t.y+13],
-      [t.x+7,t.y],[t.x+7,t.y+13],[t.x,t.y+7],[t.x+13,t.y+7]
+      [t.x,t.y],[t.x+27,t.y],[t.x,t.y+27],[t.x+27,t.y+27],
+      [t.x+14,t.y],[t.x+14,t.y+27],[t.x,t.y+14],[t.x+27,t.y+14]
     ];
     for (const [cx,cy] of pts) {
       const tile = tileAt(cx,cy);
@@ -465,16 +593,16 @@
 
   function tankHitsTanks(t) {
     if (!t.isPlayer) {
-      if (player && player.alive && rectsOverlap(t.x,t.y,14,14,player.x,player.y,14,14)) return true;
+      if (player && player.alive && rectsOverlap(t.x,t.y,28,28,player.x,player.y,28,28)) return true;
     }
     const list = t.isPlayer ? enemies : enemies;
     for (const o of list) {
       if (o === t || !o.alive) continue;
-      if (rectsOverlap(t.x,t.y,14,14,o.x,o.y,14,14)) return true;
+      if (rectsOverlap(t.x,t.y,28,28,o.x,o.y,28,28)) return true;
     }
     if (t.isPlayer) {
       for (const e of enemies) {
-        if (e.alive && rectsOverlap(t.x,t.y,14,14,e.x,e.y,14,14)) return true;
+        if (e.alive && rectsOverlap(t.x,t.y,28,28,e.x,e.y,28,28)) return true;
       }
     }
     return false;
@@ -495,7 +623,7 @@
     if (bullets.some(b => b.owner === t)) return;
     const speed = t.isPlayer ? 3 : 2;
     bullets.push({
-      x: t.x + 5 + DX[t.dir]*4, y: t.y + 5 + DY[t.dir]*4,
+      x: t.x + 10 + DX[t.dir]*8, y: t.y + 10 + DY[t.dir]*8,
       dx: DX[t.dir]*speed, dy: DY[t.dir]*speed,
       owner: t, isPlayer: t.isPlayer
     });
@@ -536,7 +664,7 @@
     if (!t.isPlayer && freezeTimer > 0) return;
     const spd = t.speed;
     let nx = t.x, ny = t.y;
-    const onIce = tileAt(t.x+7, t.y+7) === T_ICE;
+    const onIce = tileAt(t.x+14, t.y+14) === T_ICE;
 
     if (t.isPlayer) {
       let moved = false;
@@ -577,8 +705,8 @@
       ny = t.y + DY[t.dir]*spd;
     }
 
-    nx = _max(ARENA_X, min(ARENA_X + ARENA_PW - 14, nx));
-    ny = _max(ARENA_Y, min(ARENA_Y + ARENA_PH - 14, ny));
+    nx = _max(ARENA_X, min(ARENA_X + ARENA_PW - 28, nx));
+    ny = _max(ARENA_Y, min(ARENA_Y + ARENA_PH - 28, ny));
     const ox = t.x, oy = t.y;
     t.x = nx; t.y = ny;
     if (tankHitsTerrain(t) || tankHitsTanks(t)) {
@@ -616,11 +744,11 @@
       // Hit eagle
       const ebx = flr(GRID_W/2)-1, eby = GRID_H-2;
       const eagleX = ARENA_X+ebx*TILE, eagleY = ARENA_Y+eby*TILE;
-      if (baseAlive && b.x + 8 > eagleX && b.x < eagleX+16 && b.y + 8 > eagleY && b.y < eagleY+16) {
+      if (baseAlive && b.x + 16 > eagleX && b.x < eagleX+32 && b.y + 16 > eagleY && b.y < eagleY+32) {
         baseAlive = false;
         addExplosion(eagleX, eagleY, true);
         sfxExplode(); bullets.splice(i,1);
-        GrayBox.go(GAMEOVER); gameOverTimer = 120; sfxGameOver();
+        Mono.go(GAMEOVER); gameOverTimer = 120; sfxGameOver();
         continue;
       }
 
@@ -629,7 +757,7 @@
       for (let j = bullets.length-1; j >= 0; j--) {
         if (j === i) continue;
         const o = bullets[j];
-        if (b.isPlayer !== o.isPlayer && _abs(b.x-o.x) < 4 && _abs(b.y-o.y) < 4) {
+        if (b.isPlayer !== o.isPlayer && _abs(b.x-o.x) < 8 && _abs(b.y-o.y) < 8) {
           bullets.splice(_max(i,j), 1);
           bullets.splice(min(i,j), 1);
           bulletHit = true; break;
@@ -642,7 +770,7 @@
       if (b.isPlayer) {
         for (const e of enemies) {
           if (!e.alive) continue;
-          if (b.x + 8 > e.x && b.x < e.x+14 && b.y + 8 > e.y && b.y < e.y+14) {
+          if (b.x + 16 > e.x && b.x < e.x+28 && b.y + 16 > e.y && b.y < e.y+28) {
             e.hp--;
             if (e.hp <= 0) {
               e.alive = false; addExplosion(e.x,e.y,true); sfxExplode();
@@ -655,12 +783,12 @@
         }
       } else {
         if (player && player.alive) {
-          if (b.x + 8 > player.x && b.x < player.x+14 && b.y + 8 > player.y && b.y < player.y+14) {
+          if (b.x + 16 > player.x && b.x < player.x+28 && b.y + 16 > player.y && b.y < player.y+28) {
             if (shieldTimer <= 0) {
               lives--;
               addExplosion(player.x, player.y, true); sfxExplode();
               if (lives <= 0) {
-                player.alive = false; GrayBox.go(GAMEOVER); gameOverTimer = 120; sfxGameOver(); return;
+                player.alive = false; Mono.go(GAMEOVER); gameOverTimer = 120; sfxGameOver(); return;
               } else {
                 const ppx = flr(GRID_W/2)-5;
                 player.x = ARENA_X+ppx*TILE; player.y = ARENA_Y+(GRID_H-2)*TILE;
@@ -676,31 +804,31 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
       titleBlink++;
       if (btnp("a")) {
         level = 1; score = 0; lives = 3; startLevel();
-        GrayBox.go(PLAY);
+        Mono.go(PLAY);
       }
     },
     draw() {
       cls(0);
       text("BATTLE CITY", 133, 60, 3);
       text("TANK GAME", 138, 75, 2);
-      spr(1, 147, 98); spr(10, 160, 98); spr(12, 173, 98);
+      spr(1, 139, 98); spr(10, 160, 98); spr(12, 181, 98);
       if (flr(titleBlink/20) % 2 === 0)
-        text("PRESS A TO START", 110, 135, 3);
+        text("PRESS START", 110, 135, 3);
       text("ARROWS: MOVE  A: SHOOT", 103, 165, 1);
       text("DESTROY ALL ENEMY TANKS", 103, 180, 1);
       text("PROTECT YOUR BASE!", 115, 192, 2);
-      text("GRAYBOX DEMO", 131, 225, 1);
+      text("MONO DEMO", 131, 225, 1);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() {
     titleBlink++;
@@ -753,7 +881,7 @@
       if (powerups[i].timer <= 0) { powerups.splice(i,1); continue; }
       if (player && player.alive) {
         const p = powerups[i];
-        if (rectsOverlap(player.x,player.y,14,14,p.x,p.y,8,8)) {
+        if (rectsOverlap(player.x,player.y,28,28,p.x,p.y,16,16)) {
           applyPowerup(p.type); powerups.splice(i,1);
         }
       }
@@ -784,12 +912,12 @@
       const ebx = flr(GRID_W/2)-1, eby = GRID_H-2;
       const ex = ARENA_X+ebx*TILE, ey = ARENA_Y+eby*TILE;
       const eid = baseAlive ? 8 : 9;
-      spr(eid, ex, ey); spr(eid, ex+8, ey);
-      spr(eid, ex, ey+8); spr(eid, ex+8, ey+8);
+      spr(eid, ex, ey); spr(eid, ex+16, ey);
+      spr(eid, ex, ey+16); spr(eid, ex+16, ey+16);
 
       // Power-ups
       for (const p of powerups)
-        if (p.timer > 30 || GrayBox.frame%4 < 2) {
+        if (p.timer > 30 || Mono.frame%4 < 2) {
           const sid = p.type==="star"?15:p.type==="shield"?16:p.type==="grenade"?17:18;
           spr(sid, flr(p.x), flr(p.y));
         }
@@ -801,7 +929,7 @@
       for (const e of enemies) drawTank(e);
 
       // Bullets
-      for (const b of bullets) spr(2, flr(b.x)-3, flr(b.y)-3);
+      for (const b of bullets) spr(2, flr(b.x)-6, flr(b.y)-6);
 
       // Trees on top
       for (let gy = 0; gy < GRID_H; gy++)
@@ -813,9 +941,9 @@
         const sid = ex2.timer > (ex2.big?10:6) ? 13 : 14;
         spr(sid, flr(ex2.x), flr(ex2.y));
         if (ex2.big) {
-          spr(sid, flr(ex2.x)+8, flr(ex2.y));
-          spr(sid, flr(ex2.x), flr(ex2.y)+8);
-          spr(sid, flr(ex2.x)+8, flr(ex2.y)+8);
+          spr(sid, flr(ex2.x)+16, flr(ex2.y));
+          spr(sid, flr(ex2.x), flr(ex2.y)+16);
+          spr(sid, flr(ex2.x)+16, flr(ex2.y)+16);
         }
       }
 
@@ -830,7 +958,7 @@
       text("LV", hudX, 120, 2);
       text(String(level), hudX+11, 120, 3);
       text("P1", hudX, 135, 2);
-      for (let i = 0; i < lives; i++) spr(20, hudX+i*10, 143);
+      for (let i = 0; i < lives; i++) spr(20, hudX+i*18, 143);
       text("SCORE", hudX, 165, 2);
       text(String(score), hudX, 173, 3);
       text("BATTLE", 3, 8, 2);
@@ -848,12 +976,12 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       titleBlink++;
       gameOverTimer--;
-      if (gameOverTimer <= 0 && btnp("a")) GrayBox.go(TITLE);
+      if (gameOverTimer <= 0 && btnp("a") || btnp("start")) Mono.go(TITLE);
     },
     draw() {
       cls(0);
@@ -862,41 +990,41 @@
       text("SCORE: " + score, 130, 116, 2);
       text("LEVEL: " + level, 130, 128, 2);
       if (gameOverTimer <= 0 && flr(titleBlink/15)%2 === 0)
-        text("PRESS A", 133, 139, 1);
+        text("PRESS START", 133, 139, 1);
     }
   });
 
   // --- Rotated sprite draw ---
   function drawRotSprite(id, x, y, dir) {
-    const s = GrayBox._sprites[id]; if (!s) return;
+    const s = Mono._sprites[id]; if (!s) return;
     x = flr(x); y = flr(y);
-    for (let py = 0; py < 8; py++)
-      for (let px = 0; px < 8; px++) {
+    for (let py = 0; py < 16; py++)
+      for (let px = 0; px < 16; px++) {
         let sx, sy;
-        if (dir === DIR_LEFT) { sx = py; sy = 7-px; }
-        else { sx = 7-py; sy = px; }
-        const c = s[sy*8+sx], dx = x+px, dy = y+py;
-        if (dx >= 0 && dx < W && dy >= 0 && dy < H) GrayBox._buf32[dy*W+dx] = GrayBox._COLOR_U32[c];
+        if (dir === DIR_LEFT) { sx = py; sy = 15-px; }
+        else { sx = 15-py; sy = px; }
+        const c = s[sy*16+sx], dx = x+px, dy = y+py;
+        if (dx >= 0 && dx < W && dy >= 0 && dy < H) Mono._buf32[dy*W+dx] = Mono._COLOR_U32[c];
       }
   }
 
   function drawTank(t) {
     if (!t.alive) return;
-    const px = flr(t.x)+3, py = flr(t.y)+3;
+    const px = flr(t.x)+6, py = flr(t.y)+6;
     const sid = t.isPlayer ? 1 : t.type===2 ? 11 : t.type===3 ? 12 : 10;
     if (t.dir === DIR_UP) spr(sid, px, py);
     else if (t.dir === DIR_DOWN) spr(sid, px, py, false, true);
     else drawRotSprite(sid, px, py, t.dir);
 
     // Shield glow
-    if (t.isPlayer && shieldTimer > 0 && (shieldTimer > 30 || GrayBox.frame%4 < 2))
+    if (t.isPlayer && shieldTimer > 0 && (shieldTimer > 30 || Mono.frame%4 < 2))
       spr(19, px, py);
   }
 
 
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

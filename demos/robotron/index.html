@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Robotron 2084</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Robotron 2084</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Play area bounds ---
   const ARENA_X = 11;
@@ -257,7 +225,7 @@
   );
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let player, bullets, enemies, humans, electrodes, explosions, particles;
   let eBullets;
   let score, lives, wave, waveTimer, waveMessage;
@@ -410,7 +378,7 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titlePulse = 0; },
     update() {
       titlePulse++;
@@ -419,7 +387,7 @@
         resetGame();
         note(0, "C4", 0.1);
         note(1, "E4", 0.1);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -434,7 +402,7 @@
         spr(6, W / 2 - 27, 75); spr(7, W / 2 - 13, 75); spr(8, W / 2, 75); spr(1, W / 2 + 13, 75);
       }
       text("SAVE THE LAST HUMAN FAMILY", W / 2 - 65, 98, 2);
-      if (blink) text("PRESS A TO START", W / 2 - 50, 128, 3);
+      if (blink) text("PRESS START", W / 2 - 50, 128, 3);
       text("ARROWS  MOVE", W / 2 - 34, 150, 1);
       text("A  SHOOT IN MOVE DIR", W / 2 - 34, 159, 1);
       text("HOLD A + ARROWS  AIM", W / 2 - 34, 168, 1);
@@ -446,7 +414,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
     titlePulse++;
@@ -814,7 +782,7 @@
     note(1, "E2", 0.2);
     if (lives <= 0) {
       if (score > hiScore) hiScore = score;
-      GrayBox.go(GAMEOVER); return;
+      Mono.go(GAMEOVER); return;
     } else {
       invincible = 90;
       player.x = W / 2 - 4;
@@ -848,7 +816,7 @@
 
     // Electrodes
     for (const el of electrodes) {
-      const flicker = (GrayBox.frame + flr(el.x)) % 8 < 4;
+      const flicker = (Mono.frame + flr(el.x)) % 8 < 4;
       spr(9, el.x + sx, el.y + sy);
       if (flicker) {
         pix(el.x + 3 + sx, el.y + 3 + sy, 3);
@@ -876,7 +844,7 @@
     }
 
     // Player
-    if (invincible <= 0 || (GrayBox.frame % 4) < 2) {
+    if (invincible <= 0 || (Mono.frame % 4) < 2) {
       spr(1, player.x + sx, player.y + sy);
     }
 
@@ -912,10 +880,10 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
-      if (btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -924,7 +892,7 @@
       if (score >= hiScore) {
         text("NEW HIGH SCORE!", W / 2 - 37, H / 2 + 16, 3);
       }
-      text("PRESS A", W / 2 - 27, H / 2 + 40, 1);
+      text("PRESS START", W / 2 - 27, H / 2 + 40, 1);
     }
   });
 
@@ -945,8 +913,8 @@
   }
 
   // --- Start ---
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

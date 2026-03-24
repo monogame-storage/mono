@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Bomberman</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Bomberman</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Player (bomberman) - white character with cute face
@@ -326,14 +294,14 @@
 
   // Actually simplest: draw sprites at 2x scale manually
   function spr2x(id, x, y) {
-    const s = GrayBox._sprites[id]; if (!s) return;
+    const s = Mono._sprites[id]; if (!s) return;
     x = Math.floor(x); y = Math.floor(y);
     for (let py = 0; py < 8; py++) for (let px = 0; px < 8; px++) {
       const c = s[py * 8 + px];
       const dx = x + px * 2, dy = y + py * 2;
       for (let sy = 0; sy < 2; sy++) for (let sx = 0; sx < 2; sx++) {
         const fx = dx + sx, fy = dy + sy;
-        if (fx >= 0 && fx < W && fy >= 0 && fy < H) GrayBox._buf32[fy * W + fx] = GrayBox._COLOR_U32[c];
+        if (fx >= 0 && fx < W && fy >= 0 && fy < H) Mono._buf32[fy * W + fx] = Mono._COLOR_U32[c];
       }
     }
   }
@@ -346,7 +314,7 @@
   const OY = 18;
 
   let grid = [];
-  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = Mono.SCENE;
   let player, bombs, explosions, enemies, particles, items;
   let score, lives, level;
   let playerInvuln, moveTimer;
@@ -585,7 +553,7 @@
     note(0, "C3", 0.12); note(1, "G2", 0.12);
     setTimeout(() => { try { note(0, "A2", 0.18); note(1, "E2", 0.18); } catch(e){} }, 120);
     if (lives <= 0) {
-      GrayBox.go(GAMEOVER);
+      Mono.go(GAMEOVER);
       return;
     } else {
       // Respawn
@@ -598,11 +566,11 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) {
-        GrayBox.go(PLAY);
+      if (btnp("start") || btnp("a")) {
+        Mono.go(PLAY);
         note(0, "C5", 0.1);
         setTimeout(() => { try { note(0, "E5", 0.1); } catch(e){} }, 100);
         setTimeout(() => { try { note(0, "G5", 0.15); } catch(e){} }, 200);
@@ -610,16 +578,16 @@
     },
     draw() {
       cls(0);
-      const ty = 37 + sin(GrayBox.frame * 0.05) * 5;
+      const ty = 37 + sin(Mono.frame * 0.05) * 5;
       text("BOMBERMAN", 123, flr(ty), 3);
       text("BOMBERMAN", 124, flr(ty) + 1, 1);
       rectf(110, flr(ty) + 12, 100, 1, 2);
       const bx = W / 2 - 33;
-      spr2x(1, bx, flr(ty) + 30 + sin(GrayBox.frame * 0.08) * 3);
-      spr2x(5, bx + 20, flr(ty) + 34 + sin(GrayBox.frame * 0.08 + 1) * 2);
-      spr2x(17, bx + 40, flr(ty) + 30 + sin(GrayBox.frame * 0.08 + 2) * 3);
-      spr2x(18, bx + 60, flr(ty) + 32 + sin(GrayBox.frame * 0.08 + 3) * 3);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", 113, 135, 3);
+      spr2x(1, bx, flr(ty) + 30 + sin(Mono.frame * 0.08) * 3);
+      spr2x(5, bx + 20, flr(ty) + 34 + sin(Mono.frame * 0.08 + 1) * 2);
+      spr2x(17, bx + 40, flr(ty) + 30 + sin(Mono.frame * 0.08 + 2) * 3);
+      spr2x(18, bx + 60, flr(ty) + 32 + sin(Mono.frame * 0.08 + 3) * 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 113, 135, 3);
       text("ARROWS: MOVE", 120, 158, 2);
       text("A: PLACE BOMB", 117, 167, 2);
       text("DESTROY ALL ENEMIES", 103, 182, 2);
@@ -627,12 +595,12 @@
       spr(14, 113, 206); text("FIRE", 121, 208, 2);
       spr(15, 147, 206); text("BOMB", 155, 208, 2);
       spr(16, 180, 206); text("SPEED", 188, 208, 2);
-      text("GRAYBOX DEMO V0.1", 112, 229, 1);
+      text("MONO DEMO V0.1", 112, 229, 1);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
     // --- Play state ---
@@ -789,7 +757,7 @@
       // Door is revealed once its block is destroyed
       if (grid[doorPos.gy][doorPos.gx] === 0 && pg.gx === doorPos.gx && pg.gy === doorPos.gy) {
         // Level clear!
-        GrayBox.go(CLEAR);
+        Mono.go(CLEAR);
         moveTimer = 0;
         score += 500;
         note(0, "C5", 0.1);
@@ -824,7 +792,7 @@
   });
 
   // --- Level Clear Scene ---
-  GrayBox.scene(CLEAR, {
+  Mono.scene(CLEAR, {
     init() { moveTimer = 0; },
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
@@ -839,14 +807,14 @@
         savedMaxBombs = player.maxBombs;
         savedSpeed = player.speed;
         startLevel();
-        GrayBox.go(PLAY);
+        Mono.go(PLAY);
       }
     },
     draw() {
       cls(0);
       drawArena();
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
-      const msgY = 98 + sin(GrayBox.frame * 0.1) * 3;
+      const msgY = 98 + sin(Mono.frame * 0.1) * 3;
       text("LEVEL " + level + " CLEAR!", 120, flr(msgY), 3);
       text("SCORE: " + score, 130, flr(msgY) + 20, 2);
       drawHUD();
@@ -854,14 +822,14 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) GrayBox.go(TITLE);
+      if (btnp("start") || btnp("a") || btnp("start")) Mono.go(TITLE);
     },
     draw() {
       cls(0);
@@ -869,7 +837,7 @@
       text("GAME OVER", 130, 83, 3);
       text("SCORE: " + score, 130, 101, 2);
       text("LEVEL: " + level, 133, 113, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 105, 150, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 105, 150, 3);
     }
   });
 
@@ -911,14 +879,14 @@
     for (const it of items) {
       if (!it.revealed) continue;
       const sprId = it.type === 0 ? 14 : (it.type === 1 ? 15 : 16);
-      const bob = sin(GrayBox.frame * 0.15) * 2;
+      const bob = sin(Mono.frame * 0.15) * 2;
       spr2x(sprId, OX + it.gx * TX, OY + it.gy * TX + bob);
     }
 
     // Draw bombs
     for (const b of bombs) {
       if (b.exploded) continue;
-      const pulse = b.timer < 20 && flr(GrayBox.frame / 3) % 2 === 0;
+      const pulse = b.timer < 20 && flr(Mono.frame / 3) % 2 === 0;
       const sprId = pulse ? 6 : 5;
       spr2x(sprId, OX + b.gx * TX, OY + b.gy * TX);
     }
@@ -948,13 +916,13 @@
 
     // Draw enemies
     for (const e of enemies) {
-      const bob = sin(GrayBox.frame * 0.12 + e.gx) * 1;
+      const bob = sin(Mono.frame * 0.12 + e.gx) * 1;
       spr2x(e.type, flr(e.px), flr(e.py + bob));
     }
 
     // Draw player
     if (state === "play" || state === "levelclear") {
-      if (playerInvuln <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+      if (playerInvuln <= 0 || flr(Mono.frame / 3) % 2 === 0) {
         const sprId = player.animFrame === 0 ? 1 : 2;
         const flipX = player.dir === 2; // flip when facing left
         spr2x(sprId, flr(player.px), flr(player.py));
@@ -982,13 +950,13 @@
     if (enemies.length > 0) {
       text("ENEMIES:" + enemies.length, OX, OY + GH * TX + 4, 1);
     } else {
-      if (flr(GrayBox.frame / 15) % 2 === 0)
+      if (flr(Mono.frame / 15) % 2 === 0)
         text("FIND THE EXIT!", OX, OY + GH * TX + 4, 3);
     }
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

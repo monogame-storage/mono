@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Rally-X</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Rally-X</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Player car facing up
@@ -261,7 +229,7 @@
   }
 
   // --- State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let player, enemies, flags, smokes;
   let score, lives, level, fuel, maxFuel;
   let camX, camY;
@@ -356,22 +324,22 @@
   function sfxEngine() { if (engineSndTimer <= 0) { note(1,"A1",0.025); engineSndTimer = 6; } }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) { resetGame(); note(0,"C5",0.07); setTimeout(()=>note(0,"G5",0.1),100); GrayBox.go(PLAY); return; }
+      if (btnp("start") || btnp("a")) { resetGame(); note(0,"C5",0.07); setTimeout(()=>note(0,"G5",0.1),100); Mono.go(PLAY); return; }
     },
     draw() {
       cls(0);
-      const ty = 41 + sin(GrayBox.frame*0.05)*4;
+      const ty = 41 + sin(Mono.frame*0.05)*4;
       text("RALLY-X", 142, flr(ty), 3);
       rectf(112, flr(ty)+10, 96, 1, 2);
       const cx = W/2-30;
-      spr(1, cx, flr(ty)+20 + sin(GrayBox.frame*0.1)*3);
-      spr(5, cx+20, flr(ty)+22 + sin(GrayBox.frame*0.1+1)*3);
-      spr(2, cx+40, flr(ty)+20 + sin(GrayBox.frame*0.1+2)*3);
+      spr(1, cx, flr(ty)+20 + sin(Mono.frame*0.1)*3);
+      spr(5, cx+20, flr(ty)+22 + sin(Mono.frame*0.1+1)*3);
+      spr(2, cx+40, flr(ty)+20 + sin(Mono.frame*0.1+2)*3);
       spr(9, cx+60, flr(ty)+20);
-      if (flr(GrayBox.frame/20)%2===0) text("PRESS A TO START", 120, 128, 3);
+      if (flr(Mono.frame/20)%2===0) text("PRESS START", 120, 128, 3);
       text("COLLECT ALL FLAGS", 117, 149, 2);
       text("AVOID ENEMY CARS", 120, 159, 2);
       text("A = DEPLOY SMOKE SCREEN", 102, 170, 2);
@@ -380,12 +348,12 @@
       spr(9, 127, 206); text("  FLAG    100 PTS", 133, 207, 2);
       spr(10, 127, 216); text("  SPECIAL  200 PTS", 133, 218, 2);
       text("2X PTS AFTER SPECIAL!", 107, 230, 1);
-      text("GRAYBOX DEMO V0.1", 117, 236, 1);
+      text("MONO DEMO V0.1", 117, 236, 1);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
 
@@ -406,7 +374,7 @@
     if (fuel <= 0) {
       fuel = 0; lives--;
       sfxDeath();
-      if (lives <= 0) { GrayBox.go(GAMEOVER); } else { respawnTimer = 60; fuel = maxFuel; }
+      if (lives <= 0) { Mono.go(GAMEOVER); } else { respawnTimer = 60; fuel = maxFuel; }
       return;
     }
 
@@ -429,7 +397,7 @@
     // Smoke
     if (btn("a") && fuel > 50) {
       fuel -= 1.5;
-      if (GrayBox.frame % 4 === 0) {
+      if (Mono.frame % 4 === 0) {
         smokes.push({ x: player.x - DX[player.dir]*6+1, y: player.y - DY[player.dir]*6+1, life: 90 });
         sfxSmoke();
       }
@@ -484,7 +452,7 @@
       // Collision with player
       if (_abs(player.x - e.x) < 6 && _abs(player.y - e.y) < 6) {
         lives--; sfxDeath();
-        if (lives <= 0) { GrayBox.go(GAMEOVER); return; }
+        if (lives <= 0) { Mono.go(GAMEOVER); return; }
         else { respawnTimer = 60; fuel = min(fuel + 300, maxFuel); }
       }
     }
@@ -504,7 +472,7 @@
 
     // Smokes
     for (const s of smokes) {
-      const a = s.life > 60 ? 2 : (s.life > 30 ? 1 : (GrayBox.frame%4<2?1:0));
+      const a = s.life > 60 ? 2 : (s.life > 30 ? 1 : (Mono.frame%4<2?1:0));
       if (a > 0) {
         const sx = flr(s.x-camX+VIEW_X), sy = flr(s.y-camY+VIEW_Y);
         if (sx > -8 && sx < VIEW_X+VIEW_W && sy > -8 && sy < VIEW_Y+VIEW_H) circf(sx+3,sy+3,3,a);
@@ -514,18 +482,18 @@
     // Flags
     for (let i = 0; i < flags.length; i++) {
       const f = flags[i]; if (f.collected) continue;
-      if (i === specialFlagIdx) { sprW(GrayBox.frame%8<5?10:9, f.x, f.y); }
+      if (i === specialFlagIdx) { sprW(Mono.frame%8<5?10:9, f.x, f.y); }
       else sprW(9, f.x, f.y);
     }
 
     // Enemies
     for (const e of enemies) {
-      if (e.stunTimer > 0 && GrayBox.frame%4 < 2) continue;
+      if (e.stunTimer > 0 && Mono.frame%4 < 2) continue;
       sprW(dirSpr(5,e.dir), e.x, e.y);
     }
 
     // Player
-    if (respawnTimer <= 0 || GrayBox.frame%4 < 2) sprW(dirSpr(1,player.dir), player.x, player.y);
+    if (respawnTimer <= 0 || Mono.frame%4 < 2) sprW(dirSpr(1,player.dir), player.x, player.y);
 
     // Level clear overlay
     if (levelCompleteTimer > 0) {
@@ -556,22 +524,22 @@
     if (fuel > 50) text("READY", RADAR_X, smy+10, 3);
     else text("EMPTY", RADAR_X, smy+10, 1);
 
-    if (doublePoints && GrayBox.frame%10<7) text("2X PTS!", RADAR_X-2, smy+22, 3);
+    if (doublePoints && Mono.frame%10<7) text("2X PTS!", RADAR_X-2, smy+22, 3);
     }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
       text("GAME OVER", 137, 75, 3);
       text("SCORE: " + score, 130, 98, 2);
       text("LEVEL: " + level, 135, 111, 2);
-      if (flr(GrayBox.frame/20)%2===0) text("PRESS A TO CONTINUE", 110, 150, 3);
+      if (flr(Mono.frame/20)%2===0) text("PRESS START", 110, 150, 3);
     }
   });
 
@@ -610,10 +578,10 @@
     // Enemies
     for (const e of enemies) {
       const rx = flr(RADAR_X+e.x*sx), ry = flr(RADAR_Y+e.y*sy);
-      if (GrayBox.frame % 6 < 4) { pix(rx,ry,2); pix(rx+1,ry,2); pix(rx,ry+1,2); }
+      if (Mono.frame % 6 < 4) { pix(rx,ry,2); pix(rx+1,ry,2); pix(rx,ry+1,2); }
     }
     // Player (blink)
-    if (GrayBox.frame % 4 < 3) {
+    if (Mono.frame % 4 < 3) {
       const rx = flr(RADAR_X+player.x*sx), ry = flr(RADAR_Y+player.y*sy);
       pix(rx,ry,3); pix(rx+1,ry,3); pix(rx,ry+1,3); pix(rx+1,ry+1,3);
     }
@@ -625,12 +593,12 @@
     text("FUEL", gx, gy-8, 2);
     rect(gx, gy, gw, gh, 1);
     const fw = flr((fuel/maxFuel)*(gw-2));
-    const fc = fuel < maxFuel*0.25 ? (GrayBox.frame%6<3?2:1) : 2;
+    const fc = fuel < maxFuel*0.25 ? (Mono.frame%6<3?2:1) : 2;
     rectf(gx+1, gy+1, fw, gh-2, fc);
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

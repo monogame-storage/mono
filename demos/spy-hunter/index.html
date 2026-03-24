@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Spy Hunter</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Spy Hunter</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
 
@@ -244,7 +212,7 @@
   const LANE_W = ROAD_W / 4;  // 4 lanes
 
   // --- Scenes ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
 
   let player, bullets, enemies, explosions, particles, oilSlicks, bombs, smokeTrails;
   let score, lives, distance, scrollSpeed, baseSpeed;
@@ -333,7 +301,7 @@
   function smokeSound() { note(1, "A3", 0.08); setTimeout(() => note(1, "C4", 0.06), 60); }
   function engineSound() {
     // Subtle engine hum based on speed
-    if (GrayBox.frame % 8 === 0 && scrollSpeed > 2) {
+    if (Mono.frame % 8 === 0 && scrollSpeed > 2) {
       note(1, scrollSpeed > 3.5 ? "A2" : "E2", 0.03);
     }
   }
@@ -404,7 +372,7 @@
     player.x = ROAD_CENTER - 4;
     scrollSpeed = baseSpeed;
     if (lives <= 0) {
-      GrayBox.go(GAMEOVER);
+      Mono.go(GAMEOVER);
     }
   }
 
@@ -413,16 +381,16 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { resetGame(); titleCarY = H; },
     update() {
       titleCarY -= 1.5;
       if (titleCarY < -20) titleCarY = H + 20;
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -432,10 +400,10 @@
       const rr = ROAD_RIGHT + curveOff;
       rectf(rl, 0, ROAD_W, H, 1);
       rectf(rl, 0, 3, H, 3); rectf(rr - 3, 0, 3, H, 3);
-      for (let ly = -16; ly < H; ly += 16) { const dy = flr((ly + (GrayBox.frame * 2) % 16)); for (let lane = 1; lane < 4; lane++) { const lx = rl + lane * LANE_W; rectf(lx, dy, 2, 8, 2); } }
-      for (let ty = 0; ty < H; ty += 30) { const dy = (ty + flr(GrayBox.frame * 1.5) % 30); sprT(14, rl - 10, dy % H, false, false); sprT(14, rr + 4, (dy + 15) % H, false, false); }
-      sprT(1, ROAD_CENTER - 4 + sin(GrayBox.frame * 0.03) * 7, flr(titleCarY), false, false);
-      const ty = 38 + sin(GrayBox.frame * 0.04) * 4;
+      for (let ly = -16; ly < H; ly += 16) { const dy = flr((ly + (Mono.frame * 2) % 16)); for (let lane = 1; lane < 4; lane++) { const lx = rl + lane * LANE_W; rectf(lx, dy, 2, 8, 2); } }
+      for (let ty = 0; ty < H; ty += 30) { const dy = (ty + flr(Mono.frame * 1.5) % 30); sprT(14, rl - 10, dy % H, false, false); sprT(14, rr + 4, (dy + 15) % H, false, false); }
+      sprT(1, ROAD_CENTER - 4 + sin(Mono.frame * 0.03) * 7, flr(titleCarY), false, false);
+      const ty = 38 + sin(Mono.frame * 0.04) * 4;
       text("SPY HUNTER", 123, flr(ty), 3); rectf(113, flr(ty) + 10, 93, 1, 2);
       text("TOP SECRET MISSION", 113, flr(ty) + 20, 2);
       text("ARROWS  STEER/ACCEL", 113, 113, 2); text("A  SHOOT FORWARD", 113, 122, 2); text("B  OIL/SMOKE", 113, 131, 2);
@@ -444,17 +412,17 @@
       sprT(3, 120, 171); text("ENFORCER  100", 130, 173, 2);
       sprT(5, 120, 182); text("CHOPPER   200", 130, 183, 2);
       sprT(4, 120, 192); text("CIVILIAN  NO!", 130, 194, 1);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", 130, 214, 3);
-      text("GRAYBOX DEMO V0.1", 113, 231, 1);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 130, 214, 3);
+      text("MONO DEMO V0.1", 113, 231, 1);
     }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--; if (p.life <= 0) particles.splice(i, 1); }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -464,12 +432,12 @@
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
       text("GAME OVER", 130, 80, 3); text("SCORE: " + score, 130, 100, 2);
       text("DISTANCE: " + flr(distance), 113, 112, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", 130, 150, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 130, 150, 3);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
 
@@ -503,7 +471,7 @@
     score = flr(distance / 10);
 
     // Road curve
-    if (GrayBox.frame % 120 === 0) {
+    if (Mono.frame % 120 === 0) {
       roadCurveTarget = rnd(40) - 20;
     }
     roadCurve += (roadCurveTarget - roadCurve) * 0.01;
@@ -622,7 +590,7 @@
     }
 
     // Spawn weapon van
-    if (!weaponVan && GrayBox.frame % 300 === 0 && (!hasOil && !hasSmoke) && rnd(1) < 0.5) {
+    if (!weaponVan && Mono.frame % 300 === 0 && (!hasOil && !hasSmoke) && rnd(1) < 0.5) {
       spawnWeaponVan();
     }
 
@@ -652,7 +620,7 @@
       if (e.type === "helicopter") {
         // Helicopter floats and drops bombs
         e.y += e.speed;
-        e.x += sin(GrayBox.frame * 0.05 + i) * 0.8;
+        e.x += sin(Mono.frame * 0.05 + i) * 0.8;
         e.bombTimer--;
         if (e.bombTimer <= 0 && e.y > 15 && e.y < H - 45) {
           bombs.push({
@@ -826,12 +794,12 @@
     if (bridgeMode) {
       // Water on sides
       for (let wy = 0; wy < H; wy += 2) {
-        const waveOff = sin((wy + GrayBox.frame * 2) * 0.1) * 3;
+        const waveOff = sin((wy + Mono.frame * 2) * 0.1) * 3;
         for (let wx = 0; wx < rl; wx += 4) {
-          pix(wx + flr(waveOff), wy, (wx + wy + GrayBox.frame) % 8 < 4 ? 1 : 0);
+          pix(wx + flr(waveOff), wy, (wx + wy + Mono.frame) % 8 < 4 ? 1 : 0);
         }
         for (let wx = rr; wx < W; wx += 4) {
-          pix(wx + flr(waveOff), wy, (wx + wy + GrayBox.frame) % 8 < 4 ? 1 : 0);
+          pix(wx + flr(waveOff), wy, (wx + wy + Mono.frame) % 8 < 4 ? 1 : 0);
         }
       }
       // Bridge railings
@@ -893,7 +861,7 @@
     if (weaponVan) {
       sprT(6, flr(weaponVan.x), flr(weaponVan.y));
       // Flashing indicator
-      if (flr(GrayBox.frame / 6) % 2 === 0) {
+      if (flr(Mono.frame / 6) % 2 === 0) {
         text("VAN", flr(weaponVan.x) - 2, flr(weaponVan.y) - 8, 3);
       }
     }
@@ -902,7 +870,7 @@
     for (const e of enemies) {
       sprT(e.sprId, flr(e.x), flr(e.y));
       // Enforcer damage flash
-      if (e.type === "enforcer" && e.hp < 3 && flr(GrayBox.frame / 4) % 2 === 0) {
+      if (e.type === "enforcer" && e.hp < 3 && flr(Mono.frame / 4) % 2 === 0) {
         pix(flr(e.x) + 4, flr(e.y) + 4, 3);
       }
     }
@@ -919,7 +887,7 @@
     for (const b of bullets) sprT(7, flr(b.x), flr(b.y));
 
     // Player (blink when invincible)
-    if (invincible <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+    if (invincible <= 0 || flr(Mono.frame / 3) % 2 === 0) {
       sprT(1, flr(player.x), flr(player.y));
     }
 
@@ -955,7 +923,7 @@
 
     // Civilian penalty warning
     if (civilianPenaltyTimer > 0) {
-      if (flr(GrayBox.frame / 4) % 2 === 0) {
+      if (flr(Mono.frame / 4) % 2 === 0) {
         text("CIVILIAN HIT! -100", 113, 23, 3);
       }
     }
@@ -970,8 +938,8 @@
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

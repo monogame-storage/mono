@@ -1,4 +1,4 @@
-# GrayBox 개발 로드맵
+# Mono 개발 로드맵
 
 ## Phase 1: 스펙 확정 ✅
 

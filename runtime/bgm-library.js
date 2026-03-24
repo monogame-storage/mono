@@ -1,12 +1,12 @@
 /**
- * GrayBox BGM Library — Pre-made background music presets
+ * Mono BGM Library — Pre-made background music presets
  *
  * Usage:
  *   <script src="runtime/engine.js"></script>
  *   <script src="runtime/bgm-library.js"></script>
  *   ...
- *   bgm(GrayBox.BGM.IRON_EAGLE);          // play at preset BPM
- *   bgm(GrayBox.BGM.IRON_EAGLE, 200);     // override BPM
+ *   bgm(Mono.BGM.IRON_EAGLE);          // play at preset BPM
+ *   bgm(Mono.BGM.IRON_EAGLE, 200);     // override BPM
  *
  * Each preset: { tracks, bpm, style, tags }
  */
@@ -374,8 +374,8 @@
   };
 
   // --- Shorthand: bgm(preset) plays with preset's BPM ---
-  var origBgm = GrayBox.bgm;
-  GrayBox.bgm = function(tracksOrPreset, bpm, loop) {
+  var origBgm = Mono.bgm;
+  Mono.bgm = function(tracksOrPreset, bpm, loop) {
     if (tracksOrPreset && tracksOrPreset.tracks) {
       origBgm(tracksOrPreset.tracks, bpm || tracksOrPreset.bpm, loop);
     } else {
@@ -383,5 +383,5 @@
     }
   };
 
-  GrayBox.BGM = BGM;
+  Mono.BGM = BGM;
 })();

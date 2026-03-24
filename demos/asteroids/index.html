@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Asteroids</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Asteroids</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,36 +17,52 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   const TWO_PI = Math.PI * 2;
   const DEG = Math.PI / 180;
 
-  // --- Sprites ---
+  // --- Sprites (16x16 upscaled from 8x8) ---
   // 7: Explosion frame 1
   defSprite(7,
-    "00000000" +
-    "00200100" +
-    "01002000" +
-    "00031000" +
-    "00130200" +
-    "01000010" +
-    "00100000" +
-    "00000000"
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000220000001100" +
+    "0000220000001100" +
+    "0011000000220000" +
+    "0011000000220000" +
+    "0000000033110000" +
+    "0000000033110000" +
+    "0000113300220000" +
+    "0000113300220000" +
+    "0011000000001100" +
+    "0011000000001100" +
+    "0000110000000000" +
+    "0000110000000000" +
+    "0000000000000000" +
+    "0000000000000000"
   );
   // 8: Explosion frame 2
   defSprite(8,
-    "20010020" +
-    "01000010" +
-    "00203200" +
-    "03033030" +
-    "00232000" +
-    "01000300" +
-    "20001001" +
-    "00200010"
+    "2200001100002200" +
+    "2200001100002200" +
+    "0011000000001100" +
+    "0011000000001100" +
+    "0000220033220000" +
+    "0000220033220000" +
+    "0033003333003300" +
+    "0033003333003300" +
+    "0000223322000000" +
+    "0000223322000000" +
+    "0011000000330000" +
+    "0011000000330000" +
+    "2200000011000011" +
+    "2200000011000011" +
+    "0000220000001100" +
+    "0000220000001100"
   );
 
   // --- Helper: wrap position ---
@@ -131,7 +115,7 @@
   const UFO_LINE = [[-8, 0], [8, 0]]; // middle line
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let ship, bullets, asteroids, particles, debris, stars;
   let ufo, ufoBullets, ufoTimer;
   let score, lives, level;
@@ -296,15 +280,15 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {
       resetGame();
       titlePulse = 0;
     },
     update() {
       titlePulse++;
-      if (btnp("a") || btnp("a")) {
-        GrayBox.go(PLAY);
+      if (btnp("start") || btnp("a")) {
+        Mono.go(PLAY);
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
@@ -319,7 +303,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {
       resetGame();
     },
@@ -348,7 +332,7 @@
       if (btn("up")) {
         ship.vx += cos(ship.angle) * 0.15;
         ship.vy += sin(ship.angle) * 0.15;
-        if (GrayBox.frame % 4 === 0) thrustSound();
+        if (Mono.frame % 4 === 0) thrustSound();
       }
 
       // Speed cap
@@ -416,7 +400,7 @@
           ship.invuln = 90;
         } else {
           if (score > hiScore) hiScore = score;
-          GrayBox.go(GAMEOVER);
+          Mono.go(GAMEOVER);
           return;
         }
       }
@@ -664,13 +648,13 @@
       // Ship
       if (ship.alive && hyperTimer <= 0) {
         // Blink during invulnerability
-        if (ship.invuln <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+        if (ship.invuln <= 0 || flr(Mono.frame / 3) % 2 === 0) {
           drawPoly(SHIP_PTS, ship.x + sx, ship.y + sy, ship.angle, 1, 3);
 
           // Thrust flame
           if (btn("up")) {
             const flicker = 0.6 + rnd(0.8);
-            const tc = flr(GrayBox.frame / 2) % 2 === 0 ? 3 : 2;
+            const tc = flr(Mono.frame / 2) % 2 === 0 ? 3 : 2;
             const c2 = cos(ship.angle), s2 = sin(ship.angle);
             const bx = ship.x - c2 * 5 + sx;
             const by = ship.y - s2 * 5 + sy;
@@ -681,7 +665,7 @@
             line(flr(bx + px), flr(by + py), flr(tx), flr(ty), tc);
             line(flr(bx - px), flr(by - py), flr(tx), flr(ty), tc);
             // Thrust particles
-            if (GrayBox.frame % 2 === 0) {
+            if (Mono.frame % 2 === 0) {
               particles.push({
                 x: tx, y: ty,
                 vx: -c2 * rnd(2) + rnd(1) - 0.5,
@@ -711,7 +695,7 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       // Update particles
@@ -725,8 +709,8 @@
         d.x += d.vx; d.y += d.vy; d.angle += d.rotSpeed; d.life--;
         if (d.life <= 0) debris.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) {
-        GrayBox.go(TITLE);
+      if (btnp("start") || btnp("a")) {
+        Mono.go(TITLE);
       }
     },
     draw() {
@@ -765,15 +749,15 @@
 
   function drawHUD() {
     text("SCORE", 3, 2, 2);
-    text(String(score), 3, 8, 3);
+    text(String(score), 3, 16, 3);
 
     text("HI", W - 40, 2, 2);
-    text(String(_max(hiScore, score)), W - 40, 8, 3);
+    text(String(_max(hiScore, score)), W - 40, 16, 3);
 
     // Lives (small ship icons)
     for (let i = 0; i < lives; i++) {
       const lx = 3 + i * 14;
-      const ly = 18;
+      const ly = 26;
       drawPoly(SHIP_PTS, lx + 4, ly + 4, -Math.PI / 2, 0.5, 2);
     }
 
@@ -783,10 +767,10 @@
 
   function drawTitle() {
     // Large vector title "ASTEROIDS"
-    const cy = 60 + sin(GrayBox.frame * 0.04) * 3;
+    const cy = 60 + sin(Mono.frame * 0.04) * 3;
 
     // Draw some floating asteroids in the background
-    const t = GrayBox.frame * 0.01;
+    const t = Mono.frame * 0.01;
     for (let i = 0; i < 5; i++) {
       const ax = (67 + i * 60 + t * 20 * (i + 1)) % (W + 40) - 20;
       const ay = 30 + i * 38 + sin(t * 2 + i) * 15;
@@ -811,11 +795,11 @@
     // Ship display
     const shipX = W / 2;
     const shipY = flr(cy) + 26;
-    drawPoly(SHIP_PTS, shipX, shipY, -Math.PI / 2 + sin(GrayBox.frame * 0.05) * 0.3, 1.5, 3);
+    drawPoly(SHIP_PTS, shipX, shipY, -Math.PI / 2 + sin(Mono.frame * 0.05) * 0.3, 1.5, 3);
 
     // Blinking start text
-    if (flr(GrayBox.frame / 20) % 2 === 0) {
-      text("PRESS A TO START", 120, 143, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) {
+      text("PRESS START", 120, 143, 3);
     }
 
     // Score table
@@ -830,7 +814,7 @@
       text("HI SCORE: " + hiScore, 120, 218, 1);
     }
 
-    text("GRAYBOX DEMO V0.1", 118, 231, 1);
+    text("MONO DEMO V0.1", 118, 231, 1);
   }
 
   function drawGameOver() {
@@ -847,18 +831,18 @@
     text("LEVEL: " + level, 133, 113, 2);
 
     if (score > hiScore) {
-      if (flr(GrayBox.frame / 10) % 2 === 0) {
+      if (flr(Mono.frame / 10) % 2 === 0) {
         text("NEW HI SCORE!", 128, 128, 3);
       }
     }
 
-    if (flr(GrayBox.frame / 20) % 2 === 0) {
-      text("PRESS A TO CONTINUE", 113, 158, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) {
+      text("PRESS START", 113, 158, 3);
     }
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

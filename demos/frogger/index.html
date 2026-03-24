@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Frogger</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Frogger</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Frog facing up
@@ -373,7 +341,7 @@
   }
 
   // --- State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let frogX, frogY;       // pixel position of frog (top-left of 8x8 sprite area within cell)
   let frogDir;             // 0=up,1=left,2=right,3=down
   let frogRow;             // current grid row
@@ -472,7 +440,7 @@
         lives--;
         if (lives <= 0) {
           if (score > hiScore) hiScore = score;
-          GrayBox.go(GAMEOVER);
+          Mono.go(GAMEOVER);
           return;
         }
         resetFrog();
@@ -668,7 +636,7 @@
     rectf(0, y0, W, h, 0);
     // Water texture
     for (let ry = y0; ry < y0 + h; ry += 2) {
-      for (let rx = (ry + flr(GrayBox.frame * 0.5)) % 8; rx < W; rx += 8) {
+      for (let rx = (ry + flr(Mono.frame * 0.5)) % 8; rx < W; rx += 8) {
         pix(rx, ry, 1);
       }
     }
@@ -777,7 +745,7 @@
 
   function drawBonusFly() {
     if (!bonusFly) return;
-    if (bonusFly.timer < 60 && GrayBox.frame % 8 < 4) return; // blink when about to vanish
+    if (bonusFly.timer < 60 && Mono.frame % 8 < 4) return; // blink when about to vanish
     const fo = bonusFly.ref;
     sprT(35, fo.x + bonusFly.offX, fo.y + 4);
   }
@@ -803,7 +771,7 @@
     const bw = W - 42;
     rect(bx, y + 3, bw, 8, 1);
     const fill = flr((timer / TIMER_MAX) * (bw - 2));
-    const col = timer < TIMER_MAX * 0.2 ? (GrayBox.frame % 8 < 4 ? 3 : 2) : 3;
+    const col = timer < TIMER_MAX * 0.2 ? (Mono.frame % 8 < 4 ? 3 : 2) : 3;
     if (fill > 0) rectf(bx + 1, y + 4, fill, 6, col);
   }
 
@@ -839,9 +807,9 @@
     const ry = 68;
     rectf(0, ry, W, 24, 0);
     for (let y = ry; y < ry + 24; y += 2)
-      for (let x = (y + flr(GrayBox.frame * 0.5)) % 8; x < W; x += 8) pix(x, y, 1);
+      for (let x = (y + flr(Mono.frame * 0.5)) % 8; x < W; x += 8) pix(x, y, 1);
     // Animated log
-    const logX = ((GrayBox.frame * 1.2) % (W + 40)) - 40;
+    const logX = ((Mono.frame * 1.2) % (W + 40)) - 40;
     sprT(20, logX, ry + 8); sprT(21, logX + 8, ry + 8); sprT(22, logX + 16, ry + 8);
     // Frog on log
     sprT(1, logX + 8, ry + 4);
@@ -851,14 +819,14 @@
     rectf(0, roadY, W, 24, 1);
     for (let x = 0; x < W; x += 16) line(x, roadY + 12, x + 8, roadY + 12, 2);
     // Car
-    const carX = W - ((GrayBox.frame * 2) % (W + 32));
+    const carX = W - ((Mono.frame * 2) % (W + 32));
     sprT(10, carX, roadY + 8); sprT(11, carX + 8, roadY + 8);
 
     // Title
     text("F R O G G E R", W / 2 - 32, 23, 3);
 
     // Decorative frogs
-    const bob = flr(sin(GrayBox.frame * 0.1) * 2);
+    const bob = flr(sin(Mono.frame * 0.1) * 2);
     sprT(1, W / 2 - 4, 38 + bob);
     sprT(2, W / 2 - 20, 42);
     sprT(3, W / 2 + 15, 42);
@@ -870,15 +838,15 @@
     text("ARROWS  HOP", W / 2 - 27, 150, 2);
 
     // Blink prompt
-    if (GrayBox.frame % 40 < 28) {
-      text("PRESS A TO START", W / 2 - 50, 180, 3);
+    if (Mono.frame % 40 < 28) {
+      text("PRESS START", W / 2 - 50, 180, 3);
     }
 
     if (hiScore > 0) {
       text("HI SCORE  " + String(hiScore).padStart(6, "0"), W / 2 - 45, 203, 2);
     }
 
-    text("GRAYBOX DEMO", W / 2 - 30, 229, 1);
+    text("MONO DEMO", W / 2 - 30, 229, 1);
   }
 
   // --- Game Over ---
@@ -896,46 +864,46 @@
     if (score > 0 && score >= hiScore) {
       text("NEW HIGH SCORE!", bx + 23, by + 30, 3);
     }
-    if (gameOverTimer > 60 && GrayBox.frame % 40 < 28) {
-      text("PRESS A", bx + 33, by + 40, 2);
+    if (gameOverTimer > 60 && Mono.frame % 40 < 28) {
+      text("PRESS START", bx + 33, by + 40, 2);
     }
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
       if (btnp("a")) {
         note(0, "C4", 0.06);
         note(1, "G4", 0.06);
         resetGame();
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() { drawTitle(); }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() { updatePlay(); },
     draw() { drawPlay(); }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() { gameOverTimer = 0; },
     update() {
       gameOverTimer++;
       if (gameOverTimer > 90 && btnp("a")) {
-        GrayBox.go(TITLE); return;
+        Mono.go(TITLE); return;
       }
     },
     draw() { drawGameOver(); }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

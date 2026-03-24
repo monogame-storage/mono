@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Breakout</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Breakout</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Ball
@@ -141,7 +109,7 @@
 
   // Brick types: 0=empty, 1=normal(1hp), 2=strong(2hp), 3=unbreakable
   // --- Game State ---
-  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = Mono.SCENE;
   let paddle, balls, bricks, powerups, particles;
   let score, lives, level;
   let ballOnPaddle;
@@ -384,7 +352,7 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
       if (shakeTimer > 0) shakeTimer--;
@@ -393,8 +361,8 @@
         p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) {
-        GrayBox.go(PLAY);
+      if (btnp("start") || btnp("a")) {
+        Mono.go(PLAY);
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
@@ -411,7 +379,7 @@
           if (bc > 0) {
             const bx = BRICK_AREA_X + c * (BRICK_W + BRICK_GAP);
             const by = 22 + r * (BRICK_H + BRICK_GAP);
-            const alpha = (sin(GrayBox.frame * 0.04 + r * 0.5 + c * 0.3) + 1) * 0.5;
+            const alpha = (sin(Mono.frame * 0.04 + r * 0.5 + c * 0.3) + 1) * 0.5;
             if (alpha > 0.3) rectf(bx, by, BRICK_W, BRICK_H, bc);
           }
         }
@@ -419,11 +387,11 @@
       const titleY = 86;
       text("BREAKOUT", W / 2 - 20, titleY, 3);
       text("- BLOCK BREAKER -", W / 2 - 45, titleY + 12, 2);
-      const ballAnimX = W / 2 + sin(GrayBox.frame * 0.08) * 40;
-      const ballAnimY = 124 + _abs(sin(GrayBox.frame * 0.12)) * -20;
+      const ballAnimX = W / 2 + sin(Mono.frame * 0.08) * 40;
+      const ballAnimY = 124 + _abs(sin(Mono.frame * 0.12)) * -20;
       spr(1, ballAnimX - 4, ballAnimY - 4);
-      if (flr(GrayBox.frame / 20) % 2 === 0) {
-        text("PRESS A", W / 2 - 40, 158, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) {
+        text("PRESS START", W / 2 - 40, 158, 3);
       }
       text("LEFT/RIGHT: MOVE", W / 2 - 40, 186, 1);
       text("A: LAUNCH BALL", W / 2 - 35, 196, 1);
@@ -432,7 +400,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {
       resetGame();
     },
@@ -514,7 +482,7 @@
           sndLoseLife();
           shakeTimer = 12;
           if (lives <= 0) {
-            GrayBox.go(GAMEOVER); return;
+            Mono.go(GAMEOVER); return;
           } else {
             ballOnPaddle = true;
             wideTimer = 0;
@@ -631,7 +599,7 @@
 
     // Check level clear
     if (countBreakable() <= 0 && !ballOnPaddle) {
-      GrayBox.go(CLEAR);
+      Mono.go(CLEAR);
       levelMsg = 90;
       score += 500 + level * 100;
       sndLevelClear();
@@ -654,7 +622,7 @@
   });
 
   // --- Level Clear Scene ---
-  GrayBox.scene(CLEAR, {
+  Mono.scene(CLEAR, {
     init() {},
     update() {
       if (shakeTimer > 0) shakeTimer--;
@@ -665,7 +633,7 @@
       }
       if (levelMsg > 0) levelMsg--;
       if (levelMsg <= 0) {
-        GrayBox.go(PLAY);
+        Mono.go(PLAY);
       }
     },
     draw() {
@@ -681,7 +649,7 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
@@ -689,15 +657,15 @@
         p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) GrayBox.go(TITLE);
+      if (btnp("start") || btnp("a") || btnp("start")) Mono.go(TITLE);
     },
     draw() {
       cls(0);
       text("GAME OVER", W / 2 - 22, H / 2 - 20, 3);
       text("SCORE: " + score, W / 2 - 25, H / 2, 2);
       text("LEVEL: " + level, W / 2 - 18, H / 2 + 12, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) {
-        text("PRESS A TO CONTINUE", W / 2 - 48, H / 2 + 36, 1);
+      if (flr(Mono.frame / 20) % 2 === 0) {
+        text("PRESS START", W / 2 - 48, H / 2 + 36, 1);
       }
       drawParticles();
     }
@@ -718,11 +686,11 @@
     // Power-up indicators
     let indX = W / 2 + 20;
     if (wideTimer > 0) {
-      text("W", indX + sx, 3 + sy, wideTimer < 90 && flr(GrayBox.frame / 6) % 2 ? 1 : 2);
+      text("W", indX + sx, 3 + sy, wideTimer < 90 && flr(Mono.frame / 6) % 2 ? 1 : 2);
       indX += 10;
     }
     if (slowTimer > 0) {
-      text("S", indX + sx, 3 + sy, slowTimer < 90 && flr(GrayBox.frame / 6) % 2 ? 1 : 2);
+      text("S", indX + sx, 3 + sy, slowTimer < 90 && flr(Mono.frame / 6) % 2 ? 1 : 2);
       indX += 10;
     }
 
@@ -781,9 +749,9 @@
       const bx = paddle.x + pw / 2 - BALL_SIZE / 2;
       const by = PADDLE_Y - BALL_SIZE - 1;
       spr(1, flr(bx) + sx, flr(by) + sy);
-      // Blinking "PRESS A" hint
-      if (flr(GrayBox.frame / 15) % 2 === 0) {
-        text("PRESS A", W / 2 - 17, PADDLE_Y - 16, 2);
+      // Blinking "PRESS START" hint
+      if (flr(Mono.frame / 15) % 2 === 0) {
+        text("PRESS START", W / 2 - 17, PADDLE_Y - 16, 2);
       }
     }
 
@@ -791,7 +759,7 @@
     for (const p of powerups) {
       spr(p.type, flr(p.x) + sx, flr(p.y) + sy);
       // Sparkle
-      if (flr(GrayBox.frame / 4) % 2 === 0) {
+      if (flr(Mono.frame / 4) % 2 === 0) {
         pix(p.x - 1 + sx, p.y + 4 + sy, 3);
         pix(p.x + 9 + sx, p.y + 4 + sy, 3);
       }
@@ -804,7 +772,7 @@
     if (comboCount >= 5) {
       const comboText = comboCount + " COMBO!";
       text(comboText, W / 2 - comboText.length * 2.5, PADDLE_Y - 28,
-           flr(GrayBox.frame / 4) % 2 === 0 ? 3 : 2);
+           flr(Mono.frame / 4) % 2 === 0 ? 3 : 2);
     }
   }
 
@@ -816,8 +784,8 @@
   }
 
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

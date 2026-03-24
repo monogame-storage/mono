@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Commando</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Commando</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
 
@@ -403,7 +371,7 @@
   );
 
   // --- Game State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let score = 0;
   let highScore = 0;
   let lives = 3;
@@ -645,7 +613,7 @@
         lives--;
         if (lives <= 0) {
           if (score > highScore) highScore = score;
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         } else {
           pDead = false;
           pInvuln = 90;
@@ -1002,13 +970,13 @@
     rectf(tx - 10, 53, 107, 30, 0);
     rect(tx - 10, 53, 107, 30, 2);
     text("COMMANDO", tx, 60, 3);
-    text("GRAYBOX EDITION", 123, 71, 1);
+    text("MONO EDITION", 123, 71, 1);
 
     // Soldier graphic
     sprT(1, 156, 98);
     sprT(10, 156, 89);
 
-    text("PRESS A TO START", 110, 128, 2);
+    text("PRESS START", 110, 128, 2);
 
     text("ARROWS - MOVE", 128, 158, 1);
     text("Z - SHOOT", 138, 167, 1);
@@ -1018,7 +986,7 @@
       text("HIGH SCORE " + highScore, 120, 203, 2);
     }
 
-    text("2026 GRAYBOX", 130, 225, 1);
+    text("2026 MONO", 130, 225, 1);
   }
 
   // --- Game Over draw ---
@@ -1030,7 +998,7 @@
       text("NEW HIGH SCORE!", 123, 131, 3);
     }
     if (gameOverTimer > 90) {
-      text("PRESS A", 133, 158, (flr(gameOverTimer / 15) % 2 === 0) ? 2 : 0);
+      text("PRESS START", 133, 158, (flr(gameOverTimer / 15) % 2 === 0) ? 2 : 0);
     }
   }
 
@@ -1084,13 +1052,13 @@
       if (psy < -8 || psy > H + 8) continue;
       if (p.state === "ammo") {
         // Grenade ammo pickup - blink
-        if (flr(GrayBox.frame / 8) % 2 === 0) {
+        if (flr(Mono.frame / 8) % 2 === 0) {
           sprT(81, p.x, psy);
         }
       } else if (p.state === "waiting") {
         sprT(40, p.x, psy);
         // Blink "HELP" indicator
-        if (flr(GrayBox.frame / 15) % 2 === 0) {
+        if (flr(Mono.frame / 15) % 2 === 0) {
           text("!", p.x + 2, psy - 8, 3);
         }
       } else if (p.state === "freed") {
@@ -1196,41 +1164,41 @@
     text("HI " + highScore, 273, 3, 1);
 
     // Boss warning
-    if (bossActive && boss && flr(GrayBox.frame / 10) % 2 === 0) {
+    if (bossActive && boss && flr(Mono.frame / 10) % 2 === 0) {
       text("WARNING - BOSS!", 123, 20, 3);
     }
   }
 
   // --- Scenes ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titleAnim = 0; },
     update() {
       titleAnim++;
       if (btnp("a")) {
         note(0, "C5", 0.1);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() { drawTitle(); }
   });
 
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() { gameOverTimer = 0; },
     update() {
       gameOverTimer++;
-      if (gameOverTimer > 90 && btnp("a")) { GrayBox.go(TITLE); return; }
+      if (gameOverTimer > 90 && btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() { drawGameOver(); }
   });
 
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() { playUpdate(); },
     draw() { playDraw(); }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

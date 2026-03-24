@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Missile Command</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Missile Command</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: City (intact)
@@ -129,7 +97,7 @@
   const BASE_MAX_AMMO = 10;
 
   // --- Game State ---
-  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = Mono.SCENE;
   let cursor, cities, bases, counterMissiles, explosions, enemyMissiles;
   let score, wave, waveTimer, waveMessage, bonusTally;
   let bonusCityNext, totalScore;
@@ -333,7 +301,7 @@
         if (r > 3) circf(e.x, e.y, r, 1);
         if (r > 2) circf(e.x, e.y, flr(r * 0.7), 2);
         circf(e.x, e.y, _max(1, flr(r * 0.4)), 3);
-        if (e.growing && GrayBox.frame % 3 === 0) circf(e.x, e.y, r, 3);
+        if (e.growing && Mono.frame % 3 === 0) circf(e.x, e.y, r, 3);
       }
     }
 
@@ -424,25 +392,25 @@
     }
 
     if (checkAllDestroyed()) {
-      if (explosions.length === 0 && enemyMissiles.length === 0) { gameOverSound(); GrayBox.go(GAMEOVER); return; }
+      if (explosions.length === 0 && enemyMissiles.length === 0) { gameOverSound(); Mono.go(GAMEOVER); return; }
       return;
     }
 
     if (waveComplete() && counterMissiles.length === 0 && waveMessage === 0) {
       waveTimer++;
-      if (waveTimer > 30) { bonusTally = null; GrayBox.go(CLEAR); return; }
+      if (waveTimer > 30) { bonusTally = null; Mono.go(CLEAR); return; }
     }
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titleFlash = 0; },
     update() {
       titleFlash++;
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame(); startWave();
         note(0, "C5", 0.08); setTimeout(() => note(0, "G5", 0.12), 100);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -452,14 +420,14 @@
       for (let i = 0; i < 6; i++) spr(1, 53 + i * 37, 150);
       rectf(0, 158, W, 2, 1);
       for (let i = 0; i < 5; i++) { const mx = 40 + i * 60; const my = 75 + sin(titleFlash * 0.05 + i) * 22; line(mx, my - 15, mx + 3, my, 2); }
-      if (flr(titleFlash / 20) % 2 === 0) text("PRESS A", W / 2 - 27, 109, 3);
+      if (flr(titleFlash / 20) % 2 === 0) text("PRESS START", W / 2 - 27, 109, 3);
       text("ARROWS:AIM  A:FIRE  B:FAST AIM", W / 2 - 77, 188, 1);
       text("DEFEND YOUR CITIES!", W / 2 - 47, 203, 2);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() {
       titleFlash++;
@@ -473,7 +441,7 @@
       const cx = flr(cursor.x); const cy = flr(cursor.y);
       line(cx - 6, cy, cx - 2, cy, 3); line(cx + 2, cy, cx + 6, cy, 3);
       line(cx, cy - 6, cx, cy - 2, 3); line(cx, cy + 2, cx, cy + 6, 3);
-      if (GrayBox.frame % 4 < 3) pix(cx, cy, 3);
+      if (Mono.frame % 4 < 3) pix(cx, cy, 3);
 
       // Wave message
       if (waveMessage > 0) {
@@ -485,7 +453,7 @@
   });
 
   // --- Clear (Bonus) Scene ---
-  GrayBox.scene(CLEAR, {
+  Mono.scene(CLEAR, {
     init() {
       bonusTally = {
         citiesLeft: countSurvivingCities(), ammoLeft: countRemainingAmmo(),
@@ -512,7 +480,7 @@
             for (let i = 0; i < 6; i++) { if (!cities[i].alive) { cities[i].alive = true; bonusSound(); break; } }
           }
           startWave();
-          GrayBox.go(PLAY); return;
+          Mono.go(PLAY); return;
         }
       }
     },
@@ -531,11 +499,11 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       titleFlash++;
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -547,8 +515,8 @@
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

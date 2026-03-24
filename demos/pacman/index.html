@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Pac-Man</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Pac-Man</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Maze: 21 columns x 21 rows, each cell is 8x8 ---
   // 21 * 8 = 168px wide, centered in 320. 21 * 8 = 168 tall.
@@ -259,7 +227,7 @@
   );
 
   // --- Game State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let score, lives, level;
   let pac, ghosts;
   let powerTimer, ghostEatCombo;
@@ -488,7 +456,7 @@
           g.px = g.col * TILE; g.py = g.row * TILE;
           g.dir = 2;
         } else {
-          g.py = g.row * TILE + sin(GrayBox.frame * 0.15) * 2;
+          g.py = g.row * TILE + sin(Mono.frame * 0.15) * 2;
           continue;
         }
       }
@@ -566,7 +534,7 @@
         lives--;
         if (lives <= 0) {
           if (score > hiScore) hiScore = score;
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         }
         resetPositions();
         readyTimer = 60;
@@ -627,7 +595,7 @@
         if (d === 2) {
           rectf(x + 3, y + 3, 2, 2, 3);
         } else if (d === 3) {
-          if (GrayBox.frame % 20 < 14) {
+          if (Mono.frame % 20 < 14) {
             circf(x + 4, y + 4, 3, 3);
           }
         }
@@ -669,7 +637,7 @@
       if (g.eaten) {
         sprT(15, sx, sy);
       } else if (powerTimer > 0) {
-        if (powerTimer < 90 && GrayBox.frame % 10 < 5) {
+        if (powerTimer < 90 && Mono.frame % 10 < 5) {
           sprT(g.sprId, sx, sy);
         } else {
           sprT(14, sx, sy);
@@ -705,7 +673,7 @@
     const cx = W / 2;
     const cy = 90;
     circf(cx, cy, 18, 3);
-    if (GrayBox.frame % 30 < 18) {
+    if (Mono.frame % 30 < 18) {
       // Mouth opening
       for (let y = -18; y <= 18; y++) {
         for (let x = 0; x <= 18; x++) {
@@ -723,14 +691,14 @@
     }
 
     // Ghosts chasing
-    const gOff = flr(sin(GrayBox.frame * 0.08) * 3);
+    const gOff = flr(sin(Mono.frame * 0.08) * 3);
     sprT(10, cx - 42 + gOff, cy - 4);
     sprT(11, cx - 54 + gOff, cy - 4);
     sprT(12, cx - 66 + gOff, cy - 4);
     sprT(13, cx - 78 + gOff, cy - 4);
 
-    if (GrayBox.frame % 40 < 28) {
-      text("PRESS A TO START", W / 2 - 50, 142, 3);
+    if (Mono.frame % 40 < 28) {
+      text("PRESS START", W / 2 - 50, 142, 3);
     }
 
     text("ARROW KEYS TO MOVE", W / 2 - 45, 172, 2);
@@ -746,7 +714,7 @@
     text("GAME OVER", W / 2 - 23, 82, 3);
     text("SCORE: " + score, W / 2 - 25, 109, 2);
     if (score >= hiScore && score > 0) text("NEW HIGH SCORE!", W / 2 - 38, 126, 3);
-    if (GrayBox.frame % 40 < 28) text("PRESS A", W / 2 - 28, 158, 2);
+    if (Mono.frame % 40 < 28) text("PRESS START", W / 2 - 28, 158, 2);
   }
 
   function drawPlay() {
@@ -761,34 +729,34 @@
     if (readyTimer > 0) {
       text("READY!", W / 2 - 15, MY + 13 * TILE, 3);
     }
-    if (levelClearTimer > 0 && GrayBox.frame % 10 < 6) {
+    if (levelClearTimer > 0 && Mono.frame % 10 < 6) {
       text("LEVEL CLEAR!", W / 2 - 30, MY + 13 * TILE, 3);
     }
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
-    update() { if (btnp("a")) { resetGame(); GrayBox.go(PLAY); return; } },
+    update() { if (btnp("a") || btnp("start")) { resetGame(); Mono.go(PLAY); return; } },
     draw() { drawTitle(); }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() { updatePlay(); },
     draw() { drawPlay(); }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
-    update() { if (btnp("a")) { GrayBox.go(TITLE); return; } },
+    update() { if (btnp("a") || btnp("start")) { Mono.go(TITLE); return; } },
     draw() { drawGameOver(); }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

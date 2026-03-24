@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Donkey Kong</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Donkey Kong</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
 
@@ -504,7 +472,7 @@
   };
 
   // --- Game State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let player, barrels, fires, explosions, particles;
   let score, lives, level, levelData;
   let dkAnimT, dkThrowT, dkFrame;
@@ -678,32 +646,32 @@
   function climbSound() { note(1, "D3", 0.02); }
 
   // --- Scenes ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() { drawTitle(); }
   });
 
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() { drawGameOver(); }
   });
 
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
 
@@ -1106,7 +1074,7 @@
     deathSound();
     if (lives <= 0) {
       if (score > highScore) highScore = score;
-      GrayBox.go(GAMEOVER); return;
+      Mono.go(GAMEOVER); return;
     } else {
       invincibleTimer = 60;
       player.x = levelData.playerStart.x;
@@ -1127,7 +1095,7 @@
     cls(0);
     {
       // Title screen
-      const ty = 20 + sin(GrayBox.frame * 0.04) * 3;
+      const ty = 20 + sin(Mono.frame * 0.04) * 3;
 
       // DK sprite at top
       const dkx = W / 2 - 8;
@@ -1147,10 +1115,10 @@
       text("PAULINE", cx + 12, flr(ty) + 58, 2);
 
       // Barrel
-      spr(20, cx, flr(ty) + 72 + sin(GrayBox.frame * 0.1) * 2);
+      spr(20, cx, flr(ty) + 72 + sin(Mono.frame * 0.1) * 2);
       text("BARREL  100 PTS", cx + 12, flr(ty) + 75, 2);
 
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", 120, 160, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 120, 160, 3);
 
       // Controls
       text("ARROWS: MOVE/CLIMB", 115, 182, 2);
@@ -1160,7 +1128,7 @@
         text("HIGH SCORE: " + highScore, 115, 212, 2);
       }
 
-      text("GRAYBOX DEMO V0.1", 118, 228, 1);
+      text("MONO DEMO V0.1", 118, 228, 1);
     }
   }
 
@@ -1175,7 +1143,7 @@
     text("SCORE: " + score, 135, 105, 2);
     text("LEVEL: " + levelData.name, 135, 116, 2);
     if (score >= highScore && score > 0) text("NEW HIGH SCORE!", 123, 131, 3);
-    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 113, 158, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 113, 158, 3);
   }
 
   function drawPlayState() {
@@ -1233,7 +1201,7 @@
     if (levelData.oilDrum) {
       spr(36, levelData.oilDrum.x, levelData.oilDrum.y);
       // Flames on top
-      if (GrayBox.frame % 8 < 4) {
+      if (Mono.frame % 8 < 4) {
         pix(levelData.oilDrum.x + 3, levelData.oilDrum.y - 2, 3);
         pix(levelData.oilDrum.x + 4, levelData.oilDrum.y - 3, 2);
         pix(levelData.oilDrum.x + 5, levelData.oilDrum.y - 1, 3);
@@ -1275,7 +1243,7 @@
       if (h.active) {
         spr(35, h.x, h.y);
         // Sparkle
-        if (GrayBox.frame % 10 < 5) pix(h.x + flr(rnd(8)), h.y - 1, 3);
+        if (Mono.frame % 10 < 5) pix(h.x + flr(rnd(8)), h.y - 1, 3);
       }
     }
 
@@ -1296,7 +1264,7 @@
     for (const f of fires) {
       spr(37, flr(f.x), flr(f.y));
       // Flicker effect
-      if (GrayBox.frame % 4 < 2) {
+      if (Mono.frame % 4 < 2) {
         pix(flr(f.x) + 3, flr(f.y) - 1, 3);
         pix(flr(f.x) + 5, flr(f.y) - 2, 2);
       }
@@ -1304,7 +1272,7 @@
 
     // Draw player
     const p = player;
-    if (invincibleTimer > 0 && GrayBox.frame % 4 < 2) {
+    if (invincibleTimer > 0 && Mono.frame % 4 < 2) {
       // Blink when invincible
     } else {
       let sprId = 1;
@@ -1365,7 +1333,7 @@
       const barW = flr((hammerTimer / 300) * 30);
       rectf(W / 2 + 30, 6, 30, 4, 1);
       rectf(W / 2 + 30, 6, barW, 4, 3);
-      if (hammerTimer < 60 && GrayBox.frame % 6 < 3) {
+      if (hammerTimer < 60 && Mono.frame % 6 < 3) {
         text("HAMMER!", W / 2 + 20, 4, 3);
       }
     }
@@ -1373,8 +1341,8 @@
 
   // ============================================================
   // Boot
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

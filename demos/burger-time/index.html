@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Burger Time</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Burger Time</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
 
@@ -424,7 +392,7 @@
   }
 
   // --- Game State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let chef, enemies, peppers, particles;
   let score, lives, level, pepperCount;
   let layout;
@@ -548,7 +516,7 @@
   }
 
   // Sound effects
-  function walkSound() { if (GrayBox.frame % 8 === 0) note(1, "G2", 0.02); }
+  function walkSound() { if (Mono.frame % 8 === 0) note(1, "G2", 0.02); }
   function pepperSound() { note(0, "C5", 0.05); note(1, "E4", 0.05); }
   function dropSound() { note(0, "C3", 0.08); note(1, "E2", 0.1); }
   function crushSound() { note(0, "G3", 0.06); note(1, "C3", 0.1); }
@@ -650,11 +618,11 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) {
-        GrayBox.go(PLAY);
+      if (btnp("start") || btnp("a")) {
+        Mono.go(PLAY);
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
@@ -667,7 +635,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
     // --- Play state ---
@@ -683,7 +651,7 @@
       }
       if (deathTimer === 0) {
         if (lives <= 0) {
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         } else {
           // Respawn chef
           chef.x = 153;
@@ -1046,7 +1014,7 @@
     for (const e of enemies) {
       if (e.stunTimer > 0) {
         // Flash when stunned
-        if (flr(GrayBox.frame / 4) % 2 === 0) {
+        if (flr(Mono.frame / 4) % 2 === 0) {
           spr(e.type, flr(e.x), flr(e.y), e.dir < 0);
         }
         // Draw stun stars
@@ -1057,8 +1025,8 @@
     }
 
     // Draw chef
-    if (deathTimer <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
-      if (invincibleTimer > 0 && flr(GrayBox.frame / 3) % 2 === 0) {
+    if (deathTimer <= 0 || flr(Mono.frame / 3) % 2 === 0) {
+      if (invincibleTimer > 0 && flr(Mono.frame / 3) % 2 === 0) {
         // Blinking during invincibility - skip draw
       } else {
         let sprId;
@@ -1103,14 +1071,14 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) GrayBox.go(TITLE);
+      if (btnp("start") || btnp("a") || btnp("start")) Mono.go(TITLE);
     },
     draw() {
       cls(0);
@@ -1118,7 +1086,7 @@
       text("GAME OVER", 138, 83, 3);
       text("SCORE: " + score, 138, 101, 2);
       text("LEVEL: " + level, 148, 113, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", 133, 150, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 133, 150, 3);
 
     }
   });
@@ -1127,7 +1095,7 @@
   
 
       // Title screen
-      const ty = 38 + sin(GrayBox.frame * 0.05) * 3;
+      const ty = 38 + sin(Mono.frame * 0.05) * 3;
 
       text("BURGER TIME", 133, flr(ty), 3);
       rectf(123, flr(ty) + 10, 93, 1, 2);
@@ -1143,23 +1111,23 @@
 
       // Chef and enemies
       const ey = flr(ty) + 53;
-      spr(1, bx - 20, ey + sin(GrayBox.frame * 0.08) * 2);
-      spr(20, bx + 20, ey + sin(GrayBox.frame * 0.08 + 1) * 2);
-      spr(21, bx + 33, ey + sin(GrayBox.frame * 0.08 + 2) * 2);
-      spr(22, bx + 46, ey + sin(GrayBox.frame * 0.08 + 3) * 2);
+      spr(1, bx - 20, ey + sin(Mono.frame * 0.08) * 2);
+      spr(20, bx + 20, ey + sin(Mono.frame * 0.08 + 1) * 2);
+      spr(21, bx + 33, ey + sin(Mono.frame * 0.08 + 2) * 2);
+      spr(22, bx + 46, ey + sin(Mono.frame * 0.08 + 3) * 2);
 
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", 133, 150, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 133, 150, 3);
 
       text("-HOW TO PLAY-", 128, 173, 2);
       text("WALK OVER BURGERS TO", 110, 183, 2);
       text("DROP THEM DOWN!", 123, 193, 2);
       text("A = PEPPER TO STUN ENEMIES", 93, 208, 2);
 
-      text("GRAYBOX DEMO V0.1", 118, 229, 1);
+      text("MONO DEMO V0.1", 118, 229, 1);
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

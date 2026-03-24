@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Q*bert</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Q*bert</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Q*bert facing down-right
@@ -230,7 +198,7 @@
   }
 
   // --- Game State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let score, lives, level;
   let cubeColors; // 2D array: cubeColors[row][col] = current color index
   let targetColor; // color index cubes need to become
@@ -404,23 +372,23 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titleBlink = true; },
     update() {
-      titleBlink = (GrayBox.frame % 40) < 25;
+      titleBlink = (Mono.frame % 40) < 25;
       if (btnp("a")) {
         ensureAudio();
         resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
       cls(0);
       text("Q*BERT", W / 2 - 15, 45, 3);
-      text("GRAYBOX EDITION", W / 2 - 37, 57, 2);
+      text("MONO EDITION", W / 2 - 37, 57, 2);
       for (let r = 0; r < 4; r++) {
         for (let c = 0; c <= r; c++) {
           const p = cubePos(r, c);
@@ -431,7 +399,7 @@
         }
       }
       if (titleBlink) {
-        text("PRESS A TO START", W / 2 - 50, 188, 3);
+        text("PRESS START", W / 2 - 50, 188, 3);
       }
       text("ARROWS TO HOP", W / 2 - 32, 206, 1);
       text("CHANGE ALL CUBES TO WIN", W / 2 - 57, 218, 1);
@@ -439,10 +407,10 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
-    titleBlink = (GrayBox.frame % 40) < 25;
+    titleBlink = (Mono.frame % 40) < 25;
 
     if (levelClearTimer > 0) {
       levelClearTimer--;
@@ -458,7 +426,7 @@
       if (speechTimer > 0) speechTimer--;
       if (deathPause === 0) {
         if (lives <= 0) {
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         } else {
           respawnPlayer();
         }
@@ -737,7 +705,7 @@
     for (const disc of discs) {
       if (!disc.active) continue;
       const dp = getDiscPos(disc);
-      if (GrayBox.frame % 8 < 4) {
+      if (Mono.frame % 8 < 4) {
         spr(8, dp.x - 4, dp.y - 4);
       } else {
         spr(8, dp.x - 4, dp.y - 4, true);
@@ -794,7 +762,7 @@
       }
 
       // Blink during invulnerability
-      if (invulnTimer > 0 && GrayBox.frame % 4 < 2) {
+      if (invulnTimer > 0 && Mono.frame % 4 < 2) {
         // Don't draw (blink)
       } else {
         // Choose sprite based on direction
@@ -822,12 +790,12 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
-      titleBlink = (GrayBox.frame % 40) < 25;
+      titleBlink = (Mono.frame % 40) < 25;
       if (btnp("a")) {
-        GrayBox.go(TITLE); return;
+        Mono.go(TITLE); return;
       }
     },
     draw() {
@@ -835,13 +803,13 @@
       text("GAME OVER", W / 2 - 22, 90, 3);
       text("SCORE " + score, W / 2 - 22, 109, 2);
       if (titleBlink) {
-        text("PRESS A", W / 2 - 27, 135, 3);
+        text("PRESS START", W / 2 - 27, 135, 3);
       }
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

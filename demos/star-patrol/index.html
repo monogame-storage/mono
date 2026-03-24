@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Star Patrol</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Star Patrol</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,11 +17,11 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, mget, mset, map: drawMap,
           rnd, flr, abs: _abs, min, max: _max, sin, cos, overlap, vibrate,
-          bgm, bgmStop } = GrayBox;
+          bgm, bgmStop } = Mono;
 
   defSprite(1, "0003000000030000003330000033300003333300331133303330333001000010");
   defSprite(2, "0100001033303330331133300333330000333000003330000003000000030000");
@@ -69,7 +37,7 @@
 
   let player, bullets, enemies, eBullets, particles, stars, score, lives;
   let spawnTimer, diffLevel, shakeTimer, dashCooldown, dashTimer;
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
 
   function initStars() {
     stars = [];
@@ -94,28 +62,28 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { initStars(); particles = []; },
     update() {
       updateStars();
-      if (btnp("a")) { GrayBox.go(PLAY); note(0, "C5", 0.1); setTimeout(() => note(0, "E5", 0.1), 100); setTimeout(() => note(0, "G5", 0.15), 200); }
+      if (btnp("a") || btnp("start")) { Mono.go(PLAY); note(0, "C5", 0.1); setTimeout(() => note(0, "E5", 0.1), 100); setTimeout(() => note(0, "G5", 0.15), 200); }
     },
     draw() {
       cls(0); drawStars();
-      const ty = 50 + Math.sin(GrayBox.frame * 0.05) * 5;
+      const ty = 50 + Math.sin(Mono.frame * 0.05) * 5;
       text("STAR PATROL", 132, flr(ty), 3);
       text("STAR PATROL", 133, flr(ty) + 1, 1);
       rectf(90, flr(ty) + 14, 140, 1, 2);
       spr(1, 156, flr(ty) + 30);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", 120, 150, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 120, 150, 3);
       text("ARROWS: MOVE", 130, 172, 2);
       text("A: SHOOT  B: DASH", 115, 184, 2);
-      text("GRAYBOX V0.3", 127, 222, 1);
+      text("MONO V0.3", 127, 222, 1);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {
       player = { x: 156, y: 200, speed: 3, dashSpeed: 8 };
       bullets = []; enemies = []; eBullets = []; particles = [];
@@ -167,7 +135,7 @@
           const b = eBullets[i];
           if (b && b.x + 8 > player.x && b.x < player.x + 8 && b.y + 8 > player.y && b.y < player.y + 8) {
             eBullets.splice(i, 1); lives--; shakeTimer = 8; addParticle(player.x + 4, player.y + 4, 2); deathNote();
-            if (lives <= 0) { GrayBox.go(GAMEOVER); addParticle(player.x + 4, player.y + 4); addParticle(player.x + 4, player.y + 4); return; }
+            if (lives <= 0) { Mono.go(GAMEOVER); addParticle(player.x + 4, player.y + 4); addParticle(player.x + 4, player.y + 4); return; }
           }
         }
       }
@@ -175,7 +143,7 @@
         const e = enemies[i]; const wx = e.wobbleAmp * Math.sin(e.wobble);
         if (dashTimer <= 0 && player.x + 7 > e.x + wx && player.x < e.x + wx + 8 && player.y + 7 > e.y && player.y < e.y + 8) {
           addParticle(player.x + 4, player.y + 4, 3); enemies.splice(i, 1); lives--; shakeTimer = 10; deathNote();
-          if (lives <= 0) { GrayBox.go(GAMEOVER); return; }
+          if (lives <= 0) { Mono.go(GAMEOVER); return; }
         }
       }
       updateStars(); updateParticles();
@@ -187,7 +155,7 @@
       for (const b of eBullets) spr(9, flr(b.x) + sx, flr(b.y) + sy);
       for (const e of enemies) { const wx = e.wobbleAmp * Math.sin(e.wobble); spr(e.type, flr(e.x + wx) + sx, flr(e.y) + sy); }
       for (const b of bullets) spr(4, flr(b.x) + sx, flr(b.y) + sy);
-      if (dashTimer > 0 && flr(GrayBox.frame / 2) % 2 === 0) {} else spr(1, flr(player.x) + sx, flr(player.y) + sy);
+      if (dashTimer > 0 && flr(Mono.frame / 2) % 2 === 0) {} else spr(1, flr(player.x) + sx, flr(player.y) + sy);
       for (const p of particles) pix(flr(p.x) + sx, flr(p.y) + sy, p.color);
       rectf(0, 0, W, 12, 0);
       text("SCORE:" + score, 4, 3, 3);
@@ -198,23 +166,23 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       updateStars(0.3); updateParticles();
-      if (btnp("a")) GrayBox.go(TITLE);
+      if (btnp("a") || btnp("start")) Mono.go(TITLE);
     },
     draw() {
       cls(0); drawStars();
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
       text("GAME OVER", 137, 85, 3);
       text("SCORE: " + score, 130, 105, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 112, 150, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 112, 150, 3);
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

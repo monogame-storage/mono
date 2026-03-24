@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Balloon Fight</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Balloon Fight</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,179 +17,291 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
-  // --- Sprites ---
+  // --- Sprites (16x16 — upscaled from 8x8 by doubling each pixel in X and Y) ---
 
-  // 1: Player body (facing right) — little guy with helmet and arms out
+  // 1: Player body (facing right)
   defSprite(1,
-    "00222000" +
-    "02332200" +
-    "02222200" +
-    "00233000" +
-    "02233200" +
-    "00222000" +
-    "00200200" +
-    "00200200"
+    "0000222222000000" +
+    "0000222222000000" +
+    "0022333322220000" +
+    "0022333322220000" +
+    "0022222222220000" +
+    "0022222222220000" +
+    "0000223333000000" +
+    "0000223333000000" +
+    "0022223333220000" +
+    "0022223333220000" +
+    "0000222222000000" +
+    "0000222222000000" +
+    "0000220000220000" +
+    "0000220000220000" +
+    "0000220000220000" +
+    "0000220000220000"
   );
 
   // 2: Balloon (round, tied at bottom)
   defSprite(2,
-    "00333000" +
-    "03333300" +
-    "33333330" +
-    "33333330" +
-    "03333300" +
-    "00333000" +
-    "00030000" +
-    "00030000"
+    "0000333333000000" +
+    "0000333333000000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0000333333000000" +
+    "0000333333000000" +
+    "0000003300000000" +
+    "0000003300000000" +
+    "0000003300000000" +
+    "0000003300000000"
   );
 
-  // 3: Enemy body (facing right) — bird-like enemy
+  // 3: Enemy body (facing right)
   defSprite(3,
-    "00111000" +
-    "01221100" +
-    "01111100" +
-    "00122000" +
-    "01122100" +
-    "00111000" +
-    "00100100" +
-    "00100100"
+    "0000111111000000" +
+    "0000111111000000" +
+    "0011222211110000" +
+    "0011222211110000" +
+    "0011111111110000" +
+    "0011111111110000" +
+    "0000112222000000" +
+    "0000112222000000" +
+    "0011112222110000" +
+    "0011112222110000" +
+    "0000111111000000" +
+    "0000111111000000" +
+    "0000110000110000" +
+    "0000110000110000" +
+    "0000110000110000" +
+    "0000110000110000"
   );
 
   // 4: Enemy balloon
   defSprite(4,
-    "00222000" +
-    "02222200" +
-    "22222220" +
-    "22222220" +
-    "02222200" +
-    "00222000" +
-    "00020000" +
-    "00020000"
+    "0000222222000000" +
+    "0000222222000000" +
+    "0022222222220000" +
+    "0022222222220000" +
+    "2222222222222200" +
+    "2222222222222200" +
+    "2222222222222200" +
+    "2222222222222200" +
+    "0022222222220000" +
+    "0022222222220000" +
+    "0000222222000000" +
+    "0000222222000000" +
+    "0000002200000000" +
+    "0000002200000000" +
+    "0000002200000000" +
+    "0000002200000000"
   );
 
   // 5: Parachute
   defSprite(5,
-    "02222200" +
-    "23333320" +
-    "33333330" +
-    "20000020" +
-    "02000200" +
-    "00202000" +
-    "00020000" +
-    "00000000"
+    "0022222222220000" +
+    "0022222222220000" +
+    "2233333333332200" +
+    "2233333333332200" +
+    "3333333333333300" +
+    "3333333333333300" +
+    "2200000000002200" +
+    "2200000000002200" +
+    "0022000000220000" +
+    "0022000000220000" +
+    "0000220022000000" +
+    "0000220022000000" +
+    "0000002200000000" +
+    "0000002200000000" +
+    "0000000000000000" +
+    "0000000000000000"
   );
 
   // 6: Platform tile (grassy top, solid below)
   defSprite(6,
-    "22222222" +
-    "33333333" +
-    "31313131" +
-    "11111111" +
-    "11111111" +
-    "11111111" +
-    "11111111" +
-    "11111111"
+    "2222222222222222" +
+    "2222222222222222" +
+    "3333333333333333" +
+    "3333333333333333" +
+    "3311331133113311" +
+    "3311331133113311" +
+    "1111111111111111" +
+    "1111111111111111" +
+    "1111111111111111" +
+    "1111111111111111" +
+    "1111111111111111" +
+    "1111111111111111" +
+    "1111111111111111" +
+    "1111111111111111" +
+    "1111111111111111" +
+    "1111111111111111"
   );
 
   // 7: Water surface tile (wavy)
   defSprite(7,
-    "00000000" +
-    "00000000" +
-    "00200020" +
-    "02020202" +
-    "20002000" +
-    "01010101" +
-    "10001000" +
-    "01010101"
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000220000002200" +
+    "0000220000002200" +
+    "0022002200220022" +
+    "0022002200220022" +
+    "2200000022000000" +
+    "2200000022000000" +
+    "0011001100110011" +
+    "0011001100110011" +
+    "1100000011000000" +
+    "1100000011000000" +
+    "0011001100110011" +
+    "0011001100110011"
   );
 
   // 8: Cloud tile
   defSprite(8,
-    "00000000" +
-    "00222000" +
-    "02222200" +
-    "22222222" +
-    "22222222" +
-    "02222220" +
-    "00000000" +
-    "00000000"
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000222222000000" +
+    "0000222222000000" +
+    "0022222222220000" +
+    "0022222222220000" +
+    "2222222222222222" +
+    "2222222222222222" +
+    "2222222222222222" +
+    "2222222222222222" +
+    "0022222222222200" +
+    "0022222222222200" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000"
   );
 
   // 9: Lightning bolt
   defSprite(9,
-    "00003300" +
-    "00033000" +
-    "00330000" +
-    "03333300" +
-    "00033000" +
-    "00330000" +
-    "03300000" +
-    "00000000"
+    "0000000033330000" +
+    "0000000033330000" +
+    "0000003333000000" +
+    "0000003333000000" +
+    "0000333300000000" +
+    "0000333300000000" +
+    "0033333333330000" +
+    "0033333333330000" +
+    "0000003333000000" +
+    "0000003333000000" +
+    "0000333300000000" +
+    "0000333300000000" +
+    "0033330000000000" +
+    "0033330000000000" +
+    "0000000000000000" +
+    "0000000000000000"
   );
 
   // 10: Fish (in water, jumps up to eat)
   defSprite(10,
-    "00000000" +
-    "00110000" +
-    "01111020" +
-    "11111120" +
-    "01111020" +
-    "00110000" +
-    "00000000" +
-    "00000000"
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000111100000000" +
+    "0000111100000000" +
+    "0011111111002200" +
+    "0011111111002200" +
+    "1111111111112200" +
+    "1111111111112200" +
+    "0011111111002200" +
+    "0011111111002200" +
+    "0000111100000000" +
+    "0000111100000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000"
   );
 
   // 11: Life icon (small balloon)
   defSprite(11,
-    "00000000" +
-    "00330000" +
-    "03333000" +
-    "03333000" +
-    "00330000" +
-    "00300000" +
-    "00000000" +
-    "00000000"
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000333300000000" +
+    "0000333300000000" +
+    "0033333333000000" +
+    "0033333333000000" +
+    "0033333333000000" +
+    "0033333333000000" +
+    "0000333300000000" +
+    "0000333300000000" +
+    "0000330000000000" +
+    "0000330000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000"
   );
 
   // 12: Bubble (for water)
   defSprite(12,
-    "00000000" +
-    "00000000" +
-    "00220000" +
-    "02002000" +
-    "02002000" +
-    "00220000" +
-    "00000000" +
-    "00000000"
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000222200000000" +
+    "0000222200000000" +
+    "0022000022000000" +
+    "0022000022000000" +
+    "0022000022000000" +
+    "0022000022000000" +
+    "0000222200000000" +
+    "0000222200000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000" +
+    "0000000000000000"
   );
 
   // 13: Flapping wing frame (arms up)
   defSprite(13,
-    "00222000" +
-    "02332200" +
-    "02222200" +
-    "20233020" +
-    "02233200" +
-    "00222000" +
-    "00200200" +
-    "00200200"
+    "0000222222000000" +
+    "0000222222000000" +
+    "0022333322220000" +
+    "0022333322220000" +
+    "0022222222220000" +
+    "0022222222220000" +
+    "2200223333002200" +
+    "2200223333002200" +
+    "0022223333220000" +
+    "0022223333220000" +
+    "0000222222000000" +
+    "0000222222000000" +
+    "0000220000220000" +
+    "0000220000220000" +
+    "0000220000220000" +
+    "0000220000220000"
   );
 
   // 14: Enemy flap frame
   defSprite(14,
-    "00111000" +
-    "01221100" +
-    "01111100" +
-    "10122010" +
-    "01122100" +
-    "00111000" +
-    "00100100" +
-    "00100100"
+    "0000111111000000" +
+    "0000111111000000" +
+    "0011222211110000" +
+    "0011222211110000" +
+    "0011111111110000" +
+    "0011111111110000" +
+    "1100112222001100" +
+    "1100112222001100" +
+    "0011112222110000" +
+    "0011112222110000" +
+    "0000111111000000" +
+    "0000111111000000" +
+    "0000110000110000" +
+    "0000110000110000" +
+    "0000110000110000" +
+    "0000110000110000"
   );
 
   // --- Constants ---
@@ -231,10 +311,10 @@
   const MAX_RISE = -3.0;
   const MOVE_SPEED = 1.5;
   const WATER_Y = 216;
-  const PLAT_H = 8;
+  const PLAT_H = 16;
 
   // --- Platforms ---
-  // Each: {x, y, w} where w is in tiles (8px each)
+  // Each: {x, y, w} where w is in tiles (16px each)
   const PLATFORMS = [
     // Bottom row near water
     { x: 0, y: 204, w: 5 },
@@ -259,7 +339,7 @@
   ];
 
   // --- Game State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let player, enemies, particles, bubbles;
   let score, lives, wave, waveTimer, waveMsg;
   let lightnings, fishObj;
@@ -347,7 +427,7 @@
     // Only collide when moving down
     if (vy < 0) return null;
     for (const p of PLATFORMS) {
-      const pw = p.w * 8;
+      const pw = p.w * 16;
       if (x + w > p.x && x < p.x + pw && y + h >= p.y && y + h <= p.y + 6) {
         return p;
       }
@@ -356,17 +436,17 @@
   }
 
   function wrap(x) {
-    if (x < -12) return W;
-    if (x > W) return -12;
+    if (x < -16) return W;
+    if (x > W) return -16;
     return x;
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) {
-        GrayBox.go(PLAY);
+      if (btnp("start") || btnp("a")) {
+        Mono.go(PLAY);
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
@@ -377,25 +457,25 @@
       drawBackground();
 
       // Title
-      const blink = (GrayBox.frame % 40) < 30;
+      const blink = (Mono.frame % 40) < 30;
       text("BALLOON FIGHT", 126, 60, 3);
-      text("GRAYBOX EDITION", 123, 72, 2);
+      text("MONO EDITION", 123, 72, 2);
 
       // Animated balloons on title
-      const by = 98 + sin(GrayBox.frame * 0.08) * 8;
-      drawBalloons(127, by, 2, 3);
-      sprT(1, 131, by + 16, false, false);
-      drawBalloons(180, by + 5, 1, 2);
-      sprT(3, 184, by + 21, true, false);
+      const by = 98 + sin(Mono.frame * 0.08) * 8;
+      drawBalloons(119, by, 2, 3);
+      sprT(1, 127, by + 32, false, false);
+      drawBalloons(172, by + 5, 1, 2);
+      sprT(3, 180, by + 37, true, false);
 
-      if (blink) text("PRESS A", 133, 150, 3);
+      if (blink) text("PRESS START", 133, 150, 3);
       text("A TO FLAP  ARROWS TO MOVE", 98, 172, 1);
       text("POP ENEMY BALLOONS!", 113, 188, 2);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {
       resetGame();
     },
@@ -435,9 +515,9 @@
       player.x = wrap(player.x);
 
       // Platform collision
-      const plat = platformCollision(player.x + 1, player.y, 6, 16, player.vy);
+      const plat = platformCollision(player.x + 2, player.y, 12, 32, player.vy);
       if (plat) {
-        player.y = plat.y - 16;
+        player.y = plat.y - 32;
         player.vy = 0;
       }
 
@@ -447,7 +527,7 @@
       }
 
       // Ceiling
-      if (player.y < -8) { player.y = -8; player.vy = 0.5; }
+      if (player.y < -16) { player.y = -16; player.vy = 0.5; }
 
     } else {
       // Respawn timer
@@ -458,7 +538,7 @@
           player.x = 160; player.y = 75;
           invTimer = 90; // brief invincibility
         } else {
-          GrayBox.go(GAMEOVER);
+          Mono.go(GAMEOVER);
           return;
         }
       }
@@ -500,9 +580,9 @@
         e.x = wrap(e.x);
 
         // Platform collision for enemies
-        const ePlat = platformCollision(e.x + 1, e.y, 6, 16, e.vy);
+        const ePlat = platformCollision(e.x + 2, e.y, 12, 32, e.vy);
         if (ePlat) {
-          e.y = ePlat.y - 16;
+          e.y = ePlat.y - 32;
           e.vy = 0;
         }
 
@@ -523,12 +603,12 @@
           const px = player.x, py = player.y;
           const ex = e.x, ey = e.y;
           // Check if player is hitting enemy from above (player feet above enemy balloon top)
-          if (_abs(px - ex) < 10) {
-            if (py + 8 < ey + 4 && py + 16 > ey - 8 && player.vy >= 0) {
+          if (_abs(px - ex) < 20) {
+            if (py + 16 < ey + 8 && py + 32 > ey - 16 && player.vy >= 0) {
               // Player lands on enemy — pop a balloon
               e.balloons--;
               popSound();
-              addParticles(e.x + 4, e.y - 4, 5, 3);
+              addParticles(e.x + 8, e.y - 8, 5, 3);
               player.vy = -2.5; // bounce up
               score += 200;
               if (e.balloons <= 0) {
@@ -536,11 +616,11 @@
                 e.vy = -1;
                 e.parachuteTimer = 20;
               }
-            } else if (ey + 8 < py + 4 && ey + 16 > py - 8 && e.vy >= 0) {
+            } else if (ey + 16 < py + 8 && ey + 32 > py - 16 && e.vy >= 0) {
               // Enemy lands on player — pop player balloon
               player.balloons--;
               popSound();
-              addParticles(player.x + 4, player.y - 4, 5, 3);
+              addParticles(player.x + 8, player.y - 8, 5, 3);
               e.vy = -2.5;
               if (player.balloons <= 0) {
                 killPlayer();
@@ -565,9 +645,9 @@
         e.x = wrap(e.x);
 
         // Land on platform
-        const ePlat2 = platformCollision(e.x + 1, e.y, 6, 16, e.vy);
+        const ePlat2 = platformCollision(e.x + 2, e.y, 12, 32, e.vy);
         if (ePlat2) {
-          e.y = ePlat2.y - 16;
+          e.y = ePlat2.y - 32;
           e.vy = 0;
           e.state = "grounded";
           e.reinflateTimer = 150 + flr(rnd(100)); // time before re-inflating
@@ -584,7 +664,7 @@
 
         // Player can bump grounded/falling enemies
         if (!player.dead && invTimer <= 0) {
-          if (_abs(player.x - e.x) < 10 && _abs(player.y - e.y) < 14) {
+          if (_abs(player.x - e.x) < 20 && _abs(player.y - e.y) < 28) {
             // Bump enemy — launch them
             e.vx = player.vx * 2 + (player.x < e.x ? 2 : -2);
             e.vy = -2;
@@ -608,7 +688,7 @@
 
         // Player can bump
         if (!player.dead && invTimer <= 0) {
-          if (_abs(player.x - e.x) < 10 && _abs(player.y - e.y) < 14) {
+          if (_abs(player.x - e.x) < 20 && _abs(player.y - e.y) < 28) {
             e.vx = player.vx * 2 + (player.x < e.x ? 3 : -3);
             e.vy = -2.5;
             e.state = "falling";
@@ -636,7 +716,7 @@
     // Random lightning from clouds
     if (flr(rnd(180)) === 0 && lightnings.length < 2) {
       const cloud = CLOUDS[flr(rnd(CLOUDS.length))];
-      const lx = cloud.x + flr(rnd(cloud.w * 8));
+      const lx = cloud.x + flr(rnd(cloud.w * 16));
       lightnings.push({
         x: lx, y: cloud.y + 16,
         timer: 20,
@@ -655,7 +735,7 @@
       // Check if lightning hits player
       if (!player.dead && invTimer <= 0 && l.timer > 10) {
         for (const seg of l.segments) {
-          if (_abs(player.x + 4 - seg.x) < 8 && _abs(player.y + 8 - seg.y) < 10) {
+          if (_abs(player.x + 8 - seg.x) < 16 && _abs(player.y + 16 - seg.y) < 20) {
             killPlayer();
             break;
           }
@@ -666,7 +746,7 @@
         const e = enemies[j];
         if (e.state !== "flying") continue;
         for (const seg of l.segments) {
-          if (_abs(e.x + 4 - seg.x) < 8 && _abs(e.y + 8 - seg.y) < 10) {
+          if (_abs(e.x + 8 - seg.x) < 16 && _abs(e.y + 16 - seg.y) < 20) {
             e.balloons = 0;
             e.state = "falling";
             e.vy = -1;
@@ -695,7 +775,7 @@
         fishObj.state = "jumping";
         fishObj.x = target.x;
         fishObj.targetX = target.x;
-        fishObj.y = WATER_Y + 8;
+        fishObj.y = WATER_Y + 16;
         fishObj.vy = -4.5;
         splashSound();
       }
@@ -704,19 +784,19 @@
     if (fishObj.state === "jumping") {
       fishObj.vy += 0.2;
       fishObj.y += fishObj.vy;
-      if (fishObj.y > WATER_Y + 8) {
+      if (fishObj.y > WATER_Y + 16) {
         fishObj.state = "hidden";
         fishObj.timer = 90 + flr(rnd(120));
         addParticles(fishObj.x, WATER_Y - 2, 4, 2);
       }
       // Eat player
-      if (!player.dead && _abs(player.x - fishObj.x) < 12 && _abs(player.y - fishObj.y) < 12) {
+      if (!player.dead && _abs(player.x - fishObj.x) < 24 && _abs(player.y - fishObj.y) < 24) {
         killPlayer();
       }
       // Eat enemies
       for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
-        if (_abs(e.x - fishObj.x) < 12 && _abs(e.y - fishObj.y) < 12) {
+        if (_abs(e.x - fishObj.x) < 24 && _abs(e.y - fishObj.y) < 24) {
           score += e.pts;
           enemies.splice(i, 1);
         }
@@ -734,7 +814,7 @@
       bubbles.push({ x: flr(rnd(W)), y: WATER_Y, vy: -0.3 - rnd(0.5), life: 30 + flr(rnd(30)) });
     }
     for (let i = bubbles.length - 1; i >= 0; i--) {
-      const b = bubbles[i]; b.y += b.vy; b.x += sin(GrayBox.frame * 0.1 + i) * 0.3; b.life--;
+      const b = bubbles[i]; b.y += b.vy; b.x += sin(Mono.frame * 0.1 + i) * 0.3; b.life--;
       if (b.life <= 0) bubbles.splice(i, 1);
     }
     },
@@ -746,7 +826,7 @@
       // Draw clouds
       for (const c of CLOUDS) {
         for (let t = 0; t < c.w; t++) {
-          sprT(8, c.x + t * 8, c.y, false, false);
+          sprT(8, c.x + t * 16, c.y, false, false);
         }
       }
 
@@ -764,28 +844,28 @@
       // Draw enemies
       for (const e of enemies) {
         if (e.state === "flying") {
-          drawBalloons(e.x - 2, e.y - 10, e.balloons, 2);
+          drawBalloons(e.x - 4, e.y - 20, e.balloons, 2);
           const bodySprite = e.flapAnim > 0 ? 14 : 3;
-          sprT(bodySprite, e.x, e.y + 4, e.facing < 0, false);
+          sprT(bodySprite, e.x, e.y + 8, e.facing < 0, false);
         } else if (e.state === "falling") {
-          sprT(5, e.x - 2, e.y - 4, false, false);
-          sprT(3, e.x, e.y + 6, e.facing < 0, false);
+          sprT(5, e.x - 4, e.y - 8, false, false);
+          sprT(3, e.x, e.y + 12, e.facing < 0, false);
         } else if (e.state === "grounded") {
-          const blink = e.reinflateTimer < 40 && (GrayBox.frame % 6 < 3);
-          sprT(3, e.x, e.y + 4, e.facing < 0, false);
+          const blink = e.reinflateTimer < 40 && (Mono.frame % 6 < 3);
+          sprT(3, e.x, e.y + 8, e.facing < 0, false);
           if (blink) {
-            circf(e.x + 4, e.y, 2, 2);
+            circf(e.x + 8, e.y, 4, 2);
           }
         }
       }
 
       // Draw player
       if (!player.dead) {
-        const vis = invTimer > 0 ? (GrayBox.frame % 4 < 2) : true;
+        const vis = invTimer > 0 ? (Mono.frame % 4 < 2) : true;
         if (vis) {
-          drawBalloons(player.x - 2, player.y - 10, player.balloons, 3);
+          drawBalloons(player.x - 4, player.y - 20, player.balloons, 3);
           const bodySprite = player.flapAnim > 0 ? 13 : 1;
-          sprT(bodySprite, player.x, player.y + 4, player.facing < 0, false);
+          sprT(bodySprite, player.x, player.y + 8, player.facing < 0, false);
         }
       }
 
@@ -810,7 +890,7 @@
       text("SCORE " + score, 4, 3, 3);
       text("WAVE " + wave, 147, 3, 2);
       for (let i = 0; i < lives; i++) {
-        sprT(11, 267 + i * 12, 2, false, false);
+        sprT(11, 267 + i * 20, 2, false, false);
       }
 
       // Wave message
@@ -821,14 +901,14 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) GrayBox.go(TITLE);
+      if (btnp("start") || btnp("a") || btnp("start")) Mono.go(TITLE);
     },
     draw() {
       cls(0);
@@ -838,8 +918,8 @@
       for (const p of particles) pix(p.x, p.y, p.color);
       text("GAME OVER", 138, 90, 3);
       text("SCORE  " + score, 130, 112, 2);
-      const blink = (GrayBox.frame % 40) < 30;
-      if (blink) text("PRESS A", 133, 135, 3);
+      const blink = (Mono.frame % 40) < 30;
+      if (blink) text("PRESS START", 133, 135, 3);
     }
   });
 
@@ -851,7 +931,7 @@
     addParticles(player.x, player.y, 10, 3);
     deathSound();
     if (lives <= 0) {
-      GrayBox.go(GAMEOVER);
+      Mono.go(GAMEOVER);
       return;
     }
   }
@@ -875,15 +955,15 @@
   function drawBalloons(x, y, count, col) {
     if (count >= 2) {
       // Two balloons side by side
-      circf(x + 2, y + 3, 4, col);
-      circf(x + 10, y + 3, 4, col);
+      circf(x + 4, y + 6, 8, col);
+      circf(x + 20, y + 6, 8, col);
       // Strings
-      line(x + 2, y + 7, x + 5, y + 14, col > 1 ? col - 1 : 1);
-      line(x + 10, y + 7, x + 7, y + 14, col > 1 ? col - 1 : 1);
+      line(x + 4, y + 14, x + 10, y + 28, col > 1 ? col - 1 : 1);
+      line(x + 20, y + 14, x + 14, y + 28, col > 1 ? col - 1 : 1);
     } else if (count === 1) {
       // One balloon centered
-      circf(x + 6, y + 3, 4, col);
-      line(x + 6, y + 7, x + 6, y + 14, col > 1 ? col - 1 : 1);
+      circf(x + 12, y + 6, 8, col);
+      line(x + 12, y + 14, x + 12, y + 28, col > 1 ? col - 1 : 1);
     }
   }
 
@@ -894,7 +974,7 @@
       const sx = starSeed[i] % W;
       const sy = (starSeed[i] * 7 + i * 23) % (WATER_Y - 30);
       const bright = (i % 3 === 0) ? 2 : 1;
-      const twinkle = ((GrayBox.frame + i * 11) % 60) < 50;
+      const twinkle = ((Mono.frame + i * 11) % 60) < 50;
       if (twinkle) pix(sx, sy, bright);
     }
   }
@@ -902,29 +982,29 @@
   function drawPlatforms() {
     for (const p of PLATFORMS) {
       for (let t = 0; t < p.w; t++) {
-        sprT(6, p.x + t * 8, p.y, false, false);
+        sprT(6, p.x + t * 16, p.y, false, false);
       }
     }
   }
 
   function drawWater() {
     // Water surface
-    for (let tx = 0; tx < 40; tx++) {
-      sprT(7, tx * 8, WATER_Y, (tx % 2 === 0), false);
+    for (let tx = 0; tx < 20; tx++) {
+      sprT(7, tx * 16, WATER_Y, (tx % 2 === 0), false);
     }
     // Deep water fill
-    rectf(0, WATER_Y + 8, W, H - WATER_Y - 8, 0);
+    rectf(0, WATER_Y + 16, W, H - WATER_Y - 16, 0);
     // Water pattern lines
-    for (let y = WATER_Y + 10; y < H; y += 6) {
+    for (let y = WATER_Y + 18; y < H; y += 6) {
       for (let x = 0; x < W; x += 12) {
-        const off = sin((GrayBox.frame * 0.05) + x * 0.02 + y * 0.1) * 4;
+        const off = sin((Mono.frame * 0.05) + x * 0.02 + y * 0.1) * 4;
         line(x + off, y, x + 6 + off, y, 1);
       }
     }
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

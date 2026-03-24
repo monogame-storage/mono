@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Dig Dug</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Dig Dug</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
 
@@ -273,7 +241,7 @@
   // Particles/effects
   let particles, scorePopups;
   // Game state
-  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = Mono.SCENE;
   let score, lives, level, levelTimer, respawnTimer;
   let levelClearShowing = false;
   let lastEnemyEscaping;
@@ -546,44 +514,44 @@
   }
 
   // --- Scenes ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() { drawTitle(); }
   });
 
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() { drawGameOver(); }
   });
 
-  GrayBox.scene(CLEAR, {
+  Mono.scene(CLEAR, {
     init() { levelTimer = 0; levelClearShowing = true; },
     update() {
       levelTimer++;
       if (levelTimer > 90) {
         startLevel();
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() { drawPlayState(); }
   });
 
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); levelClearShowing = false; },
     update() {
     // --- Play state ---
@@ -598,7 +566,7 @@
       }
       if (respawnTimer > 60) {
         if (lives <= 0) {
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         }
         player.alive = true;
         player.gx = flr(GRID_W / 2);
@@ -969,7 +937,7 @@
     const aliveEnemies = enemies.filter(e => e.alive);
     if (aliveEnemies.length === 0 && player.alive) {
       levelClearSound();
-      GrayBox.go(CLEAR); return;
+      Mono.go(CLEAR); return;
     }
     },
     draw() { drawPlayState(); }
@@ -1089,7 +1057,7 @@
 
       if (e.ghost) {
         // Ghost mode: flicker
-        if (GrayBox.frame % 4 < 2) {
+        if (Mono.frame % 4 < 2) {
           spr(15, ex, ey);
         }
       } else if (e.inflate > 0) {
@@ -1175,7 +1143,7 @@
       }
     }
 
-    const ty = 38 + sin(GrayBox.frame * 0.04) * 3;
+    const ty = 38 + sin(Mono.frame * 0.04) * 3;
 
     // Title
     text("DIG DUG", 143, flr(ty), 3);
@@ -1185,13 +1153,13 @@
     // Show characters
     const bx = W / 2 - 33;
     const by = flr(ty) + 23;
-    spr(1, bx, by + sin(GrayBox.frame * 0.06) * 3);
-    spr(5, bx + 20, by + 2 + sin(GrayBox.frame * 0.06 + 1) * 3);
-    spr(8, bx + 40, by + sin(GrayBox.frame * 0.06 + 2) * 3);
-    spr(11, bx + 60, by + 2 + sin(GrayBox.frame * 0.06 + 3) * 2);
+    spr(1, bx, by + sin(Mono.frame * 0.06) * 3);
+    spr(5, bx + 20, by + 2 + sin(Mono.frame * 0.06 + 1) * 3);
+    spr(8, bx + 40, by + sin(Mono.frame * 0.06 + 2) * 3);
+    spr(11, bx + 60, by + 2 + sin(Mono.frame * 0.06 + 3) * 2);
 
-    if (flr(GrayBox.frame / 20) % 2 === 0) {
-      text("PRESS A TO START", 120, 131, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) {
+      text("PRESS START", 120, 131, 3);
     }
 
     // Score table
@@ -1203,7 +1171,7 @@
     text("DIG TUNNELS  PUMP ENEMIES", 98, 203, 2);
     text("DROP ROCKS FOR BONUS!", 108, 212, 2);
 
-    text("GRAYBOX DEMO V0.1", 118, 229, 1);
+    text("MONO DEMO V0.1", 118, 229, 1);
   }
 
   function drawGameOver() {
@@ -1214,16 +1182,16 @@
     text("SCORE: " + score, 127, 98, 2);
     text("ROUND: " + level, 130, 111, 2);
 
-    if (flr(GrayBox.frame / 20) % 2 === 0) {
-      text("PRESS A TO CONTINUE", 113, 150, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) {
+      text("PRESS START", 113, 150, 3);
     }
   }
 
   // ============================================================
   // Boot
   // ============================================================
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

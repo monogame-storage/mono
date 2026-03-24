@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Xevious</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Xevious</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
 
@@ -331,7 +299,7 @@
   );
 
   // --- Scenes ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let _scene = TITLE;
 
   let player, zapper, bombs, bombReticle, airEnemies, groundTargets;
@@ -555,33 +523,33 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { resetGame(); _scene = TITLE; },
     update() {
       scrollY += 0.3;
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() { drawAll(); }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() { _scene = GAMEOVER; },
     update() {
       scrollY += 0.2;
       for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--; if (p.life <= 0) particles.splice(i, 1); }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() { drawAll(); }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); _scene = PLAY; },
     update() {
     // --- Play state ---
@@ -876,7 +844,7 @@
     invincibleTimer = 90;
     if (lives <= 0) {
       addExplosion(player.x - 5, player.y + 3, false);
-      GrayBox.go(GAMEOVER);
+      Mono.go(GAMEOVER);
     }
   }
 
@@ -930,7 +898,7 @@
           pix(sx + 2, sy + 1, 1);
         } else if (tile === 22) {
           // Water - horizontal lines
-          const waveOff = flr(sin((sy + GrayBox.frame * 2) * 0.15) * 2);
+          const waveOff = flr(sin((sy + Mono.frame * 2) * 0.15) * 2);
           for (let wx = 0; wx < 8; wx += 2) {
             pix(sx + wx + waveOff, sy + 2, 1);
             pix(sx + wx + 1 - waveOff, sy + 5, 1);
@@ -969,7 +937,7 @@
     // --- Draw bomb reticle ---
     if (_scene === PLAY) {
       const rx = flr(bombReticle.x), ry = flr(bombReticle.y);
-      const blink = flr(GrayBox.frame / 4) % 2;
+      const blink = flr(Mono.frame / 4) % 2;
       if (blink) {
         // Crosshair
         line(rx + 3, ry - 3, rx + 3, ry + 10, 2);
@@ -1010,7 +978,7 @@
       sprT(12, bx, by);
       sprT(12, bx, by + 8);
       // Core
-      if (boss.coreHit > 0 && flr(GrayBox.frame / 2) % 2) {
+      if (boss.coreHit > 0 && flr(Mono.frame / 2) % 2) {
         // Flash on hit
         rectf(bx + 8, by, 24, 24, 3);
       } else {
@@ -1037,12 +1005,12 @@
 
     // --- Draw player ---
     if (_scene === PLAY) {
-      if (invincibleTimer > 0 && flr(GrayBox.frame / 3) % 2) {
+      if (invincibleTimer > 0 && flr(Mono.frame / 3) % 2) {
         // Blink during invincibility
       } else {
         sprT(1, flr(player.x), flr(player.y));
         // Engine glow
-        if (GrayBox.frame % 4 < 2) {
+        if (Mono.frame % 4 < 2) {
           pix(flr(player.x) + 3, flr(player.y) + 7, 2);
           pix(flr(player.x) + 3, flr(player.y) + 8, 3);
         } else {
@@ -1070,19 +1038,19 @@
     if (_scene === TITLE) {
       rectf(67, 38, 187, 165, 0);
 
-      const ty = 53 + sin(GrayBox.frame * 0.05) * 3;
+      const ty = 53 + sin(Mono.frame * 0.05) * 3;
       text("XEVIOUS", W / 2 - 20, flr(ty), 3);
       rectf(W / 2 - 27, flr(ty) + 10, 53, 1, 2);
 
       // Show sample enemies
       const bx = W / 2 - 33;
-      sprT(5, bx, flr(ty) + 17 + sin(GrayBox.frame * 0.08) * 2);
-      sprT(6, bx + 17, flr(ty) + 18 + sin(GrayBox.frame * 0.08 + 1) * 2);
-      sprT(7, bx + 33, flr(ty) + 17 + sin(GrayBox.frame * 0.08 + 2) * 2);
-      sprT(19, bx + 50, flr(ty) + 18 + sin(GrayBox.frame * 0.08 + 3) * 2);
-      sprT(5, bx + 67, flr(ty) + 17 + sin(GrayBox.frame * 0.08 + 4) * 2);
+      sprT(5, bx, flr(ty) + 17 + sin(Mono.frame * 0.08) * 2);
+      sprT(6, bx + 17, flr(ty) + 18 + sin(Mono.frame * 0.08 + 1) * 2);
+      sprT(7, bx + 33, flr(ty) + 17 + sin(Mono.frame * 0.08 + 2) * 2);
+      sprT(19, bx + 50, flr(ty) + 18 + sin(Mono.frame * 0.08 + 3) * 2);
+      sprT(5, bx + 67, flr(ty) + 17 + sin(Mono.frame * 0.08 + 4) * 2);
 
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", W / 2 - 28, 128, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 28, 128, 3);
 
       text("- AIR TARGETS -", W / 2 - 38, 143, 2);
       sprT(5, W / 2 - 32, 152); text("TORKAN  100", W / 2 - 20, 153, 2);
@@ -1094,7 +1062,7 @@
       sprT(9, W / 2 - 32, 203); text("BUNKER  300", W / 2 - 20, 204, 2);
 
       text("Z=ZAPPER  X=BOMB", W / 2 - 42, 216, 1);
-      text("GRAYBOX DEMO V0.1", W / 2 - 43, 229, 1);
+      text("MONO DEMO V0.1", W / 2 - 43, 229, 1);
       return;
     }
 
@@ -1103,12 +1071,12 @@
       rectf(W / 2 - 40, 75, 80, 60, 0);
       text("GAME OVER", W / 2 - 24, 86, 3);
       text("SCORE: " + score, W / 2 - 24, 101, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", W / 2 - 28, 120, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 28, 120, 3);
     }
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

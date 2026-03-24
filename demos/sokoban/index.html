@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Sokoban</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Sokoban</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Tile size: 8x8 sprites rendered at 2x = 16x16 per tile ---
   const TS = 16;
@@ -320,7 +288,7 @@
   }
 
   // --- Scenes ---
-  const { TITLE, PLAY, CLEAR, WIN } = GrayBox.SCENE;
+  const { TITLE, PLAY, CLEAR, WIN } = Mono.SCENE;
   const SELECT = "select";
 
   let level = 0;
@@ -417,7 +385,7 @@
       if (checkWin()) {
         completeTimer = 90;
         if (level + 1 > maxLevelReached) maxLevelReached = level + 1;
-        GrayBox.go(CLEAR);
+        Mono.go(CLEAR);
         note(0, "C5", 0.15);
         setTimeout(() => { try { note(0, "E5", 0.15); } catch(e){} }, 150);
         setTimeout(() => { try { note(0, "G5", 0.25); } catch(e){} }, 300);
@@ -474,14 +442,14 @@
   }
 
   // ============ Title Scene ============
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { animTimer = 0; },
     update() {
       animTimer++;
       if (btnp("a")) {
         selectCursor = min(maxLevelReached, LEVELS.length - 1);
         note(0, "C4", 0.1);
-        GrayBox.go(SELECT); return;
+        Mono.go(SELECT); return;
       }
     },
     draw() {
@@ -502,27 +470,27 @@
       spr2x(PLAYER_SPR[3], cx - 3 * TS - 8 + pOff * TS, sy);
       spr2x(4, cx - 2 * TS - 8 + pOff * TS, sy);
       spr2x(3, cx + 2 * TS - 8, sy);
-      if (flr(animTimer / 20) % 2 === 0) textCenter("PRESS A", 150, 2);
+      if (flr(animTimer / 20) % 2 === 0) textCenter("PRESS START", 150, 2);
       textCenter("PUSH ALL BOXES ONTO TARGETS", 180, 1);
       textCenter("ARROWS:MOVE  X:UNDO  Z:RESTART", 195, 1);
     }
   });
 
   // ============ Level Select Scene ============
-  GrayBox.scene(SELECT, {
+  Mono.scene(SELECT, {
     init() {},
     update() {
       const maxIdx = min(maxLevelReached, LEVELS.length - 1);
       if (btnp("up")) { selectCursor--; if (selectCursor < 0) selectCursor = maxIdx; note(0, "C4", 0.03); }
       if (btnp("down")) { selectCursor++; if (selectCursor > maxIdx) selectCursor = 0; note(0, "C4", 0.03); }
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         level = selectCursor;
         loadLevel(level);
         note(0, "E4", 0.1);
         note(1, "C4", 0.1);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
-      if (btnp("b")) { note(0, "C3", 0.06); GrayBox.go(TITLE); return; }
+      if (btnp("b")) { note(0, "C3", 0.06); Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -581,7 +549,7 @@
     if (history.length > 0) text("UNDO:" + history.length, W - 37, H - 10, 1);
   }
 
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { animTimer = 0; },
     update() {
       animTimer++;
@@ -596,7 +564,7 @@
   });
 
   // ============ Level Complete Scene ============
-  GrayBox.scene(CLEAR, {
+  Mono.scene(CLEAR, {
     init() {},
     update() {
       completeTimer--;
@@ -604,11 +572,11 @@
       if (completeTimer <= 0 || btnp("a")) {
         if (level + 1 >= LEVELS.length) {
           animTimer = 0;
-          GrayBox.go(WIN); return;
+          Mono.go(WIN); return;
         } else {
           level++;
           loadLevel(level);
-          GrayBox.go(PLAY); return;
+          Mono.go(PLAY); return;
         }
       }
     },
@@ -637,11 +605,11 @@
   });
 
   // ============ All Clear Scene ============
-  GrayBox.scene(WIN, {
+  Mono.scene(WIN, {
     init() { animTimer = 0; },
     update() {
       animTimer++;
-      if (btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -657,13 +625,13 @@
       }
       const pd = flr(animTimer / 15) % 4;
       spr2x(PLAYER_SPR[pd], cx - 8, cy - 8);
-      if (flr(animTimer / 20) % 2 === 0) textCenter("PRESS A", 195, 2);
+      if (flr(animTimer / 20) % 2 === 0) textCenter("PRESS START", 195, 2);
       textCenter("THANKS FOR PLAYING!", 214, 1);
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

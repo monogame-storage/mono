@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Bubble Bobble</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Bubble Bobble</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
 
@@ -471,7 +439,7 @@
   ];
 
   // --- Game state ---
-  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = Mono.SCENE;
   let player, bubbles, enemies, items, particles;
   let score, lives, level, levelTimer, invincible;
   let levelMap; // current level collision grid
@@ -679,11 +647,11 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
       if (btnp("a") || btnp("b") || btnp("a")) {
-        GrayBox.go(PLAY);
+        Mono.go(PLAY);
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
@@ -696,7 +664,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
     // --- Play state ---
@@ -880,7 +848,7 @@
           addPop(player.x, player.y);
           sfxDeath();
           if (lives <= 0) {
-            GrayBox.go(GAMEOVER); return;
+            Mono.go(GAMEOVER); return;
             for (let k = 0; k < 20; k++) {
               particles.push({
                 x: player.x + 4, y: player.y + 4,
@@ -955,7 +923,7 @@
 
     // Check level clear
     if (enemies.length === 0 && state === "play") {
-      GrayBox.go(CLEAR);
+      Mono.go(CLEAR);
       levelTimer = 90;
       sfxLevelClear();
     }
@@ -966,7 +934,7 @@
 
     if (state === "title") {
       // Title screen
-      const ty = 38 + sin(GrayBox.frame * 0.05) * 5;
+      const ty = 38 + sin(Mono.frame * 0.05) * 5;
 
       text("BUBBLE BOBBLE", 128, flr(ty), 3);
       text("BUBBLE BOBBLE", 129, flr(ty) + 1, 1);
@@ -974,20 +942,20 @@
 
       // Animated dragon
       const bx = W / 2 - 20;
-      spr(1, bx, flr(ty) + 24 + sin(GrayBox.frame * 0.1) * 3);
+      spr(1, bx, flr(ty) + 24 + sin(Mono.frame * 0.1) * 3);
       // Some floating bubbles
       for (let i = 0; i < 5; i++) {
-        const bby = flr(ty) + 22 + sin(GrayBox.frame * 0.06 + i * 1.3) * 8;
+        const bby = flr(ty) + 22 + sin(Mono.frame * 0.06 + i * 1.3) * 8;
         const bbx = bx + 13 + i * 11;
         spr(3, bbx, bby);
       }
 
       // Show enemies
-      spr(5, bx - 11, flr(ty) + 24 + sin(GrayBox.frame * 0.08 + 2) * 3, true);
-      spr(6, bx + 67, flr(ty) + 24 + sin(GrayBox.frame * 0.08 + 4) * 3);
+      spr(5, bx - 11, flr(ty) + 24 + sin(Mono.frame * 0.08 + 2) * 3, true);
+      spr(6, bx + 67, flr(ty) + 24 + sin(Mono.frame * 0.08 + 4) * 3);
 
-      if (flr(GrayBox.frame / 20) % 2 === 0)
-        text("PRESS A", 133, 135, 3);
+      if (flr(Mono.frame / 20) % 2 === 0)
+        text("PRESS START", 133, 135, 3);
 
       // Instructions
       text("-HOW TO PLAY-", 128, 158, 2);
@@ -996,7 +964,7 @@
       text("POP BUBBLES TO", 126, 188, 2);
       text("DEFEAT ENEMIES!", 123, 195, 2);
 
-      text("GRAYBOX DEMO V0.1", 118, 229, 1);
+      text("MONO DEMO V0.1", 118, 229, 1);
       return;
     }
 
@@ -1012,7 +980,7 @@
       text("GAME OVER", 138, 90, 3);
       text("SCORE: " + score, 128, 109, 2);
       text("LEVEL: " + (level + 1), 138, 120, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", 133, 158, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 133, 158, 3);
       return;
     }
 
@@ -1021,7 +989,7 @@
 
     // Items
     for (const it of items) {
-      if (it.life < 60 && flr(GrayBox.frame / 4) % 2 === 0) continue; // blink when about to disappear
+      if (it.life < 60 && flr(Mono.frame / 4) % 2 === 0) continue; // blink when about to disappear
       spr(it.type, flr(it.x), flr(it.y));
     }
 
@@ -1042,7 +1010,7 @@
       const sprId = e.type === 0 ? 5 : 6;
       const flipX = e.vx < 0;
       // Flash when angry
-      if (e.angry && flr(GrayBox.frame / 4) % 2 === 0) {
+      if (e.angry && flr(Mono.frame / 4) % 2 === 0) {
         spr(sprId, flr(e.x), flr(e.y), flipX);
       } else {
         spr(sprId, flr(e.x), flr(e.y), flipX);
@@ -1051,7 +1019,7 @@
 
     // Player
     // Blink when invincible
-    if (invincible <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+    if (invincible <= 0 || flr(Mono.frame / 3) % 2 === 0) {
       spr(1, flr(player.x), flr(player.y), player.dir < 0);
     }
 
@@ -1079,10 +1047,10 @@
 
     // Level clear message
     // Hurry warning
-    if (hurryTimer < 150 && hurryTimer > 0 && flr(GrayBox.frame / 10) % 2 === 0) {
+    if (hurryTimer < 150 && hurryTimer > 0 && flr(Mono.frame / 10) % 2 === 0) {
       text("HURRY UP!", 138, 116, 3);
     }
-    if (hurryTimer <= 0 && flr(GrayBox.frame / 15) % 2 === 0) {
+    if (hurryTimer <= 0 && flr(Mono.frame / 15) % 2 === 0) {
       text("HURRY!", 146, 116, 3);
     }
     }
@@ -1101,7 +1069,7 @@
   }
 
   // --- Level Clear Scene ---
-  GrayBox.scene(CLEAR, {
+  Mono.scene(CLEAR, {
     init() { levelTimer = 90; },
     update() {
       levelTimer--;
@@ -1117,13 +1085,13 @@
       if (levelTimer <= 0) {
         level++;
         startLevel();
-        GrayBox.go(PLAY);
+        Mono.go(PLAY);
       }
     },
     draw() {
       cls(0);
       drawLevel();
-      for (const it of items) { if (it.life > 30 || flr(GrayBox.frame / 4) % 2 === 0) spr(it.type, it.x, it.y); }
+      for (const it of items) { if (it.life > 30 || flr(Mono.frame / 4) % 2 === 0) spr(it.type, it.x, it.y); }
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
       rectf(0, 0, W, 10, 0);
       text("SCORE " + score, 4, 2, 3);
@@ -1134,21 +1102,21 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) GrayBox.go(TITLE);
+      if (btnp("start") || btnp("a") || btnp("start")) Mono.go(TITLE);
     },
     draw() {
       cls(0);
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
       text("GAME OVER", W / 2 - 22, 90, 3);
       text("SCORE: " + score, W / 2 - 18, 110, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", W / 2 - 17, 140, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 17, 140, 3);
     }
   });
 
@@ -1156,7 +1124,7 @@
 
 
     // Title screen
-    const ty = 38 + sin(GrayBox.frame * 0.05) * 5;
+    const ty = 38 + sin(Mono.frame * 0.05) * 5;
 
     text("BUBBLE BOBBLE", 128, flr(ty), 3);
     text("BUBBLE BOBBLE", 129, flr(ty) + 1, 1);
@@ -1164,20 +1132,20 @@
 
     // Animated dragon
     const bx = W / 2 - 20;
-    spr(1, bx, flr(ty) + 24 + sin(GrayBox.frame * 0.1) * 3);
+    spr(1, bx, flr(ty) + 24 + sin(Mono.frame * 0.1) * 3);
     // Some floating bubbles
     for (let i = 0; i < 5; i++) {
-      const bby = flr(ty) + 22 + sin(GrayBox.frame * 0.06 + i * 1.3) * 8;
+      const bby = flr(ty) + 22 + sin(Mono.frame * 0.06 + i * 1.3) * 8;
       const bbx = bx + 13 + i * 11;
       spr(3, bbx, bby);
     }
 
     // Show enemies
-    spr(5, bx - 11, flr(ty) + 24 + sin(GrayBox.frame * 0.08 + 2) * 3, true);
-    spr(6, bx + 67, flr(ty) + 24 + sin(GrayBox.frame * 0.08 + 4) * 3);
+    spr(5, bx - 11, flr(ty) + 24 + sin(Mono.frame * 0.08 + 2) * 3, true);
+    spr(6, bx + 67, flr(ty) + 24 + sin(Mono.frame * 0.08 + 4) * 3);
 
-    if (flr(GrayBox.frame / 20) % 2 === 0)
-      text("PRESS A", 133, 135, 3);
+    if (flr(Mono.frame / 20) % 2 === 0)
+      text("PRESS START", 133, 135, 3);
 
     // Instructions
     text("-HOW TO PLAY-", 128, 158, 2);
@@ -1186,11 +1154,11 @@
     text("POP BUBBLES TO", 126, 188, 2);
     text("DEFEAT ENEMIES!", 123, 195, 2);
 
-    text("GRAYBOX DEMO V0.1", 118, 229, 1);
+    text("MONO DEMO V0.1", 118, 229, 1);
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

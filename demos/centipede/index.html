@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Centipede</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Centipede</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Player ship (blaster pointing up)
@@ -218,7 +186,7 @@
   const PLAYER_MIN_Y = (GRID_H - PLAYER_ROWS) * 8;
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let player, bullet, centipedes, mushrooms, spider, flea, explosions, particles;
   let score, lives, wave, waveTimer, waveMessage;
   let shootCooldown, respawnTimer;
@@ -336,34 +304,34 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.12), 160);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() { drawTitle(); }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() { drawGameOver(); }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
     // --- Play state ---
@@ -695,7 +663,7 @@
     addExplosion(player.x, player.y);
     deathSound();
     if (lives <= 0) {
-      GrayBox.go(GAMEOVER); return;
+      Mono.go(GAMEOVER); return;
     } else {
       respawnTimer = 60;
       player.x = -100;
@@ -735,7 +703,7 @@
     // Draw spider
     if (spider) {
       // Spider flickers/animates
-      if (flr(GrayBox.frame / 4) % 2 === 0) {
+      if (flr(Mono.frame / 4) % 2 === 0) {
         spr(9, flr(spider.x), flr(spider.y));
       } else {
         spr(9, flr(spider.x), flr(spider.y) + 1);
@@ -751,7 +719,7 @@
     if (bullet) spr(8, flr(bullet.x), flr(bullet.y));
 
     // Draw player
-    if (respawnTimer <= 0 || flr(GrayBox.frame / 4) % 2 === 0) {
+    if (respawnTimer <= 0 || flr(Mono.frame / 4) % 2 === 0) {
       if (respawnTimer <= 0) {
         spr(1, flr(player.x), flr(player.y));
       }
@@ -784,7 +752,7 @@
   }
 
   function drawTitle() {
-    const ty = 38 + sin(GrayBox.frame * 0.04) * 4;
+    const ty = 38 + sin(Mono.frame * 0.04) * 4;
 
     // Title text
     text("CENTIPEDE", W / 2 - 25, flr(ty), 3);
@@ -793,19 +761,19 @@
     // Animated centipede on title
     const cx = W / 2 - 27;
     const cy = flr(ty) + 19;
-    spr(2, cx + flr(sin(GrayBox.frame * 0.1) * 8), cy);
+    spr(2, cx + flr(sin(Mono.frame * 0.1) * 8), cy);
     for (let i = 1; i < 8; i++) {
-      spr(3, cx + flr(sin(GrayBox.frame * 0.1 - i * 0.5) * 8) + i * 9, cy + flr(sin(GrayBox.frame * 0.08 + i) * 2));
+      spr(3, cx + flr(sin(Mono.frame * 0.1 - i * 0.5) * 8) + i * 9, cy + flr(sin(Mono.frame * 0.08 + i) * 2));
     }
 
     // Decorative mushrooms
     const mx = W / 2 - 20;
     const my = flr(ty) + 38;
     for (let i = 0; i < 7; i++) {
-      spr(4, mx + i * 10 + flr(sin(i + GrayBox.frame * 0.02) * 2), my);
+      spr(4, mx + i * 10 + flr(sin(i + Mono.frame * 0.02) * 2), my);
     }
 
-    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", W / 2 - 42, 135, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 42, 135, 3);
 
     // Score table
     text("-SCORE TABLE-", W / 2 - 35, 158, 2);
@@ -814,7 +782,7 @@
     spr(9, W / 2 - 27, 187); text("  SPIDER 300-900", W / 2 - 19, 188, 2);
     spr(10, W / 2 - 27, 197); text("  FLEA   200 PTS", W / 2 - 19, 198, 2);
 
-    text("GRAYBOX DEMO V0.1", W / 2 - 45, 229, 1);
+    text("MONO DEMO V0.1", W / 2 - 45, 229, 1);
   }
 
   function drawGameOver() {
@@ -834,13 +802,13 @@
     text("GAME OVER", W / 2 - 25, 84, 3);
     text("SCORE: " + score, W / 2 - 25, 98, 2);
     text("WAVE: " + wave, W / 2 - 18, 107, 2);
-    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", W / 2 - 52, 150, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 52, 150, 3);
   }
 
   // ============================================================
   // Boot
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

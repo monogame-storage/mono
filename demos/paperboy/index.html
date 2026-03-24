@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Paperboy</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Paperboy</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text: drawText, btn, btnp, note, stop, rnd, flr,
-          abs: _abs, min, max: _max, sin, cos } = GrayBox;
+          abs: _abs, min, max: _max, sin, cos } = Mono;
   const sprExt = sprT; // all calls use transparent=0, same as sprT
 
   // --- Sprites ---
@@ -331,7 +299,7 @@
   const DAY_LENGTH = HOUSES_PER_DAY * HOUSE_SPACING + 133; // pixels per day
 
   // --- Game State ---
-  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = Mono.SCENE;
   let player, papers, obstacles, houses, score, lives, day, scrollX;
   let papersLeft, dayProgress, dayLength;
   let jumpTimer, jumpHeight, invTimer;
@@ -462,7 +430,7 @@
     crashSound();
     addParticles(player.x + 4, player.y + 4, 12, 2);
     if (lives <= 0) {
-      GrayBox.go(GAMEOVER); return;
+      Mono.go(GAMEOVER); return;
     }
   }
 
@@ -660,7 +628,7 @@
       dayResults = { delivered, missed, broken: Object.keys(brokenWindows).length };
       resultTimer = 0;
       dayCompleteSound();
-      GrayBox.go(CLEAR); return;
+      Mono.go(CLEAR); return;
 
       // Bonus points for perfect delivery
       if (missed === 0) {
@@ -691,14 +659,14 @@
 
       // Road markings
       for (let i = 0; i < 20; i++) {
-        const lx = (i * 20 + flr(GrayBox.frame * 0.5)) % (W + 20) - 10;
+        const lx = (i * 20 + flr(Mono.frame * 0.5)) % (W + 20) - 10;
         rectf(lx, 119, 12, 2, 2);
       }
 
       // Animated paperboy riding across
-      const bikeX = ((GrayBox.frame * 2) % (W + 40)) - 20;
-      const bikeY = 107 + sin(GrayBox.frame * 0.1) * 2;
-      const bikeFrame = flr(GrayBox.frame / 4) % 2 === 0 ? 1 : 2;
+      const bikeX = ((Mono.frame * 2) % (W + 40)) - 20;
+      const bikeY = 107 + sin(Mono.frame * 0.1) * 2;
+      const bikeFrame = flr(Mono.frame / 4) % 2 === 0 ? 1 : 2;
       sprExt(bikeFrame, bikeX, bikeY, false, false, 0);
 
       // Title text
@@ -707,10 +675,10 @@
       drawText("PAPERBOY", 141, ty + 1, 1);
       rectf(113, ty + 10, 93, 1, 2);
 
-      drawText("GRAYBOX EDITION", 123, ty + 18, 2);
+      drawText("MONO EDITION", 123, ty + 18, 2);
 
-      if (flr(GrayBox.frame / 20) % 2 === 0) {
-        drawText("PRESS A", 133, 173, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) {
+        drawText("PRESS START", 133, 173, 3);
       }
 
       // Controls
@@ -732,7 +700,7 @@
     }
     drawText("FINAL SCORE: " + score, 115, 109, 2);
     drawText("DAYS COMPLETED: " + (day >= 7 ? 7 : day - 1), 113, 120, 2);
-    if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS A", 133, 158, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) drawText("PRESS START", 133, 158, 3);
   }
 
   function drawDayResultScreen() {
@@ -766,8 +734,8 @@
       } else {
         drawText("DAY " + (day + 1) + " NEXT...", 128, 180, 2);
       }
-      if (resultTimer > 120 && flr(GrayBox.frame / 15) % 2 === 0) {
-        drawText("PRESS A", 133, 210, 3);
+      if (resultTimer > 120 && flr(Mono.frame / 15) % 2 === 0) {
+        drawText("PRESS START", 133, 210, 3);
       }
   }
 
@@ -895,12 +863,12 @@
     // Draw newspapers in flight
     for (const p of papers) {
       const psx = worldToScreen(p.x) + ox;
-      const rotation = GrayBox.frame % 2;
+      const rotation = Mono.frame % 2;
       sprExt(4, psx, p.y + oy, rotation === 1, false, 0);
     }
 
     // Draw player
-    if (invTimer <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+    if (invTimer <= 0 || flr(Mono.frame / 3) % 2 === 0) {
       const py = player.y - jumpHeight + oy;
       const sprId = jumpTimer > 0 ? 3 : (pedalFrame === 0 ? 1 : 2);
       sprExt(sprId, player.x + ox, py, false, false, 0);
@@ -953,41 +921,41 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
       updateCommon();
-      titleBounce = sin(GrayBox.frame * 0.06) * 4;
-      if (btnp("a") || btnp("a")) {
+      titleBounce = sin(Mono.frame * 0.06) * 4;
+      if (btnp("start") || btnp("a")) {
         resetGame();
         note(0, "C5", 0.1); setTimeout(() => note(0, "E5", 0.1), 100); setTimeout(() => note(0, "G5", 0.15), 200);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() { drawTitleScreen(); }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() { updateCommon(); updatePlayLogic(); },
     draw() { drawPlayScene(); }
   });
 
   // --- Clear (Day Result) Scene ---
-  GrayBox.scene(CLEAR, {
+  Mono.scene(CLEAR, {
     init() {},
     update() {
       updateCommon();
       resultTimer++;
-      if (resultTimer > 120 && (btnp("a") || btnp("a"))) {
+      if (resultTimer > 120 && (btnp("start") || btnp("a"))) {
         let subCount = 0;
         for (let i = 0; i < subscribers.length; i++) { if (subscribers[i]) subCount++; }
         if (subCount === 0 || day >= 7) {
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         } else {
           day++; startDay();
-          GrayBox.go(PLAY); return;
+          Mono.go(PLAY); return;
         }
       }
     },
@@ -995,17 +963,17 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       updateCommon();
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() { drawGameOverScreen(); }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

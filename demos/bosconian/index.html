@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Bosconian</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Bosconian</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos, atan2 } = GrayBox;
+          min, max: _max, sin, cos, atan2 } = Mono;
 
   // --- Sprites ---
 
@@ -318,7 +286,7 @@
   const SHIP_SPR = [1, 19, 2, 21, 3, 22, 4, 20];
 
   // --- Game state ---
-  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = Mono.SCENE;
   let player, bullets, eBullets, enemies, stations, mines, explosions, particles, stars;
   let score, lives, round, camX, camY;
   let shootCooldown, invTimer, respawnTimer;
@@ -486,14 +454,14 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { resetGame(); },
     update() {
       titleBlink++;
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         invTimer = 60;
-        GrayBox.go(PLAY);
+        Mono.go(PLAY);
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
@@ -504,7 +472,7 @@
       for (const s of stars) { pix(s.x % W, s.y % H, s.bright); }
       text("BOSCONIAN", W / 2 - 22, 52, 3);
       text("SPACE PATROL", W / 2 - 30, 64, 2);
-      if (flr(titleBlink / 20) % 2 === 0) text("PRESS A", W / 2 - 27, 120, 3);
+      if (flr(titleBlink / 20) % 2 === 0) text("PRESS START", W / 2 - 27, 120, 3);
       text("ARROWS  MOVE", W / 2 - 30, 157, 1);
       text("A  SHOOT FRONT+BACK", W / 2 - 50, 167, 1);
       text("DESTROY ALL STATIONS", W / 2 - 50, 187, 2);
@@ -518,7 +486,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() {
     titleBlink++;
@@ -528,7 +496,7 @@
       respawnTimer--;
       if (respawnTimer === 0) {
         if (lives <= 0) {
-          GrayBox.go(GAMEOVER);
+          Mono.go(GAMEOVER);
           return;
         }
         player.x = wrap(camX, WORLD_W);
@@ -628,7 +596,7 @@
     // Spawn enemies based on condition
     const maxEnemies = condition === 0 ? 4 : condition === 1 ? 7 : 12;
     const spawnRate = condition === 0 ? 45 : condition === 1 ? 25 : 12;
-    if (enemies.length < maxEnemies && GrayBox.frame % spawnRate === 0) {
+    if (enemies.length < maxEnemies && Mono.frame % spawnRate === 0) {
       spawnEnemy();
     }
 
@@ -827,7 +795,7 @@
     if (stations.every(s => !s.alive)) {
       condTimer = 0;
       roundClearSound();
-      GrayBox.go(CLEAR);
+      Mono.go(CLEAR);
     }
     },
     draw() {
@@ -837,7 +805,7 @@
   });
 
   // --- Round Clear Scene ---
-  GrayBox.scene(CLEAR, {
+  Mono.scene(CLEAR, {
     init() { condTimer = 0; },
     update() {
       titleBlink++;
@@ -845,7 +813,7 @@
       if (condTimer > 90) {
         spawnRound();
         invTimer = 60;
-        GrayBox.go(PLAY);
+        Mono.go(PLAY);
       }
     },
     draw() {
@@ -855,7 +823,7 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       titleBlink++;
@@ -863,7 +831,7 @@
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) GrayBox.go(TITLE);
+      if (btnp("start") || btnp("a") || btnp("start")) Mono.go(TITLE);
     },
     draw() {
       cls(0);
@@ -871,7 +839,7 @@
       for (const p of particles) { pix(p.x % W, p.y % H, p.color); }
       text("GAME OVER", W / 2 - 22, 98, 3);
       text("SCORE " + score, W / 2 - 33, 116, 2);
-      if (flr(titleBlink / 20) % 2 === 0) text("PRESS A", W / 2 - 27, 142, 3);
+      if (flr(titleBlink / 20) % 2 === 0) text("PRESS START", W / 2 - 27, 142, 3);
     }
   });
 
@@ -1021,7 +989,7 @@
       const ry = flr(rCY + rdy);
       if (rx >= RADAR_X && rx < RADAR_X + RADAR_W && ry >= RADAR_Y && ry < RADAR_Y + RADAR_H) {
         // Blinking station blip
-        if (flr(GrayBox.frame / 8) % 2 === 0) {
+        if (flr(Mono.frame / 8) % 2 === 0) {
           pix(rx, ry, 3);
           pix(rx + 1, ry, 2);
           pix(rx, ry + 1, 2);
@@ -1074,7 +1042,7 @@
         const tipY = ay + Math.sin(a) * 4;
         const tailX = ax - Math.cos(a) * 4;
         const tailY = ay - Math.sin(a) * 4;
-        if (flr(GrayBox.frame / 10) % 2 === 0) {
+        if (flr(Mono.frame / 10) % 2 === 0) {
           line(tailX, tailY, tipX, tipY, 3);
           line(tipX, tipY, tipX - Math.cos(a - 0.5) * 3, tipY - Math.sin(a - 0.5) * 3, 3);
           line(tipX, tipY, tipX - Math.cos(a + 0.5) * 3, tipY - Math.sin(a + 0.5) * 3, 3);
@@ -1083,8 +1051,8 @@
     }
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

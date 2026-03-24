@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Tempest</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Tempest</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Player claw (top-down, pointing inward)
@@ -213,7 +181,7 @@
   buildPlayfield(NUM_LANES);
 
   // --- Scenes ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
 
   let playerLane, score, lives, level, superzapper;
   let enemies, bullets, explosions, particles, spikes;
@@ -372,14 +340,14 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { resetGame(); },
     update() {
-      if (btnp("a") || btnp("a")) { note(0, "C5", 0.08); setTimeout(() => note(0, "G5", 0.1), 80); GrayBox.go(PLAY); return; }
+      if (btnp("start") || btnp("a")) { note(0, "C5", 0.08); setTimeout(() => note(0, "G5", 0.1), 80); Mono.go(PLAY); return; }
     },
     draw() {
       cls(0);
-      const titleAngle = GrayBox.frame * 0.01;
+      const titleAngle = Mono.frame * 0.01;
       for (let i = 0; i < NUM_LANES; i++) {
         const a1 = (Math.PI * 2 * i / NUM_LANES) - Math.PI / 2 + titleAngle;
         const a2 = (Math.PI * 2 * ((i + 1) % NUM_LANES) / NUM_LANES) - Math.PI / 2 + titleAngle;
@@ -388,21 +356,21 @@
         const ix1 = CX + cos(a1) * INNER_R; const iy1 = CY + sin(a1) * INNER_R;
         line(ox1, oy1, ox2, oy2, 1); line(ox1, oy1, ix1, iy1, 1);
       }
-      const ty = 30 + sin(GrayBox.frame * 0.05) * 4;
+      const ty = 30 + sin(Mono.frame * 0.05) * 4;
       text("TEMPEST", W / 2 - 18, flr(ty), 3);
       text("TEMPEST", W / 2 - 17, flr(ty) + 1, 1);
       rectf(W / 2 - 40, flr(ty) + 12, 80, 1, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", W / 2 - 42, 180, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 42, 180, 3);
       text("-ENEMIES-", W / 2 - 24, 195, 2);
       text("FLIPPER  10 PTS", W / 2 - 38, 204, 2);
       text("TANKER   20 PTS", W / 2 - 38, 212, 2);
       text("SPIKER   15 PTS", W / 2 - 38, 219, 2);
-      text("GRAYBOX DEMO V0.1", W / 2 - 43, 231, 1);
+      text("MONO DEMO V0.1", W / 2 - 43, 231, 1);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
       if (levelClear) { levelClearTimer++; if (levelClearTimer > 90) { level++; superzapper = 1; spawnWave(); } return; }
@@ -419,8 +387,8 @@
         const e = enemies[i]; if (!e.alive) { enemies.splice(i, 1); continue; }
         e.depth += e.speed;
         if (e.type === "flipper") { e.flipTimer--; if (e.flipTimer <= 0 && e.depth < 0.85) { e.lane = (e.lane + (rnd(1) < 0.5 ? 1 : -1) + NUM_LANES) % NUM_LANES; e.flipTimer = 20 + flr(rnd(40)); } }
-        if (e.type === "spiker" && e.depth > 0.2 && flr(GrayBox.frame) % 8 === 0) { const sd = flr(e.depth * LANE_DEPTH) / LANE_DEPTH; const exists = spikes.some(s => s.lane === e.lane && _abs(s.depth - sd) < 0.05); if (!exists) spikes.push({ lane: e.lane, depth: sd }); }
-        if (e.depth >= 1.0) { e.alive = false; enemies.splice(i, 1); if (e.lane === playerLane) { lives--; deathSound(); addExplosion(lanePos(playerLane, 1.0).x, lanePos(playerLane, 1.0).y); if (lives <= 0) { GrayBox.go(GAMEOVER); return; } } continue; }
+        if (e.type === "spiker" && e.depth > 0.2 && flr(Mono.frame) % 8 === 0) { const sd = flr(e.depth * LANE_DEPTH) / LANE_DEPTH; const exists = spikes.some(s => s.lane === e.lane && _abs(s.depth - sd) < 0.05); if (!exists) spikes.push({ lane: e.lane, depth: sd }); }
+        if (e.depth >= 1.0) { e.alive = false; enemies.splice(i, 1); if (e.lane === playerLane) { lives--; deathSound(); addExplosion(lanePos(playerLane, 1.0).x, lanePos(playerLane, 1.0).y); if (lives <= 0) { Mono.go(GAMEOVER); return; } } continue; }
         for (let j = bullets.length - 1; j >= 0; j--) {
           const b = bullets[j];
           if (b.lane === e.lane && _abs(b.depth - e.depth) < 0.06) {
@@ -448,11 +416,11 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--; if (p.life <= 0) particles.splice(i, 1); }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -461,12 +429,12 @@
       text("GAME OVER", W / 2 - 24, 90, 3);
       text("SCORE: " + score, W / 2 - 24, 109, 2);
       text("LEVEL: " + level, W / 2 - 18, 120, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", W / 2 - 50, 158, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", W / 2 - 50, 158, 3);
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

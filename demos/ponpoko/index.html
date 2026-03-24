@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Ponpoko</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Ponpoko</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Raccoon standing right
@@ -285,7 +253,7 @@
   }
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let player, enemies, items, fallingObjs, particles;
   let score, lives, stage, stageTimer;
   let camY; // camera scroll offset
@@ -544,16 +512,16 @@
   function fallingObjSound() { note(1, "D3", 0.04); }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titleAnim = 0; },
     update() {
       titleAnim++;
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.1), 160);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -576,7 +544,7 @@
       spr(32, W / 2 - 37, flr(ty) + 26 + flr(sin(titleAnim * 0.1 + 2) * 3));
       spr(33, W / 2 + 32, flr(ty) + 27 + flr(sin(titleAnim * 0.1 + 3) * 3));
       if (flr(titleAnim / 20) % 2 === 0) {
-        text("PRESS A TO START", flr(W / 2 - 16 * 2.5), 146, 3);
+        text("PRESS START", flr(W / 2 - 16 * 2.5), 146, 3);
       }
       text("ARROWS: MOVE/CLIMB", flr(W / 2 - 18 * 2.5), 169, 2);
       text("A: JUMP", flr(W / 2 - 7 * 2.5), 178, 2);
@@ -584,12 +552,12 @@
       spr(20, W / 2 - 33, 203); text("SNAKE  200", W / 2 - 24, 205, 2);
       spr(21, W / 2 - 33, 213); text("BIRD   200", W / 2 - 24, 215, 2);
       spr(34, W / 2 - 33, 224); text("STAR   500+", W / 2 - 24, 226, 2);
-      text("GRAYBOX DEMO V0.1", flr(W / 2 - 17 * 2.5), 234, 1);
+      text("MONO DEMO V0.1", flr(W / 2 - 17 * 2.5), 234, 1);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
     // --- Play state ---
@@ -712,7 +680,7 @@
       lives--;
       invTimer = 60;
       if (lives <= 0) {
-        GrayBox.go(GAMEOVER); return;
+        Mono.go(GAMEOVER); return;
         addParticles(pl.x + 4, pl.y, 20, 3);
         deathSound();
       } else {
@@ -795,7 +763,7 @@
           invTimer = 60;
           addParticles(pl.x + 4, pl.y + 4, 8, 3);
           if (lives <= 0) {
-            GrayBox.go(GAMEOVER); return;
+            Mono.go(GAMEOVER); return;
             deathSound();
           } else {
             hitSound();
@@ -849,7 +817,7 @@
         addParticles(pl.x + 4, pl.y + 4, 8, 2);
         if (lives <= 0) {
           deathSound();
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         } else {
           hitSound();
         }
@@ -903,11 +871,11 @@
 
     // Draw goal item (pulsing)
     if (!goalItem.collected) {
-      const pulse = sin(GrayBox.frame * 0.15) * 2;
+      const pulse = sin(Mono.frame * 0.15) * 2;
       spr(goalItem.type, flr(goalItem.x), flr(goalItem.y + pulse));
       // Arrow pointing to goal
-      if (GrayBox.frame % 30 < 20) {
-        const arrowY = goalItem.y - 10 + sin(GrayBox.frame * 0.2) * 3;
+      if (Mono.frame % 30 < 20) {
+        const arrowY = goalItem.y - 10 + sin(Mono.frame * 0.2) * 3;
         pix(goalItem.x + 3, flr(arrowY), 3);
         pix(goalItem.x + 2, flr(arrowY) - 1, 3);
         pix(goalItem.x + 4, flr(arrowY) - 1, 3);
@@ -936,7 +904,7 @@
 
     // Draw player
     const pl = player;
-    if (invTimer <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+    if (invTimer <= 0 || flr(Mono.frame / 3) % 2 === 0) {
       let sprId;
       if (pl.climbing) {
         sprId = 3;
@@ -974,7 +942,7 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
@@ -982,7 +950,7 @@
         p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -990,14 +958,14 @@
       text("GAME OVER", flr(W / 2 - 9 * 2.5), 90, 3);
       text("SCORE: " + score, flr(W / 2 - (7 + String(score).length) * 2.5), 109, 2);
       text("STAGE: " + stage, flr(W / 2 - (7 + String(stage).length) * 2.5), 120, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) {
-        text("PRESS A TO CONTINUE", flr(W / 2 - 19 * 2.5), 150, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) {
+        text("PRESS START", flr(W / 2 - 19 * 2.5), 150, 3);
       }
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

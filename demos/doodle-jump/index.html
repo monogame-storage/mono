@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Doodle Jump</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Doodle Jump</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,11 +17,11 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
-  const sprT = GrayBox.sprT;
+          min, max: _max, sin, cos } = Mono;
+  const sprT = Mono.sprT;
 
   // --- Sprites ---
   // 1: Player facing right (doodle character)
@@ -178,7 +146,7 @@
   const PLAT_DRAW_H = 5;
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   const DYING = 99; // extra scene constant
   let player, platforms, bullets, enemies, powerups, particles;
   let cameraY, score, bestScore, maxHeight;
@@ -438,7 +406,7 @@
     if (jetpackTimer > 0) {
       sprT(8, sx, sy, player.facing < 0);
       // Flame
-      sprT(GrayBox.frame % 6 < 3 ? 9 : 10, sx, sy + 8, player.facing < 0);
+      sprT(Mono.frame % 6 < 3 ? 9 : 10, sx, sy + 8, player.facing < 0);
     } else {
       sprT(player.facing > 0 ? 1 : 2, sx, sy);
     }
@@ -489,8 +457,8 @@
     if (jetpackTimer > 0) {
       jetpackTimer--;
       player.vy = -5;
-      if (GrayBox.frame % 6 === 0) sfxJetpack();
-      if (GrayBox.frame % 3 === 0) {
+      if (Mono.frame % 6 === 0) sfxJetpack();
+      if (Mono.frame % 3 === 0) {
         spawnParticles(player.x + 2, player.y + 10, 1, 1, 2);
         spawnParticles(player.x + 6, player.y + 10, 1, 1, 2);
       }
@@ -628,7 +596,7 @@
         deathTimer = 60;
         sfxDeath();
         spawnParticles(player.x + 4, player.y + 4, 12, 0, 5);
-        GrayBox.go(DYING); return;
+        Mono.go(DYING); return;
       }
     }
 
@@ -662,7 +630,7 @@
     if (player.y - cameraY > H + 20) {
       deathTimer = 60;
       sfxDeath();
-      GrayBox.go(DYING); return;
+      Mono.go(DYING); return;
     }
   }
 
@@ -734,8 +702,8 @@
 
   function updateTitle() {
     titleBounce++;
-    if (btnp("a") || btnp("a")) {
-      GrayBox.go(PLAY); return;
+    if (btnp("start") || btnp("a")) {
+      Mono.go(PLAY); return;
     }
   }
 
@@ -757,7 +725,7 @@
     const titleY = 41 + flr(sin(titleBounce * 0.08) * 4);
     textCenter("DOODLE JUMP", titleY + 2, 2);
     textCenter("DOODLE JUMP", titleY, 0);
-    textCenter("GRAYBOX EDITION", titleY + 18, 1);
+    textCenter("MONO EDITION", titleY + 18, 1);
 
     // Bouncing character preview
     const charY = 98 + flr(sin(titleBounce * 0.15) * 14);
@@ -772,20 +740,20 @@
     rectf(W / 2 + 33, charY + 2, 22, 4, 1);
     rectf(W / 2 - 47, charY + 8, 22, 4, 1);
 
-    textCenter("PRESS A TO START", 169, 0);
+    textCenter("PRESS START", 169, 0);
     textCenter("ARROWS: MOVE   Z: SHOOT", 184, 1);
 
     if (bestScore > 0) {
       textCenter("BEST: " + bestScore + "M", 203, 1);
     }
 
-    textCenter("GRAYBOX V0.1", H - 14, 2);
+    textCenter("MONO V0.1", H - 14, 2);
   }
 
   // --- Game over ---
   function updateGameOver() {
-    if (btnp("a") || btnp("a")) {
-      GrayBox.go(TITLE); return;
+    if (btnp("start") || btnp("a")) {
+      Mono.go(TITLE); return;
     }
   }
 
@@ -806,7 +774,7 @@
     }
 
     textCenter("BEST: " + bestScore + "M", 131, 1);
-    textCenter("PRESS A TO CONTINUE", 169, 0);
+    textCenter("PRESS START", 169, 0);
   }
 
   // --- Dying state ---
@@ -825,7 +793,7 @@
 
     if (deathTimer <= 0) {
       if (score > bestScore) bestScore = score;
-      GrayBox.go(GAMEOVER); return;
+      Mono.go(GAMEOVER); return;
     }
   }
 
@@ -852,32 +820,32 @@
   }
 
   // --- Scenes ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titleBounce = 0; },
     update() { updateTitle(); },
     draw() { drawTitle(); }
   });
 
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() { updateGame(); },
     draw() { drawGame(); }
   });
 
-  GrayBox.scene(DYING, {
+  Mono.scene(DYING, {
     init() {},
     update() { updateDying(); },
     draw() { drawDying(); }
   });
 
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() { updateGameOver(); },
     draw() { drawGameOver(); }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

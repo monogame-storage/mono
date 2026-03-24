@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Nibbler</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Nibbler</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text, btn, btnp, note, stop, rnd, flr,
-          abs: _abs, min, max: _max, sin, cos } = GrayBox;
+          abs: _abs, min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Wall block
@@ -185,7 +153,7 @@
   const HUD_Y = 2;
   const TIMER_Y = H - 10;
 
-  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = Mono.SCENE;
   // Internal sub-states for play
   const SUB_READY = 1, SUB_PLAY = 2, SUB_DYING = 3;
 
@@ -477,10 +445,10 @@
   // --- Title Screen ---
   function updateTitle() {
     titleAnim++;
-    if (btnp("a") || btnp("a")) {
+    if (btnp("start") || btnp("a")) {
       note(0, "C4", 0.1);
       startGame();
-      GrayBox.go(PLAY); return;
+      Mono.go(PLAY); return;
     }
   }
 
@@ -530,7 +498,7 @@
 
     // Instructions
     const blink2 = (flr(titleAnim/20) % 2 === 0) ? 3 : 1;
-    text("PRESS A", (W - 11*5)/2, 142, blink2);
+    text("PRESS START", (W - 11*5)/2, 142, blink2);
 
     text("ARROWS - TURN SNAKE", (W - 19*5)/2, 165, 2);
     text("EAT ALL PELLETS", (W - 15*5)/2, 176, 2);
@@ -540,7 +508,7 @@
     text("HI " + String(hiScore).padStart(6, "0"), (W - 12*5)/2, 210, 1);
 
     // Credits
-    text("GRAYBOX 2026", (W - 12*5)/2, 226, 1);
+    text("MONO 2026", (W - 12*5)/2, 226, 1);
   }
 
   // --- Gameplay ---
@@ -608,7 +576,7 @@
           note(0, "C5", 0.15);
           setTimeout(() => note(0, "E5", 0.15), 150);
           setTimeout(() => note(0, "G5", 0.2), 300);
-          GrayBox.go(CLEAR); return;
+          Mono.go(CLEAR); return;
         }
 
         placeFood();
@@ -755,7 +723,7 @@
     line(0, H-12, W, H-12, 1);
 
     // Timer text
-    const tCol = timeLeft <= 10 ? ((flr(GrayBox.frame/8) % 2 === 0) ? 3 : 1) : 2;
+    const tCol = timeLeft <= 10 ? ((flr(Mono.frame/8) % 2 === 0) ? 3 : 1) : 2;
     text("TIME " + String(timeLeft).padStart(3, "0"), 8, H-10, tCol);
 
     // Timer bar
@@ -780,7 +748,7 @@
       const fpx = MAZE_OX + foodX * 8;
       const fpy = MAZE_OY + foodY * 8;
       // Pulsing food
-      const pulse = sin(GrayBox.frame * 0.15) * 0.5 + 0.5;
+      const pulse = sin(Mono.frame * 0.15) * 0.5 + 0.5;
       const fc = pulse > 0.5 ? 3 : 2;
       circf(fpx+4, fpy+4, 3, fc);
       pix(fpx+3, fpy+2, 3);
@@ -790,7 +758,7 @@
     if (bonusActive) {
       const bpx = MAZE_OX + bonusX * 8;
       const bpy = MAZE_OY + bonusY * 8;
-      const blink = flr(GrayBox.frame / 4) % 2;
+      const blink = flr(Mono.frame / 4) % 2;
       if (bonusTimer > 60 || blink === 0) {
         sprT(7, bpx, bpy);
       }
@@ -828,7 +796,7 @@
     if (stateTimer <= 0) {
       lives--;
       if (lives <= 0) {
-        GrayBox.go(GAMEOVER); return;
+        Mono.go(GAMEOVER); return;
         stateTimer = 120;
         if (score > hiScore) hiScore = score;
       } else {
@@ -874,7 +842,7 @@
       initLevel();
       subState = SUB_READY;
       stateTimer = 60;
-      GrayBox.go(PLAY); return;
+      Mono.go(PLAY); return;
     }
   }
 
@@ -907,8 +875,8 @@
   function updateGameOver() {
     stateTimer--;
     titleAnim++;
-    if (stateTimer <= 0 && (btnp("a") || btnp("a"))) {
-      GrayBox.go(TITLE); return;
+    if (stateTimer <= 0 && (btnp("start") || btnp("a"))) {
+      Mono.go(TITLE); return;
     }
   }
 
@@ -929,18 +897,18 @@
 
     if (stateTimer <= 0) {
       const blink2 = flr(titleAnim / 20) % 2 === 0 ? 3 : 1;
-      text("PRESS A", (W - 11*5)/2, H/2 + 16, blink2);
+      text("PRESS START", (W - 11*5)/2, H/2 + 16, blink2);
     }
   }
 
   // --- Scenes ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { stateTimer = 0; titleAnim = 0; },
     update() { updateTitle(); },
     draw() { drawTitle(); }
   });
 
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() {
       switch (subState) {
@@ -958,20 +926,20 @@
     }
   });
 
-  GrayBox.scene(CLEAR, {
+  Mono.scene(CLEAR, {
     init() { stateTimer = 90; levelUpAnim = 0; },
     update() { updateLevelUp(); },
     draw() { drawLevelUp(); }
   });
 
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() { stateTimer = 120; if (score > hiScore) hiScore = score; },
     update() { updateGameOver(); },
     draw() { drawGameOver(); }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Joust</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Joust</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprWrap, text: drawText, btn, btnp, note, stop, rnd, flr,
-          abs: _abs, min, max: _max, sin, cos } = GrayBox;
+          abs: _abs, min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
 
@@ -274,7 +242,7 @@
   const LAVA_Y = 230;
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let player, enemies, eggs, explosions, particles;
   let score, lives, wave, waveTimer, waveMessage, spawnQueue;
   let titleBob;
@@ -384,70 +352,70 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { resetGame(); },
     update() {
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
       cls(0);
-      const lavaFrame = flr(GrayBox.frame / 8) % 2;
+      const lavaFrame = flr(Mono.frame / 8) % 2;
       drawPlatforms();
       drawLava(lavaFrame);
-      const ty = 38 + sin(GrayBox.frame * 0.05) * 4;
+      const ty = 38 + sin(Mono.frame * 0.05) * 4;
       drawText("JOUST", 137, flr(ty) + 1, 1);
       drawText("JOUST", 136, flr(ty), 3);
       rectf(123, flr(ty) + 10, 73, 1, 2);
-      const px = 133 + sin(GrayBox.frame * 0.04) * 27;
-      const py = 75 + sin(GrayBox.frame * 0.06) * 11;
-      const wf = flr(GrayBox.frame / 6) % 3;
+      const px = 133 + sin(Mono.frame * 0.04) * 27;
+      const py = 75 + sin(Mono.frame * 0.06) * 11;
+      const wf = flr(Mono.frame / 6) % 3;
       const sprId = wf === 0 ? 1 : wf === 1 ? 2 : 3;
       spr(sprId, flr(px), flr(py));
-      const ex = 187 - sin(GrayBox.frame * 0.04) * 27;
-      const ey = 79 + sin(GrayBox.frame * 0.06 + 2) * 11;
-      const ef = flr(GrayBox.frame / 6) % 3;
+      const ex = 187 - sin(Mono.frame * 0.04) * 27;
+      const ey = 79 + sin(Mono.frame * 0.06 + 2) * 11;
+      const ef = flr(Mono.frame / 6) % 3;
       const esprId = ef === 0 ? 4 : ef === 1 ? 5 : 6;
       spr(esprId, flr(ex), flr(ey), true);
-      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS FLAP TO START", 112, 128, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) drawText("PRESS FLAP TO START", 112, 128, 3);
       drawText("DEFEAT ENEMY KNIGHTS", 110, 150, 2);
       drawText("HIGHER LANCE WINS", 117, 159, 2);
       drawText("COLLECT EGGS FOR POINTS", 102, 168, 2);
       drawText("BEWARE THE LAVA", 122, 177, 2);
-      drawText("GRAYBOX DEMO V0.1", 117, 229, 1);
+      drawText("MONO DEMO V0.1", 117, 229, 1);
     }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
-      const lavaFrame = flr(GrayBox.frame / 8) % 2;
+      const lavaFrame = flr(Mono.frame / 8) % 2;
       drawPlatforms();
       drawLava(lavaFrame);
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
       drawText("GAME OVER", 137, 75, 3);
       drawText("SCORE: " + score, 130, 94, 2);
       drawText("WAVE: " + wave, 138, 105, 2);
-      if (flr(GrayBox.frame / 20) % 2 === 0) drawText("PRESS FLAP TO CONTINUE", 105, 135, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) drawText("PRESS FLAP TO CONTINUE", 105, 135, 3);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() {
     // --- Play state ---
@@ -516,7 +484,7 @@
       player.vx = 0;
       player.vy = 0;
       player.invincible = 60;
-      if (lives <= 0) { addExplosion(player.x, player.y); GrayBox.go(GAMEOVER); return; }
+      if (lives <= 0) { addExplosion(player.x, player.y); Mono.go(GAMEOVER); return; }
     }
 
     // --- Enemy AI ---
@@ -619,7 +587,7 @@
             player.vx = 0;
             player.vy = 0;
             player.invincible = 60;
-            if (lives <= 0) { addExplosion(player.x, player.y); GrayBox.go(GAMEOVER); return; }
+            if (lives <= 0) { addExplosion(player.x, player.y); Mono.go(GAMEOVER); return; }
           } else {
             // Tie - bounce apart
             player.vx = dx > 0 ? 2 : -2;
@@ -716,13 +684,13 @@
     },
     draw() {
     cls(0);
-    const lavaFrame = flr(GrayBox.frame / 8) % 2;
+    const lavaFrame = flr(Mono.frame / 8) % 2;
 
     drawPlatforms();
     drawLava(lavaFrame);
 
     for (const eg of eggs) {
-      if (eg.hatching && flr(GrayBox.frame / 4) % 2 === 0) {
+      if (eg.hatching && flr(Mono.frame / 4) % 2 === 0) {
         sprWrap(8, flr(eg.x), flr(eg.y));
       } else {
         sprWrap(7, flr(eg.x), flr(eg.y));
@@ -740,7 +708,7 @@
       sprWrap(sprBase, flr(e.x), flr(e.y), flip);
     }
 
-    if (player.invincible <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+    if (player.invincible <= 0 || flr(Mono.frame / 3) % 2 === 0) {
       const sprBase = player.wingFrame === 1 ? 1 : player.wingFrame === 2 ? 2 : 3;
       const flip = player.facing < 0;
       sprWrap(sprBase, flr(player.x), flr(player.y), flip);
@@ -784,14 +752,14 @@
     // Lava body below surface
     rectf(0, LAVA_Y + 4, W, H - LAVA_Y - 4, 1);
     // Lava glow particles
-    if (flr(GrayBox.frame / 4) % 3 === 0) {
+    if (flr(Mono.frame / 4) % 3 === 0) {
       const gx = flr(rnd(W));
       pix(gx, LAVA_Y - 1, 2);
     }
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

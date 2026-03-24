@@ -1,5 +1,5 @@
 /**
- * GrayBox Runtime Engine v0.3
+ * Mono Runtime Engine v1.0 "Mono"
  *
  * 320×240, 4-color grayscale, 30fps, 2ch square wave
  * Standalone runtime — no game code included.
@@ -7,13 +7,13 @@
  * Usage:
  *   <script src="runtime/engine.js"></script>
  *   <script>
- *     const { cls, spr, text, btn, ... } = GrayBox;
- *     GrayBox._update = function() { ... };
- *     GrayBox._draw = function() { ... };
- *     GrayBox.boot("screen");
+ *     const { cls, spr, text, btn, ... } = Mono;
+ *     Mono._update = function() { ... };
+ *     Mono._draw = function() { ... };
+ *     Mono.boot("screen");
  *   </script>
  */
-const GrayBox = (() => {
+const Mono = (() => {
   "use strict";
 
   const W = 320;
@@ -41,10 +41,17 @@ const GrayBox = (() => {
     "ㅈ": "up", "ㄴ": "down", "ㅁ": "left", "ㅇ": "right",
     "ㅔ": "up", "ㅂ": "left", "ㅎ": "down", "ㄹ": "right",
     "z": "a", "Z": "a", "x": "b", "X": "b", "ㅋ": "a", "ㅌ": "b",
-    "Enter": "a", " ": "a"
+    "Enter": "start", " ": "select"
   };
   const keys = {};
   const keysPrev = {};
+  let paused = false;
+  let debugMode = false;   // 1: collision shapes
+  let debugSprite = false;  // 2: sprite bounding boxes
+  let debugFill = false;    // 3: rectf/circf bounding boxes
+  const debugShapes = [];
+  const debugSprBoxes = [];
+  const debugFillBoxes = [];
 
   // --- Audio ---
   let audioCtx = null;
@@ -137,14 +144,14 @@ const GrayBox = (() => {
 
   API.scene = function(name, handlers) {
     if (VALID_SCENES.indexOf(name) === -1) {
-      throw new Error('GrayBox: "' + name + '" is not a valid scene. Use: ' + VALID_SCENES.join("/"));
+      throw new Error('Mono: "' + name + '" is not a valid scene. Use: ' + VALID_SCENES.join("/"));
     }
     scenes[name] = handlers;
   };
 
   API.go = function(name) {
     if (VALID_SCENES.indexOf(name) === -1) {
-      throw new Error('GrayBox: "' + name + '" is not a valid scene. Use: ' + VALID_SCENES.join("/"));
+      throw new Error('Mono: "' + name + '" is not a valid scene. Use: ' + VALID_SCENES.join("/"));
     }
     // Attract mode hooks
     if (name === "play" && demoState !== "playback") {
@@ -164,12 +171,14 @@ const GrayBox = (() => {
     }
     // Auto-stop BGM on scene change (game can restart it in init)
     if (bgmPlaying) API.bgmStop();
+    paused = false;
     currentSceneName = name;
     currentScene = scenes[name] || null;
     if (currentScene && currentScene.init) currentScene.init();
   };
 
   API.currentScene = function() { return currentSceneName; };
+  API.paused = function() { return paused; };
 
   // Legacy support: _update/_draw still work for simple games
   API._init = null;
@@ -206,6 +215,7 @@ const GrayBox = (() => {
     for(let py=Math.max(0,y);py<Math.min(H,y+h);py++)
       for(let px=Math.max(0,x);px<Math.min(W,x+w);px++)
         buf32[py*W+px]=col;
+    if(debugFill) debugFillBoxes.push({t:"r",x:x,y:y,w:w,h:h});
   };
   API.circ = function(cx,cy,r,c) {
     let x=r,y=0,d=1-r; cx=Math.floor(cx); cy=Math.floor(cy);
@@ -223,48 +233,52 @@ const GrayBox = (() => {
     for(let py=-r;py<=r;py++) for(let px=-r;px<=r;px++)
       if(px*px+py*py<=r2){ const sx=cx+px,sy=cy+py;
         if(sx>=0&&sx<W&&sy>=0&&sy<H) buf32[sy*W+sx]=col; }
+    if(debugFill) debugFillBoxes.push({t:"c",x:cx,y:cy,r:r});
   };
 
   // Sprites
   API.sprite = function(id, data) {
-    const arr = new Uint8Array(64); let i = 0;
-    for (const ch of data) { if (ch>='0'&&ch<='3') { arr[i++]=parseInt(ch); if(i>=64) break; } }
+    const arr = new Uint8Array(256); let i = 0;
+    for (const ch of data) { if (ch>='0'&&ch<='3') { arr[i++]=parseInt(ch); if(i>=256) break; } }
     sprites[id] = arr;
   };
   API.spr = function(id, x, y, flipX, flipY) {
     const s=sprites[id]; if(!s) return;
     x=Math.floor(x); y=Math.floor(y);
-    for(let py=0;py<8;py++) for(let px=0;px<8;px++){
-      const sx=flipX?7-px:px, sy=flipY?7-py:py;
-      const c=s[sy*8+sx], dx=x+px, dy=y+py;
+    for(let py=0;py<16;py++) for(let px=0;px<16;px++){
+      const sx=flipX?15-px:px, sy=flipY?15-py:py;
+      const c=s[sy*16+sx], dx=x+px, dy=y+py;
       if(dx>=0&&dx<W&&dy>=0&&dy<H) buf32[dy*W+dx]=COLOR_U32[c];
     }
+    if(debugSprite) debugSprBoxes.push({x:x,y:y});
   };
   // Transparent sprite (color 0 = skip)
   API.sprT = function(id, x, y, flipX, flipY) {
     const s=sprites[id]; if(!s) return;
     x=Math.floor(x); y=Math.floor(y);
-    for(let py=0;py<8;py++) for(let px=0;px<8;px++){
-      const sx=flipX?7-px:px, sy=flipY?7-py:py;
-      const c=s[sy*8+sx]; if(c===0) continue;
+    for(let py=0;py<16;py++) for(let px=0;px<16;px++){
+      const sx=flipX?15-px:px, sy=flipY?15-py:py;
+      const c=s[sy*16+sx]; if(c===0) continue;
       const dx=x+px, dy=y+py;
       if(dx>=0&&dx<W&&dy>=0&&dy<H) buf32[dy*W+dx]=COLOR_U32[c];
     }
+    if(debugSprite) debugSprBoxes.push({x:x,y:y});
   };
-  // Rotated sprite (draws 8x8 sprite rotated by angle in radians)
+  // Rotated sprite (draws 16x16 sprite rotated by angle in radians)
   API.sprRot = function(id, cx, cy, angle) {
     const s = sprites[id]; if (!s) return;
     const cosA = Math.cos(angle), sinA = Math.sin(angle);
-    for (let py = -5; py <= 5; py++) {
-      for (let px = -5; px <= 5; px++) {
-        const srcX = Math.floor(cosA * px + sinA * py + 3.5);
-        const srcY = Math.floor(-sinA * px + cosA * py + 3.5);
-        if (srcX < 0 || srcX >= 8 || srcY < 0 || srcY >= 8) continue;
-        const c = s[srcY * 8 + srcX];
+    for (let py = -10; py <= 10; py++) {
+      for (let px = -10; px <= 10; px++) {
+        const srcX = Math.floor(cosA * px + sinA * py + 7.5);
+        const srcY = Math.floor(-sinA * px + cosA * py + 7.5);
+        if (srcX < 0 || srcX >= 16 || srcY < 0 || srcY >= 16) continue;
+        const c = s[srcY * 16 + srcX];
         const dx = Math.floor(cx + px), dy = Math.floor(cy + py);
         if (dx >= 0 && dx < W && dy >= 0 && dy < H) buf32[dy * W + dx] = COLOR_U32[c];
       }
     }
+    if(debugSprite) debugSprBoxes.push({x:Math.floor(cx)-8,y:Math.floor(cy)-8});
   };
   // Read pixel color index from buffer
   API.gpix = function(x, y) {
@@ -293,18 +307,29 @@ const GrayBox = (() => {
   API.mset = function(cx,cy,id) { tilemap[cx+","+cy]=id; };
   API.map = function(mx,my,mw,mh,sx,sy) {
     for(let ty=0;ty<mh;ty++) for(let tx=0;tx<mw;tx++){
-      const id=API.mget(mx+tx,my+ty); if(id>0) API.spr(id,sx+tx*8,sy+ty*8); }
+      const id=API.mget(mx+tx,my+ty); if(id>0) API.spr(id,sx+tx*16,sy+ty*16); }
   };
 
   // Input
-  const VALID_KEYS = {up:1,down:1,left:1,right:1,a:1,b:1};
+  const VALID_KEYS = {up:1,down:1,left:1,right:1,a:1,b:1,start:1,select:1};
   API.btn = function(k) {
-    if(!VALID_KEYS[k]) console.warn("GrayBox: invalid key \""+k+"\". Use: up/down/left/right/a/b");
+    if(!VALID_KEYS[k]) console.warn("Mono: invalid key \""+k+"\". Use: up/down/left/right/a/b/start/select");
     return !!keys[k];
   };
   API.btnp = function(k) {
-    if(!VALID_KEYS[k]) console.warn("GrayBox: invalid key \""+k+"\". Use: up/down/left/right/a/b");
+    if(!VALID_KEYS[k]) console.warn("Mono: invalid key \""+k+"\". Use: up/down/left/right/a/b/start/select");
     return !!keys[k] && !keysPrev[k];
+  };
+
+  // Debug overlay
+  API.dbg = function(x, y, w, h) {
+    if (debugMode) debugShapes.push({ t: "r", x: Math.floor(x), y: Math.floor(y), w: Math.floor(w), h: Math.floor(h) });
+  };
+  API.dbgC = function(x, y, r) {
+    if (debugMode) debugShapes.push({ t: "c", x: Math.floor(x), y: Math.floor(y), r: Math.floor(r) });
+  };
+  API.dbgPt = function(x, y) {
+    if (debugMode) debugShapes.push({ t: "p", x: Math.floor(x), y: Math.floor(y) });
   };
 
   // Sound
@@ -491,7 +516,7 @@ const GrayBox = (() => {
   // No time limit — recording runs until go("gameover") or go("win")
   let gameId = "";              // derived from URL path
 
-  function getDemoKey() { return "graybox_demo_" + gameId; }
+  function getDemoKey() { return "mono_demo_" + gameId; }
 
   function packKeys() {
     let bits = 0;
@@ -559,6 +584,125 @@ const GrayBox = (() => {
   }
 
   // --- Game loop ---
+  function drawDebugLabel(str, x, col) {
+    let cx = x;
+    for (const ch of str) {
+      const glyph = FONT[ch];
+      if (glyph) for (let py = 0; py < FONT_H; py++) for (let px = 0; px < FONT_W; px++)
+        if (glyph[py * FONT_W + px]) {
+          const sx = cx + px, sy = H - FONT_H - 2 + py;
+          if (sx >= 0 && sx < W && sy >= 0 && sy < H) buf32[sy * W + sx] = col;
+        }
+      cx += FONT_W + 1;
+    }
+    return cx;
+  }
+
+  function drawDebugOverlays() {
+    let labelX = 2;
+    // --- Collision overlay (key 1) ---
+    if (debugMode && debugShapes.length > 0) {
+      const dcol = 0xFF00FF00; // green (ABGR)
+      for (const s of debugShapes) {
+        if (s.t === "r") {
+          for (let px = s.x; px < s.x + s.w; px++) {
+            if (px >= 0 && px < W) {
+              if (s.y >= 0 && s.y < H) buf32[s.y * W + px] = dcol;
+              const by = s.y + s.h - 1;
+              if (by >= 0 && by < H) buf32[by * W + px] = dcol;
+            }
+          }
+          for (let py = s.y; py < s.y + s.h; py++) {
+            if (py >= 0 && py < H) {
+              if (s.x >= 0 && s.x < W) buf32[py * W + s.x] = dcol;
+              const bx = s.x + s.w - 1;
+              if (bx >= 0 && bx < W) buf32[py * W + bx] = dcol;
+            }
+          }
+        } else if (s.t === "c") {
+          let cx = s.r, cy = 0, d = 1 - s.r;
+          while (cx >= cy) {
+            const pts = [
+              [s.x+cx,s.y+cy],[s.x-cx,s.y+cy],[s.x+cx,s.y-cy],[s.x-cx,s.y-cy],
+              [s.x+cy,s.y+cx],[s.x-cy,s.y+cx],[s.x+cy,s.y-cx],[s.x-cy,s.y-cx]
+            ];
+            for (const [px,py] of pts)
+              if (px >= 0 && px < W && py >= 0 && py < H) buf32[py * W + px] = dcol;
+            cy++;
+            if (d < 0) { d += 2 * cy + 1; } else { cx--; d += 2 * (cy - cx) + 1; }
+          }
+        } else if (s.t === "p") {
+          for (let d = -2; d <= 2; d++) {
+            if (s.x+d >= 0 && s.x+d < W && s.y >= 0 && s.y < H) buf32[s.y * W + (s.x+d)] = dcol;
+            if (s.x >= 0 && s.x < W && s.y+d >= 0 && s.y+d < H) buf32[(s.y+d) * W + s.x] = dcol;
+          }
+        }
+      }
+      labelX = drawDebugLabel("1:HITBOX", labelX, dcol) + 6;
+    }
+    debugShapes.length = 0;
+
+    // --- Sprite bounding box overlay (key 2) ---
+    if (debugSprite && debugSprBoxes.length > 0) {
+      const scol = 0xFFFF00FF; // magenta (ABGR)
+      for (const s of debugSprBoxes) {
+        for (let px = s.x; px < s.x + 16; px++) {
+          if (px >= 0 && px < W) {
+            if (s.y >= 0 && s.y < H) buf32[s.y * W + px] = scol;
+            const by = s.y + 15;
+            if (by >= 0 && by < H) buf32[by * W + px] = scol;
+          }
+        }
+        for (let py = s.y; py < s.y + 16; py++) {
+          if (py >= 0 && py < H) {
+            if (s.x >= 0 && s.x < W) buf32[py * W + s.x] = scol;
+            const bx = s.x + 15;
+            if (bx >= 0 && bx < W) buf32[py * W + bx] = scol;
+          }
+        }
+      }
+      labelX = drawDebugLabel("2:SPRITE", labelX, scol) + 6;
+    }
+    debugSprBoxes.length = 0;
+
+    // --- Fill overlay (key 3) ---
+    if (debugFill && debugFillBoxes.length > 0) {
+      const fcol = 0xFFFF8800; // cyan (ABGR)
+      for (const s of debugFillBoxes) {
+        if (s.t === "r") {
+          for (let px = s.x; px < s.x + s.w; px++) {
+            if (px >= 0 && px < W) {
+              if (s.y >= 0 && s.y < H) buf32[s.y * W + px] = fcol;
+              const by = s.y + s.h - 1;
+              if (by >= 0 && by < H) buf32[by * W + px] = fcol;
+            }
+          }
+          for (let py = s.y; py < s.y + s.h; py++) {
+            if (py >= 0 && py < H) {
+              if (s.x >= 0 && s.x < W) buf32[py * W + s.x] = fcol;
+              const bx = s.x + s.w - 1;
+              if (bx >= 0 && bx < W) buf32[py * W + bx] = fcol;
+            }
+          }
+        } else if (s.t === "c") {
+          let cx = s.r, cy = 0, d = 1 - s.r;
+          while (cx >= cy) {
+            const pts = [
+              [s.x+cx,s.y+cy],[s.x-cx,s.y+cy],[s.x+cx,s.y-cy],[s.x-cx,s.y-cy],
+              [s.x+cy,s.y+cx],[s.x-cy,s.y+cx],[s.x+cy,s.y-cx],[s.x-cy,s.y-cx]
+            ];
+            for (const [px,py] of pts)
+              if (px >= 0 && px < W && py >= 0 && py < H) buf32[py * W + px] = fcol;
+            cy++;
+            if (d < 0) { d += 2 * cy + 1; } else { cx--; d += 2 * (cy - cx) + 1; }
+          }
+        }
+      }
+      labelX = drawDebugLabel("3:FILL", labelX, fcol) + 6;
+    }
+    debugFillBoxes.length = 0;
+  }
+
   function tick() {
     // --- Attract mode: playback ---
     if (demoState === "playback") {
@@ -609,6 +753,50 @@ const GrayBox = (() => {
       }
     }
 
+    // --- Start button: title → play ---
+    if (keys["start"] && !keysPrev["start"] && currentSceneName === "title") {
+      API.go("play");
+    }
+
+    // --- Pause toggle (select button during play) ---
+    if (keys["select"] && !keysPrev["select"] && currentSceneName === "play") {
+      paused = !paused;
+    }
+
+    if (paused) {
+      // Still draw the current frame but skip update
+      if (currentScene && currentScene.draw) currentScene.draw();
+      else if (API._draw) API._draw();
+      // Draw PAUSE overlay
+      const pauseStr = "PAUSE";
+      const pw = pauseStr.length * (FONT_W + 1);
+      const px = (W - pw) >> 1;
+      const py = (H - FONT_H) >> 1;
+      // Draw black background box
+      for (let by = py - 3; by < py + FONT_H + 3; by++)
+        for (let bx = px - 4; bx < px + pw + 4; bx++)
+          if (bx >= 0 && bx < W && by >= 0 && by < H) buf32[by * W + bx] = COLOR_U32[0];
+      const blink = API.frame % 30 < 20;
+      if (blink) {
+        const col = COLOR_U32[3];
+        let cx = px;
+        for (const ch of pauseStr) {
+          const glyph = FONT[ch];
+          if (glyph) for (let ppy = 0; ppy < FONT_H; ppy++) for (let ppx = 0; ppx < FONT_W; ppx++)
+            if (glyph[ppy * FONT_W + ppx]) {
+              const sx = cx + ppx, sy = py + ppy;
+              if (sx >= 0 && sx < W && sy >= 0 && sy < H) buf32[sy * W + sx] = col;
+            }
+          cx += FONT_W + 1;
+        }
+      }
+      drawDebugOverlays();
+      ctx.putImageData(buf, 0, 0);
+      for (const k in keys) keysPrev[k] = keys[k];
+      API.frame++;
+      return;
+    }
+
     // --- BGM sequencer tick ---
     bgmTick();
 
@@ -636,6 +824,8 @@ const GrayBox = (() => {
         cx += FONT_W + 1;
       }
     }
+
+    drawDebugOverlays();
 
     ctx.putImageData(buf, 0, 0);
     for (const k in keys) keysPrev[k] = keys[k];
@@ -666,6 +856,10 @@ const GrayBox = (() => {
     gameId = pathParts[pathParts.length - 2] || pathParts[pathParts.length - 1] || "unknown";
 
     document.addEventListener("keydown", e => {
+      // Debug toggles
+      if (e.key === "1") { debugMode = !debugMode; e.preventDefault(); return; }
+      if (e.key === "2") { debugSprite = !debugSprite; e.preventDefault(); return; }
+      if (e.key === "3") { debugFill = !debugFill; e.preventDefault(); return; }
       const k = keyMap[e.key];
       if (k) {
         // If in playback mode, stop it on real input

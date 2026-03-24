@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Elevator Action</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Elevator Action</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Player spy - standing right
@@ -380,7 +348,7 @@
   // Doors: red doors have documents, normal doors are decorative
   // Lamps on each floor
 
-  const { TITLE, PLAY, GAMEOVER, WIN } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER, WIN } = Mono.SCENE;
   let player, bullets, eBullets, enemies, explosions, particles;
   let elevators, doors, lamps, escalators;
   let score, lives, camY, docsCollected, docsTotal;
@@ -659,15 +627,15 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -677,14 +645,14 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -693,10 +661,10 @@
   });
 
   // --- Win Scene ---
-  GrayBox.scene(WIN, {
+  Mono.scene(WIN, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -705,7 +673,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() {
     // --- Play state ---
@@ -714,7 +682,7 @@
       if (player.deathTimer <= 0) {
         lives--;
         if (lives <= 0) {
-          GrayBox.go(GAMEOVER);
+          Mono.go(GAMEOVER);
           return;
         }
         // Respawn at current floor
@@ -751,11 +719,11 @@
       if (btn("up")) {
         elev.dir = -1;
         elev.moving = true;
-        if (GrayBox.frame % 10 === 0) elevatorSound();
+        if (Mono.frame % 10 === 0) elevatorSound();
       } else if (btn("down")) {
         elev.dir = 1;
         elev.moving = true;
-        if (GrayBox.frame % 10 === 0) elevatorSound();
+        if (Mono.frame % 10 === 0) elevatorSound();
       } else {
         elev.dir = 0;
         elev.moving = false;
@@ -1156,7 +1124,7 @@
     const playerFloor = flr((player.y + 8) / FLOOR_H);
     if (playerFloor >= NUM_FLOORS - 1 && docsCollected >= docsTotal) {
       winSound();
-      GrayBox.go(WIN); return;
+      Mono.go(WIN); return;
       score += 2000;
     }
 
@@ -1273,7 +1241,7 @@
         spr(sprId, flr(e.x), ey, flipX);
 
         // Alert indicator
-        if (e.state === "chase" && flr(GrayBox.frame / 6) % 2 === 0) {
+        if (e.state === "chase" && flr(Mono.frame / 6) % 2 === 0) {
           text("!", flr(e.x) + 3, ey - 8, 3);
         }
       }
@@ -1289,7 +1257,7 @@
 
     // Draw player
     if (!player.dead) {
-      if (invincible > 0 && flr(GrayBox.frame / 3) % 2 === 0) {
+      if (invincible > 0 && flr(Mono.frame / 3) % 2 === 0) {
         // Blink during invincibility
       } else {
         const py = flr(player.y) - cy;
@@ -1314,7 +1282,7 @@
       spr(39, W / 2 - 4, carY);
       spr(39, W / 2 + 4, carY, true);
       // Arrow if all docs collected
-      if (docsCollected >= docsTotal && flr(GrayBox.frame / 10) % 2 === 0) {
+      if (docsCollected >= docsTotal && flr(Mono.frame / 10) % 2 === 0) {
         text("V", flr(W / 2), carY - 9, 3);
       }
     }
@@ -1363,7 +1331,7 @@
 
     // Message when all docs collected
     if (docsCollected >= docsTotal) {
-      if (flr(GrayBox.frame / 20) % 2 === 0) {
+      if (flr(Mono.frame / 20) % 2 === 0) {
         text("GET TO THE CAR!", 120, 16, 3);
       }
     }
@@ -1470,7 +1438,7 @@
       }
     }
 
-    const ty = 28 + sin(GrayBox.frame * 0.04) * 3;
+    const ty = 28 + sin(Mono.frame * 0.04) * 3;
 
     // Title text
     text("ELEVATOR", 115, flr(ty), 3);
@@ -1479,14 +1447,14 @@
 
     // Player sprite showcase
     const px = W / 2 - 24;
-    spr(1, px, flr(ty) + 32 + sin(GrayBox.frame * 0.08) * 2);
-    spr(10, px + 20, flr(ty) + 34 + sin(GrayBox.frame * 0.08 + 1.5) * 2, true);
+    spr(1, px, flr(ty) + 32 + sin(Mono.frame * 0.08) * 2);
+    spr(10, px + 20, flr(ty) + 34 + sin(Mono.frame * 0.08 + 1.5) * 2, true);
     spr(20, px + 40, flr(ty) + 32);
 
     // Subtitle
     text("SPY VS SPY IN A 30 FLOOR BUILDING", 72, 110, 2);
 
-    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", 130, 130, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 130, 130, 3);
 
     // Instructions
     text("ARROWS  MOVE/ELEVATOR", 93, 152, 2);
@@ -1496,7 +1464,7 @@
     text("COLLECT ALL DOCUMENTS", 93, 203, 1);
     text("ESCAPE IN THE CAR!", 101, 215, 1);
 
-    text("GRAYBOX DEMO V0.1", 112, 228, 1);
+    text("MONO DEMO V0.1", 112, 228, 1);
   }
 
   function drawGameOver() {
@@ -1505,12 +1473,12 @@
     text("GAME OVER", 130, 75, 3);
     text("SCORE: " + score, 127, 98, 2);
     text("DOCS: " + docsCollected + "/" + docsTotal, 123, 111, 2);
-    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", 127, 150, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 127, 150, 3);
   }
 
   function drawWin() {
     // Victory screen
-    const ty = 30 + sin(GrayBox.frame * 0.05) * 3;
+    const ty = 30 + sin(Mono.frame * 0.05) * 3;
 
     // Building silhouette
     for (let bx = 0; bx < 12; bx++) {
@@ -1524,7 +1492,7 @@
     text("ALL DOCUMENTS RECOVERED", 80, flr(ty) + 20, 2);
 
     // Car driving away animation
-    const carX = (GrayBox.frame * 2) % (W + 40) - 20;
+    const carX = (Mono.frame * 2) % (W + 40) - 20;
     spr(39, flr(carX), flr(ty) + 40);
     spr(39, flr(carX) + 8, flr(ty) + 40, true);
     spr(1, flr(carX) + 3, flr(ty) + 34); // player in car
@@ -1539,11 +1507,11 @@
     else if (score > 3000) rating = "B";
     text(rating, 147, flr(ty) + 90, 3);
 
-    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A", 127, 185, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 127, 185, 3);
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

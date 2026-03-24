@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Tron Light Cycles</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Tron Light Cycles</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos, gpix } = GrayBox;
+          min, max: _max, sin, cos, gpix } = Mono;
 
   // --- Sprites ---
   // 1: Player cycle facing right
@@ -151,7 +119,7 @@
   }
 
   // --- Scenes ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   const ROUNDEND = "roundend";
   let round, playerScore, aiScore, winsNeeded;
   let cycles; // array of cycle objects
@@ -375,28 +343,28 @@
 
   // --- Init ---
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { resetGame(); },
     update() {
       titlePulse++;
-      if (btnp("a") || btnp("a")) { roundStartSound(); GrayBox.go(PLAY); return; }
+      if (btnp("start") || btnp("a")) { roundStartSound(); Mono.go(PLAY); return; }
     },
     draw() { cls(0); drawTitle(); }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() { particles = []; },
     update() {
       titlePulse++;
       for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--; if (p.life <= 0) particles.splice(i, 1); }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() { cls(0); drawGameOver(); }
   });
 
   // --- Round End Scene ---
-  GrayBox.scene(ROUNDEND, {
+  Mono.scene(ROUNDEND, {
     init() { roundTimer = 0; },
     update() {
       titlePulse++;
@@ -404,10 +372,10 @@
       for (let i = explosions.length - 1; i >= 0; i--) { explosions[i].timer--; if (explosions[i].timer <= 0) explosions.splice(i, 1); }
       roundTimer++;
       if (roundTimer > 90) {
-        if (playerScore >= winsNeeded) { GrayBox.go(GAMEOVER); return; }
-        if (aiScore >= winsNeeded) { GrayBox.go(GAMEOVER); return; }
+        if (playerScore >= winsNeeded) { Mono.go(GAMEOVER); return; }
+        if (aiScore >= winsNeeded) { Mono.go(GAMEOVER); return; }
         nextRound(); roundStartSound();
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -418,7 +386,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
     titlePulse++;
@@ -445,7 +413,7 @@
       if (btn("a") && boostFuel > 0 && boostCooldown <= 0) {
         boostActive = true;
         boostFuel--;
-        if (GrayBox.frame % 6 === 0) boostSound();
+        if (Mono.frame % 6 === 0) boostSound();
       } else {
         boostActive = false;
         // Regenerate fuel slowly
@@ -457,7 +425,7 @@
     for (let i = 1; i < cycles.length; i++) {
       const c = cycles[i];
       if (!c.alive) continue;
-      if (GrayBox.frame % 3 === 0) aiThink(c); // think every 3 frames
+      if (Mono.frame % 3 === 0) aiThink(c); // think every 3 frames
     }
 
     // Move all cycles
@@ -525,7 +493,7 @@
         aiScore++;
         loseSound();
       }
-      GrayBox.go(ROUNDEND); return;
+      Mono.go(ROUNDEND); return;
     }
     },
     draw() {
@@ -537,7 +505,7 @@
 
   function drawTitle() {
     // Background grid effect
-    const t = GrayBox.frame * 0.02;
+    const t = Mono.frame * 0.02;
     for (let x = 0; x < W; x += 16) {
       for (let y = 0; y < H; y++) {
         if ((y + flr(t * 20)) % 16 === 0) pix(x, y, 1);
@@ -565,13 +533,13 @@
     rect(82, 43, 156, 34, 1);
 
     // Title text
-    const bounce = sin(GrayBox.frame * 0.06) * 3;
+    const bounce = sin(Mono.frame * 0.06) * 3;
     text("TRON", 150, flr(48 + bounce), 3);
     text("LIGHT CYCLES", 130, flr(60 + bounce), 2);
 
     // Animated light cycles on title
     const bikeY = 98;
-    const bikeX1 = flr((GrayBox.frame * 2) % (W + 100)) - 50;
+    const bikeX1 = flr((Mono.frame * 2) % (W + 100)) - 50;
     const bikeX2 = W - bikeX1 + 50;
 
     // Trails behind title bikes
@@ -587,8 +555,8 @@
     spr(2, bikeX2, bikeY + 10, true);
 
     // Instructions
-    if (flr(GrayBox.frame / 20) % 2 === 0) {
-      text("PRESS A", 133, 131, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) {
+      text("PRESS START", 133, 131, 3);
     }
 
     // Rules
@@ -601,7 +569,7 @@
     text("TRAP YOUR OPPONENT!", 113, 194, 2);
     text("BEST OF 5 ROUNDS", 120, 203, 1);
 
-    text("GRAYBOX DEMO V0.1", 118, 229, 1);
+    text("MONO DEMO V0.1", 118, 229, 1);
   }
 
   function drawGameOver() {
@@ -633,8 +601,8 @@
     text("CPU:    " + aiScore, 125, 116, 2);
     text("ROUNDS: " + round, 125, 128, 1);
 
-    if (flr(GrayBox.frame / 20) % 2 === 0) {
-      text("PRESS A", 133, 150, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) {
+      text("PRESS START", 133, 150, 3);
     }
   }
 
@@ -704,7 +672,7 @@
 
         // Boost glow
         if (boostActive) {
-          pix(hx + DX[c.dir] * 3, hy + DY[c.dir] * 3, flr(GrayBox.frame / 2) % 2 === 0 ? 3 : 2);
+          pix(hx + DX[c.dir] * 3, hy + DY[c.dir] * 3, flr(Mono.frame / 2) % 2 === 0 ? 3 : 2);
           // Side glow
           const perpX = DY[c.dir];
           const perpY = -DX[c.dir];
@@ -850,8 +818,8 @@
     text("P:" + playerScore + " - CPU:" + aiScore, mx + 10, my + 10, 2);
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

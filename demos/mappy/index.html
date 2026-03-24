@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Mappy</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Mappy</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Mappy (police mouse) facing right
@@ -309,7 +277,7 @@
   const PLAYER_SPEED = 2.0;
 
   // --- Game state ---
-  const { TITLE, PLAY, CLEAR, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, CLEAR, GAMEOVER } = Mono.SCENE;
   let player, cats, items, doors, trampolines, shockwaves, floatTexts;
   let score, lives, level, itemsLeft;
   let lastItemType, comboCount;
@@ -551,7 +519,7 @@
       p.deadTimer++;
       if (p.deadTimer > 60) {
         lives--;
-        if (lives <= 0) { GrayBox.go(GAMEOVER); return; }
+        if (lives <= 0) { Mono.go(GAMEOVER); return; }
         else { resetLevel(); }
       }
       return;
@@ -891,12 +859,12 @@
     spr(5, W / 2 + 27, 146);
 
     // Instructions
-    text("PRESS A TO START", W / 2 - 50, 165, (flr(t / 15) % 2 === 0) ? 3 : 2);
+    text("PRESS START", W / 2 - 50, 165, (flr(t / 15) % 2 === 0) ? 3 : 2);
     text("ARROWS MOVE   A OPEN DOOR", W / 2 - 64, 180, 1);
     text("COLLECT ALL STOLEN ITEMS", W / 2 - 60, 189, 1);
     text("MATCHING PAIRS = BONUS!", W / 2 - 58, 198, 1);
     text("DOORS PUSH BACK CATS", W / 2 - 52, 207, 1);
-    text("GRAYBOX MAPPY", W / 2 - 34, H - 10, 1);
+    text("MONO MAPPY", W / 2 - 34, H - 10, 1);
   }
 
   function drawGameOverScreen() {
@@ -904,18 +872,18 @@
     text("FINAL SCORE", W / 2 - 28, H / 2 - 15, 2);
     text(String(score).padStart(7, "0"), W / 2 - 18, H / 2 - 5, 3);
     text("LEVEL " + level, W / 2 - 15, H / 2 + 11, 2);
-    text("PRESS A", W / 2 - 28, H / 2 + 30, (flr((titleBounce || 0) / 15) % 2 === 0) ? 3 : 2);
+    text("PRESS START", W / 2 - 28, H / 2 + 30, (flr((titleBounce || 0) / 15) % 2 === 0) ? 3 : 2);
     spr(22, W / 2 - 4, H / 2 + 45);
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titleBounce = 0; },
     update() {
       titleBounce = (titleBounce || 0) + 1;
       if (btnp("a")) {
         resetGame();
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -925,7 +893,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() {
       updatePlay();
@@ -952,11 +920,11 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       titleBounce = (titleBounce || 0) + 1;
-      if (btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -964,8 +932,8 @@
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

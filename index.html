@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Game Portal</title>
+<title>Mono — Game Portal</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
 
@@ -250,6 +250,7 @@
     height: 100%;
     border: none;
     border-radius: 5px;
+    cursor: none;
   }
 
   .player-controls-hint {
@@ -437,13 +438,13 @@
 <body>
 
 <header>
-  <h1>GRAYBOX</h1>
+  <h1>MONO</h1>
   <p>CONSTRAINT-DRIVEN GAME PLATFORM</p>
   <div class="spec-bar">
     <span>320x240</span>
     <span>4 GRAY</span>
     <span>30 FPS</span>
-    <span>8x8 SPR</span>
+    <span>16x16 SPR</span>
     <span>2CH SQ</span>
     <span>6 KEYS</span>
   </div>
@@ -509,9 +510,9 @@
   <a href="docs/SPEC.md">SPEC</a> &nbsp;·&nbsp;
   <a href="docs/API.md">API</a> &nbsp;·&nbsp;
   <a href="docs/ROADMAP.md">ROADMAP</a> &nbsp;·&nbsp;
-  <a href="https://github.com/ssk-play/graybox">GITHUB</a>
+  <a href="https://github.com/ssk-play/mono">GITHUB</a>
   <br><br>
-  GrayBox v0.1 — Constraint is creativity.
+  Mono v1.0 "Mono" — Constraint is creativity.
 </footer>
 
 <script>
@@ -743,13 +744,13 @@ const isTouchDevice = () => "ontouchstart" in window || navigator.maxTouchPoints
 const hapticPanel = document.getElementById("hapticPanel");
 const hapticSlider = document.getElementById("hapticSlider");
 const hapticValue = document.getElementById("hapticValue");
-let hapticMs = parseInt(localStorage.getItem("graybox_haptic") || "15");
+let hapticMs = parseInt(localStorage.getItem("mono_haptic") || "15");
 hapticSlider.value = hapticMs;
 hapticValue.textContent = hapticMs + "ms";
 hapticSlider.addEventListener("input", () => {
   hapticMs = parseInt(hapticSlider.value);
   hapticValue.textContent = hapticMs + "ms";
-  localStorage.setItem("graybox_haptic", hapticMs);
+  localStorage.setItem("mono_haptic", hapticMs);
   if (hapticMs > 0 && navigator.vibrate) navigator.vibrate(hapticMs);
 });
 function haptic() {
@@ -758,7 +759,7 @@ function haptic() {
 
 // ── BGM Toggle ──
 const bgmToggle = document.getElementById("bgmToggle");
-let bgmEnabled = localStorage.getItem("graybox_bgm") !== "off";
+let bgmEnabled = localStorage.getItem("mono_bgm") !== "off";
 function updateBgmToggle() {
   bgmToggle.textContent = bgmEnabled ? "♪ BGM ON" : "♪ BGM OFF";
   bgmToggle.style.color = bgmEnabled ? "rgba(232,232,232,0.8)" : "rgba(107,107,107,0.6)";
@@ -766,16 +767,16 @@ function updateBgmToggle() {
   // Mute/unmute iframe's BGM
   try {
     const gw = playerFrame.contentWindow;
-    if (gw && gw.GrayBox) {
-      if (bgmEnabled) { gw.GrayBox.bgmVol(0.08); }
-      else { gw.GrayBox.bgmStop(); gw.GrayBox.bgmVol(0); }
+    if (gw && gw.Mono) {
+      if (bgmEnabled) { gw.Mono.bgmVol(0.08); }
+      else { gw.Mono.bgmStop(); gw.Mono.bgmVol(0); }
     }
   } catch(e) {}
 }
 updateBgmToggle();
 bgmToggle.addEventListener("click", () => {
   bgmEnabled = !bgmEnabled;
-  localStorage.setItem("graybox_bgm", bgmEnabled ? "on" : "off");
+  localStorage.setItem("mono_bgm", bgmEnabled ? "on" : "off");
   updateBgmToggle();
 });
 // Apply mute when game loads in iframe
@@ -784,7 +785,7 @@ playerFrame.addEventListener("load", () => {
     setTimeout(() => {
       try {
         const gw = playerFrame.contentWindow;
-        if (gw && gw.GrayBox) { gw.GrayBox.bgmVol(0); }
+        if (gw && gw.Mono) { gw.Mono.bgmVol(0); }
       } catch(e) {}
     }, 100);
   }

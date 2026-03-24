@@ -3,32 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — BGM Audition</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-</style>
+<title>Mono — BGM Audition</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -39,7 +15,7 @@
 <script>
 'use strict';
 
-const { cls, rectf, rect, line, text, btn, btnp, bgm, bgmStop, BGM } = GrayBox;
+const { cls, rectf, rect, line, text, btn, btnp, bgm, bgmStop, BGM } = Mono;
 
 const W = 320, H = 240;
 
@@ -92,7 +68,7 @@ function filterByTag(tag) {
   scrollOffset = 0;
 }
 
-GrayBox._init = function() {
+Mono._init = function() {
   tagCursor = 0;
   activeTag = "ALL";
   filtered = allEntries.slice();
@@ -103,7 +79,7 @@ GrayBox._init = function() {
   mode = "tags";
 };
 
-GrayBox._update = function() {
+Mono._update = function() {
   if (mode === "tags") {
     // Tag selector mode
     if (btnp("left")) tagCursor = (tagCursor - 1 + allTags.length) % allTags.length;
@@ -164,7 +140,7 @@ GrayBox._update = function() {
   }
 };
 
-GrayBox._draw = function() {
+Mono._draw = function() {
   cls(0);
 
   // Header
@@ -302,7 +278,7 @@ function drawListScreen() {
   text("UP/DN:SEL A:PLAY B:BACK", 36, H - 6, 1);
 }
 
-GrayBox.boot("c");
+Mono.boot("c");
 </script>
 </body>
 </html>

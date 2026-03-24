@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Kung-Fu Master</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Kung-Fu Master</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // Player head (standing)
@@ -344,7 +312,7 @@
   ];
 
   // --- Game State ---
-  const { TITLE, PLAY, GAMEOVER, WIN } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER, WIN } = Mono.SCENE;
   let player, enemies, projectiles, effects, particles;
   let score, lives, floor, timer, camX;
   let spawnTimer, bossSpawned, bossDefeated, floorComplete;
@@ -499,7 +467,7 @@
         if (floor >= 5) {
           // Game complete!
           gameOverTimer = 180;
-          GrayBox.go(WIN); return;
+          Mono.go(WIN); return;
         }
         initFloor();
       }
@@ -662,7 +630,7 @@
         if (lives <= 0) {
           if (score > hiScore) hiScore = score;
           gameOverTimer = 120;
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         } else {
           // Respawn
           p.x = camX + 27;
@@ -1076,7 +1044,7 @@
           sprT(1, gx, psy - 16, pFlip, false);
           sprT(2, gx, psy - 8, pFlip, false);
           // Struggle effect
-          if (GrayBox.frame % 4 < 2) sprT(33, gx - 2, psy - 12, false, false);
+          if (Mono.frame % 4 < 2) sprT(33, gx - 2, psy - 12, false, false);
         } else if (p.state === "hurt") {
           // Hurt - knocked back slightly
           sprT(1, psx, psy - 16, pFlip, false);
@@ -1143,7 +1111,7 @@
 
     // Timer
     const timerSec = _max(0, Math.ceil(timer / 30));
-    const timerColor = timerSec <= 10 ? (GrayBox.frame % 10 < 5 ? 3 : 2) : 3;
+    const timerColor = timerSec <= 10 ? (Mono.frame % 10 < 5 ? 3 : 2) : 3;
     text("TIME " + String(timerSec).padStart(3, "0"), W / 2 - 17, 3, timerColor);
 
     // Hi-Score
@@ -1152,7 +1120,7 @@
     // Grabbed indicator
     if (p.state === "grabbed") {
       const mashText = "MASH Z/X!";
-      text(mashText, W / 2 - 22, 23, GrayBox.frame % 6 < 3 ? 3 : 2);
+      text(mashText, W / 2 - 22, 23, Mono.frame % 6 < 3 ? 3 : 2);
     }
 
     // Floor transition
@@ -1200,10 +1168,10 @@
     text("UP+A  JUMP KICK", W / 2 - 40, 154, 2);
     text("DOWN+A  CROUCH PUNCH", W / 2 - 52, 165, 2);
 
-    // Blink "PRESS A"
+    // Blink "PRESS START"
     titleBlink = (titleBlink || 0) + 1;
     if (titleBlink % 40 < 25) {
-      text("PRESS A TO START", W / 2 - 50, 195, 3);
+      text("PRESS START", W / 2 - 50, 195, 3);
     }
 
     // Hi-Score
@@ -1212,7 +1180,7 @@
     }
 
     // Copyright line
-    text("GRAYBOX DEMO 2024", W / 2 - 42, 230, 1);
+    text("MONO DEMO 2024", W / 2 - 42, 230, 1);
   }
 
   function drawGameOver() {
@@ -1227,8 +1195,8 @@
     text("GAME OVER", W / 2 - 22, H / 2 - 12, 3);
     text("SCORE " + String(score).padStart(7, "0"), W / 2 - 30, H / 2, 2);
 
-    if (gameOverTimer <= 60 && GrayBox.frame % 30 < 20) {
-      text("PRESS A", W / 2 - 27, H / 2 + 12, 3);
+    if (gameOverTimer <= 60 && Mono.frame % 30 < 20) {
+      text("PRESS START", W / 2 - 27, H / 2 + 12, 3);
     }
   }
 
@@ -1247,52 +1215,52 @@
     sprT(1, W / 2 - 4, 135, false, false);
     sprT(6, W / 2 - 4, 143, false, false);
 
-    if (gameOverTimer <= 60 && GrayBox.frame % 30 < 20) {
-      text("PRESS A", W / 2 - 27, 165, 3);
+    if (gameOverTimer <= 60 && Mono.frame % 30 < 20) {
+      text("PRESS START", W / 2 - 27, 165, 3);
     }
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titleBlink = 0; gameOverTimer = 0; },
     update() {
-      if (btnp("a")) { resetGame(); GrayBox.go(PLAY); return; }
+      if (btnp("a") || btnp("start")) { resetGame(); Mono.go(PLAY); return; }
     },
     draw() { drawTitle(); }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() { updateGame(); },
     draw() { drawGame(); }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       gameOverTimer--;
-      if (gameOverTimer <= 0 && btnp("a")) { GrayBox.go(TITLE); return; }
+      if (gameOverTimer <= 0 && btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() { drawGameOver(); }
   });
 
   // --- Win Scene ---
-  GrayBox.scene(WIN, {
+  Mono.scene(WIN, {
     init() {},
     update() {
       gameOverTimer--;
       if (gameOverTimer <= 0 && btnp("a")) {
         if (score > hiScore) hiScore = score;
-        GrayBox.go(TITLE); return;
+        Mono.go(TITLE); return;
       }
     },
     draw() { drawWin(); }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

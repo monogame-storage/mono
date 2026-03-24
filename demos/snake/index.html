@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Snake</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Snake</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Grid config ---
   const CELL = 8;             // 8x8 pixel cells
@@ -66,7 +34,7 @@
   const FIELD_Y = BORDER_Y + 4;
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let snake, dir, nextDir, food, score, highScore, moveTimer, moveInterval;
   let growCount, gameOverTimer, titleAnim;
 
@@ -140,14 +108,14 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titleAnim = 0; },
     update() {
       titleAnim++;
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         startSound();
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -175,7 +143,7 @@
         rectf(flr(sx), flr(sy), CELL, CELL, c);
       }
       if (flr(titleAnim / 20) % 2 === 0) {
-        textCenter("PRESS A TO START", 135, 3);
+        textCenter("PRESS START", 135, 3);
       }
       textCenter("ARROWS TO MOVE", 158, 2);
       textCenter("EAT FOOD TO GROW", 167, 2);
@@ -183,12 +151,12 @@
       if (highScore > 0) {
         textCenter("HIGH SCORE: " + highScore, 195, 2);
       }
-      textCenter("GRAYBOX DEMO", 218, 1);
+      textCenter("MONO DEMO", 218, 1);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
       titleAnim++;
@@ -210,7 +178,7 @@
         gameOverTimer = 0;
         if (score > highScore) highScore = score;
         deathSound();
-        GrayBox.go(GAMEOVER); return;
+        Mono.go(GAMEOVER); return;
       }
 
       const checkLen = growCount > 0 ? snake.length : snake.length - 1;
@@ -219,7 +187,7 @@
           gameOverTimer = 0;
           if (score > highScore) highScore = score;
           deathSound();
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         }
       }
 
@@ -249,7 +217,7 @@
         }
       }
       if (food) {
-        const blink = flr(GrayBox.frame / 4) % 3;
+        const blink = flr(Mono.frame / 4) % 3;
         const fc = blink === 0 ? 3 : 2;
         const fx = FIELD_X + food.x * CELL;
         const fy = FIELD_Y + food.y * CELL;
@@ -278,13 +246,13 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       titleAnim++;
       gameOverTimer++;
-      if (gameOverTimer > 30 && (btnp("a") || btnp("a"))) {
-        GrayBox.go(TITLE); return;
+      if (gameOverTimer > 30 && (btnp("start") || btnp("a"))) {
+        Mono.go(TITLE); return;
       }
     },
     draw() {
@@ -302,7 +270,7 @@
         }
       }
       if (food) {
-        const blink = flr(GrayBox.frame / 4) % 3;
+        const blink = flr(Mono.frame / 4) % 3;
         const fc = blink === 0 ? 3 : 2;
         const fx = FIELD_X + food.x * CELL;
         const fy = FIELD_Y + food.y * CELL;
@@ -339,14 +307,14 @@
       }
       if (gameOverTimer > 30) {
         if (flr(gameOverTimer / 15) % 2 === 0) {
-          textCenter("PRESS A", 128, 2);
+          textCenter("PRESS START", 128, 2);
         }
       }
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

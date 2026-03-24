@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Arkanoid</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Arkanoid</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
-          spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          spr, sprT, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
+          min, max: _max, sin, cos } = Mono;
 
   // --- Play field ---
   const FIELD_L = 34;
@@ -60,12 +28,13 @@
   const FIELD_T = 18;
   const FIELD_B = 230;
   const FIELD_W = FIELD_R - FIELD_L;
+  const BR = 4; // Ball radius
 
   // --- Brick config ---
-  const BRICK_W = 11;
-  const BRICK_H = 6;
-  const BRICK_COLS = 23;
-  const BRICK_OX = FIELD_L;
+  const BRICK_W = 22;
+  const BRICK_H = 12;
+  const BRICK_COLS = 11;
+  const BRICK_OX = FIELD_L + 2;
   const BRICK_OY = FIELD_T + 15;
 
   // Brick types: 0=empty, 1=normal c1, 2=normal c2, 3=normal c3, 4=silver(2hits), 5=gold(indestructible)
@@ -83,9 +52,23 @@
   const PU_NAMES = ["L","E","C","S","B","1","D"];
   const PU_DROP_CHANCE = 0.18;
 
-  // --- Sprites ---
+  // --- Helper: upscale 8x8 sprite data to 16x16 ---
+  function up(data) {
+    let out = "";
+    for (let r = 0; r < 8; r++) {
+      let row = "";
+      for (let c = 0; c < 8; c++) {
+        const ch = data[r * 8 + c];
+        row += ch + ch;
+      }
+      out += row + row; // each row appears twice
+    }
+    return out;
+  }
+
+  // --- Sprites (16x16 upscaled from 8x8) ---
   // 1: Vaus left cap
-  defSprite(1,
+  defSprite(1, up(
     "00000000" +
     "00000333" +
     "00003222" +
@@ -94,9 +77,9 @@
     "00003222" +
     "00000333" +
     "00000000"
-  );
+  ));
   // 2: Vaus middle
-  defSprite(2,
+  defSprite(2, up(
     "00000000" +
     "33333333" +
     "22222222" +
@@ -105,9 +88,9 @@
     "22222222" +
     "33333333" +
     "00000000"
-  );
+  ));
   // 3: Vaus right cap
-  defSprite(3,
+  defSprite(3, up(
     "00000000" +
     "33300000" +
     "22230000" +
@@ -116,9 +99,9 @@
     "22230000" +
     "33300000" +
     "00000000"
-  );
+  ));
   // 4: Ball
-  defSprite(4,
+  defSprite(4, up(
     "00000000" +
     "00000000" +
     "00033000" +
@@ -127,9 +110,9 @@
     "00022000" +
     "00000000" +
     "00000000"
-  );
+  ));
   // 5: Power-up capsule
-  defSprite(5,
+  defSprite(5, up(
     "00000000" +
     "00333300" +
     "03222230" +
@@ -138,9 +121,9 @@
     "03222230" +
     "00333300" +
     "00000000"
-  );
+  ));
   // 6: Laser shot
-  defSprite(6,
+  defSprite(6, up(
     "00030000" +
     "00030000" +
     "00020000" +
@@ -149,9 +132,9 @@
     "00000000" +
     "00000000" +
     "00000000"
-  );
+  ));
   // 7: Enemy alien A
-  defSprite(7,
+  defSprite(7, up(
     "00033000" +
     "00333300" +
     "03322330" +
@@ -160,9 +143,9 @@
     "03333300" +
     "00300300" +
     "03000030"
-  );
+  ));
   // 8: Enemy alien B
-  defSprite(8,
+  defSprite(8, up(
     "00300300" +
     "03333300" +
     "33233230" +
@@ -171,9 +154,9 @@
     "00333000" +
     "03000300" +
     "30000030"
-  );
+  ));
   // 9: Explosion
-  defSprite(9,
+  defSprite(9, up(
     "20010020" +
     "01000010" +
     "00203200" +
@@ -182,9 +165,9 @@
     "01000300" +
     "20001001" +
     "00200010"
-  );
+  ));
   // 10: DOH top-left
-  defSprite(10,
+  defSprite(10, up(
     "00000011" +
     "00001333" +
     "00013333" +
@@ -193,9 +176,9 @@
     "01333222" +
     "13332222" +
     "13332221"
-  );
+  ));
   // 11: DOH top-right
-  defSprite(11,
+  defSprite(11, up(
     "11000000" +
     "33310000" +
     "33331000" +
@@ -204,9 +187,9 @@
     "22233310" +
     "22223331" +
     "12223331"
-  );
+  ));
   // 12: DOH bottom-left
-  defSprite(12,
+  defSprite(12, up(
     "13332221" +
     "13332222" +
     "01333222" +
@@ -215,9 +198,9 @@
     "00013333" +
     "00001333" +
     "00000011"
-  );
+  ));
   // 13: DOH bottom-right
-  defSprite(13,
+  defSprite(13, up(
     "12223331" +
     "22223331" +
     "22233310" +
@@ -226,9 +209,9 @@
     "33331000" +
     "33310000" +
     "11000000"
-  );
+  ));
   // 14: Life icon (small paddle)
-  defSprite(14,
+  defSprite(14, up(
     "00000000" +
     "00000000" +
     "00333300" +
@@ -237,9 +220,9 @@
     "00333300" +
     "00000000" +
     "00000000"
-  );
+  ));
   // 15: Warp gate chevron
-  defSprite(15,
+  defSprite(15, up(
     "03000000" +
     "00300000" +
     "00030000" +
@@ -248,10 +231,10 @@
     "00030000" +
     "00300000" +
     "03000000"
-  );
+  ));
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let paddle, balls, bricks, powerups, lasers, enemies, explosions;
   let score, lives, level, levelTimer;
   let activePower, powerTimer;
@@ -284,12 +267,12 @@
     // 3: Diamond with golds on edge
     () => {
       const b = [];
-      const cx = 11, cy = 4;
+      const cx = 5, cy = 4;
       for (let r = 0; r < 9; r++)
         for (let c = 0; c < BRICK_COLS; c++) {
           const dist = _abs(c - cx) + _abs(r - cy);
-          if (dist <= 5) {
-            if (dist === 5) b.push({ col: c, row: r, type: 5, hp: 99 });
+          if (dist <= 4) {
+            if (dist === 4) b.push({ col: c, row: r, type: 5, hp: 99 });
             else b.push({ col: c, row: r, type: (dist % 3) + 1, hp: 1 });
           }
         }
@@ -299,7 +282,7 @@
     () => {
       const b = [];
       for (let r = 0; r < 3; r++)
-        for (let c = 3; c < 20; c++)
+        for (let c = 1; c < 10; c++)
           b.push({ col: c, row: r + 7, type: (r % 3) + 1, hp: 1 });
       return { bricks: b, warp: false, boss: true };
     },
@@ -308,7 +291,7 @@
       const b = [];
       for (let r = 0; r < 8; r++)
         for (let c = 0; c < BRICK_COLS; c++) {
-          if (c === 5 || c === 11 || c === 17)
+          if (c === 2 || c === 5 || c === 8)
             b.push({ col: c, row: r, type: 5, hp: 99 });
           else if (r % 2 === 0)
             b.push({ col: c, row: r, type: (c % 3) + 1, hp: 1 });
@@ -322,7 +305,7 @@
         for (let c = 0; c < BRICK_COLS; c++) {
           if (r === 0 || r === 7 || c === 0 || c === BRICK_COLS - 1)
             b.push({ col: c, row: r, type: 4, hp: 2 });
-          else if (r >= 2 && r <= 5 && c >= 6 && c <= 16)
+          else if (r >= 2 && r <= 5 && c >= 3 && c <= 7)
             b.push({ col: c, row: r, type: ((r + c) % 3) + 1, hp: 1 });
         }
       return { bricks: b, warp: false, boss: false };
@@ -403,7 +386,7 @@
     ballSpeedMult = 1.0;
     levelTimer = 0;
 
-    paddle = { x: (FIELD_L + FIELD_R) / 2, w: 21, speed: 4 };
+    paddle = { x: (FIELD_L + FIELD_R) / 2, w: 48, speed: 4 };
     balls = [];
     launchBall();
 
@@ -432,7 +415,7 @@
   function launchBall() {
     const b = {
       x: paddle.x,
-      y: FIELD_B - 14,
+      y: FIELD_B - 16 - BR,
       vx: 1.2 + rnd(0.6),
       vy: -(2.2 + rnd(0.4)),
       active: true,
@@ -451,7 +434,7 @@
 
   function activatePower(type) {
     // Deactivate previous
-    if (activePower === PU_EXTEND) paddle.w = 21;
+    if (activePower === PU_EXTEND) paddle.w = 48;
     if (activePower === PU_SLOW) ballSpeedMult = 1.0;
     if (activePower === PU_BREAK) breakWall = false;
 
@@ -459,7 +442,7 @@
     powerTimer = 300;
 
     if (type === PU_EXTEND) {
-      paddle.w = 35;
+      paddle.w = 80;
     } else if (type === PU_SLOW) {
       ballSpeedMult = 0.55;
     } else if (type === PU_BREAK) {
@@ -500,11 +483,11 @@
     if (lives <= 0) {
       note(0, "C3", 0.3);
       setTimeout(() => { try { note(0, "A2", 0.4); } catch(e){} }, 300);
-      GrayBox.go(GAMEOVER);
+      Mono.go(GAMEOVER);
       return;
     } else {
       activePower = -1;
-      paddle.w = 21;
+      paddle.w = 48;
       ballSpeedMult = 1.0;
       breakWall = false;
       balls = [];
@@ -540,10 +523,10 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a")) { GrayBox.go(PLAY); }
+      if (btnp("a") || btnp("start")) { Mono.go(PLAY); }
     },
     draw() {
       cls(0);
@@ -552,7 +535,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
 
@@ -563,7 +546,7 @@
     if (powerTimer > 0 && activePower !== PU_CATCH && activePower !== PU_LASER) {
       powerTimer--;
       if (powerTimer <= 0) {
-        if (activePower === PU_EXTEND) paddle.w = 21;
+        if (activePower === PU_EXTEND) paddle.w = 48;
         if (activePower === PU_SLOW) ballSpeedMult = 1.0;
         if (activePower === PU_BREAK) breakWall = false;
         activePower = -1;
@@ -586,7 +569,7 @@
       for (const b of balls) {
         if (b.active) {
           b.x = paddle.x + catchOffX;
-          b.y = FIELD_B - 18;
+          b.y = FIELD_B - 16 - BR;
         }
       }
       if (btnp("a")) {
@@ -604,8 +587,8 @@
 
     // Laser fire
     if (activePower === PU_LASER && btnp("a") && !catchBall) {
-      lasers.push({ x: paddle.x - pw + 2, y: FIELD_B - 12, vy: -6 });
-      lasers.push({ x: paddle.x + pw - 4, y: FIELD_B - 12, vy: -6 });
+      lasers.push({ x: paddle.x - pw + 2, y: FIELD_B - 20, vy: -6 });
+      lasers.push({ x: paddle.x + pw - 4, y: FIELD_B - 20, vy: -6 });
       note(1, "G5", 0.04);
     }
 
@@ -615,12 +598,12 @@
       l.y += l.vy;
       if (l.y < FIELD_T) { lasers.splice(i, 1); continue; }
 
-      // Hit bricks (AABB: 8x8 laser vs BRICK_W x BRICK_H bricks)
+      // Hit bricks (AABB: 16x16 laser vs BRICK_W x BRICK_H bricks)
       let laserHit = false;
       const col0 = flr((l.x - BRICK_OX) / BRICK_W);
-      const col1 = flr((l.x + 8 - 1 - BRICK_OX) / BRICK_W);
+      const col1 = flr((l.x + 16 - 1 - BRICK_OX) / BRICK_W);
       const row0 = flr((l.y - BRICK_OY) / BRICK_H);
-      const row1 = flr((l.y + 8 - 1 - BRICK_OY) / BRICK_H);
+      const row1 = flr((l.y + 16 - 1 - BRICK_OY) / BRICK_H);
       for (let rr = row0; rr <= row1 && !laserHit; rr++) {
         for (let cc = col0; cc <= col1 && !laserHit; cc++) {
           if (cc < 0 || cc >= BRICK_COLS || rr < 0) continue;
@@ -628,7 +611,7 @@
           if (brick) {
             const bl = BRICK_OX + cc * BRICK_W;
             const bt = BRICK_OY + rr * BRICK_H;
-            if (l.x + 8 > bl && l.x < bl + BRICK_W && l.y + 8 > bt && l.y < bt + BRICK_H) {
+            if (l.x + 16 > bl && l.x < bl + BRICK_W && l.y + 16 > bt && l.y < bt + BRICK_H) {
               hitBrick(brick);
               laserHit = true;
             }
@@ -640,7 +623,7 @@
       // Hit boss
       if (bossActive && bossHP > 0) {
         const bcx = (FIELD_L + FIELD_R) / 2;
-        if (l.x + 8 > bcx - 16 && l.x < bcx + 16 && l.y + 8 > bossY && l.y < bossY + 24) {
+        if (l.x + 16 > bcx - 32 && l.x < bcx + 32 && l.y + 16 > bossY && l.y < bossY + 48) {
           bossHP--;
           explosions.push({ x: l.x, y: l.y, t: 0 });
           lasers.splice(i, 1);
@@ -654,7 +637,7 @@
       let hitE = false;
       for (let j = enemies.length - 1; j >= 0; j--) {
         const e = enemies[j];
-        if (e.alive && l.x + 8 > e.x && l.x < e.x + 8 && l.y + 8 > e.y && l.y < e.y + 8) {
+        if (e.alive && l.x + 16 > e.x && l.x < e.x + 16 && l.y + 16 > e.y && l.y < e.y + 16) {
           e.alive = false;
           score += 100;
           explosions.push({ x: e.x, y: e.y, t: 0 });
@@ -677,31 +660,31 @@
         b.y += b.vy * spd;
 
         // Side walls
-        if (b.x <= FIELD_L + 3) {
-          if (warpLevel) { b.x = FIELD_R - 5; note(1, "A4", 0.03); }
-          else { b.x = FIELD_L + 3; b.vx = _abs(b.vx); note(1, "D4", 0.03); }
+        if (b.x - BR <= FIELD_L) {
+          if (warpLevel) { b.x = FIELD_R - BR - 1; note(1, "A4", 0.03); }
+          else { b.x = FIELD_L + BR; b.vx = _abs(b.vx); note(1, "D4", 0.03); }
         }
-        if (b.x >= FIELD_R - 3) {
-          if (warpLevel) { b.x = FIELD_L + 5; note(1, "A4", 0.03); }
-          else { b.x = FIELD_R - 3; b.vx = -_abs(b.vx); note(1, "D4", 0.03); }
+        if (b.x + BR >= FIELD_R) {
+          if (warpLevel) { b.x = FIELD_L + BR + 1; note(1, "A4", 0.03); }
+          else { b.x = FIELD_R - BR; b.vx = -_abs(b.vx); note(1, "D4", 0.03); }
         }
         // Top wall
-        if (b.y <= FIELD_T + 2) {
-          b.y = FIELD_T + 2;
+        if (b.y - BR <= FIELD_T) {
+          b.y = FIELD_T + BR;
           b.vy = _abs(b.vy);
           note(1, "D4", 0.03);
         }
         // Bottom
-        if (b.y >= FIELD_B + 2) {
+        if (b.y - BR >= FIELD_B + 2) {
           b.active = false;
           continue;
         }
 
-        // Paddle collision
-        const padTop = FIELD_B - 8;
-        if (b.vy > 0 && b.y + 8 > padTop && b.y < padTop + 8 &&
-            b.x + 8 > paddle.x - pw && b.x < paddle.x + pw) {
-          b.y = padTop - 1;
+        // Paddle collision (circle vs rect)
+        const padTop = FIELD_B - 16;
+        if (b.vy > 0 && b.y + BR > padTop && b.y - BR < padTop + 16 &&
+            b.x + BR > paddle.x - pw && b.x - BR < paddle.x + pw) {
+          b.y = padTop - BR;
           const hitPos = (b.x - paddle.x) / (pw + 2); // -1 to 1
           const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
           const clampedSpeed = _max(2.5, min(speed, 4.5));
@@ -717,7 +700,7 @@
           note(1, "E4", 0.04);
         }
 
-        // Brick collisions
+        // Brick collisions (circle vs rect)
         const bcol = flr((b.x - BRICK_OX) / BRICK_W);
         const brow = flr((b.y - BRICK_OY) / BRICK_H);
         let hitAny = false;
@@ -734,13 +717,13 @@
             const brr = bl + BRICK_W;
             const bbb = bt + BRICK_H;
 
-            if (b.x + 8 > bl && b.x < brr && b.y + 8 > bt && b.y < bbb) {
+            if (b.x + BR > bl && b.x - BR < brr && b.y + BR > bt && b.y - BR < bbb) {
               hitBrick(brick);
 
-              const overlapL = (b.x + 8) - bl;
-              const overlapR = brr - b.x;
-              const overlapT = (b.y + 8) - bt;
-              const overlapB = bbb - b.y;
+              const overlapL = (b.x + BR) - bl;
+              const overlapR = brr - (b.x - BR);
+              const overlapT = (b.y + BR) - bt;
+              const overlapB = bbb - (b.y - BR);
               const minO = min(min(overlapL, overlapR), min(overlapT, overlapB));
 
               if (minO === overlapL || minO === overlapR) b.vx = -b.vx;
@@ -756,11 +739,11 @@
         // Boss collision
         if (bossActive && bossHP > 0) {
           const bcx = (FIELD_L + FIELD_R) / 2;
-          if (b.x + 8 > bcx - 16 && b.x < bcx + 16 && b.y + 8 > bossY && b.y < bossY + 24) {
+          if (b.x + BR > bcx - 32 && b.x - BR < bcx + 32 && b.y + BR > bossY && b.y - BR < bossY + 48) {
             b.vy = _abs(b.vy);
-            b.y = bossY + 19;
+            b.y = bossY + 38;
             bossHP--;
-            explosions.push({ x: b.x, y: b.y - 4, t: 0 });
+            explosions.push({ x: b.x, y: b.y - 8, t: 0 });
             note(0, "D3", 0.06);
             if (bossHP <= 0) bossDefeated();
           }
@@ -768,7 +751,7 @@
 
         // Enemy collisions
         for (const e of enemies) {
-          if (e.alive && b.x + 8 > e.x && b.x < e.x + 8 && b.y + 8 > e.y && b.y < e.y + 8) {
+          if (e.alive && b.x + BR > e.x && b.x - BR < e.x + 16 && b.y + BR > e.y && b.y - BR < e.y + 16) {
             b.vy = -b.vy;
             b.vx += (rnd(1) - 0.5) * 0.6;
             e.alive = false;
@@ -792,9 +775,9 @@
       const p = powerups[i];
       p.y += p.vy;
       if (p.y > FIELD_B + 10) { powerups.splice(i, 1); continue; }
-      const padTop = FIELD_B - 8;
-      if (p.y + 7 > padTop && p.y < padTop + 8 &&
-          p.x + 10 > paddle.x - pw && p.x < paddle.x + pw) {
+      const padTop = FIELD_B - 16;
+      if (p.y + 14 > padTop && p.y < padTop + 16 &&
+          p.x + 20 > paddle.x - pw && p.x < paddle.x + pw) {
         activatePower(p.type);
         powerups.splice(i, 1);
       }
@@ -847,10 +830,10 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
-      if (btnp("a")) GrayBox.go(TITLE);
+      if (btnp("a") || btnp("start")) Mono.go(TITLE);
     },
     draw() {
       cls(0);
@@ -863,7 +846,7 @@
     bossActive = false;
     for (let j = 0; j < 10; j++) {
       const bcx = (FIELD_L + FIELD_R) / 2;
-      explosions.push({ x: bcx - 13 + rnd(27), y: bossY + rnd(18), t: -flr(rnd(20)) });
+      explosions.push({ x: bcx - 26 + rnd(54), y: bossY + rnd(36), t: -flr(rnd(20)) });
     }
     note(0, "C5", 0.15);
     setTimeout(() => { try { note(0, "E5", 0.15); } catch(e){} }, 150);
@@ -886,7 +869,7 @@
     // Warp gate chevrons
     if (warpLevel) {
       for (let y = FIELD_T + 4; y < FIELD_B; y += 14) {
-        const blink = ((GrayBox.frame + y) % 20 < 10) ? 2 : 3;
+        const blink = ((Mono.frame + y) % 20 < 10) ? 2 : 3;
         for (let dy = 0; dy < 6; dy++) {
           pix(FIELD_L - 4, y + dy, blink);
           pix(FIELD_R + 2, y + dy, blink);
@@ -925,77 +908,81 @@
     if (bossActive && bossHP > 0) {
       const bcx = flr((FIELD_L + FIELD_R) / 2);
       const by = flr(bossY);
-      // 4x3 sprite grid for big boss
-      spr(10, bcx - 16, by);
-      spr(11, bcx - 8, by);
+      // 4x3 sprite grid for big boss (16x16 sprites, so offsets doubled)
+      spr(10, bcx - 32, by);
+      spr(11, bcx - 16, by);
       spr(10, bcx, by, true);
-      spr(11, bcx + 8, by, true);
-      spr(12, bcx - 16, by + 8);
-      spr(13, bcx - 8, by + 8);
-      spr(12, bcx, by + 8, true);
-      spr(13, bcx + 8, by + 8, true);
-      spr(10, bcx - 16, by + 16);
-      spr(11, bcx - 8, by + 16);
-      spr(10, bcx, by + 16, true);
-      spr(11, bcx + 8, by + 16, true);
+      spr(11, bcx + 16, by, true);
+      spr(12, bcx - 32, by + 16);
+      spr(13, bcx - 16, by + 16);
+      spr(12, bcx, by + 16, true);
+      spr(13, bcx + 16, by + 16, true);
+      spr(10, bcx - 32, by + 32);
+      spr(11, bcx - 16, by + 32);
+      spr(10, bcx, by + 32, true);
+      spr(11, bcx + 16, by + 32, true);
       // HP bar
-      const hpBarW = 33;
+      const hpBarW = 65;
       const hpFill = _max(0, flr(hpBarW * bossHP / bossMaxHP));
-      rectf(bcx - 17, by - 5, hpBarW + 2, 4, 1);
-      rectf(bcx - 16, by - 4, hpFill, 2, 3);
+      rectf(bcx - 33, by - 5, hpBarW + 2, 4, 1);
+      rectf(bcx - 32, by - 4, hpFill, 2, 3);
       text("DOH", bcx - 8, by - 9, 3);
     }
 
     // Enemies
     for (const e of enemies) {
-      if (e.alive) spr(e.type, e.x - 4, e.y - 4);
+      if (e.alive) sprT(e.type, e.x - 8, e.y - 8);
     }
 
     // Paddle (Vaus)
-    const padTop = FIELD_B - 8;
+    const padTop = FIELD_B - 16;
     spr(1, paddle.x - pw, padTop - 1);
-    for (let px = paddle.x - pw + 8; px < paddle.x + pw - 8; px += 8) {
+    for (let px = paddle.x - pw + 16; px < paddle.x + pw - 16; px += 16) {
       spr(2, px, padTop - 1);
     }
-    spr(3, paddle.x + pw - 8, padTop - 1);
+    spr(3, paddle.x + pw - 16, padTop - 1);
+    Mono.dbg(paddle.x - pw, padTop, paddle.w, 16);
 
     // Laser tips
     if (activePower === PU_LASER) {
-      const blink = GrayBox.frame % 6 < 3 ? 3 : 2;
+      const blink = Mono.frame % 6 < 3 ? 3 : 2;
       rectf(paddle.x - pw + 1, padTop - 3, 2, 2, blink);
       rectf(paddle.x + pw - 3, padTop - 3, 2, 2, blink);
     }
 
     // Balls
     for (const b of balls) {
-      if (b.active) spr(4, b.x - 3, b.y - 3);
+      if (b.active) {
+        sprT(4, b.x - 8, b.y - 8);
+        Mono.dbgC(b.x, b.y, BR);
+      }
     }
 
     // Lasers
     for (const l of lasers) {
-      spr(6, l.x - 2, l.y - 4);
+      sprT(6, l.x - 4, l.y - 8);
     }
 
     // Power-up capsules
     for (const p of powerups) {
-      const blink = GrayBox.frame % 8 < 4;
+      const blink = Mono.frame % 8 < 4;
       const c = blink ? 3 : 2;
-      rectf(p.x - 5, p.y - 3, 10, 7, c);
-      rectf(p.x - 4, p.y - 2, 8, 5, 1);
+      rectf(p.x - 10, p.y - 6, 20, 14, c);
+      rectf(p.x - 8, p.y - 4, 16, 10, 1);
       text(PU_NAMES[p.type], p.x - 2, p.y - 2, 3);
     }
 
     // Explosions
     for (const ex of explosions) {
       if (ex.t < 0) continue;
-      if (ex.t < 8) spr(9, ex.x - 4, ex.y - 4);
+      if (ex.t < 8) sprT(9, ex.x - 8, ex.y - 8);
       else circ(ex.x, ex.y, _max(1, 8 - flr(ex.t / 2)), 1);
     }
 
     // Break wall gap indicator
     if (breakWall) {
       const cx = (FIELD_L + FIELD_R) / 2;
-      const blink = GrayBox.frame % 10 < 5 ? 3 : 2;
+      const blink = Mono.frame % 10 < 5 ? 3 : 2;
       for (let i = -15; i <= 15; i += 5) {
         pix(cx + i, FIELD_B + 2, blink);
       }
@@ -1013,13 +1000,13 @@
 
     text("LIVES", W - 37, 2, 2);
     for (let i = 0; i < lives; i++) {
-      spr(14, W - 37 + i * 10, 8);
+      spr(14, W - 37 + i * 18, 8);
     }
 
     // Active power indicator
     if (activePower >= 0) {
       const pname = ["LASER","EXTEND","CATCH","SLOW","BREAK","LIFE","DISRUPT"][activePower];
-      const blink = (powerTimer > 0 && powerTimer < 60) ? (GrayBox.frame % 6 < 3 ? 3 : 0) : 3;
+      const blink = (powerTimer > 0 && powerTimer < 60) ? (Mono.frame % 6 < 3 ? 3 : 0) : 3;
       text(pname, FIELD_L, FIELD_B + 5, blink);
     }
 
@@ -1033,7 +1020,7 @@
   }
 
   function drawTitle() {
-    const t = GrayBox.frame;
+    const t = Mono.frame;
 
     // Decorative top/bottom bars
     for (let i = 0; i < W; i += 10) {
@@ -1079,7 +1066,7 @@
 
     // Instructions
     if (t % 50 < 35) {
-      text("PRESS A TO START", (320 - 20 * 5) / 2, 180, 3);
+      text("PRESS START", (320 - 20 * 5) / 2, 180, 3);
     }
 
     text("ARROWS = MOVE    A = FIRE/RELEASE", (320 - 34 * 5) / 2, 197, 2);
@@ -1088,7 +1075,7 @@
   }
 
   function drawGameOver() {
-    const t = GrayBox.frame;
+    const t = Mono.frame;
 
     // Falling debris
     for (let i = 0; i < 12; i++) {
@@ -1104,12 +1091,12 @@
     text("ROUND: " + (level + 1), W / 2 - 20, 90, 2);
 
     if (t % 50 < 35) {
-      text("PRESS A", (320 - 11 * 5) / 2, 135, 3);
+      text("PRESS START", (320 - 11 * 5) / 2, 135, 3);
     }
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

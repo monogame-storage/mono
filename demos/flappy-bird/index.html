@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Flappy Bird</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Flappy Bird</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text, btn, btnp, note, stop, rnd, flr,
-          abs: _abs, min, max: _max, sin, cos } = GrayBox;
+          abs: _abs, min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
 
@@ -191,7 +159,7 @@
   const BIRD_HITBOX = 6;    // slightly smaller than sprite for fairness
 
   // --- Game State ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let subState = "ready"; // sub-state within PLAY: "ready", "play", "dying"
   let bird, pipes, score, bestScore, groundScroll;
   let deathTimer, flashTimer;
@@ -493,7 +461,7 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { resetGame(); },
     update() {
       titleBobT++;
@@ -506,12 +474,12 @@
         if (c.x < -13) { c.x = W + 7; c.y = 15 + flr(rnd(75)); }
       }
 
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         bird.y = H / 2 - 23;
         bird.vy = 0;
         startSound();
         subState = "ready";
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -535,12 +503,12 @@
       drawBird();
       textCenter("PRESS Z OR A TO START", 150, 2);
       if (bestScore > 0) { textCenter("BEST: " + bestScore, 169, 1); }
-      textCenter("GRAYBOX DEMO", H - 15, 1);
+      textCenter("MONO DEMO", H - 15, 1);
     }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() { deathTimer = 0; },
     update() {
       titleBobT++;
@@ -550,10 +518,10 @@
         p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (deathTimer > 20 && (btnp("a") || btnp("a"))) {
+      if (deathTimer > 20 && (btnp("start") || btnp("a"))) {
         resetGame();
         bird.alive = true;
-        GrayBox.go(TITLE); return;
+        Mono.go(TITLE); return;
       }
     },
     draw() {
@@ -600,13 +568,13 @@
       textCenter(rating, panelY + 56, score >= 15 ? 3 : 2);
       if (deathTimer > 20) {
         const blink = flr(deathTimer / 10) % 2;
-        if (blink) { textCenter("PRESS A TO CONTINUE", panelY + 74, 2); }
+        if (blink) { textCenter("PRESS START", panelY + 74, 2); }
       }
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() {
     titleBobT++;
@@ -700,8 +668,8 @@
         if (p.life <= 0) particles.splice(i, 1);
       }
 
-      if (deathTimer > 40 && (btnp("a") || btnp("a"))) {
-        GrayBox.go(GAMEOVER); return;
+      if (deathTimer > 40 && (btnp("start") || btnp("a"))) {
+        Mono.go(GAMEOVER); return;
       }
       return;
     }
@@ -762,8 +730,8 @@
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

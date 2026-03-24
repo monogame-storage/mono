@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Ghosts 'n Goblins</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Ghosts 'n Goblins</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprT, text: drawText, btn, btnp, note, stop, rnd, flr,
-          abs: _abs, min, max: _max, sin, cos } = GrayBox;
+          abs: _abs, min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
 
@@ -485,7 +453,7 @@
   const WEAPON_NAMES = ["LANCE", "DAGGER", "TORCH", "AXE"];
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER, WIN } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER, WIN } = Mono.SCENE;
   let player, camera, projectiles, enemies, particles, chests, pickups;
   let score, lives, timeLeft, timeTimer;
   let bossActive, boss;
@@ -723,16 +691,16 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { resetGame(); },
     update() {
       titleAnim++;
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
         setTimeout(() => note(0, "G5", 0.1), 160);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -763,15 +731,15 @@
       sprT(17, 180, by - 2 + sin(titleAnim * 0.06 + 2) * 3);
       sprT(18, 200, by + sin(titleAnim * 0.06 + 3) * 2);
       sprT(20, 107, by + 2 + sin(titleAnim * 0.06 + 4) * 2);
-      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS A", 133, 135, 3);
+      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 135, 3);
       drawText("Z:JUMP  X:THROW  ARROWS:MOVE", 88, 158, 2);
       drawText("3 LIVES  2-HIT ARMOR  4 WEAPONS", 80, 169, 1);
-      drawText("GRAYBOX DEMO V0.1", 116, 229, 1);
+      drawText("MONO DEMO V0.1", 116, 229, 1);
     }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       titleAnim++;
@@ -779,7 +747,7 @@
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -787,16 +755,16 @@
       for (const p of particles) pix(flr(p.x - cx), flr(p.y), p.color);
       drawText("GAME OVER", 138, 83, 3);
       drawText("SCORE: " + score, 127, 105, 2);
-      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS A", 133, 150, 3);
+      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 150, 3);
     }
   });
 
   // --- Win Scene ---
-  GrayBox.scene(WIN, {
+  Mono.scene(WIN, {
     init() {},
     update() {
       titleAnim++;
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -806,13 +774,13 @@
       drawText("ARTHUR RESCUED", 126, 120, 2);
       drawText("THE PRINCESS!", 128, 131, 2);
       drawText("SCORE: " + score, 127, 158, 3);
-      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS A", 133, 188, 3);
-      drawText("GRAYBOX DEMO V0.1", 116, 229, 1);
+      if (flr(titleAnim / 20) % 2 === 0) drawText("PRESS START", 133, 188, 3);
+      drawText("MONO DEMO V0.1", 116, 229, 1);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() {
     titleAnim++;
@@ -829,7 +797,7 @@
       deathTimer--;
       if (deathTimer <= 0) {
         lives--;
-        if (lives <= 0) { GrayBox.go(GAMEOVER); return; }
+        if (lives <= 0) { Mono.go(GAMEOVER); return; }
         player.alive = true;
         player.armor = 2;
         player.x = respawnX;
@@ -956,7 +924,7 @@
             addExplosion(boss.x + 8, boss.y + 8);
             addExplosion(boss.x - 4, boss.y + 4);
             sfxHit();
-            setTimeout(() => { GrayBox.go(WIN); }, 3000);
+            setTimeout(() => { Mono.go(WIN); }, 3000);
           }
         }
       }
@@ -1322,8 +1290,8 @@
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

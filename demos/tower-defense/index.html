@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Tower Defense</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Tower Defense</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Constants ---
   const CELL = 16; // grid cell size
@@ -190,7 +158,7 @@
   );
 
   // --- Scenes ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
 
   let grid; // 2D array: 0=empty, -1=path, >0=tower index+1
   let towers, enemies, bullets, particles;
@@ -236,7 +204,7 @@
     if (wave > MAX_WAVES) {
       gameWon = true;
       gameWon = true;
-      GrayBox.go(GAMEOVER);
+      Mono.go(GAMEOVER);
       return;
     }
     waveActive = true;
@@ -309,37 +277,37 @@
   function sndCycle() { note(1, "E5", 0.03); }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { resetGame(); },
     update() {
-      if (btnp("a") || btnp("a")) { sndWave(); GrayBox.go(PLAY); return; }
+      if (btnp("start") || btnp("a")) { sndWave(); Mono.go(PLAY); return; }
     },
     draw() {
       cls(0);
-      const ty = 37 + sin(GrayBox.frame * 0.04) * 3;
+      const ty = 37 + sin(Mono.frame * 0.04) * 3;
       text("TOWER DEFENSE", 112, flr(ty), 3);
       rectf(107, flr(ty) + 9, 107, 1, 2);
       const bx = 113; const by = flr(ty) + 21;
-      spr(20, bx, by + sin(GrayBox.frame * 0.06) * 2);
-      spr(21, bx + 33, by + sin(GrayBox.frame * 0.06 + 1.5) * 2);
-      spr(22, bx + 67, by + sin(GrayBox.frame * 0.06 + 3) * 2);
-      for (let i = 0; i < 5; i++) { const ex = 93 + i * 30 + sin(GrayBox.frame * 0.05 + i) * 6; const ey = flr(ty) + 45 + sin(GrayBox.frame * 0.08 + i * 0.7) * 3; spr(30 + (i % 3), flr(ex), flr(ey)); }
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", 113, 135, 3);
+      spr(20, bx, by + sin(Mono.frame * 0.06) * 2);
+      spr(21, bx + 33, by + sin(Mono.frame * 0.06 + 1.5) * 2);
+      spr(22, bx + 67, by + sin(Mono.frame * 0.06 + 3) * 2);
+      for (let i = 0; i < 5; i++) { const ex = 93 + i * 30 + sin(Mono.frame * 0.05 + i) * 6; const ey = flr(ty) + 45 + sin(Mono.frame * 0.08 + i * 0.7) * 3; spr(30 + (i % 3), flr(ex), flr(ey)); }
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 113, 135, 3);
       text("-- TOWERS --", 124, 154, 2);
       spr(20, 113, 164); text("BASIC   10G  MED RANGE", 121, 165, 2);
       spr(21, 113, 174); text("SNIPER  20G  LONG RANGE", 121, 176, 2);
       spr(22, 113, 184); text("RAPID   15G  SHORT RANGE", 121, 186, 2);
       text("SURVIVE 20 WAVES!", 117, 206, 3);
-      text("GRAYBOX DEMO V0.1", 112, 229, 1);
+      text("MONO DEMO V0.1", 112, 229, 1);
     }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--; if (p.life <= 0) particles.splice(i, 1); }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       cls(0);
@@ -348,12 +316,12 @@
       else { text("GAME OVER", 130, 75, 3); text("REACHED WAVE " + wave, 122, 94, 2); }
       text("SCORE: " + score, 130, 113, 2);
       text("TOWERS BUILT: " + towers.length, 117, 124, 1);
-      if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 105, 158, 3);
+      if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 105, 158, 3);
     }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
 
@@ -421,7 +389,7 @@
         enemies.splice(i, 1);
         if (lives <= 0) {
           gameWon = false;
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         }
         continue;
       }
@@ -522,7 +490,7 @@
       if (wave >= MAX_WAVES) {
         gameWon = true;
         sndWin();
-        GrayBox.go(GAMEOVER); return;
+        Mono.go(GAMEOVER); return;
       }
     }
 
@@ -545,7 +513,7 @@
       for (const b of bullets) rectf(flr(b.x) - 1, flr(b.y) - 1, 2, 2, 3);
       for (const p of particles) pix(flr(p.x), flr(p.y), p.color);
       const curPx = cursorX * CELL + GRID_OX; const curPy = cursorY * CELL + GRID_OY;
-      const curBlink = flr(GrayBox.frame / 4) % 2; const curCol = curBlink ? 3 : 2;
+      const curBlink = flr(Mono.frame / 4) % 2; const curCol = curBlink ? 3 : 2;
       line(curPx, curPy, curPx + 4, curPy, curCol); line(curPx, curPy, curPx, curPy + 4, curCol);
       line(curPx + CELL - 1, curPy, curPx + CELL - 5, curPy, curCol); line(curPx + CELL - 1, curPy, curPx + CELL - 1, curPy + 4, curCol);
       line(curPx, curPy + CELL - 1, curPx + 4, curPy + CELL - 1, curCol); line(curPx, curPy + CELL - 1, curPx, curPy + CELL - 5, curCol);
@@ -564,8 +532,8 @@
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

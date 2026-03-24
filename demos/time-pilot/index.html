@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Time Pilot</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Time Pilot</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, sprRot, text, btn, btnp, note, stop, rnd, flr,
-          abs: _abs, min, max: _max, sin, cos, atan2, PI, sqrt } = GrayBox;
+          abs: _abs, min, max: _max, sin, cos, atan2, PI, sqrt } = Mono;
 
   // --- Sprites ---
 
@@ -246,7 +214,7 @@
   ];
 
   // --- Scenes ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
 
   let player, bullets, eBullets, enemies, explosions, particles, clouds, parachutists;
   let score, lives, era, killCount, bossActive, boss;
@@ -395,15 +363,15 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { resetGame(); titleAngle = 0; },
     update() {
       titleAngle += 0.02;
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         note(0, "C5", 0.1);
         setTimeout(() => note(0, "E5", 0.1), 100);
         setTimeout(() => note(0, "G5", 0.15), 200);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -413,11 +381,11 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--; if (p.life <= 0) particles.splice(i, 1); }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() {
       const bgCol = 0; cls(bgCol);
@@ -432,12 +400,12 @@
     invTimer = 90;
     player.speed = 0;
     if (lives <= 0) {
-      GrayBox.go(GAMEOVER);
+      Mono.go(GAMEOVER);
     }
   }
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); invTimer = 60; },
     update() {
     // --- Era transition ---
@@ -781,7 +749,7 @@
     if (boss) {
       const sx = boss.x - camX, sy = boss.y - camY;
       if (sx > -20 && sx < W + 20 && sy > -20 && sy < H + 20) {
-        if (boss.flashTimer > 0 && flr(GrayBox.frame / 2) % 2) {
+        if (boss.flashTimer > 0 && flr(Mono.frame / 2) % 2) {
           // Draw bigger for boss (2x)
           for (let dy = -1; dy <= 1; dy++) {
             for (let dx = -1; dx <= 1; dx++) {
@@ -816,14 +784,14 @@
     }
 
     // --- Draw player ---
-    if (invTimer <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+    if (invTimer <= 0 || flr(Mono.frame / 3) % 2 === 0) {
       const px = W / 2, py = H / 2;
       sprRot(1, px, py, player.angle);
       // Thrust flame
       if (btn("up")) {
         const fx = px - cos(player.angle) * 7;
         const fy = py - sin(player.angle) * 7;
-        const fc = (GrayBox.frame % 4 < 2) ? 2 : 3;
+        const fc = (Mono.frame % 4 < 2) ? 2 : 3;
         pix(flr(fx), flr(fy), fc);
         pix(flr(fx) - cos(player.angle) * 1, flr(fy) - sin(player.angle) * 1, 1);
       }
@@ -899,12 +867,12 @@
 
     // Animated clouds in background
     for (let i = 0; i < 8; i++) {
-      const cx = ((GrayBox.frame * 0.5 + i * 47) % (W + 27)) - 13;
-      const cy = 45 + i * 22 + sin(GrayBox.frame * 0.02 + i) * 8;
+      const cx = ((Mono.frame * 0.5 + i * 47) % (W + 27)) - 13;
+      const cy = 45 + i * 22 + sin(Mono.frame * 0.02 + i) * 8;
       spr(13, flr(cx), flr(cy));
     }
 
-    const ty = 38 + sin(GrayBox.frame * 0.04) * 3;
+    const ty = 38 + sin(Mono.frame * 0.04) * 3;
 
     // Title text with shadow
     text("TIME PILOT", W/2 - 25, flr(ty), 1);
@@ -913,32 +881,32 @@
     rectf(W/2 - 27, flr(ty) + 8, 53, 1, 2);
 
     // Rotating plane display
-    const showAngle = GrayBox.frame * 0.05;
+    const showAngle = Mono.frame * 0.05;
     sprRot(1, W/2, flr(ty) + 30, showAngle);
 
     // Show era enemies
     const ey = flr(ty) + 49;
     for (let i = 0; i < 5; i++) {
       const ex = W/2 - 33 + i * 17;
-      const bob = sin(GrayBox.frame * 0.06 + i * 1.2) * 3;
-      sprRot(ERAS[i].enemySpr, ex, ey + flr(bob), -PI/2 + sin(GrayBox.frame * 0.03 + i) * 0.3);
+      const bob = sin(Mono.frame * 0.06 + i * 1.2) * 3;
+      sprRot(ERAS[i].enemySpr, ex, ey + flr(bob), -PI/2 + sin(Mono.frame * 0.03 + i) * 0.3);
     }
 
     // Blink prompt
-    if (flr(GrayBox.frame / 20) % 2 === 0) {
-      text("PRESS A TO START", W/2 - 40, 135, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) {
+      text("PRESS START", W/2 - 40, 135, 3);
     }
 
     // Era list
     text("-TIME ERAS-", W/2 - 27, 150, 2);
     for (let i = 0; i < ERAS.length; i++) {
-      const col = (i === flr(GrayBox.frame / 40) % 5) ? 3 : 2;
+      const col = (i === flr(Mono.frame / 40) % 5) ? 3 : 2;
       text(ERAS[i].label, W/2 - flr(ERAS[i].label.length * 2.5), 161 + i * 9, col);
     }
 
     // Controls info
     text("ARROWS:ROTATE/THRUST  A:FIRE", W/2 - 70, 218, 1);
-    text("GRAYBOX DEMO V0.1", W/2 - 45, 231, 1);
+    text("MONO DEMO V0.1", W/2 - 45, 231, 1);
   }
 
   function drawGameOver() {
@@ -953,13 +921,13 @@
     text("FINAL SCORE: " + score, W/2 - 35, 98, 2);
     text("ERA: " + ERAS[era].name, W/2 - 15, 113, 2);
 
-    if (flr(GrayBox.frame / 20) % 2 === 0) {
-      text("PRESS A TO CONTINUE", W/2 - 50, 150, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) {
+      text("PRESS START", W/2 - 50, 150, 3);
     }
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

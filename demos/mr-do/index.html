@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Mr. Do!</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Mr. Do!</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Sprites ---
   // 1: Mr. Do (clown) facing right
@@ -257,7 +225,7 @@
   const T_APPLE = 3;
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let player, ball, enemies, apples, explosions, particles;
   let score, lives, level, cherryCount, totalCherries;
   let extraLetters; // "EXTRA" collected
@@ -482,7 +450,7 @@
       }
       if (deathTimer === 0) {
         if (lives <= 0) {
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         } else {
           // Respawn
           const startTX = flr(MAP_W / 2);
@@ -856,7 +824,7 @@
     text("SCORE: " + score, 130, 101, 2);
     text("LEVEL: " + level, 133, 112, 2);
     if (extraLetters.length > 0) text("EXTRA: " + extraLetters, 127, 124, 2);
-    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO CONTINUE", 105, 158, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 105, 158, 3);
   }
 
   function drawPlayScene() {
@@ -899,7 +867,7 @@
     if (ball && ball.alive) {
       spr(9, flr(ball.x), flr(ball.y));
       // Trail particles
-      if (GrayBox.frame % 2 === 0) {
+      if (Mono.frame % 2 === 0) {
         pix(ball.x + 2 + rnd(4), ball.y + 2 + rnd(4), 2);
       }
     }
@@ -916,7 +884,7 @@
     }
 
     // Draw player (blink when invincible)
-    if (deathTimer === 0 && !(invincTimer > 0 && flr(GrayBox.frame / 3) % 2 === 0)) {
+    if (deathTimer === 0 && !(invincTimer > 0 && flr(Mono.frame / 3) % 2 === 0)) {
       const pSpr = playerDir === 0 ? (playerFrame < 10 ? 1 : 16) :
                    playerDir === 1 ? (playerFrame < 10 ? 2 : 16) :
                    playerDir === 2 ? (playerFrame < 10 ? 3 : 17) :
@@ -973,7 +941,7 @@
     // Animated background dirt pattern
     for (let ty = 0; ty < 30; ty++) {
       for (let tx = 0; tx < 40; tx++) {
-        if ((tx + ty + flr(GrayBox.frame / 30)) % 4 !== 0) {
+        if ((tx + ty + flr(Mono.frame / 30)) % 4 !== 0) {
           const c = ((tx + ty) % 3 === 0) ? 1 : 0;
           if (c > 0) rectf(tx * 8, ty * 8, 8, 8, c);
         }
@@ -984,26 +952,26 @@
     rectf(87, 38, 147, 38, 0);
     rect(88, 39, 144, 35, 2);
 
-    const ty = 45 + sin(GrayBox.frame * 0.05) * 3;
+    const ty = 45 + sin(Mono.frame * 0.05) * 3;
     text("MR. DO!", 130, flr(ty), 3);
     rectf(113, flr(ty) + 10, 94, 1, 2);
-    text("A GRAYBOX DEMO", 121, flr(ty) + 16, 1);
+    text("A MONO DEMO", 121, flr(ty) + 16, 1);
 
     // Animated characters
     const cx = W / 2;
     // Mr. Do bouncing
-    const doY = 94 + sin(GrayBox.frame * 0.1) * 4;
+    const doY = 94 + sin(Mono.frame * 0.1) * 4;
     spr(1, cx - 4, flr(doY));
     // Power ball orbit
-    const bx = cx + cos(GrayBox.frame * 0.08) * 20;
-    const by = 98 + sin(GrayBox.frame * 0.08) * 10;
+    const bx = cx + cos(Mono.frame * 0.08) * 20;
+    const by = 98 + sin(Mono.frame * 0.08) * 10;
     spr(9, flr(bx), flr(by));
 
     // Enemies marching
     for (let i = 0; i < 5; i++) {
       const ex = 107 + i * 23;
-      const ey = 128 + sin(GrayBox.frame * 0.07 + i) * 3;
-      spr(i === 2 ? 14 : (flr(GrayBox.frame/8) % 2 === 0 ? 7 : 8), flr(ex), flr(ey));
+      const ey = 128 + sin(Mono.frame * 0.07 + i) * 3;
+      spr(i === 2 ? 14 : (flr(Mono.frame/8) % 2 === 0 ? 7 : 8), flr(ex), flr(ey));
     }
 
     // Cherries decoration
@@ -1014,7 +982,7 @@
     // Apple
     spr(6, cx - 4, 165);
 
-    if (flr(GrayBox.frame / 20) % 2 === 0) text("PRESS A TO START", 113, 188, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) text("PRESS START", 113, 188, 3);
 
     // Instructions
     text("DIG THROUGH DIRT", 118, 203, 2);
@@ -1022,44 +990,44 @@
     text("THROW POWER BALL", 118, 219, 2);
     text("PUSH APPLES ON FOES", 113, 227, 2);
 
-    text("GRAYBOX DEMO V0.1", 112, H - 10, 1);
+    text("MONO DEMO V0.1", 112, H - 10, 1);
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         note(0, "C5", 0.08); setTimeout(() => note(0, "E5", 0.08), 80); setTimeout(() => note(0, "G5", 0.12), 160);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() { cls(0); drawTitle(); }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() { updatePlay(); },
     draw() { drawPlayScene(); }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() { drawGameOverScreen(); }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Simon</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Simon</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Game constants ---
   const CX = W / 2;   // 160 center
@@ -151,7 +119,7 @@
   );
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let sequence = [];      // array of quadrant indices (0-3)
   let seqIndex = 0;       // current position in sequence playback/input
   let round = 0;
@@ -224,15 +192,15 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() { titlePulse = 0; },
     update() {
       titlePulse++;
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         note(0, "C5", 0.08);
         setTimeout(() => note(0, "E5", 0.08), 80);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -242,7 +210,7 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() { resetGame(); },
     update() {
       titlePulse++;
@@ -311,7 +279,7 @@
         failTimer--;
         if (failTimer <= 0) {
           failTimer = 30;
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         }
         return;
       }
@@ -330,13 +298,13 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       titlePulse++;
       failTimer--;
-      if (failTimer <= 0 && (btnp("a") || btnp("a"))) {
-        GrayBox.go(TITLE); return;
+      if (failTimer <= 0 && (btnp("start") || btnp("a"))) {
+        Mono.go(TITLE); return;
       }
     },
     draw() {
@@ -445,7 +413,7 @@
     textCentered("USE ARROW KEYS", 161, 2);
 
     if (pulse === 0) {
-      textCentered("PRESS A TO START", 188, 3);
+      textCentered("PRESS START", 188, 3);
     }
 
     // Best score
@@ -469,12 +437,12 @@
 
     const pulse = flr(titlePulse / 15) % 2;
     if (pulse === 0) {
-      textCentered("PRESS A", 150, 3);
+      textCentered("PRESS START", 150, 3);
     }
   }
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

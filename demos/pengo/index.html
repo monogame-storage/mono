@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Pengo</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Pengo</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Grid constants ---
   // Arena: 13 columns x 15 rows of 12x12 cells = 156x180
@@ -316,7 +284,7 @@
   );
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let grid = [];
   let pengo, enemies, slidingBlocks, explosions, particles;
   let score, lives, level, wallShakeTimer, wallShakeDir;
@@ -617,7 +585,7 @@
         if (explosions[i].timer <= 0) explosions.splice(i, 1);
       }
       if (deathTimer === 0) {
-        if (lives <= 0) { GrayBox.go(GAMEOVER); return; }
+        if (lives <= 0) { Mono.go(GAMEOVER); return; }
         pengo.cx = flr(COLS / 2);
         pengo.cy = ROWS - 1;
         pengo.invincible = 60;
@@ -855,7 +823,7 @@
     rectf(ARENA_X - 1, ARENA_Y - 1, ARENA_W + 2, ARENA_H + 2, 0);
 
     // Walls
-    const wc = wallShakeTimer > 0 && flr(GrayBox.frame / 2) % 2 === 0 ? 2 : 1;
+    const wc = wallShakeTimer > 0 && flr(Mono.frame / 2) % 2 === 0 ? 2 : 1;
     // Top & bottom walls
     rectf(ARENA_X - TILE + shX, ARENA_Y - TILE + shY, ARENA_W + TILE * 2, TILE, wc);
     rectf(ARENA_X - TILE + shX, ARENA_Y + ARENA_H + shY, ARENA_W + TILE * 2, TILE, wc);
@@ -888,7 +856,7 @@
             const ht = hatchTimers.find(h => h.cx === c && h.cy === r);
             if (ht && ht.hatching) hatching = true;
           }
-          if (hatching && flr(GrayBox.frame / 4) % 2 === 0) {
+          if (hatching && flr(Mono.frame / 4) % 2 === 0) {
             drawBlock12(x, y, 33);
           } else {
             drawBlock12(x, y, 10);
@@ -911,7 +879,7 @@
       const ex = cellToX(e.cx) + shX;
       const ey = cellToY(e.cy) + shY;
       if (e.stunTimer > 0) {
-        if (e.stunTimer < 30 && flr(GrayBox.frame / 4) % 2 === 0) continue;
+        if (e.stunTimer < 30 && flr(Mono.frame / 4) % 2 === 0) continue;
         draw12(ex, ey, 22, false);
       } else {
         draw12(ex, ey, e.animFrame === 0 ? 20 : 21, false);
@@ -920,7 +888,7 @@
 
     // Pengo
     if (deathTimer <= 0) {
-      if (pengo.invincible <= 0 || flr(GrayBox.frame / 3) % 2 === 0) {
+      if (pengo.invincible <= 0 || flr(Mono.frame / 3) % 2 === 0) {
         const px = cellToX(pengo.cx) + shX;
         const py = cellToY(pengo.cy) + shY;
         let sprId;
@@ -1023,14 +991,14 @@
   function drawTitle() {
     // Background ice pattern
     for (let i = 0; i < 30; i++) {
-      const bx = ((i * 43 + flr(GrayBox.frame * 0.2)) % (W + 24)) - 12;
+      const bx = ((i * 43 + flr(Mono.frame * 0.2)) % (W + 24)) - 12;
       const by = ((i * 67) % (H + 24)) - 12;
       rectf(bx, by, 10, 10, 1);
       rect(bx + 1, by + 1, 8, 8, 0);
       rect(bx + 2, by + 2, 6, 6, 1);
     }
 
-    const ty = 20 + sin(GrayBox.frame * 0.05) * 3;
+    const ty = 20 + sin(Mono.frame * 0.05) * 3;
 
     // Title shadow + text
     const titleX = W / 2 - flr(("PENGO".length * (FONT_W + 1)) / 2);
@@ -1040,20 +1008,20 @@
 
     // Animated characters
     const cx = W / 2;
-    const anim = flr(GrayBox.frame / 10) % 2;
+    const anim = flr(Mono.frame / 10) % 2;
     draw12(cx - 6, flr(ty) + 16, anim === 0 ? 1 : 2, false);
 
-    const ea = flr(GrayBox.frame / 12) % 2;
-    draw12(cx - 27, flr(ty) + 17 + sin(GrayBox.frame * 0.1) * 2, ea === 0 ? 20 : 21, false);
-    draw12(cx + 16, flr(ty) + 17 + sin(GrayBox.frame * 0.1 + 2) * 2, ea === 0 ? 21 : 20, false);
+    const ea = flr(Mono.frame / 12) % 2;
+    draw12(cx - 27, flr(ty) + 17 + sin(Mono.frame * 0.1) * 2, ea === 0 ? 20 : 21, false);
+    draw12(cx + 16, flr(ty) + 17 + sin(Mono.frame * 0.1 + 2) * 2, ea === 0 ? 21 : 20, false);
 
     // Diamond blocks flanking
     drawBlock12(cx - 48, flr(ty) + 17, 14);
     drawBlock12(cx + 37, flr(ty) + 17, 14);
 
-    const startMsg = "PRESS A TO START";
+    const startMsg = "PRESS START";
     const startX = W / 2 - flr((startMsg.length * (FONT_W + 1)) / 2);
-    if (flr(GrayBox.frame / 20) % 2 === 0) text(startMsg, startX, 108, 3);
+    if (flr(Mono.frame / 20) % 2 === 0) text(startMsg, startX, 108, 3);
 
     // Instructions
     const htpMsg = "- HOW TO PLAY -";
@@ -1071,7 +1039,7 @@
 
     const scMsg = "CRUSH:400  STUN:100  STOMP:500";
     text(scMsg, W / 2 - flr((scMsg.length * (FONT_W + 1)) / 2), 196, 1);
-    const verMsg = "GRAYBOX DEMO V0.1";
+    const verMsg = "MONO DEMO V0.1";
     text(verMsg, W / 2 - flr((verMsg.length * (FONT_W + 1)) / 2), 228, 1);
   }
 
@@ -1088,45 +1056,45 @@
     text(scMsg, W / 2 - flr((scMsg.length * (FONT_W + 1)) / 2), 98, 2);
     const lvMsg = "LEVEL: " + level;
     text(lvMsg, W / 2 - flr((lvMsg.length * (FONT_W + 1)) / 2), 111, 2);
-    const cMsg = "PRESS A TO CONTINUE";
-    if (flr(GrayBox.frame / 20) % 2 === 0) text(cMsg, W / 2 - flr((cMsg.length * (FONT_W + 1)) / 2), 158, 3);
+    const cMsg = "PRESS START";
+    if (flr(Mono.frame / 20) % 2 === 0) text(cMsg, W / 2 - flr((cMsg.length * (FONT_W + 1)) / 2), 158, 3);
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      if (btnp("a") || btnp("a")) {
+      if (btnp("start") || btnp("a")) {
         resetGame();
         note(0, "C5", 0.1); setTimeout(() => note(0, "E5", 0.1), 100); setTimeout(() => note(0, "G5", 0.15), 200);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() { cls(0); drawTitle(); }
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {},
     update() { updatePlay(); },
     draw() { drawPlayScene(); }
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life--;
         if (p.life <= 0) particles.splice(i, 1);
       }
-      if (btnp("a") || btnp("a")) { GrayBox.go(TITLE); return; }
+      if (btnp("start") || btnp("a") || btnp("start")) { Mono.go(TITLE); return; }
     },
     draw() { cls(0); drawGameOver(); }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>

@@ -1,4 +1,4 @@
-# GrayBox API Reference v0.1
+# Mono API Reference v1.0 "Mono"
 
 ## 라이프사이클
 
@@ -44,7 +44,7 @@ text(str: string, x: number, y: number, color: Color): void
 
 ```typescript
 sprite(id: number, data: string): void
-// 8×8 스프라이트를 등록한다
+// 16×16 스프라이트를 등록한다
 // data: "00030000..." 형태의 64자 문자열 (0~3)
 
 spr(id: number, x: number, y: number, flipX?: boolean, flipY?: boolean): void

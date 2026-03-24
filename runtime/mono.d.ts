@@ -1,11 +1,11 @@
 /**
- * GrayBox Platform API Type Definitions
- * 320x240 | 4-color grayscale | 30fps | 8x8 sprites | 2ch square wave
+ * Mono Platform API Type Definitions
+ * 320x240 | 4-color grayscale | 30fps | 16x16 sprites | 2ch square wave
  */
 
 // ── Strict Types ──
 type Color = 0 | 1 | 2 | 3;
-type Key = "up" | "down" | "left" | "right" | "a" | "b";
+type Key = "up" | "down" | "left" | "right" | "a" | "b" | "start" | "select";
 type Channel = 0 | 1;
 
 // ── Lifecycle (game must export these) ──
@@ -48,6 +48,11 @@ declare function min(a: number, b: number): number;
 declare function max(a: number, b: number): number;
 declare function sin(n: number): number;
 declare function cos(n: number): number;
+
+// ── Debug ──
+declare function dbg(x: number, y: number, w: number, h: number): void;
+declare function dbgC(x: number, y: number, r: number): void;
+declare function dbgPt(x: number, y: number): void;
 
 // ── Constants ──
 declare const frame: number;

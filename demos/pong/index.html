@@ -3,40 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrayBox — Demo: Pong</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0a0a0a;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    font-family: monospace;
-    overflow: hidden;
-  }
-  #frame {
-    background: #111;
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
-  }
-  canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-  #controls {
-    margin-top: 12px;
-    color: #6b6b6b;
-    font-size: 11px;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-  #controls span { color: #b0b0b0; }
-</style>
+<title>Mono — Demo: Pong</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
 </head>
 <body>
 <div id="frame">
@@ -49,10 +17,10 @@
 <script>
 (() => {
   "use strict";
-  const W = GrayBox.WIDTH, H = GrayBox.HEIGHT;
+  const W = Mono.WIDTH, H = Mono.HEIGHT;
   const { cls, pix, line, rect, rectf, circ, circf, sprite: defSprite,
           spr, text, btn, btnp, note, stop, rnd, flr, abs: _abs,
-          min, max: _max, sin, cos } = GrayBox;
+          min, max: _max, sin, cos } = Mono;
 
   // --- Constants ---
   const PADDLE_W = 6;
@@ -70,7 +38,7 @@
   const AI_ERROR = 9;            // max pixels of imperfection
 
   // --- Game state ---
-  const { TITLE, PLAY, GAMEOVER } = GrayBox.SCENE;
+  const { TITLE, PLAY, GAMEOVER } = Mono.SCENE;
   let playerY, aiY, ballX, ballY, ballVX, ballVY;
   let playerScore, aiScore;
   let serveTimer, serveDir;
@@ -137,14 +105,14 @@
   }
 
   // --- Title Scene ---
-  GrayBox.scene(TITLE, {
+  Mono.scene(TITLE, {
     init() {},
     update() {
-      titleBlink = (GrayBox.frame % 40) < 28;
-      if (btnp("a") || btnp("a")) {
+      titleBlink = (Mono.frame % 40) < 28;
+      if (btnp("start") || btnp("a")) {
         resetGame();
         note(0, "C5", 0.08);
-        GrayBox.go(PLAY); return;
+        Mono.go(PLAY); return;
       }
     },
     draw() {
@@ -157,7 +125,7 @@
         rectf(W / 2 - 1, y, 2, 4, 1);
       }
       if (titleBlink) {
-        text("PRESS A", W / 2 - 27, 142, 3);
+        text("PRESS START", W / 2 - 27, 142, 3);
       }
       text("FIRST TO 11 WINS", W / 2 - 40, 165, 1);
       text("UP/DOWN TO MOVE", W / 2 - 37, 176, 1);
@@ -165,12 +133,12 @@
   });
 
   // --- Play Scene ---
-  GrayBox.scene(PLAY, {
+  Mono.scene(PLAY, {
     init() {
       resetGame();
     },
     update() {
-      titleBlink = (GrayBox.frame % 40) < 28;
+      titleBlink = (Mono.frame % 40) < 28;
 
       // Serve timer countdown
       if (serveTimer > 0) {
@@ -260,7 +228,7 @@
         if (aiScore >= WIN_SCORE) {
           winMessage = "CPU WINS";
           loseSound();
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         } else {
           serveDir = -1;
           resetBall(serveDir);
@@ -274,7 +242,7 @@
         if (playerScore >= WIN_SCORE) {
           winMessage = "YOU WIN!";
           winSound();
-          GrayBox.go(GAMEOVER); return;
+          Mono.go(GAMEOVER); return;
         } else {
           serveDir = 1;
           resetBall(serveDir);
@@ -315,12 +283,12 @@
   });
 
   // --- Game Over Scene ---
-  GrayBox.scene(GAMEOVER, {
+  Mono.scene(GAMEOVER, {
     init() {},
     update() {
-      titleBlink = (GrayBox.frame % 40) < 28;
-      if (btnp("a") || btnp("a")) {
-        GrayBox.go(TITLE); return;
+      titleBlink = (Mono.frame % 40) < 28;
+      if (btnp("start") || btnp("a")) {
+        Mono.go(TITLE); return;
       }
     },
     draw() {
@@ -350,13 +318,13 @@
       text(winMessage, W / 2 - flr(winMessage.length * 2.5), H / 2 - 11, 3);
       text(playerScore + " - " + aiScore, W / 2 - 10, H / 2 - 2, 2);
       if (titleBlink) {
-        text("PRESS A", W / 2 - 27, H / 2 + 9, 3);
+        text("PRESS START", W / 2 - 27, H / 2 + 9, 3);
       }
     }
   });
 
-  GrayBox.go(TITLE);
-  GrayBox.boot("screen");
+  Mono.go(TITLE);
+  Mono.boot("screen");
 })();
 </script>
 </body>
