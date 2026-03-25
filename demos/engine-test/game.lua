@@ -2023,6 +2023,24 @@ local function bsRebuildEnemyECS()
   end
 end
 
+-- Pre-generate buildings once (not every frame!)
+local bsBuildings = {}
+local function bsGenBuildings()
+  bsBuildings = {}
+  for bx = 0, BS_LEVEL_W - 1, 48 do
+    local bh = 30 + flr(rnd(30))
+    local wins = {}
+    for wy = 100 - bh + 4, 96, 8 do
+      for wx = bx + 4, bx + 36, 10 do
+        if rnd(1) > 0.4 then
+          wins[#wins + 1] = {x = wx, y = wy}
+        end
+      end
+    end
+    bsBuildings[#bsBuildings + 1] = {x = bx, h = bh, wins = wins}
+  end
+end
+
 local function bsInit()
   bsGenBuildings()
   bsPlayer = {
@@ -2431,24 +2449,6 @@ local function bsUpdate()
   if targetCamX > BS_LEVEL_W - W then targetCamX = BS_LEVEL_W - W end
   bsCamX = bsCamX + (targetCamX - bsCamX) * 0.12
   cam(flr(bsCamX), 0)
-end
-
--- Pre-generate buildings once (not every frame!)
-local bsBuildings = {}
-local function bsGenBuildings()
-  bsBuildings = {}
-  for bx = 0, BS_LEVEL_W - 1, 48 do
-    local bh = 30 + flr(rnd(30))
-    local wins = {}
-    for wy = 100 - bh + 4, 96, 8 do
-      for wx = bx + 4, bx + 36, 10 do
-        if rnd(1) > 0.4 then
-          wins[#wins + 1] = {x = wx, y = wy}
-        end
-      end
-    end
-    bsBuildings[#bsBuildings + 1] = {x = bx, h = bh, wins = wins}
-  end
 end
 
 local function bsDrawBackground()
