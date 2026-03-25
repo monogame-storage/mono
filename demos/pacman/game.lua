@@ -1,4 +1,4 @@
--- Pac-Man for Mono Engine v2 (Lua)
+-- Pac-Man for Mono Engine v2 (Lua) — ECS migration
 
 local W = 320
 local H = 240
@@ -146,8 +146,6 @@ local TILE = 8
 local SS = 16
 
 -- 0=empty 1=wall 2=dot 3=power 4=ghostdoor 5=tunnel
--- Lua tables are 1-indexed, but we use 0-indexed access for consistency
--- We'll store as 1-indexed and adjust access
 local M = {
   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
   {1,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,1},
@@ -209,11 +207,14 @@ local levelClearTimer = 0
 local modeTimer = 0
 local globalMode = "scatter"
 
--- Pac-Man
+-- Pac-Man game state (non-ECS fields)
 local pac = {}
 
--- Ghosts (0-indexed array for consistency with directions)
+-- Ghost game state table (indexed 0-3, holds AI/movement data)
 local ghosts = {}
+
+-- ECS entity references
+local pacEntity = nil
 
 -- Helper: get maze value (0-indexed col/row)
 local function mval(c, r)
@@ -252,16 +253,6 @@ end
 local function dist2(c1, r1, c2, r2)
   return (c1 - c2) * (c1 - c2) + (r1 - r2) * (r1 - r2)
 end
-
-local function circCollide(ax, ay, ar, bx, by, br)
-  local dx = ax - bx
-  local dy = ay - by
-  local rr = ar + br
-  return dx * dx + dy * dy < rr * rr
-end
-
-local function entityCX(px) return MX + px + TILE / 2 end
-local function entityCY(py) return MY + py + TILE / 2 end
 
 -- Sound helpers
 local sndQueue = {}
@@ -332,6 +323,96 @@ local function parseMaze()
   end
 end
 
+-- Compute the correct sprite for Pac-Man based on current state
+local function pacSpriteId()
+  if not pac.mouthOpen then
+    return 2
+  elseif pac.dir == 0 then
+    return 1
+  elseif pac.dir == 2 then
+    return 1  -- flipX handled separately
+  elseif pac.dir == 3 then
+    return 3
+  else
+    return 4
+  end
+end
+
+-- Compute the correct sprite for a ghost based on current state
+local function ghostSpriteId(g)
+  if g.eaten then
+    return 15
+  elseif powerTimer > 0 then
+    if powerTimer < 90 and frame() % 10 < 5 then
+      return g.sprId
+    else
+      return 14
+    end
+  else
+    return g.sprId
+  end
+end
+
+-- Screen coordinate helpers
+local function screenX(px) return MX + px - SPR_OFF end
+local function screenY(py) return MY + py - SPR_OFF end
+
+-- Spawn ECS entities for pac-man and ghosts
+local function spawnEntities()
+  -- Spawn Pac-Man entity
+  pacEntity = spawn({
+    group = "pacman",
+    pos = { x = screenX(pac.px), y = screenY(pac.py) },
+    sprite = pacSpriteId(),
+    hitbox = { r = PAC_R },
+    flipX = (pac.dir == 2),
+  })
+
+  -- Spawn ghost entities
+  for i = 0, 3 do
+    local g = ghosts[i]
+    g.entity = spawn({
+      group = "ghost",
+      pos = { x = screenX(g.px), y = screenY(g.py) },
+      sprite = ghostSpriteId(g),
+      hitbox = { r = GHOST_R },
+      idx = i,
+    })
+  end
+
+  -- Register collision handlers
+  onCollide("pacman", "ghost", function(p, g)
+    if not pac.alive then return end
+    -- Find which ghost this entity belongs to
+    local ghost = nil
+    for i = 0, 3 do
+      if ghosts[i].entity == g then
+        ghost = ghosts[i]
+        break
+      end
+    end
+    if not ghost or ghost.eaten then return end
+
+    if powerTimer > 0 then
+      ghost.eaten = true
+      ghostEatCombo = ghostEatCombo + 1
+      score = score + 200 * (2 ^ (ghostEatCombo - 1))
+      sndGhost()
+    else
+      pac.alive = false
+      deathTimer = 60
+      sndDeath()
+    end
+  end)
+
+  onCollide("pacman", "fruit", function(p, f)
+    score = score + 100
+    fruit = nil
+    kill(f)
+    sndFruit()
+  end)
+end
+
 local function resetPositions()
   powerTimer = 0
   ghostEatCombo = 0
@@ -354,6 +435,13 @@ local function resetPositions()
     [2] = { col = 9, row = 9, px = 9*TILE, py = 9*TILE, dir = 0, sprId = 12, homeCol = 19, homeRow = 20, inPen = true, eaten = false, exitTimer = 180 },
     [3] = { col = 11, row = 9, px = 11*TILE, py = 9*TILE, dir = 0, sprId = 13, homeCol = 1, homeRow = 20, inPen = true, eaten = false, exitTimer = 250 },
   }
+
+  -- Kill all existing ECS entities and respawn
+  killAll("pacman")
+  killAll("ghost")
+  killAll("fruit")
+  clearCollisions()
+  spawnEntities()
 end
 
 local function pacSpeed()
@@ -497,13 +585,6 @@ local function updatePac()
         end
       end
     end
-
-    -- Eat fruit
-    if fruit and pac.col == fruit.col and pac.row == fruit.row then
-      score = score + 100
-      fruit = nil
-      sndFruit()
-    end
   end
 
   if pac.moving then
@@ -519,6 +600,14 @@ local function updatePac()
     pac.mouthTimer = 0
     pac.mouthOpen = not pac.mouthOpen
   end
+
+  -- Update ECS entity position and sprite
+  if pacEntity then
+    pacEntity.pos.x = screenX(pac.px)
+    pacEntity.pos.y = screenY(pac.py)
+    pacEntity.sprite = pacSpriteId()
+    pacEntity.flipX = (pac.dir == 2)
+  end
 end
 
 -- Update ghosts
@@ -529,9 +618,6 @@ local function updateGhosts()
   elseif modeTimer < 1020 then globalMode = "scatter"
   else globalMode = "chase" end
   if modeTimer > 1620 then modeTimer = 810 end
-
-  local pcx = entityCX(pac.px)
-  local pcy = entityCY(pac.py)
 
   for i = 0, 3 do
     local g = ghosts[i]
@@ -546,11 +632,23 @@ local function updateGhosts()
         g.dir = 2
       else
         g.py = g.row * TILE + math.sin(frame() * 0.15) * 2
+        -- Update ECS entity position and sprite
+        if g.entity then
+          g.entity.pos.x = screenX(g.px)
+          g.entity.pos.y = screenY(g.py)
+          g.entity.sprite = ghostSpriteId(g)
+        end
         goto continue_ghost
       end
     end
 
-    if speed <= 0 then goto continue_ghost end
+    if speed <= 0 then
+      -- Update ECS entity sprite even when not moving
+      if g.entity then
+        g.entity.sprite = ghostSpriteId(g)
+      end
+      goto continue_ghost
+    end
 
     do
       local atX = abs(g.px - g.col * TILE) < speed + 0.01
@@ -569,6 +667,12 @@ local function updateGhosts()
           g.exitTimer = 30
           g.col = 10; g.row = 9
           g.px = g.col * TILE; g.py = g.row * TILE
+          -- Update ECS entity
+          if g.entity then
+            g.entity.pos.x = screenX(g.px)
+            g.entity.pos.y = screenY(g.py)
+            g.entity.sprite = ghostSpriteId(g)
+          end
           goto continue_ghost
         end
 
@@ -590,22 +694,11 @@ local function updateGhosts()
       if g.py < ty then g.py = math.min(g.py + speed, ty)
       elseif g.py > ty then g.py = math.max(g.py - speed, ty) end
 
-      -- Circle collision with Pac-Man
-      if pac.alive and not g.eaten then
-        local gcx = entityCX(g.px)
-        local gcy = entityCY(g.py)
-        if circCollide(pcx, pcy, PAC_R, gcx, gcy, GHOST_R) then
-          if powerTimer > 0 then
-            g.eaten = true
-            ghostEatCombo = ghostEatCombo + 1
-            score = score + 200 * (2 ^ (ghostEatCombo - 1))
-            sndGhost()
-          else
-            pac.alive = false
-            deathTimer = 60
-            sndDeath()
-          end
-        end
+      -- Update ECS entity position and sprite
+      if g.entity then
+        g.entity.pos.x = screenX(g.px)
+        g.entity.pos.y = screenY(g.py)
+        g.entity.sprite = ghostSpriteId(g)
       end
     end
 
@@ -643,15 +736,24 @@ local function updatePlay()
   updatePac()
   updateGhosts()
 
-  -- Fruit
+  -- Fruit spawning via ECS
   fruitTimer = fruitTimer + 1
   if not fruit and fruitTimer > 300 + flr(rnd(300)) then
     fruit = { col = 10, row = 13, timer = 300 }
+    fruit.entity = spawn({
+      group = "fruit",
+      pos = { x = screenX(fruit.col * TILE), y = screenY(fruit.row * TILE) },
+      sprite = 20,
+      hitbox = { r = PAC_R },
+    })
     fruitTimer = 0
   end
   if fruit then
     fruit.timer = fruit.timer - 1
-    if fruit.timer <= 0 then fruit = nil end
+    if fruit.timer <= 0 then
+      if fruit.entity then kill(fruit.entity) end
+      fruit = nil
+    end
   end
 
   -- Level clear
@@ -702,57 +804,16 @@ local function drawDots()
   end
 end
 
-local function drawPac()
-  local sx = MX + pac.px - SPR_OFF
-  local sy = MY + pac.py - SPR_OFF
-
-  if not pac.alive then
+-- Death animation drawn manually (pac-man entity is hidden during death)
+local function drawPacDeath()
+  if not pac.alive and deathTimer > 0 then
     local f = 60 - deathTimer
     local r = math.max(0, 4 - flr(f / 8))
-    if r > 0 then circf(entityCX(pac.px), entityCY(pac.py), r, 3) end
-    return
-  end
-
-  if not pac.mouthOpen then
-    sprT(2, sx, sy)
-  elseif pac.dir == 0 then
-    sprT(1, sx, sy)
-  elseif pac.dir == 2 then
-    sprT(1, sx, sy, true)
-  elseif pac.dir == 3 then
-    sprT(3, sx, sy)
-  else
-    sprT(4, sx, sy)
-  end
-
-  dbgC(entityCX(pac.px), entityCY(pac.py), PAC_R)
-end
-
-local function drawGhosts()
-  for i = 0, 3 do
-    local g = ghosts[i]
-    local sx = MX + g.px - SPR_OFF
-    local sy = MY + g.py - SPR_OFF
-
-    if g.eaten then
-      sprT(15, sx, sy)
-    elseif powerTimer > 0 then
-      if powerTimer < 90 and frame() % 10 < 5 then
-        sprT(g.sprId, sx, sy)
-      else
-        sprT(14, sx, sy)
-      end
-    else
-      sprT(g.sprId, sx, sy)
+    if r > 0 then
+      local cx = MX + pac.px + TILE / 2
+      local cy = MY + pac.py + TILE / 2
+      circf(cx, cy, r, 3)
     end
-
-    dbgC(entityCX(g.px), entityCY(g.py), GHOST_R)
-  end
-end
-
-local function drawFruit()
-  if fruit then
-    sprT(20, MX + fruit.col * TILE - SPR_OFF, MY + fruit.row * TILE - SPR_OFF)
   end
 end
 
@@ -827,6 +888,15 @@ function play_init()
 end
 
 function play_update()
+  -- Hide pac-man entity during death (ECS still draws it otherwise)
+  if pacEntity then
+    if not pac.alive then
+      -- Move off-screen so ECS doesn't render it visibly
+      pacEntity.pos.x = -100
+      pacEntity.pos.y = -100
+    end
+  end
+
   updatePlay()
 end
 
@@ -834,9 +904,9 @@ function play_draw()
   cls(0)
   drawMaze()
   drawDots()
-  drawFruit()
-  drawPac()
-  drawGhosts()
+  -- ECS auto-draws pacman, ghost, and fruit entities (via pos+sprite)
+  -- Death animation is special-cased
+  drawPacDeath()
   drawHUD()
 
   if readyTimer > 0 then
