@@ -1144,8 +1144,8 @@ end
 ---------------------------------------------------------------
 -- TILEMAP TEST STATE
 ---------------------------------------------------------------
-local TMAP_W = 20
-local TMAP_H = 15
+local TMAP_W = 40
+local TMAP_H = 30
 local tmapCurX = 0
 local tmapCurY = 0
 local tmapBlink = 0
@@ -1157,10 +1157,12 @@ local TMAP_TILE_NAMES = {"EMPTY", "WALL", "FLOOR", "DECO"}
 local tmapTileSprIds = {}  -- filled at init
 
 local function tilemapInit()
-  tmapCurX = 0
-  tmapCurY = 0
+  tmapCurX = 1
+  tmapCurY = 1
   tmapBlink = 0
   tmapSelectedTile = 1
+  tmapMoveDelay = 0
+  cam_reset()
   tmapTileSprIds[0] = 0
   tmapTileSprIds[1] = sprite_id("tile_wall")
   tmapTileSprIds[2] = sprite_id("tile_floor")
@@ -1183,8 +1185,11 @@ local function tilemapInit()
   mset(8, 12, tmapTileSprIds[3])
 end
 
+local tmapMoveDelay = 0
+
 local function tilemapUpdate()
   tmapBlink = tmapBlink + 1
+  if tmapMoveDelay > 0 then tmapMoveDelay = tmapMoveDelay - 1 end
 
   -- B hold: open palette, arrows navigate palette
   if btn("b") then
@@ -1193,23 +1198,10 @@ local function tilemapUpdate()
       tmapPalCur = tmapSelectedTile
       note(0, "E5", 0.03)
     end
-    -- Navigate palette with arrows
-    if btnp("left") then
-      tmapPalCur = (tmapPalCur - 1) % 4
-      note(0, "G5", 0.02)
-    end
-    if btnp("right") then
-      tmapPalCur = (tmapPalCur + 1) % 4
-      note(0, "G5", 0.02)
-    end
-    if btnp("up") then
-      tmapPalCur = (tmapPalCur - 1) % 4
-      note(0, "G5", 0.02)
-    end
-    if btnp("down") then
-      tmapPalCur = (tmapPalCur + 1) % 4
-      note(0, "G5", 0.02)
-    end
+    if btnp("left") then tmapPalCur = (tmapPalCur - 1) % 4 end
+    if btnp("right") then tmapPalCur = (tmapPalCur + 1) % 4 end
+    if btnp("up") then tmapPalCur = (tmapPalCur - 1) % 4 end
+    if btnp("down") then tmapPalCur = (tmapPalCur + 1) % 4 end
   else
     -- B released: confirm selection
     if tmapPaletteOpen then
@@ -1218,30 +1210,50 @@ local function tilemapUpdate()
       note(0, "C5", 0.04)
     end
 
-    -- Normal cursor movement (only when palette closed)
-    if btnp("up") and tmapCurY > 0 then
-      tmapCurY = tmapCurY - 1
-      note(0, "G5", 0.02)
-    end
-    if btnp("down") and tmapCurY < TMAP_H - 1 then
-      tmapCurY = tmapCurY + 1
-      note(0, "G5", 0.02)
-    end
-    if btnp("left") and tmapCurX > 0 then
-      tmapCurX = tmapCurX - 1
-      note(0, "G5", 0.02)
-    end
-    if btnp("right") and tmapCurX < TMAP_W - 1 then
-      tmapCurX = tmapCurX + 1
-      note(0, "G5", 0.02)
+    -- Cursor movement (hold to move continuously)
+    local moved = false
+    if tmapMoveDelay <= 0 then
+      if btn("up") and tmapCurY > 0 then tmapCurY = tmapCurY - 1; moved = true end
+      if btn("down") and tmapCurY < TMAP_H - 1 then tmapCurY = tmapCurY + 1; moved = true end
+      if btn("left") and tmapCurX > 0 then tmapCurX = tmapCurX - 1; moved = true end
+      if btn("right") and tmapCurX < TMAP_W - 1 then tmapCurX = tmapCurX + 1; moved = true end
+      if moved then
+        tmapMoveDelay = btnp("up") or btnp("down") or btnp("left") or btnp("right") and 8 or 3
+      end
     end
 
-    -- A places the selected tile at cursor
-    if btnp("a") then
+    -- A places the selected tile at cursor (hold to paint)
+    if btn("a") then
       mset(tmapCurX, tmapCurY, tmapTileSprIds[tmapSelectedTile])
-      note(0, "C5", 0.04)
     end
   end
+
+  -- Camera follows cursor with deadzone (50% of screen)
+  local cx, cy = cam_get()
+  local curPixX = tmapCurX * SS + 8
+  local curPixY = tmapCurY * SS + 8
+  local screenX = curPixX - cx
+  local screenY = curPixY - cy
+  local dzX = W * 0.25  -- deadzone = 50% of screen (25% each side from center)
+  local dzY = H * 0.25
+  local centerX = W / 2
+  local centerY = H / 2
+
+  if screenX < centerX - dzX then cx = cx - (centerX - dzX - screenX) end
+  if screenX > centerX + dzX then cx = cx + (screenX - centerX - dzX) end
+  if screenY < centerY - dzY then cy = cy - (centerY - dzY - screenY) end
+  if screenY > centerY + dzY then cy = cy + (screenY - centerY - dzY) end
+
+  -- Clamp
+  if cx < 0 then cx = 0 end
+  if cy < 0 then cy = 0 end
+  local maxX = TMAP_W * SS - W
+  local maxY = TMAP_H * SS - H
+  if maxX < 0 then maxX = 0 end
+  if maxY < 0 then maxY = 0 end
+  if cx > maxX then cx = maxX end
+  if cy > maxY then cy = maxY end
+  cam(cx, cy)
 end
 
 local function tilemapDraw()
@@ -1266,33 +1278,43 @@ local function tilemapDraw()
 
   local selName = TMAP_TILE_NAMES[tmapSelectedTile + 1]
 
+  -- HUD (screen space — reset camera)
+  local hcx, hcy = cam_get()
+  cam(0, 0)
   rectf(0, H - 34, W, 34, 0)
-  text("TILEMAP " .. TMAP_W .. "x" .. TMAP_H, 4, H - 32, 3)
-  text("BRUSH: " .. selName, 100, H - 32, 3)
-  -- Draw selected tile preview
   if tmapTileSprIds[tmapSelectedTile] ~= 0 then
     sprT(tmapTileSprIds[tmapSelectedTile], 160, H - 34)
   end
+  cam(hcx, hcy)
+  text("TILEMAP " .. TMAP_W .. "x" .. TMAP_H, 4, H - 32, 3)
+  text("BRUSH: " .. selName, 100, H - 32, 3)
   text("POS:" .. tmapCurX .. "," .. tmapCurY .. " TILE:" .. tileName .. " ID:" .. curTile, 4, H - 20, 2)
-  text("[A] PLACE  [HOLD B] PALETTE  [START] MENU", 4, H - 10, 1)
+  text("[A] PAINT  [HOLD B] PALETTE  [START] MENU", 4, H - 10, 1)
 
-  -- Palette overlay (when B held)
+  -- Palette overlay (when B held) — screen space
   if tmapPaletteOpen then
+    local pcx, pcy = cam_get()
+    cam(0, 0)
     local palX = W - 80
     local palY = H - 100
     rectf(palX - 4, palY - 4, 76, 92, 0)
     rect(palX - 4, palY - 4, 76, 92, 3)
-    text("PALETTE", palX + 4, palY, 3)
     for i = 0, 3 do
       local py = palY + 14 + i * 18
       local selected = (tmapPalCur == i)
       if selected then
         rectf(palX, py - 1, 68, 16, 1)
-        text(">", palX + 2, py + 2, 3)
       end
       if tmapTileSprIds[i] ~= 0 then
         sprT(tmapTileSprIds[i], palX + 12, py)
       end
+    end
+    cam(pcx, pcy)
+    text("PALETTE", palX + 4, palY, 3)
+    for i = 0, 3 do
+      local py = palY + 14 + i * 18
+      local selected = (tmapPalCur == i)
+      if selected then text(">", palX + 2, py + 2, 3) end
       text(TMAP_TILE_NAMES[i + 1], palX + 30, py + 4, selected and 3 or 2)
     end
   end
