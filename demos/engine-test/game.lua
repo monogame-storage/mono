@@ -1749,12 +1749,15 @@ local function rpgDraw()
 
   text("[START] MENU", 4, H - 10, 1)
 
-  -- Dialog box
+  -- Dialog box (drawn in screen space — reset camera temporarily)
   if rpgDialogActive then
+    local cx, cy = cam_get()
+    cam(0, 0)
     rectf(20, H - 70, W - 40, 50, 0)
     rect(20, H - 70, W - 40, 50, 3)
     rect(21, H - 69, W - 42, 48, 2)
-    -- Split text by newline
+    cam(cx, cy)
+    -- text is camera-independent so no need to reset for it
     local lineY = 0
     for dline in rpgDialogText:gmatch("[^\n]+") do
       text(dline, 30, H - 62 + lineY, 3)
