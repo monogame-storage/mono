@@ -1984,36 +1984,35 @@ local function bsEnemySprName(state)
   return "thug_idle"
 end
 
-local function bsSyncPlayerECS()
-  -- Kill old entity and re-spawn (handles invincibility blink)
-  if bsPlayerEntId then kill(bsPlayerEntId); bsPlayerEntId = nil end
+local function bsSyncPlayerVis()
   local p = bsPlayer
-  if not p then return end
-  -- During invincibility blink, skip some frames (no entity = no draw)
+  if not p or not bsPlayerEntId then return end
+  -- Invincibility blink: hide sprite on odd frames, show on even
+  local visible = true
   if p.invincible > 0 and flr(p.invincible / 2) % 2 ~= 0 then
-    return
+    visible = false
   end
   local bob = 0
   if p.state == "walk" then
     bob = flr(math.sin(bsFrame * 0.3) * 2)
   end
-  bsPlayerEntId = spawn({
-    group = "bsplayer",
-    pos = { x = p.x, y = p.y + bob },
-    sprite = sprite_id(bsPlayerSprName(p.state)),
-    hitbox = { w = 12, h = 16, ox = -6, oy = -8 },
-    anchor_x = 0.5, anchor_y = 0.5,
-    flipX = (p.facing < 0),
-    z = p.y,
-  })._id
+  if visible then
+    ecs_set(bsPlayerEntId, "sprite", sprite_id(bsPlayerSprName(p.state)))
+  else
+    ecs_set(bsPlayerEntId, "sprite", 0)
+  end
+  ecs_set(bsPlayerEntId, "x", p.x)
+  ecs_set(bsPlayerEntId, "y", p.y + bob)
+  ecs_set(bsPlayerEntId, "flipX", (p.facing < 0))
+  ecs_set(bsPlayerEntId, "z", p.y)
 end
 
-local function bsSyncEnemyECS(e, idx)
-  -- Kill old entity and re-spawn
-  if e.entId then kill(e.entId); e.entId = nil end
-  -- Flash: skip draw frames
+local function bsSyncEnemyVis(e, idx)
+  if not e.entId then return end
+  -- Flash: hide sprite on flash frames, show otherwise
+  local visible = true
   if e.flashTimer > 0 and flr(e.flashTimer / 2) % 2 == 0 then
-    return
+    visible = false
   end
   local bob = 0
   if e.state == "walk" then
@@ -2027,15 +2026,15 @@ local function bsSyncEnemyECS(e, idx)
   else
     drawY = e.y + bob
   end
-  e.entId = spawn({
-    group = "bsenemy",
-    pos = { x = e.x, y = drawY },
-    sprite = sprite_id(bsEnemySprName(e.state)),
-    hitbox = { w = 14, h = 20, ox = -7, oy = -10 },
-    anchor_x = 0.5, anchor_y = 0.5,
-    flipX = (e.facing < 0),
-    z = e.y,
-  })._id
+  if visible then
+    ecs_set(e.entId, "sprite", sprite_id(bsEnemySprName(e.state)))
+  else
+    ecs_set(e.entId, "sprite", 0)
+  end
+  ecs_set(e.entId, "x", e.x)
+  ecs_set(e.entId, "y", drawY)
+  ecs_set(e.entId, "flipX", (e.facing < 0))
+  ecs_set(e.entId, "z", e.y)
 end
 
 local function bsMakeEnemy(kind, x, y)
@@ -2067,7 +2066,16 @@ local function bsSpawnZone(zone)
   for i, sp in ipairs(z.spawns) do
     local e = bsMakeEnemy(sp.kind, sp.x, sp.y)
     bsEnemies[#bsEnemies + 1] = e
-    bsSyncEnemyECS(e, #bsEnemies)
+    e.entId = spawn({
+      group = "bsenemy",
+      pos = { x = e.x, y = e.y },
+      sprite = sprite_id(bsEnemySprName(e.state)),
+      hitbox = { w = 14, h = 20, ox = -7, oy = -10 },
+      anchor_x = 0.5, anchor_y = 0.5,
+      flipX = (e.facing < 0),
+      z = e.y,
+    })
+    bsSyncEnemyVis(e, #bsEnemies)
   end
   bsZoneActive = true
   bsZoneCleared = false
@@ -2101,7 +2109,6 @@ local function bsInit()
     state = "idle",
     invincible = 60,
   }
-  bsPlayerEntId = nil
   bsEnemies = {}
   bsFrame = 0
   bsCamX = 0
@@ -2127,6 +2134,17 @@ local function bsInit()
   killAll("bsattack")
   killAll("bsknife")
   killAll("bsfx")
+
+  -- Spawn player entity ONCE
+  bsPlayerEntId = spawn({
+    group = "bsplayer",
+    pos = { x = bsPlayer.x, y = bsPlayer.y },
+    sprite = sprite_id(bsPlayerSprName(bsPlayer.state)),
+    hitbox = { w = 12, h = 16, ox = -6, oy = -8 },
+    anchor_x = 0.5, anchor_y = 0.5,
+    flipX = (bsPlayer.facing < 0),
+    z = bsPlayer.y,
+  })
 
   -- Callback mode: entities NOT auto-killed
   onCollide("bsattack", "bsenemy", function(atk, enemy)
@@ -2186,8 +2204,8 @@ local function bsUpdate()
   if bsFreezeTimer > 0 then
     bsFreezeTimer = bsFreezeTimer - 1
     -- Still sync ECS visuals during freeze
-    bsSyncPlayerECS()
-    for i, e in ipairs(bsEnemies) do bsSyncEnemyECS(e, i) end
+    bsSyncPlayerVis()
+    for i, e in ipairs(bsEnemies) do bsSyncEnemyVis(e, i) end
     return
   end
 
@@ -2198,15 +2216,15 @@ local function bsUpdate()
   -- Stage clear state
   if bsStageClear then
     bsStageClearTimer = bsStageClearTimer + 1
-    bsSyncPlayerECS()
-    for i, e in ipairs(bsEnemies) do bsSyncEnemyECS(e, i) end
+    bsSyncPlayerVis()
+    for i, e in ipairs(bsEnemies) do bsSyncEnemyVis(e, i) end
     return
   end
 
   -- Win/dead state
   if bsWin or bsPlayer.hp <= 0 then
-    bsSyncPlayerECS()
-    for i, e in ipairs(bsEnemies) do bsSyncEnemyECS(e, i) end
+    bsSyncPlayerVis()
+    for i, e in ipairs(bsEnemies) do bsSyncEnemyVis(e, i) end
     return
   end
 
@@ -2333,7 +2351,8 @@ local function bsUpdate()
       e.x = e.x + e.vx * 0.8
       e.vx = e.vx * 0.9
       if e.koTimer <= 0 then
-        if e.entId then kill(e.entId); e.entId = nil end
+        if e.entId then kill(e.entId) end
+        e.entId = nil
         table.remove(bsEnemies, i)
       end
     elseif e.state == "stagger" then
@@ -2445,9 +2464,9 @@ local function bsUpdate()
   end
 
   -- Sync all ECS entities with game state
-  bsSyncPlayerECS()
+  bsSyncPlayerVis()
   for i, e in ipairs(bsEnemies) do
-    bsSyncEnemyECS(e, i)
+    bsSyncEnemyVis(e, i)
   end
 
   -- Check zone completion

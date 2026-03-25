@@ -217,4 +217,28 @@ spawn({group="player", pos={x=100,y=180}, sprite=sprId, hitbox={w=12,h=16}})
 
 ---
 
+## 12. Kill/respawn entities every frame instead of updating properties
+**Symptom:** Ghost images / afterimages of entities, performance degradation
+**Cause:** AI decides to kill and re-spawn ECS entities every frame to "update" their position/sprite, because it doesn't know about ecs_set()
+**Fix:** Spawn once, store ID, use ecs_set() to update per frame
+```lua
+-- BAD: kill and respawn every frame (causes afterimages)
+function update()
+  kill(playerId)
+  playerId = spawn({group="player", pos={x=px, y=py}, sprite=sprId})
+end
+
+-- GOOD: spawn once, update properties
+function play_init()
+  playerId = spawn({group="player", pos={x=px, y=py}, sprite=sprId})
+end
+function play_update()
+  ecs_set(playerId, "x", px)
+  ecs_set(playerId, "y", py)
+  ecs_set(playerId, "sprite", newSprId)
+end
+```
+
+---
+
 *Add new entries as bugs are discovered. Format: Symptom → Cause → Fix with code examples.*
