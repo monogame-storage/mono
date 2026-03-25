@@ -320,6 +320,9 @@ local MODE_RPG = 7
 
 local currentMode = MODE_MENU
 local menuCursor = 0
+local menuRepeatTimer = 0
+local menuRepeatFirst = 10  -- frames before repeat starts
+local menuRepeatRate = 4    -- frames between repeats
 local menuItems = { "SHOOTER", "CAMERA", "SPRITES", "INPUT", "SOUND", "TILEMAP", "MINI RPG" }
 local titleBlink = 0
 
@@ -1895,14 +1898,30 @@ end
 
 function play_update()
   if currentMode == MODE_MENU then
-    -- Menu navigation
-    if btnp("up") then
-      menuCursor = menuCursor - 1
-      if menuCursor < 0 then menuCursor = #menuItems - 1 end
-      note(0, "G5", 0.03)
+    -- Menu navigation with key repeat
+    local menuMoved = false
+    local dir = 0
+    if btn("up") then dir = -1
+    elseif btn("down") then dir = 1 end
+
+    if dir ~= 0 then
+      if btnp("up") or btnp("down") then
+        menuMoved = true
+        menuRepeatTimer = menuRepeatFirst
+      else
+        menuRepeatTimer = menuRepeatTimer - 1
+        if menuRepeatTimer <= 0 then
+          menuMoved = true
+          menuRepeatTimer = menuRepeatRate
+        end
+      end
+    else
+      menuRepeatTimer = 0
     end
-    if btnp("down") then
-      menuCursor = menuCursor + 1
+
+    if menuMoved then
+      menuCursor = menuCursor + dir
+      if menuCursor < 0 then menuCursor = #menuItems - 1 end
       if menuCursor >= #menuItems then menuCursor = 0 end
       note(0, "G5", 0.03)
     end
