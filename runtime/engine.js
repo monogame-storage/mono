@@ -365,7 +365,7 @@ const Mono = (() => {
       const c=s[sy*SS+sx], dx=x+px, dy=y+py;
       if(dx>=0&&dx<W&&dy>=0&&dy<H) buf32[dy*W+dx]=COLOR_U32[c];
     }
-    if(debugSprite) debugSprBoxes.push({x:x,y:y});
+    if(debugSprite) debugSprBoxes.push({x:x,y:y,w:SPR_SIZE,h:SPR_SIZE});
   }
   function sprT(id, x, y, flipX, flipY) {
     const s=sprites[id]; if(!s) return;
@@ -377,7 +377,7 @@ const Mono = (() => {
       const dx=x+px, dy=y+py;
       if(dx>=0&&dx<W&&dy>=0&&dy<H) buf32[dy*W+dx]=COLOR_U32[c];
     }
-    if(debugSprite) debugSprBoxes.push({x:x,y:y});
+    if(debugSprite) debugSprBoxes.push({x:x,y:y,w:SPR_SIZE,h:SPR_SIZE});
   }
   function sprScale(id, cx, cy, scale, flipX, flipY) {
     const s = sprites[id]; if (!s) return;
@@ -399,7 +399,7 @@ const Mono = (() => {
         if (dx >= 0 && dx < W && dy >= 0 && dy < H) buf32[dy * W + dx] = COLOR_U32[c];
       }
     }
-    if (debugSprite) debugSprBoxes.push({x: cx - Math.floor(scaledHalf), y: cy - Math.floor(scaledHalf)});
+    if (debugSprite) { const bsz = Math.ceil(scaledHalf * 2); debugSprBoxes.push({x: cx - Math.floor(scaledHalf), y: cy - Math.floor(scaledHalf), w: bsz, h: bsz}); }
   }
   function sprRot(id, cx, cy, angle) {
     const s = sprites[id]; if (!s) return;
@@ -415,7 +415,7 @@ const Mono = (() => {
         if (dx >= 0 && dx < W && dy >= 0 && dy < H) buf32[dy * W + dx] = COLOR_U32[c];
       }
     }
-    if(debugSprite) debugSprBoxes.push({x:Math.floor(cx+camOX)-Math.floor(SS/2),y:Math.floor(cy+camOY)-Math.floor(SS/2)});
+    if(debugSprite) debugSprBoxes.push({x:Math.floor(cx+camOX)-Math.floor(SS/2),y:Math.floor(cy+camOY)-Math.floor(SS/2),w:SS,h:SS});
   }
   function gpix(x, y) {
     x = Math.floor(x); y = Math.floor(y);
@@ -448,7 +448,7 @@ const Mono = (() => {
         const fx = dx + px, fy = dy + py;
         if (fx >= 0 && fx < W && fy >= 0 && fy < H) buf32[fy * W + fx] = COLOR_U32[c];
       }
-      if (debugSprite) debugSprBoxes.push({x: dx, y: dy});
+      if (debugSprite) debugSprBoxes.push({x: dx, y: dy, w: SS, h: SS});
     } else {
       // Full path: rotation + scale
       const cosA = Math.cos(r), sinA = Math.sin(r);
@@ -464,7 +464,11 @@ const Mono = (() => {
           if (fx >= 0 && fx < W && fy >= 0 && fy < H) buf32[fy * W + fx] = COLOR_U32[c];
         }
       }
-      if (debugSprite) debugSprBoxes.push({x: Math.floor(x - ox * sx), y: Math.floor(y - oy * sy)});
+      if (debugSprite) {
+        const bw = Math.ceil(SS * Math.abs(sx));
+        const bh = Math.ceil(SS * Math.abs(sy));
+        debugSprBoxes.push({x: Math.floor(x - ox * sx), y: Math.floor(y - oy * sy), w: bw, h: bh});
+      }
     }
   }
 
@@ -1020,14 +1024,14 @@ const Mono = (() => {
     if (debugSprite) {
       const sr = 255, sg = 0, sb = 255, sa = 0.7;
       for (const s of debugSprBoxes) {
-        const ss = SPR_SIZE;
-        for (let px = s.x; px < s.x + ss; px++) {
+        const sw = s.w || SPR_SIZE, sh = s.h || SPR_SIZE;
+        for (let px = s.x; px < s.x + sw; px++) {
           debugPix(px, s.y, sr, sg, sb, sa);
-          debugPix(px, s.y + ss - 1, sr, sg, sb, sa);
+          debugPix(px, s.y + sh - 1, sr, sg, sb, sa);
         }
-        for (let py = s.y; py < s.y + ss; py++) {
+        for (let py = s.y; py < s.y + sh; py++) {
           debugPix(s.x, py, sr, sg, sb, sa);
-          debugPix(s.x + ss - 1, py, sr, sg, sb, sa);
+          debugPix(s.x + sw - 1, py, sr, sg, sb, sa);
         }
       }
       labelX = drawDebugLabel("2:SPRITE", labelX, 0xFFFF00FF) + 6;

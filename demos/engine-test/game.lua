@@ -678,12 +678,16 @@ local function spritesDraw()
   text("SCALE", demoX - 6, 105, 2)
   local sc = 1 + math.sin(sprTimer * 0.08) * 0.8
   draw(selId, demoX + 8, 125, 0, sc, sc, 8, 8)
+  local scSz = flr(16 * sc)
+  dbg(demoX + 8 - flr(scSz / 2), 125 - flr(scSz / 2), scSz, scSz)
   text(tostring(flr(sc * 100) / 100) .. "x", demoX - 4, 142, 1)
 
   -- 3. Rot+Scale combo (using unified draw)
   text("R+S", demoX - 2, 148, 2)
   local comboSc = 0.8 + math.sin(sprTimer * 0.1) * 0.4
   draw(selId, demoX + 8, 168, sprTimer * 0.04, comboSc, comboSc, 8, 8)
+  local csSz = flr(16 * comboSc)
+  dbgC(demoX + 8, 168, flr(csSz / 2))
 
   -- === Static demos (left side) ===
   local leftX = 20
