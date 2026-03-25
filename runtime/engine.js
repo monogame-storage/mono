@@ -996,78 +996,51 @@ const Mono = (() => {
     if (x >= 0 && x < W && y >= 0 && y < H) blendPixel(y * W + x, r, g, b, a);
   }
 
-  // Gamepad overlay — NES-style pad visualization
+  // Gamepad overlay — NES-style pad visualization (key 4)
   let debugPad = false;
   function drawPadOverlay() {
     if (!debugPad) return;
     const a = 0.6;
-    const onR = 255, onG = 255, onB = 255;   // white when pressed
-    const offR = 80, offG = 80, offB = 80;    // dark gray when idle
-    const bgR = 20, bgG = 20, bgB = 20;       // background
+    const onR = 255, onG = 255, onB = 255;
+    const offR = 80, offG = 80, offB = 80;
+    const bgR = 20, bgG = 20, bgB = 20;
+    const S = 3; // button size (matches d-pad cell)
+    const G = 1; // gap between elements
 
-    // Position: bottom-right corner
-    const bx = W - 82, by = H - 28;
+    // Layout:  [D-PAD]  [SE][ST]  [B][A]
+    // Total width: 9 + 3 + 3+1+3 + 3 + 3+1+3 = ~32
+    const totalW = 34, totalH = S * 3 + 4;
+    const bx = W - totalW - 2, by = H - totalH - 2;
 
-    // Background bar
-    for (let py = by - 2; py < by + 18; py++)
-      for (let px = bx - 2; px < W; px++)
+    // Background
+    for (let py = by - 1; py < by + S * 3 + 1; py++)
+      for (let px = bx - 1; px < bx + totalW + 1; px++)
         debugPix(px, py, bgR, bgG, bgB, a);
 
-    // D-pad (cross shape, 3x3 blocks)
-    const dx = bx, dy = by;
-    const dSz = 3;
     const drawBtn = (x, y, w, h, pressed) => {
       const r = pressed ? onR : offR, g = pressed ? onG : offG, b = pressed ? onB : offB;
       for (let py = y; py < y + h; py++)
         for (let px = x; px < x + w; px++)
           debugPix(px, py, r, g, b, a);
     };
-    // D-pad: U D L R
-    drawBtn(dx + dSz, dy, dSz, dSz, keys["up"]);           // Up
-    drawBtn(dx + dSz, dy + dSz * 2, dSz, dSz, keys["down"]); // Down
-    drawBtn(dx, dy + dSz, dSz, dSz, keys["left"]);          // Left
-    drawBtn(dx + dSz * 2, dy + dSz, dSz, dSz, keys["right"]); // Right
-    // Center dot
-    debugPix(dx + dSz + 1, dy + dSz + 1, 40, 40, 40, a);
 
-    // SELECT / START (small horizontal pills)
-    const sx = bx + 18, sy = by + 5;
-    drawBtn(sx, sy, 8, 4, keys["select"]);
-    drawBtn(sx + 12, sy, 8, 4, keys["start"]);
-    // Labels
-    const labelA2 = 0.5;
-    const putChar = (ch, x, y) => {
-      const g = FONT[ch];
-      if (g) for (let py2 = 0; py2 < FONT_H; py2++) for (let px2 = 0; px2 < FONT_W; px2++)
-        if (g[py2 * FONT_W + px2]) debugPix(x + px2, y + py2, 150, 150, 150, labelA2);
-    };
-    putChar("S", sx + 1, sy - 6);
-    putChar("E", sx + 5, sy - 6);
-    putChar("S", sx + 13, sy - 6);
-    putChar("T", sx + 17, sy - 6);
+    // D-pad (3x3 cross)
+    const dx = bx, dy = by;
+    drawBtn(dx + S, dy, S, S, keys["up"]);
+    drawBtn(dx + S, dy + S * 2, S, S, keys["down"]);
+    drawBtn(dx, dy + S, S, S, keys["left"]);
+    drawBtn(dx + S * 2, dy + S, S, S, keys["right"]);
 
-    // B and A buttons (circles)
-    const abY = by + 4;
-    const bX = bx + 52, aX = bx + 66;
-    const bR = 4;
-    // B button
-    {
-      const pressed = keys["b"];
-      const r = pressed ? onR : offR, g = pressed ? onG : offG, b = pressed ? onB : offB;
-      for (let cy = -bR; cy <= bR; cy++)
-        for (let cx = -bR; cx <= bR; cx++)
-          if (cx * cx + cy * cy <= bR * bR) debugPix(bX + cx, abY + cy, r, g, b, a);
-      putChar("B", bX - 2, abY - bR - 7);
-    }
-    // A button
-    {
-      const pressed = keys["a"];
-      const r = pressed ? onR : offR, g = pressed ? onG : offG, b = pressed ? onB : offB;
-      for (let cy = -bR; cy <= bR; cy++)
-        for (let cx = -bR; cx <= bR; cx++)
-          if (cx * cx + cy * cy <= bR * bR) debugPix(aX + cx, abY + cy, r, g, b, a);
-      putChar("A", aX - 2, abY - bR - 7);
-    }
+    // SELECT + START (each S×S, centered vertically)
+    const mx = dx + S * 3 + 3;
+    const my = dy + S; // vertically centered with d-pad middle
+    drawBtn(mx, my, S, S, keys["select"]);
+    drawBtn(mx + S + G, my, S, S, keys["start"]);
+
+    // B + A (each S×S, vertically offset like NES)
+    const ax = mx + (S + G) * 2 + 2;
+    drawBtn(ax, dy + S + 1, S, S, keys["b"]);       // B slightly lower
+    drawBtn(ax + S + G, dy + S - 1, S, S, keys["a"]); // A slightly higher
   }
 
   function drawDebugOverlays() {
