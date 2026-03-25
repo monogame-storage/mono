@@ -1150,6 +1150,8 @@ local tmapCurX = 0
 local tmapCurY = 0
 local tmapBlink = 0
 local tmapSelectedTile = 1  -- index into tmapTileSprIds (0=empty,1=wall,2=floor,3=deco)
+local tmapPaletteOpen = false
+local tmapPalCur = 1  -- cursor in palette
 -- Tile types: 0=empty, 1=wall, 2=floor, 3=decoration
 local TMAP_TILE_NAMES = {"EMPTY", "WALL", "FLOOR", "DECO"}
 local tmapTileSprIds = {}  -- filled at init
@@ -1184,34 +1186,61 @@ end
 local function tilemapUpdate()
   tmapBlink = tmapBlink + 1
 
-  -- Move cursor
-  if btnp("up") and tmapCurY > 0 then
-    tmapCurY = tmapCurY - 1
-    note(0, "G5", 0.02)
-  end
-  if btnp("down") and tmapCurY < TMAP_H - 1 then
-    tmapCurY = tmapCurY + 1
-    note(0, "G5", 0.02)
-  end
-  if btnp("left") and tmapCurX > 0 then
-    tmapCurX = tmapCurX - 1
-    note(0, "G5", 0.02)
-  end
-  if btnp("right") and tmapCurX < TMAP_W - 1 then
-    tmapCurX = tmapCurX + 1
-    note(0, "G5", 0.02)
-  end
+  -- B hold: open palette, arrows navigate palette
+  if btn("b") then
+    if not tmapPaletteOpen then
+      tmapPaletteOpen = true
+      tmapPalCur = tmapSelectedTile
+      note(0, "E5", 0.03)
+    end
+    -- Navigate palette with arrows
+    if btnp("left") then
+      tmapPalCur = (tmapPalCur - 1) % 4
+      note(0, "G5", 0.02)
+    end
+    if btnp("right") then
+      tmapPalCur = (tmapPalCur + 1) % 4
+      note(0, "G5", 0.02)
+    end
+    if btnp("up") then
+      tmapPalCur = (tmapPalCur - 1) % 4
+      note(0, "G5", 0.02)
+    end
+    if btnp("down") then
+      tmapPalCur = (tmapPalCur + 1) % 4
+      note(0, "G5", 0.02)
+    end
+  else
+    -- B released: confirm selection
+    if tmapPaletteOpen then
+      tmapSelectedTile = tmapPalCur
+      tmapPaletteOpen = false
+      note(0, "C5", 0.04)
+    end
 
-  -- B cycles selected tile type
-  if btnp("b") then
-    tmapSelectedTile = (tmapSelectedTile + 1) % 4
-    note(0, "E5", 0.04)
-  end
+    -- Normal cursor movement (only when palette closed)
+    if btnp("up") and tmapCurY > 0 then
+      tmapCurY = tmapCurY - 1
+      note(0, "G5", 0.02)
+    end
+    if btnp("down") and tmapCurY < TMAP_H - 1 then
+      tmapCurY = tmapCurY + 1
+      note(0, "G5", 0.02)
+    end
+    if btnp("left") and tmapCurX > 0 then
+      tmapCurX = tmapCurX - 1
+      note(0, "G5", 0.02)
+    end
+    if btnp("right") and tmapCurX < TMAP_W - 1 then
+      tmapCurX = tmapCurX + 1
+      note(0, "G5", 0.02)
+    end
 
-  -- A places the selected tile at cursor
-  if btnp("a") then
-    mset(tmapCurX, tmapCurY, tmapTileSprIds[tmapSelectedTile])
-    note(0, "C5", 0.04)
+    -- A places the selected tile at cursor
+    if btnp("a") then
+      mset(tmapCurX, tmapCurY, tmapTileSprIds[tmapSelectedTile])
+      note(0, "C5", 0.04)
+    end
   end
 end
 
@@ -1245,7 +1274,29 @@ local function tilemapDraw()
     sprT(tmapTileSprIds[tmapSelectedTile], 160, H - 34)
   end
   text("POS:" .. tmapCurX .. "," .. tmapCurY .. " TILE:" .. tileName .. " ID:" .. curTile, 4, H - 20, 2)
-  text("[A] PLACE  [B] CYCLE  [START] MENU", 4, H - 10, 1)
+  text("[A] PLACE  [HOLD B] PALETTE  [START] MENU", 4, H - 10, 1)
+
+  -- Palette overlay (when B held)
+  if tmapPaletteOpen then
+    local palX = W - 80
+    local palY = H - 100
+    rectf(palX - 4, palY - 4, 76, 92, 0)
+    rect(palX - 4, palY - 4, 76, 92, 3)
+    text("PALETTE", palX + 4, palY, 3)
+    for i = 0, 3 do
+      local py = palY + 14 + i * 18
+      local selected = (tmapPalCur == i)
+      if selected then
+        rectf(palX, py - 1, 68, 16, 1)
+        text(">", palX + 2, py + 2, 3)
+      end
+      if tmapTileSprIds[i] ~= 0 then
+        sprT(tmapTileSprIds[i], palX + 12, py)
+      end
+      text(TMAP_TILE_NAMES[i + 1], palX + 30, py + 4, selected and 3 or 2)
+    end
+  end
+
   drawInputMonitor()
 end
 
