@@ -351,10 +351,29 @@ const Mono = (() => {
   }
 
   // --- Sprites ---
+  const spriteBounds = {}; // id → {x, y, w, h} actual pixel AABB
+
+  function computeSpriteBounds(id) {
+    const s = sprites[id]; if (!s) return;
+    const SS = SPR_SIZE;
+    let minX = SS, minY = SS, maxX = -1, maxY = -1;
+    for (let py = 0; py < SS; py++) for (let px = 0; px < SS; px++) {
+      if (s[py * SS + px] > 0) {
+        if (px < minX) minX = px;
+        if (px > maxX) maxX = px;
+        if (py < minY) minY = py;
+        if (py > maxY) maxY = py;
+      }
+    }
+    if (maxX < 0) { spriteBounds[id] = {x:0, y:0, w:SS, h:SS}; return; }
+    spriteBounds[id] = {x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1};
+  }
+
   function spriteDefine(id, data) {
     const arr = new Uint8Array(256); let i = 0;
     for (const ch of data) { if (ch>='0'&&ch<='3') { arr[i++]=parseInt(ch); if(i>=256) break; } }
     sprites[id] = arr;
+    computeSpriteBounds(id);
   }
   function spr(id, x, y, flipX, flipY) {
     const s=sprites[id]; if(!s) return;
@@ -365,7 +384,7 @@ const Mono = (() => {
       const c=s[sy*SS+sx], dx=x+px, dy=y+py;
       if(dx>=0&&dx<W&&dy>=0&&dy<H) buf32[dy*W+dx]=COLOR_U32[c];
     }
-    if(debugSprite) debugSprBoxes.push({x:x,y:y,w:SPR_SIZE,h:SPR_SIZE});
+    if(debugSprite) { const b=spriteBounds[id]; if(b) debugSprBoxes.push({x:x+b.x,y:y+b.y,w:b.w,h:b.h}); else debugSprBoxes.push({x:x,y:y,w:SS,h:SS}); }
   }
   function sprT(id, x, y, flipX, flipY) {
     const s=sprites[id]; if(!s) return;
@@ -377,7 +396,7 @@ const Mono = (() => {
       const dx=x+px, dy=y+py;
       if(dx>=0&&dx<W&&dy>=0&&dy<H) buf32[dy*W+dx]=COLOR_U32[c];
     }
-    if(debugSprite) debugSprBoxes.push({x:x,y:y,w:SPR_SIZE,h:SPR_SIZE});
+    if(debugSprite) { const b=spriteBounds[id]; if(b) debugSprBoxes.push({x:x+b.x,y:y+b.y,w:b.w,h:b.h}); else debugSprBoxes.push({x:x,y:y,w:SS,h:SS}); }
   }
   function sprScale(id, cx, cy, scale, flipX, flipY) {
     const s = sprites[id]; if (!s) return;
@@ -1309,6 +1328,7 @@ const Mono = (() => {
       defSprite: (id, data) => {
         if (typeof data === 'string' && data.includes('\n')) {
           sprites[id] = parseVisualSprite(data);
+          computeSpriteBounds(id);
         } else {
           spriteDefine(id, data);
         }
