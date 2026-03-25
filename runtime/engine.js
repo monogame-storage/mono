@@ -736,6 +736,16 @@ const Mono = (() => {
   }
 
   function ecsRender() {
+    // Sort by z-order (lower z drawn first = behind)
+    // Only sort if any entity has z defined (avoid unnecessary work)
+    let needSort = false;
+    for (let i = 0; i < entities.length; i++) {
+      if (entities[i].z !== undefined) { needSort = true; break; }
+    }
+    if (needSort) {
+      entities.sort((a, b) => (a.z || 0) - (b.z || 0));
+    }
+
     for (let i = 0; i < entities.length; i++) {
       const e = entities[i];
       if (!e._alive || !e.pos) continue;
