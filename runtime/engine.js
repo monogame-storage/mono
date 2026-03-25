@@ -596,7 +596,8 @@ const Mono = (() => {
 
   function ecsKill(e) {
     if (!e) return;
-    const id = e._id;
+    // Accept entity object or numeric ID
+    const id = (typeof e === "number") ? e : e._id;
     if (id) {
       for (let i = 0; i < entities.length; i++) {
         if (entities[i]._id === id) { entities[i]._alive = false; return; }
@@ -1370,7 +1371,34 @@ const Mono = (() => {
             for (const k in ex) obj[k] = ex[k];
           } catch(e) {}
         }
-        ecsSpawn(obj);
+        const e = ecsSpawn(obj);
+        return e._id;
+      },
+      ecs_set: (id, field, value) => {
+        for (let i = 0; i < entities.length; i++) {
+          if (entities[i]._id === id && entities[i]._alive) {
+            if (field === "x" && entities[i].pos) { entities[i].pos.x = value; }
+            else if (field === "y" && entities[i].pos) { entities[i].pos.y = value; }
+            else if (field === "vx" && entities[i].vel) { entities[i].vel.x = value; }
+            else if (field === "vy" && entities[i].vel) { entities[i].vel.y = value; }
+            else if (field === "sprite") { entities[i].sprite = value; }
+            else if (field === "flipX") { entities[i].flipX = value; }
+            else if (field === "z") { entities[i].z = value; }
+            else if (field === "lifetime") { entities[i].lifetime = value; }
+            else { entities[i][field] = value; }
+            return;
+          }
+        }
+      },
+      ecs_get: (id, field) => {
+        for (let i = 0; i < entities.length; i++) {
+          if (entities[i]._id === id && entities[i]._alive) {
+            if (field === "x" && entities[i].pos) return entities[i].pos.x;
+            if (field === "y" && entities[i].pos) return entities[i].pos.y;
+            return entities[i][field] || false;
+          }
+        }
+        return false;
       },
       kill: ecsKill,
       killAll: ecsKillAll,
@@ -1460,7 +1488,7 @@ const Mono = (() => {
         end
       end
       if #parts > 0 then extra = "{" .. table.concat(parts, ",") .. "}" end
-      _spawnRaw(t.group, px, py, vx, vy, t.sprite, hbType, hbA, hbB, hbC, hbD, t.gravity, t.lifetime, t.offscreen, t.anchor_x, t.anchor_y, extra)
+      return _spawnRaw(t.group, px, py, vx, vy, t.sprite, hbType, hbA, hbB, hbC, hbD, t.gravity, t.lifetime, t.offscreen, t.anchor_x, t.anchor_y, extra)
     end
   `;
 
