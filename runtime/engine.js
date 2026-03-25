@@ -914,26 +914,32 @@ const Mono = (() => {
 
     // Collision overlay (key 1) — green, 80% alpha (drawn last = always on top)
     if (debugMode && debugShapes.length > 0) {
-      const cr = 0, cg = 255, cb = 0, ca = 0.8;
+      const cr = 0, cg = 255, cb = 0, ca = 0.5;
+      const TH = 2; // inward thickness
       for (const s of debugShapes) {
         if (s.t === "r") {
-          for (let px = s.x; px < s.x + s.w; px++) {
-            debugPix(px, s.y, cr, cg, cb, ca);
-            debugPix(px, s.y + s.h - 1, cr, cg, cb, ca);
-          }
-          for (let py = s.y; py < s.y + s.h; py++) {
-            debugPix(s.x, py, cr, cg, cb, ca);
-            debugPix(s.x + s.w - 1, py, cr, cg, cb, ca);
+          for (let t = 0; t < TH; t++) {
+            for (let px = s.x; px < s.x + s.w; px++) {
+              debugPix(px, s.y + t, cr, cg, cb, ca);
+              debugPix(px, s.y + s.h - 1 - t, cr, cg, cb, ca);
+            }
+            for (let py = s.y; py < s.y + s.h; py++) {
+              debugPix(s.x + t, py, cr, cg, cb, ca);
+              debugPix(s.x + s.w - 1 - t, py, cr, cg, cb, ca);
+            }
           }
         } else if (s.t === "c") {
-          let cx = s.r, cy = 0, d = 1 - s.r;
-          while (cx >= cy) {
-            debugPix(s.x+cx,s.y+cy,cr,cg,cb,ca); debugPix(s.x-cx,s.y+cy,cr,cg,cb,ca);
-            debugPix(s.x+cx,s.y-cy,cr,cg,cb,ca); debugPix(s.x-cx,s.y-cy,cr,cg,cb,ca);
-            debugPix(s.x+cy,s.y+cx,cr,cg,cb,ca); debugPix(s.x-cy,s.y+cx,cr,cg,cb,ca);
-            debugPix(s.x+cy,s.y-cx,cr,cg,cb,ca); debugPix(s.x-cy,s.y-cx,cr,cg,cb,ca);
-            cy++;
-            if (d < 0) { d += 2 * cy + 1; } else { cx--; d += 2 * (cy - cx) + 1; }
+          for (let ri = 0; ri < TH; ri++) {
+            const r = Math.max(0, s.r - ri);
+            let cx = r, cy = 0, d = 1 - r;
+            while (cx >= cy) {
+              debugPix(s.x+cx,s.y+cy,cr,cg,cb,ca); debugPix(s.x-cx,s.y+cy,cr,cg,cb,ca);
+              debugPix(s.x+cx,s.y-cy,cr,cg,cb,ca); debugPix(s.x-cx,s.y-cy,cr,cg,cb,ca);
+              debugPix(s.x+cy,s.y+cx,cr,cg,cb,ca); debugPix(s.x-cy,s.y+cx,cr,cg,cb,ca);
+              debugPix(s.x+cy,s.y-cx,cr,cg,cb,ca); debugPix(s.x-cy,s.y-cx,cr,cg,cb,ca);
+              cy++;
+              if (d < 0) { d += 2 * cy + 1; } else { cx--; d += 2 * (cy - cx) + 1; }
+            }
           }
         } else if (s.t === "p") {
           for (let d = -2; d <= 2; d++) {
