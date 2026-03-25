@@ -1324,6 +1324,8 @@ local rpgFrame = 0
 local RPG_WEAPONS = {"SWORD", "BOW", "STAFF", "SHIELD"}
 local rpgWeaponIdx = 1
 local rpgAttackTimer = 0
+local rpgFacing = "down"
+local rpgState = "idle"
 
 local rpgWallId = 0
 local rpgFloorId = 0
@@ -1448,6 +1450,8 @@ local function rpgInit()
   rpgFrame = 0
   rpgWeaponIdx = 1
   rpgAttackTimer = 0
+  rpgFacing = "down"
+  rpgState = "idle"
 
   killAll("npc")
 
@@ -1520,6 +1524,13 @@ local function rpgUpdate()
     elseif btn("right") then dx = 1
     end
 
+    -- Set facing direction
+    if dy == -1 then rpgFacing = "up"
+    elseif dy == 1 then rpgFacing = "down"
+    elseif dx == -1 then rpgFacing = "left"
+    elseif dx == 1 then rpgFacing = "right"
+    end
+
     if dx ~= 0 or dy ~= 0 then
       local nx = rpgPX + dx
       local ny = rpgPY + dy
@@ -1532,34 +1543,44 @@ local function rpgUpdate()
         rpgMoveTimer = 0
       end
     end
+  end
 
-    -- Check proximity to NPCs
-    rpgNearNPC = false
-    each("npc", function(e)
-      local dist = abs(e.tileX - rpgPX) + abs(e.tileY - rpgPY)
-      if dist <= 1 then
-        rpgNearNPC = true
-      end
-    end)
+  -- Update character state
+  if rpgAttackTimer > 0 then
+    rpgState = "action"
+  elseif rpgMoving then
+    rpgState = "walk"
+  else
+    rpgState = "idle"
+  end
 
-    -- A button: talk to NPC if near, otherwise weapon action
-    if btnp("a") then
-      if rpgNearNPC then
-        -- Talk to nearest NPC
-        each("npc", function(e)
-          local dist = abs(e.tileX - rpgPX) + abs(e.tileY - rpgPY)
-          if dist <= 1 and not rpgDialogActive then
-            rpgDialogActive = true
-            rpgDialogText = rpgNPCList[e.npcIndex].msg
-            note(0, "E5", 0.05)
-          end
-        end)
-      else
-        -- Weapon action
-        rpgAttackTimer = 10
-        note(0, "C4", 0.06)
-        cam_shake(2)
-      end
+  -- Check proximity to NPCs (always, not just when stationary)
+  rpgNearNPC = false
+  each("npc", function(e)
+    local dist = abs(e.tileX - rpgPX) + abs(e.tileY - rpgPY)
+    if dist <= 1 then
+      rpgNearNPC = true
+    end
+  end)
+
+  -- A button: talk to NPC if near, otherwise weapon action
+  -- Attack does NOT block movement
+  if btnp("a") then
+    if rpgNearNPC then
+      -- Talk to nearest NPC
+      each("npc", function(e)
+        local dist = abs(e.tileX - rpgPX) + abs(e.tileY - rpgPY)
+        if dist <= 1 and not rpgDialogActive then
+          rpgDialogActive = true
+          rpgDialogText = rpgNPCList[e.npcIndex].msg
+          note(0, "E5", 0.05)
+        end
+      end)
+    else
+      -- Weapon action (visual only, does not block movement)
+      rpgAttackTimer = 10
+      note(0, "C4", 0.06)
+      cam_shake(2)
     end
   end
 
@@ -1627,33 +1648,82 @@ local function rpgDraw()
     if d.kind == "player" then
       -- Player shadow
       circf(flr(d.px) + 8, flr(d.py) + 14, 5, 1)
-      -- Bobbing animation
-      local bob = flr(math.sin(rpgFrame * 0.15) * 1.5)
-      sprT(rpgShipId, flr(d.px), flr(d.py) + bob)
-      -- Weapon action effect
+      -- Per-state bobbing animation
+      local bob = 0
+      if rpgState == "walk" then
+        bob = flr(math.sin(rpgFrame * 0.3) * 2)
+      elseif rpgState == "action" then
+        bob = flr(math.sin(rpgFrame * 0.5) * 1)
+      else -- idle
+        bob = flr(math.sin(rpgFrame * 0.08) * 1)
+      end
+      -- Sprite flipping based on facing
+      local flipX = (rpgFacing == "left")
+      sprT(rpgShipId, flr(d.px), flr(d.py) + bob, flipX, false)
+      -- Weapon action effect (directional)
       if rpgAttackTimer > 0 then
         local wpn = RPG_WEAPONS[rpgWeaponIdx]
-        local ax = flr(d.px) + 16
-        local ay = flr(d.py) + 4 + bob
+        -- Offset based on facing direction
+        local ox = 0
+        local oy = 0
+        if rpgFacing == "right" then ox = 16; oy = 0
+        elseif rpgFacing == "left" then ox = -8; oy = 0
+        elseif rpgFacing == "up" then ox = 0; oy = -12
+        elseif rpgFacing == "down" then ox = 0; oy = 16
+        end
+        local ax = flr(d.px) + 8 + ox
+        local ay = flr(d.py) + 6 + oy + bob
         if wpn == "SWORD" then
-          line(ax, ay, ax + 10, ay - 6, 3)
-          line(ax, ay + 1, ax + 10, ay - 5, 3)
+          if rpgFacing == "right" then
+            line(ax, ay, ax + 10, ay - 6, 3)
+            line(ax, ay + 1, ax + 10, ay - 5, 3)
+          elseif rpgFacing == "left" then
+            line(ax, ay, ax - 10, ay - 6, 3)
+            line(ax, ay + 1, ax - 10, ay - 5, 3)
+          elseif rpgFacing == "up" then
+            line(ax, ay, ax - 4, ay - 10, 3)
+            line(ax + 1, ay, ax - 3, ay - 10, 3)
+          else -- down
+            line(ax, ay, ax + 4, ay + 10, 3)
+            line(ax + 1, ay, ax + 5, ay + 10, 3)
+          end
         elseif wpn == "BOW" then
-          circ(ax + 6, ay, 3, 2)
-          pix(ax + 10, ay, 3)
+          if rpgFacing == "right" then
+            circ(ax + 6, ay, 3, 2); pix(ax + 10, ay, 3)
+          elseif rpgFacing == "left" then
+            circ(ax - 6, ay, 3, 2); pix(ax - 10, ay, 3)
+          elseif rpgFacing == "up" then
+            circ(ax, ay - 6, 3, 2); pix(ax, ay - 10, 3)
+          else
+            circ(ax, ay + 6, 3, 2); pix(ax, ay + 10, 3)
+          end
         elseif wpn == "STAFF" then
-          line(ax, ay + 4, ax, ay - 8, 2)
-          circf(ax, ay - 9, 2, 3)
+          if rpgFacing == "right" then
+            line(ax, ay, ax + 8, ay, 2); circf(ax + 9, ay, 2, 3)
+          elseif rpgFacing == "left" then
+            line(ax, ay, ax - 8, ay, 2); circf(ax - 9, ay, 2, 3)
+          elseif rpgFacing == "up" then
+            line(ax, ay, ax, ay - 8, 2); circf(ax, ay - 9, 2, 3)
+          else
+            line(ax, ay, ax, ay + 8, 2); circf(ax, ay + 9, 2, 3)
+          end
         elseif wpn == "SHIELD" then
-          rectf(ax - 2, ay - 4, 8, 10, 2)
-          rect(ax - 2, ay - 4, 8, 10, 3)
+          if rpgFacing == "right" then
+            rectf(ax, ay - 4, 6, 10, 2); rect(ax, ay - 4, 6, 10, 3)
+          elseif rpgFacing == "left" then
+            rectf(ax - 6, ay - 4, 6, 10, 2); rect(ax - 6, ay - 4, 6, 10, 3)
+          elseif rpgFacing == "up" then
+            rectf(ax - 4, ay - 6, 10, 6, 2); rect(ax - 4, ay - 6, 10, 6, 3)
+          else
+            rectf(ax - 4, ay, 10, 6, 2); rect(ax - 4, ay, 10, 6, 3)
+          end
         end
       end
     elseif d.kind == "npc" then
       -- NPC shadow
       circf(flr(d.px) + 8, flr(d.py) + 14, 5, 1)
-      -- NPC bobbing (offset phase per position)
-      local npcBob = flr(math.sin(rpgFrame * 0.1 + d.px) * 1.5)
+      -- NPC idle bob (slow gentle, offset phase per position)
+      local npcBob = flr(math.sin(rpgFrame * 0.08 + d.px) * 1)
       sprT(rpgNpcSprId, flr(d.px), flr(d.py) + npcBob)
       -- Exclamation mark above NPC if player is nearby
       local dist = abs(flr(d.px / SS) - rpgPX) + abs(flr(d.py / SS) - rpgPY)
@@ -1668,7 +1738,8 @@ local function rpgDraw()
   -- HUD (drawn in screen space, text is not affected by cam)
   text("MINI RPG", 4, 4, 3)
   text("POS:" .. rpgPX .. "," .. rpgPY, 4, 14, 2)
-  text("WPN:" .. RPG_WEAPONS[rpgWeaponIdx], 4, 24, 3)
+  text("WPN:" .. RPG_WEAPONS[rpgWeaponIdx] .. " DIR:" .. rpgFacing, 4, 24, 3)
+  text("STATE:" .. rpgState, 4, 34, 2)
 
   if rpgNearNPC and not rpgDialogActive then
     if flr(rpgFrame / 15) % 2 == 0 then
