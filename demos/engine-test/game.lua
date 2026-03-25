@@ -297,7 +297,16 @@ local function spawnExplosion(x, y)
   for i = 1, count do
     local angle = rnd(6.28)
     local speed = rnd(2.5) + 0.5
-    _spawnRaw("particle", x, y, speed * math.cos(angle), speed * math.sin(angle) - 1.5, partId, nil, nil, nil, nil, nil, 0.1, flr(rnd(10)) + 15, true, 0.5, 0.5, nil)
+    spawn({
+      group = "particle",
+      pos = { x = x, y = y },
+      vel = { x = speed * math.cos(angle), y = speed * math.sin(angle) - 1.5 },
+      sprite = partId,
+      gravity = 0.1,
+      lifetime = flr(rnd(10)) + 15,
+      offscreen = true,
+      anchor_x = 0.5, anchor_y = 0.5,
+    })
   end
   note(1, "C5", 0.06)
 end
@@ -323,7 +332,10 @@ local function shooterInit()
   onCollide("bullet", "enemy", "bullet_enemy")
   onCollide("player", "enemy", "player_enemy")
 
-  -- bgm disabled for testing
+  bgm({
+    "E4 . G4 . A4 . G4 . E4 . D4 . E4 . G4 . A4 . B4 . A4 . G4 . E4 . D4 . C4 . D4 .",
+    "C3 - - - E3 - - - A2 - - - E3 - - - C3 - - - G2 - - - A2 - - - E3 - - -",
+  }, 180, true)
 end
 
 local function shooterUpdate()
@@ -402,22 +414,78 @@ local function shooterUpdate()
     local cy = playerY - 4
     if weaponType == 0 then
       -- Single shot
-      _spawnRaw("bullet", cx, cy, 0, BULLET_SPEED, bulletId, "c", 3, 0, 0, nil, nil, nil, true, 0.5, 0.5, nil)
+      spawn({
+        group = "bullet",
+        pos = { x = cx, y = cy },
+        vel = { x = 0, y = BULLET_SPEED },
+        sprite = bulletId,
+        hitbox = { r = 3 },
+        offscreen = true,
+        anchor_x = 0.5, anchor_y = 0.5,
+      })
       shootCooldown = 6
     elseif weaponType == 1 then
       -- Double shot
-      _spawnRaw("bullet", cx - 5, cy, 0, BULLET_SPEED, bulletId, "c", 3, 0, 0, nil, nil, nil, true, 0.5, 0.5, nil)
-      _spawnRaw("bullet", cx + 5, cy, 0, BULLET_SPEED, bulletId, "c", 3, 0, 0, nil, nil, nil, true, 0.5, 0.5, nil)
+      spawn({
+        group = "bullet",
+        pos = { x = cx - 5, y = cy },
+        vel = { x = 0, y = BULLET_SPEED },
+        sprite = bulletId,
+        hitbox = { r = 3 },
+        offscreen = true,
+        anchor_x = 0.5, anchor_y = 0.5,
+      })
+      spawn({
+        group = "bullet",
+        pos = { x = cx + 5, y = cy },
+        vel = { x = 0, y = BULLET_SPEED },
+        sprite = bulletId,
+        hitbox = { r = 3 },
+        offscreen = true,
+        anchor_x = 0.5, anchor_y = 0.5,
+      })
       shootCooldown = 8
     elseif weaponType == 2 then
       -- Spread (3-way)
-      _spawnRaw("bullet", cx, cy, 0, BULLET_SPEED, bulletId, "c", 3, 0, 0, nil, nil, nil, true, 0.5, 0.5, nil)
-      _spawnRaw("bullet", cx, cy, -2, BULLET_SPEED, bulletId, "c", 3, 0, 0, nil, nil, nil, true, 0.5, 0.5, nil)
-      _spawnRaw("bullet", cx, cy, 2, BULLET_SPEED, bulletId, "c", 3, 0, 0, nil, nil, nil, true, 0.5, 0.5, nil)
+      spawn({
+        group = "bullet",
+        pos = { x = cx, y = cy },
+        vel = { x = 0, y = BULLET_SPEED },
+        sprite = bulletId,
+        hitbox = { r = 3 },
+        offscreen = true,
+        anchor_x = 0.5, anchor_y = 0.5,
+      })
+      spawn({
+        group = "bullet",
+        pos = { x = cx, y = cy },
+        vel = { x = -2, y = BULLET_SPEED },
+        sprite = bulletId,
+        hitbox = { r = 3 },
+        offscreen = true,
+        anchor_x = 0.5, anchor_y = 0.5,
+      })
+      spawn({
+        group = "bullet",
+        pos = { x = cx, y = cy },
+        vel = { x = 2, y = BULLET_SPEED },
+        sprite = bulletId,
+        hitbox = { r = 3 },
+        offscreen = true,
+        anchor_x = 0.5, anchor_y = 0.5,
+      })
       shootCooldown = 10
     elseif weaponType == 3 then
       -- Rapid
-      _spawnRaw("bullet", cx, cy, 0, BULLET_SPEED * 1.5, bulletId, "c", 3, 0, 0, nil, nil, nil, true, 0.5, 0.5, nil)
+      spawn({
+        group = "bullet",
+        pos = { x = cx, y = cy },
+        vel = { x = 0, y = BULLET_SPEED * 1.5 },
+        sprite = bulletId,
+        hitbox = { r = 3 },
+        offscreen = true,
+        anchor_x = 0.5, anchor_y = 0.5,
+      })
       shootCooldown = 3
     end
     note(0, "A5", 0.03)
@@ -435,13 +503,37 @@ local function shooterUpdate()
     if etype == 0 then
       local ea1 = sprite_id("enemy_a1")
       local ea2 = sprite_id("enemy_a2")
-      _spawnRaw("enemy", ex, -SS, rnd(2) - 1, ENEMY_SPEED + rnd(0.5), ea1, "r", 14, 10, -7, -5, nil, nil, true, 0.5, 0.5, nil)
+      spawn({
+        group = "enemy",
+        pos = { x = ex, y = -SS },
+        vel = { x = rnd(2) - 1, y = ENEMY_SPEED + rnd(0.5) },
+        sprite = ea1,
+        hitbox = { w = 14, h = 10, ox = -7, oy = -5 },
+        offscreen = true,
+        anchor_x = 0.5, anchor_y = 0.5,
+      })
     elseif etype == 1 then
       local ebId = sprite_id("enemy_b")
-      _spawnRaw("enemy", ex, -SS, rnd(1.6) - 0.8, ENEMY_SPEED + rnd(0.3), ebId, "c", 6, 0, 0, nil, nil, nil, true, 0.5, 0.5, nil)
+      spawn({
+        group = "enemy",
+        pos = { x = ex, y = -SS },
+        vel = { x = rnd(1.6) - 0.8, y = ENEMY_SPEED + rnd(0.3) },
+        sprite = ebId,
+        hitbox = { r = 6 },
+        offscreen = true,
+        anchor_x = 0.5, anchor_y = 0.5,
+      })
     else
       local ea1 = sprite_id("enemy_a1")
-      _spawnRaw("enemy", ex, -SS, rnd(2.4) - 1.2, ENEMY_SPEED + 0.8, ea1, "r", 14, 10, -7, -5, nil, nil, true, 0.5, 0.5, nil)
+      spawn({
+        group = "enemy",
+        pos = { x = ex, y = -SS },
+        vel = { x = rnd(2.4) - 1.2, y = ENEMY_SPEED + 0.8 },
+        sprite = ea1,
+        hitbox = { w = 14, h = 10, ox = -7, oy = -5 },
+        offscreen = true,
+        anchor_x = 0.5, anchor_y = 0.5,
+      })
     end
   end
 
@@ -458,7 +550,12 @@ local function shooterUpdate()
 
   killAll("player")
   if invincible <= 0 or flr(invincible / 3) % 2 == 0 then
-    _spawnRaw("player", playerX + 8, playerY + 8, nil, nil, nil, "r", 12, 14, -6, -7, nil, nil, nil, 0.5, 0.5, nil)
+    spawn({
+      group = "player",
+      pos = { x = playerX + 8, y = playerY + 8 },
+      hitbox = { w = 12, h = 14, ox = -6, oy = -7 },
+      anchor_x = 0.5, anchor_y = 0.5,
+    })
   end
 end
 
