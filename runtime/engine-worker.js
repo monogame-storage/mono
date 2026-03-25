@@ -108,6 +108,7 @@ function sceneGo(name, opts) {
   // Notify main thread to stop BGM
   postMessage({ type: "audio", cmd: "bgmStop" });
   paused = false;
+  camReset();
   ecsClear();
   currentSceneName = name;
   currentScene = scenes[name] || null;
@@ -115,15 +116,37 @@ function sceneGo(name, opts) {
   // init is called by the caller (async)
 }
 
+// --- Camera ---
+let camX = 0, camY = 0;
+let camShake = 0;
+let camOX = 0, camOY = 0; // per-frame offset (computed once)
+
+function camSet(x, y) { camX = x; camY = y; }
+function camGet() { return [camX, camY]; }
+function camShakeSet(amt) { camShake = amt; }
+function camReset() { camX = 0; camY = 0; camShake = 0; }
+
+function camUpdateFrame() {
+  let sx = 0, sy = 0;
+  if (camShake > 0) {
+    sx = (Math.random() - 0.5) * camShake * 2;
+    sy = (Math.random() - 0.5) * camShake * 2;
+    camShake *= 0.9;
+    if (camShake < 0.5) camShake = 0;
+  }
+  camOX = Math.floor(-camX + sx);
+  camOY = Math.floor(-camY + sy);
+}
+
 // --- Graphics ---
 function cls(c) { buf32.fill(COLOR_U32[c || 0]); }
 function pix(x, y, c) {
-  x = Math.floor(x); y = Math.floor(y);
+  x = Math.floor(x + camOX); y = Math.floor(y + camOY);
   if (x < 0 || x >= W || y < 0 || y >= H) return;
   buf32[y * W + x] = COLOR_U32[c] || COLOR_U32[0];
 }
 function line(x0, y0, x1, y1, c) {
-  x0=Math.floor(x0); y0=Math.floor(y0); x1=Math.floor(x1); y1=Math.floor(y1);
+  x0=Math.floor(x0+camOX); y0=Math.floor(y0+camOY); x1=Math.floor(x1+camOX); y1=Math.floor(y1+camOY);
   const dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
   const sx=x0<x1?1:-1, sy=y0<y1?1:-1;
   let err=dx-dy;
@@ -140,7 +163,7 @@ function rect(x,y,w,h,c) {
   line(x+w-1,y+h-1,x,y+h-1,c); line(x,y+h-1,x,y,c);
 }
 function rectf(x,y,w,h,c) {
-  x=Math.floor(x); y=Math.floor(y);
+  x=Math.floor(x+camOX); y=Math.floor(y+camOY);
   const col=COLOR_U32[c]||COLOR_U32[0];
   for(let py=Math.max(0,y);py<Math.min(H,y+h);py++)
     for(let px=Math.max(0,x);px<Math.min(W,x+w);px++)
@@ -148,7 +171,7 @@ function rectf(x,y,w,h,c) {
   if(debugFill) debugFillBoxes.push({t:"r",x:x,y:y,w:w,h:h});
 }
 function circ(cx,cy,r,c) {
-  let x=r,y=0,d=1-r; cx=Math.floor(cx); cy=Math.floor(cy);
+  let x=r,y=0,d=1-r; cx=Math.floor(cx+camOX); cy=Math.floor(cy+camOY);
   while(x>=y){
     pix(cx+x,cy+y,c);pix(cx-x,cy+y,c);
     pix(cx+x,cy-y,c);pix(cx-x,cy-y,c);
@@ -158,7 +181,7 @@ function circ(cx,cy,r,c) {
   }
 }
 function circf(cx,cy,r,c) {
-  cx=Math.floor(cx); cy=Math.floor(cy);
+  cx=Math.floor(cx+camOX); cy=Math.floor(cy+camOY);
   const col=COLOR_U32[c]||COLOR_U32[0]; const r2=r*r;
   for(let py=-r;py<=r;py++) for(let px=-r;px<=r;px++)
     if(px*px+py*py<=r2){ const sx=cx+px,sy=cy+py;
@@ -175,7 +198,7 @@ function spriteDefine(id, data) {
 function spr(id, x, y, flipX, flipY) {
   const s=sprites[id]; if(!s) return;
   const SS=SPR_SIZE, SM=SS-1;
-  x=Math.floor(x); y=Math.floor(y);
+  x=Math.floor(x+camOX); y=Math.floor(y+camOY);
   for(let py=0;py<SS;py++) for(let px=0;px<SS;px++){
     const sx=flipX?SM-px:px, sy=flipY?SM-py:py;
     const c=s[sy*SS+sx], dx=x+px, dy=y+py;
@@ -186,7 +209,7 @@ function spr(id, x, y, flipX, flipY) {
 function sprT(id, x, y, flipX, flipY) {
   const s=sprites[id]; if(!s) return;
   const SS=SPR_SIZE, SM=SS-1;
-  x=Math.floor(x); y=Math.floor(y);
+  x=Math.floor(x+camOX); y=Math.floor(y+camOY);
   for(let py=0;py<SS;py++) for(let px=0;px<SS;px++){
     const sx=flipX?SM-px:px, sy=flipY?SM-py:py;
     const c=s[sy*SS+sx]; if(c===0) continue;
@@ -205,11 +228,11 @@ function sprRot(id, cx, cy, angle) {
       const srcY = Math.floor(-sinA * px + cosA * py + half - 0.5);
       if (srcX < 0 || srcX >= SS || srcY < 0 || srcY >= SS) continue;
       const c = s[srcY * SS + srcX];
-      const dx = Math.floor(cx + px), dy = Math.floor(cy + py);
+      const dx = Math.floor(cx + px + camOX), dy = Math.floor(cy + py + camOY);
       if (dx >= 0 && dx < W && dy >= 0 && dy < H) buf32[dy * W + dx] = COLOR_U32[c];
     }
   }
-  if(debugSprite) debugSprBoxes.push({x:Math.floor(cx)-Math.floor(SS/2),y:Math.floor(cy)-Math.floor(SS/2)});
+  if(debugSprite) debugSprBoxes.push({x:Math.floor(cx+camOX)-Math.floor(SS/2),y:Math.floor(cy+camOY)-Math.floor(SS/2)});
 }
 function gpix(x, y) {
   x = Math.floor(x); y = Math.floor(y);
@@ -644,8 +667,10 @@ async function registerSounds(soundsTable) {
 
 async function parseGameTable() {
   const gameTable = await luauGet('game');
+  postMessage({type:"log", msg:"gameTable: " + typeof gameTable + " " + JSON.stringify(gameTable && Object.keys(gameTable))});
   if (!gameTable) return;
   const spritesT = gameTable.sprites || gameTable['sprites'];
+  postMessage({type:"log", msg:"spritesT: " + typeof spritesT + " keys:" + JSON.stringify(spritesT && Object.keys(spritesT))});
   if (spritesT) parseVisualSprites(Object.entries(spritesT));
   const stateT = gameTable.state || gameTable['state'];
   if (stateT) await buildStateAccessors(Object.entries(stateT));
@@ -688,6 +713,7 @@ function buildLuaGlobals() {
     scene_name: () => currentSceneName,
     rnd, flr: Math.floor, abs: Math.abs, seed: seedSet,
     dbg, dbgC, dbgPt,
+    cam: camSet, cam_get: camGet, cam_shake: camShakeSet, cam_reset: camReset,
     frame: () => frameCount,
     overlap,
     spawn: (components) => {
@@ -749,7 +775,7 @@ async function autoDetectScenes() {
     const hasDraw = (await luauGet("type(" + name + "_draw)")) === "function";
     if (hasUpdate || hasDraw) {
       scenes[name] = {
-        init: hasInit ? async () => { try { await luau.loadstring(name + "_init()", name + "_init")(); } catch(e) { console.error("Mono init:", e); } } : null,
+        init: hasInit ? async () => { try { await luau.loadstring(name + "_init()", name + "_init")(); } catch(e) { postMessage({type:"log", msg:"init err: " + e.message}); } } : null,
         update: hasUpdate ? async () => { try { await luau.loadstring(name + "_update()", name + "_update")(); } catch(e) { console.error("Mono update:", e); } } : null,
         draw: hasDraw ? async () => { try { await luau.loadstring(name + "_draw()", name + "_draw")(); } catch(e) { console.error("Mono draw:", e); } } : null,
       };
@@ -801,14 +827,15 @@ async function stepUpdate() {
   if (paused) return;
   // BGM ticking is done on the main thread now (it owns AudioContext)
   if (currentScene && currentScene.update) {
-    try { await currentScene.update(); } catch(e) { console.error("Mono update:", e); }
+    try { await currentScene.update(); } catch(e) { postMessage({type:"log", msg:"update err: " + e.message}); }
   }
   ecsUpdate();
 }
 
 async function stepRender() {
+  camUpdateFrame();
   if (currentScene && currentScene.draw) {
-    try { await currentScene.draw(); } catch(e) { console.error("Mono draw:", e); }
+    try { await currentScene.draw(); } catch(e) { postMessage({type:"log", msg:"draw err: " + e.message}); }
   }
   ecsRender();
 
