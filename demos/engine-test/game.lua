@@ -1219,7 +1219,7 @@ local function tilemapDraw()
   cls(0)
 
   -- Draw the map using map() function
-  map(0, 0, 0, 0, TMAP_W, TMAP_H)
+  map(0, 0, TMAP_W, TMAP_H, 0, 0)
 
   -- Blinking cursor overlay
   if flr(tmapBlink / 8) % 2 == 0 then
@@ -1529,7 +1529,7 @@ local function rpgDraw()
   cls(0)
 
   -- Draw tilemap (the full visible area)
-  map(0, 0, 0, 0, RPG_MAP_W, RPG_MAP_H)
+  map(0, 0, RPG_MAP_W, RPG_MAP_H, 0, 0)
 
   -- Collect drawables for z-order sorting
   local drawList = {}
