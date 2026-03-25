@@ -739,11 +739,20 @@ function buildLuaGlobals() {
     frame: () => frameCount,
     overlap,
     spawn: (components) => {
-      const obj = {};
-      if (components && typeof components === 'object') {
-        for (const [k, v] of Object.entries(components)) {
-          if (v && typeof v === 'object' && !Array.isArray(v)) {
-            obj[k] = Object.assign({}, v);
+      // luau-web returns Proxy objects that may not support Object.entries/keys
+      // Use a deep-clone via JSON roundtrip to get plain JS objects
+      let obj;
+      try {
+        obj = JSON.parse(JSON.stringify(components));
+      } catch(e) {
+        // Fallback: manual for-in copy
+        obj = {};
+        for (const k in components) {
+          const v = components[k];
+          if (v && typeof v === 'object') {
+            const inner = {};
+            for (const ik in v) inner[ik] = v[ik];
+            obj[k] = inner;
           } else {
             obj[k] = v;
           }
