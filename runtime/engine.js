@@ -845,107 +845,102 @@ const Mono = (() => {
   }
 
   // --- Debug overlays ---
+  function blendPixel(idx, r, g, b, a) {
+    // Alpha blend onto buf32 (ABGR format)
+    const dst = buf32[idx];
+    const dr = dst & 0xFF;
+    const dg = (dst >> 8) & 0xFF;
+    const db = (dst >> 16) & 0xFF;
+    const inv = 1 - a;
+    const or_ = Math.floor(dr * inv + r * a);
+    const og = Math.floor(dg * inv + g * a);
+    const ob = Math.floor(db * inv + b * a);
+    buf32[idx] = 0xFF000000 | (ob << 16) | (og << 8) | or_;
+  }
+
+  function debugPix(x, y, r, g, b, a) {
+    if (x >= 0 && x < W && y >= 0 && y < H) blendPixel(y * W + x, r, g, b, a);
+  }
+
   function drawDebugOverlays() {
     let labelX = 2;
 
-    // Collision overlay (key 1)
+    // Collision overlay (key 1) — green, 60% alpha
     if (debugMode && debugShapes.length > 0) {
-      const dcol = 0xFF00FF00;
+      const cr = 0, cg = 255, cb = 0, ca = 0.6;
       for (const s of debugShapes) {
         if (s.t === "r") {
           for (let px = s.x; px < s.x + s.w; px++) {
-            if (px >= 0 && px < W) {
-              if (s.y >= 0 && s.y < H) buf32[s.y * W + px] = dcol;
-              const by = s.y + s.h - 1;
-              if (by >= 0 && by < H) buf32[by * W + px] = dcol;
-            }
+            debugPix(px, s.y, cr, cg, cb, ca);
+            debugPix(px, s.y + s.h - 1, cr, cg, cb, ca);
           }
           for (let py = s.y; py < s.y + s.h; py++) {
-            if (py >= 0 && py < H) {
-              if (s.x >= 0 && s.x < W) buf32[py * W + s.x] = dcol;
-              const bx = s.x + s.w - 1;
-              if (bx >= 0 && bx < W) buf32[py * W + bx] = dcol;
-            }
+            debugPix(s.x, py, cr, cg, cb, ca);
+            debugPix(s.x + s.w - 1, py, cr, cg, cb, ca);
           }
         } else if (s.t === "c") {
           let cx = s.r, cy = 0, d = 1 - s.r;
           while (cx >= cy) {
-            const pts = [
-              [s.x+cx,s.y+cy],[s.x-cx,s.y+cy],[s.x+cx,s.y-cy],[s.x-cx,s.y-cy],
-              [s.x+cy,s.y+cx],[s.x-cy,s.y+cx],[s.x+cy,s.y-cx],[s.x-cy,s.y-cx]
-            ];
-            for (const [px,py] of pts)
-              if (px >= 0 && px < W && py >= 0 && py < H) buf32[py * W + px] = dcol;
+            debugPix(s.x+cx,s.y+cy,cr,cg,cb,ca); debugPix(s.x-cx,s.y+cy,cr,cg,cb,ca);
+            debugPix(s.x+cx,s.y-cy,cr,cg,cb,ca); debugPix(s.x-cx,s.y-cy,cr,cg,cb,ca);
+            debugPix(s.x+cy,s.y+cx,cr,cg,cb,ca); debugPix(s.x-cy,s.y+cx,cr,cg,cb,ca);
+            debugPix(s.x+cy,s.y-cx,cr,cg,cb,ca); debugPix(s.x-cy,s.y-cx,cr,cg,cb,ca);
             cy++;
             if (d < 0) { d += 2 * cy + 1; } else { cx--; d += 2 * (cy - cx) + 1; }
           }
         } else if (s.t === "p") {
           for (let d = -2; d <= 2; d++) {
-            if (s.x+d >= 0 && s.x+d < W && s.y >= 0 && s.y < H) buf32[s.y * W + (s.x+d)] = dcol;
-            if (s.x >= 0 && s.x < W && s.y+d >= 0 && s.y+d < H) buf32[(s.y+d) * W + s.x] = dcol;
+            debugPix(s.x+d, s.y, cr, cg, cb, ca);
+            debugPix(s.x, s.y+d, cr, cg, cb, ca);
           }
         }
       }
-      labelX = drawDebugLabel("1:HITBOX", labelX, dcol) + 6;
+      labelX = drawDebugLabel("1:HITBOX", labelX, 0xFF00FF00) + 6;
     }
 
-    // Sprite bounding box overlay (key 2)
+    // Sprite bounding box overlay (key 2) — magenta, 50% alpha
     if (debugSprite && debugSprBoxes.length > 0) {
-      const scol = 0xFFFF00FF;
+      const sr = 255, sg = 0, sb = 255, sa = 0.5;
       for (const s of debugSprBoxes) {
         const ss = SPR_SIZE;
         for (let px = s.x; px < s.x + ss; px++) {
-          if (px >= 0 && px < W) {
-            if (s.y >= 0 && s.y < H) buf32[s.y * W + px] = scol;
-            const by = s.y + ss - 1;
-            if (by >= 0 && by < H) buf32[by * W + px] = scol;
-          }
+          debugPix(px, s.y, sr, sg, sb, sa);
+          debugPix(px, s.y + ss - 1, sr, sg, sb, sa);
         }
         for (let py = s.y; py < s.y + ss; py++) {
-          if (py >= 0 && py < H) {
-            if (s.x >= 0 && s.x < W) buf32[py * W + s.x] = scol;
-            const bx = s.x + ss - 1;
-            if (bx >= 0 && bx < W) buf32[py * W + bx] = scol;
-          }
+          debugPix(s.x, py, sr, sg, sb, sa);
+          debugPix(s.x + ss - 1, py, sr, sg, sb, sa);
         }
       }
-      labelX = drawDebugLabel("2:SPRITE", labelX, scol) + 6;
+      labelX = drawDebugLabel("2:SPRITE", labelX, 0xFFFF00FF) + 6;
     }
 
-    // Fill overlay (key 3)
+    // Fill overlay (key 3) — orange, 50% alpha
     if (debugFill && debugFillBoxes.length > 0) {
-      const fcol = 0xFFFF8800;
+      const fr = 255, fg = 136, fb = 0, fa = 0.5;
       for (const s of debugFillBoxes) {
         if (s.t === "r") {
           for (let px = s.x; px < s.x + s.w; px++) {
-            if (px >= 0 && px < W) {
-              if (s.y >= 0 && s.y < H) buf32[s.y * W + px] = fcol;
-              const by = s.y + s.h - 1;
-              if (by >= 0 && by < H) buf32[by * W + px] = fcol;
-            }
+            debugPix(px, s.y, fr, fg, fb, fa);
+            debugPix(px, s.y + s.h - 1, fr, fg, fb, fa);
           }
           for (let py = s.y; py < s.y + s.h; py++) {
-            if (py >= 0 && py < H) {
-              if (s.x >= 0 && s.x < W) buf32[py * W + s.x] = fcol;
-              const bx = s.x + s.w - 1;
-              if (bx >= 0 && bx < W) buf32[py * W + bx] = fcol;
-            }
+            debugPix(s.x, py, fr, fg, fb, fa);
+            debugPix(s.x + s.w - 1, py, fr, fg, fb, fa);
           }
         } else if (s.t === "c") {
           let cx = s.r, cy = 0, d = 1 - s.r;
           while (cx >= cy) {
-            const pts = [
-              [s.x+cx,s.y+cy],[s.x-cx,s.y+cy],[s.x+cx,s.y-cy],[s.x-cx,s.y-cy],
-              [s.x+cy,s.y+cx],[s.x-cy,s.y+cx],[s.x+cy,s.y-cx],[s.x-cy,s.y-cx]
-            ];
-            for (const [px,py] of pts)
-              if (px >= 0 && px < W && py >= 0 && py < H) buf32[py * W + px] = fcol;
+            debugPix(s.x+cx,s.y+cy,fr,fg,fb,fa); debugPix(s.x-cx,s.y+cy,fr,fg,fb,fa);
+            debugPix(s.x+cx,s.y-cy,fr,fg,fb,fa); debugPix(s.x-cx,s.y-cy,fr,fg,fb,fa);
+            debugPix(s.x+cy,s.y+cx,fr,fg,fb,fa); debugPix(s.x-cy,s.y+cx,fr,fg,fb,fa);
+            debugPix(s.x+cy,s.y-cx,fr,fg,fb,fa); debugPix(s.x-cy,s.y-cx,fr,fg,fb,fa);
             cy++;
             if (d < 0) { d += 2 * cy + 1; } else { cx--; d += 2 * (cy - cx) + 1; }
           }
         }
       }
-      labelX = drawDebugLabel("3:FILL", labelX, fcol) + 6;
+      labelX = drawDebugLabel("3:FILL", labelX, 0xFFFF8800) + 6;
     }
   }
 
