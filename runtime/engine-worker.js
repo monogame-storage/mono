@@ -689,7 +689,7 @@ async function registerSounds(soundsTable) {
 
 async function parseGameTable() {
   const gameTable = await luauGet('game');
-  postMessage({type:"log", msg:"gameTable: " + typeof gameTable + " " + JSON.stringify(gameTable && Object.keys(gameTable))});
+  // postMessage({type:"log", msg:"gameTable: " + typeof gameTable});
   if (!gameTable) return;
   const spritesT = gameTable.sprites || gameTable['sprites'];
   postMessage({type:"log", msg:"spritesT: " + typeof spritesT + " keys:" + JSON.stringify(spritesT && Object.keys(spritesT))});
@@ -739,38 +739,24 @@ function buildLuaGlobals() {
     frame: () => frameCount,
     overlap,
     spawn: (components) => {
-      // luau-web tables: log what we receive to understand the type
-      if (frameCount < 5) {
-        try {
-          const t = typeof components;
-          const ctor = components && components.constructor && components.constructor.name;
-          const keys = Object.keys(components);
-          const keysIn = []; for (const k in components) keysIn.push(k);
-          const json = JSON.stringify(components);
-          postMessage({type:"log", msg:"spawn: type=" + t + " ctor=" + ctor + " keys=" + keys.length + " forin=" + keysIn.length + " json=" + (json ? json.substring(0, 100) : "null")});
-        } catch(e) {
-          postMessage({type:"log", msg:"spawn inspect err: " + e.message});
-        }
-      }
-      // Try JSON roundtrip
+      // Deep clone luau proxy → plain JS object
       let obj;
       try {
         obj = JSON.parse(JSON.stringify(components));
       } catch(e) {
         obj = {};
-        for (const k in components) {
-          const v = components[k];
-          if (v && typeof v === 'object') {
-            const inner = {};
-            for (const ik in v) inner[ik] = v[ik];
-            obj[k] = inner;
-          } else {
-            obj[k] = v;
+        try {
+          for (const k in components) {
+            const v = components[k];
+            if (v && typeof v === 'object') {
+              const inner = {};
+              for (const ik in v) inner[ik] = v[ik];
+              obj[k] = inner;
+            } else {
+              obj[k] = v;
+            }
           }
-        }
-      }
-      if (frameCount < 5) {
-        postMessage({type:"log", msg:"spawn result: " + JSON.stringify(obj).substring(0, 200)});
+        } catch(e2) { /* fallback failed */ }
       }
       return ecsSpawn(obj);
     },
@@ -821,8 +807,8 @@ async function autoDetectScenes() {
     if (hasUpdate || hasDraw) {
       scenes[name] = {
         init: hasInit ? async () => { try { await luau.loadstring(name + "_init()", name + "_init")(); } catch(e) { postMessage({type:"log", msg:"init err: " + e.message}); } } : null,
-        update: hasUpdate ? async () => { try { await luau.loadstring(name + "_update()", name + "_update")(); } catch(e) { console.error("Mono update:", e); } } : null,
-        draw: hasDraw ? async () => { try { await luau.loadstring(name + "_draw()", name + "_draw")(); } catch(e) { console.error("Mono draw:", e); } } : null,
+        update: hasUpdate ? async () => { try { await luau.loadstring(name + "_update()", name + "_update")(); } catch(e) { postMessage({type:"log", msg:"update err[" + name + "]: " + e.message}); } } : null,
+        draw: hasDraw ? async () => { try { await luau.loadstring(name + "_draw()", name + "_draw")(); } catch(e) { postMessage({type:"log", msg:"draw err[" + name + "]: " + e.message}); } } : null,
       };
     }
   }

@@ -453,7 +453,7 @@ const Mono = (() => {
         engineBase = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1) + '../../runtime/';
       }
 
-      const workerUrl = engineBase + 'engine-worker.js';
+      const workerUrl = engineBase + 'engine-worker.js?v=' + Date.now();
       const luauWebUrl = engineBase + 'luau-web/luau-web.js';
 
       // Fetch the game source on main thread (Workers can't fetch relative URLs easily)
@@ -517,6 +517,8 @@ const Mono = (() => {
 
           case "log": {
             console.log("[Worker]", msg.msg);
+            if (!window._wlog) window._wlog = [];
+            window._wlog.push(msg.msg);
             break;
           }
 
