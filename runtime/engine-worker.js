@@ -482,6 +482,8 @@ async function ecsUpdate() {
       }
     }
   }
+  // Collect all collisions first, then fire callbacks
+  const hits = [];
   for (let h = 0; h < collisionHandlers.length; h++) {
     const handler = collisionHandlers[h];
     for (let i = 0; i < entities.length; i++) {
@@ -493,10 +495,16 @@ async function ecsUpdate() {
         if (!b._alive || b.group !== handler.groupB || a === b) continue;
         const hb = ecsHitbox(b);
         if (ecsOverlap(ha, hb)) {
-          try { await handler.fn(a, b); } catch(e) { postMessage({type:"log", msg:"collide err: " + e.message}); }
+          hits.push({ fn: handler.fn, a, b });
         }
       }
     }
+  }
+  // Fire callbacks sequentially
+  for (let i = 0; i < hits.length; i++) {
+    const h = hits[i];
+    if (!h.a._alive || !h.b._alive) continue; // already killed by earlier callback
+    try { await h.fn(h.a, h.b); } catch(e) { postMessage({type:"log", msg:"collide err: " + e.message}); }
   }
 }
 
