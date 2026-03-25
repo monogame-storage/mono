@@ -1973,6 +1973,7 @@ local function bsPlayerSprName(state)
   if state == "walk" then return "hero_walk"
   elseif state == "jab" or state == "cross" or state == "uppercut" then return "hero_punch"
   elseif state == "kick" then return "hero_kick"
+  elseif state == "jump" then return "hero_walk"
   end
   return "hero_idle"
 end
@@ -1993,7 +1994,7 @@ local function bsSyncPlayerVis()
     visible = false
   end
   local bob = 0
-  if p.state == "walk" then
+  if p.state == "walk" and not bsJump then
     bob = flr(math.sin(bsFrame * 0.3) * 2)
   end
   if visible then
@@ -2002,7 +2003,7 @@ local function bsSyncPlayerVis()
     ecs_set(bsPlayerEntId, "sprite", 0)
   end
   ecs_set(bsPlayerEntId, "x", p.x)
-  ecs_set(bsPlayerEntId, "y", p.y + bob)
+  ecs_set(bsPlayerEntId, "y", p.y + bsJumpZ + bob)
   ecs_set(bsPlayerEntId, "flipX", (p.facing < 0))
   ecs_set(bsPlayerEntId, "z", p.y)
 end
@@ -2129,6 +2130,10 @@ local function bsInit()
   bsAttackTimer = 0
   bsAttackType = ""
   bsKickTimer = 0
+  bsJump = false
+  bsJumpVel = 0
+  bsJumpZ = 0
+  bsJumpBtnWindow = 0
 
   killAll("bsplayer")
   killAll("bsenemy")
@@ -2271,6 +2276,34 @@ local function bsUpdate()
     end
   end
 
+  -- Jump physics
+  if bsJump then
+    bsJumpVel = bsJumpVel + 0.3
+    bsJumpZ = bsJumpZ + bsJumpVel
+    if bsJumpZ >= 0 then
+      bsJumpZ = 0
+      bsJump = false
+      bsJumpVel = 0
+    end
+  end
+
+  -- Track simultaneous A+B press window for jump
+  if bsJumpBtnWindow > 0 then bsJumpBtnWindow = bsJumpBtnWindow - 1 end
+  if btnp("a") or btnp("b") then
+    bsJumpBtnWindow = 2
+  end
+
+  -- Jump: both A and B held within window, not already jumping
+  if btn("a") and btn("b") and bsJumpBtnWindow > 0 and not bsJump and bsJumpZ == 0 then
+    bsJump = true
+    bsJumpVel = -5
+    bsJumpZ = 0
+    bsJumpBtnWindow = 0
+    bsAttackTimer = 0
+    bsKickTimer = 0
+    note(0, "G5", 0.03)
+  end
+
   -- Walk bob animation
   if dx ~= 0 or dy ~= 0 then
     bsPlayer.state = "walk"
@@ -2278,15 +2311,56 @@ local function bsUpdate()
     bsPlayer.state = "idle"
   end
 
-  -- Override state with attack
-  if bsAttackTimer > 0 then
+  -- Override state with attack or jump
+  if bsJump then
+    bsPlayer.state = "jump"
+  elseif bsAttackTimer > 0 then
     bsPlayer.state = bsAttackType
   elseif bsKickTimer > 0 then
     bsPlayer.state = "kick"
   end
 
-  -- A = punch combo (within 10 frames = next combo step)
-  if btnp("a") and bsKickTimer <= 0 then
+  -- Aerial attacks during jump
+  if bsJump and btnp("a") and bsAttackTimer <= 0 then
+    bsAttackTimer = 8
+    bsAttackType = "jab"
+    bsComboCount = 0
+    bsComboWindow = 0
+    note(0, "E4", 0.05)
+    killAll("bsattack")
+    local atkX = bsPlayer.x + bsPlayer.facing * 12
+    local atkY = bsPlayer.y + bsJumpZ
+    spawn({
+      group = "bsattack",
+      pos = { x = atkX, y = atkY },
+      hitbox = { w = 14, h = 16 },
+      anchor_x = 0.5, anchor_y = 0.5,
+      lifetime = 4,
+      dmg = 10,
+    })
+  end
+
+  if bsJump and btnp("b") and bsKickTimer <= 0 then
+    bsKickTimer = 12
+    bsAttackTimer = 0
+    bsComboCount = 0
+    bsComboWindow = 0
+    note(0, "F4", 0.07)
+    killAll("bsattack")
+    local atkX = bsPlayer.x + bsPlayer.facing * 20
+    local atkY = bsPlayer.y + bsJumpZ
+    spawn({
+      group = "bsattack",
+      pos = { x = atkX, y = atkY },
+      hitbox = { w = 30, h = 14 },
+      anchor_x = 0.5, anchor_y = 0.5,
+      lifetime = 5,
+      dmg = 14,
+    })
+  end
+
+  -- A = punch combo (within 10 frames = next combo step) — ground only
+  if not bsJump and btnp("a") and bsKickTimer <= 0 then
     if bsComboWindow > 0 and bsComboCount < 3 then
       bsComboCount = bsComboCount + 1
     else
@@ -2311,11 +2385,13 @@ local function bsUpdate()
     killAll("bsattack")
     local atkRange = bsComboCount == 3 and 22 or 14
     local atkDmg = bsComboCount == 3 and 15 or 8
-    local atkX = bsPlayer.x + bsPlayer.facing * 12
+    local atkOff = bsComboCount == 3 and 16 or 12
+    local atkX = bsPlayer.x + bsPlayer.facing * atkOff
+    local atkY = bsJump and (bsPlayer.y + bsJumpZ) or bsPlayer.y
     spawn({
       group = "bsattack",
-      pos = { x = atkX, y = bsPlayer.y },
-      hitbox = { w = atkRange, h = 16, ox = -atkRange / 2, oy = -8 },
+      pos = { x = atkX, y = atkY },
+      hitbox = { w = atkRange, h = 16 },
       anchor_x = 0.5, anchor_y = 0.5,
       lifetime = 4,
       dmg = atkDmg,
@@ -2323,7 +2399,7 @@ local function bsUpdate()
   end
 
   -- B = kick (wider hitbox, 15 frame cooldown)
-  if btnp("b") and bsAttackTimer <= 0 and bsKickTimer <= 0 then
+  if not bsJump and btnp("b") and bsAttackTimer <= 0 and bsKickTimer <= 0 then
     bsKickTimer = 15
     bsComboCount = 0
     bsComboWindow = 0
@@ -2334,7 +2410,7 @@ local function bsUpdate()
     spawn({
       group = "bsattack",
       pos = { x = atkX, y = bsPlayer.y },
-      hitbox = { w = 26, h = 14, ox = -13, oy = -7 },
+      hitbox = { w = 26, h = 14 },
       anchor_x = 0.5, anchor_y = 0.5,
       lifetime = 5,
       dmg = 10,
@@ -2561,9 +2637,10 @@ local function bsDraw()
   end)
 
   -- Draw shadows (under sprites, which ECS renders automatically)
-  -- Player shadow
+  -- Player shadow (always at ground Y, not affected by jump)
   local p = bsPlayer
-  circf(flr(p.x), flr(p.y) + 8, 7, 1)
+  local shadowScale = bsJump and math.max(3, 7 + flr(bsJumpZ / 8)) or 7
+  circf(flr(p.x), flr(p.y) + 8, shadowScale, 1)
   -- Enemy shadows
   for _, e in ipairs(bsEnemies) do
     local shadowR = e.kind == "boss" and 9 or 7
@@ -2574,20 +2651,30 @@ local function bsDraw()
   -- ECS auto-renders hitbox debug overlays
 
   -- Punch/kick visual effects (drawn on top of player sprite)
+  local drawJumpZ = bsJump and bsJumpZ or 0
   if bsAttackTimer > 0 then
-    local fx = p.x + p.facing * 18
-    local fy = p.y - 2
+    local fy = p.y + drawJumpZ
     if bsComboCount == 3 then
+      local fx = p.x + p.facing * 16
       circf(flr(fx), flr(fy) - 4, 6, 3)
       circf(flr(fx), flr(fy) - 4, 4, 2)
     else
+      local fx = p.x + p.facing * 12
       circf(flr(fx), flr(fy), 4, 3)
     end
   end
-  if bsKickTimer > 0 then
-    local fx = p.x + p.facing * 22
+  if bsKickTimer > 0 and not bsJump then
+    local fx = p.x + p.facing * 16
     line(flr(p.x) + p.facing * 8, flr(p.y), flr(fx), flr(p.y) - 2, 3)
     circf(flr(fx), flr(p.y) - 1, 3, 2)
+  end
+  -- Jump kick visual
+  if bsKickTimer > 0 and bsJump then
+    local fy = p.y + drawJumpZ
+    local fx = p.x + p.facing * 20
+    line(flr(p.x) + p.facing * 6, flr(fy), flr(fx), flr(fy) - 2, 3)
+    line(flr(p.x) + p.facing * 6, flr(fy) + 2, flr(fx), flr(fy), 3)
+    circf(flr(fx), flr(fy) - 1, 4, 2)
   end
 
   -- Enemy overlays (boss outline, knife indicator, HP bars)
@@ -2680,7 +2767,7 @@ local function bsDraw()
   end
   text("ENEMIES:" .. alive, W - 80, 14, 2)
 
-  text("[A]PUNCH [B]KICK [START]MENU", 4, H - 10, 1)
+  text("[A]PUNCH [B]KICK [A+B]JUMP [START]MENU", 4, H - 10, 1)
 end
 
 ---------------------------------------------------------------
