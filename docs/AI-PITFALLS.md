@@ -182,4 +182,39 @@ py = py + dy * speed
 
 ---
 
+## 10. Debug shapes drift from entities when camera moves
+**Symptom:** Hitbox outlines slide away from sprites as camera scrolls
+**Cause:** `dbg()` stores world coordinates but debug overlay draws in screen coordinates
+**Fix:** Engine must apply camera offset when storing debug shapes (subtract camX/camY)
+```js
+// BAD: world coords stored, drawn as screen coords
+function dbg(x, y, w, h) {
+  debugShapes.push({ x: x, y: y, w: w, h: h }); // world coords!
+}
+
+// GOOD: convert to screen coords at storage time
+function dbg(x, y, w, h) {
+  debugShapes.push({ x: x - camX, y: y - camY, w: w, h: h });
+}
+```
+
+---
+
+## 11. Non-ECS entities miss automatic features
+**Symptom:** Player has no hitbox debug, no auto-rendering, manual camera issues
+**Cause:** Complex entities (player, boss) managed as manual tables instead of ECS
+**Fix:** Always use ECS — even for complex entities. Game logic stays in update, but pos/sprite/hitbox go through ECS
+```lua
+-- BAD: manual table, must handle everything yourself
+bsPlayer = {x=100, y=180}
+sprT(sprId, bsPlayer.x - 8, bsPlayer.y - 8)  -- manual draw
+dbg(bsPlayer.x - 6, bsPlayer.y - 8, 12, 16)  -- manual hitbox
+
+-- GOOD: ECS entity, engine handles rendering + hitbox
+spawn({group="player", pos={x=100,y=180}, sprite=sprId, hitbox={w=12,h=16}})
+-- engine auto-draws sprite and hitbox debug
+```
+
+---
+
 *Add new entries as bugs are discovered. Format: Symptom → Cause → Fix with code examples.*
