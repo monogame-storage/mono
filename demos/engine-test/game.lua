@@ -321,26 +321,9 @@ local function shooterInit()
   killAll("player")
   setupTilemap()
 
-  onCollide("bullet", "enemy", function(bullet, enemy)
-    kill(bullet)
-    kill(enemy)
-    spawnExplosion(enemy.pos.x + 7, enemy.pos.y + 5)
-    shooterScore = shooterScore + 100
-    note(0, "E5", 0.08)
-  end)
-
-  onCollide("player", "enemy", function(player, enemy)
-    if invincible > 0 then return end
-    kill(enemy)
-    spawnExplosion(playerX + 8, playerY + 5)
-    shooterLives = shooterLives - 1
-    invincible = 90
-    note(0, "C3", 0.2)
-    note(1, "E3", 0.15)
-    if shooterLives <= 0 then
-      shooterLives = 0
-    end
-  end)
+  -- Register collision tags (no callbacks — poll in update)
+  onCollide("bullet", "enemy", "bullet_enemy")
+  onCollide("player", "enemy", "player_enemy")
 
   bgm({
     "E4 . G4 . A4 . G4 . E4 . D4 . E4 . G4 . A4 . B4 . A4 . G4 . E4 . D4 . C4 . D4 .",
@@ -366,6 +349,27 @@ local function shooterUpdate()
       shooterInit()
     end
     return
+  end
+
+  -- Poll collisions (no async callbacks)
+  while true do
+    local hit = pollCollision()
+    if hit == nil then break end
+    if hit.tag == "bullet_enemy" then
+      spawnExplosion(hit.bx + 7, hit.by + 5)
+      shooterScore = shooterScore + 100
+      note(0, "E5", 0.08)
+    elseif hit.tag == "player_enemy" then
+      if invincible <= 0 then
+        spawnExplosion(playerX + 8, playerY + 5)
+        shooterLives = shooterLives - 1
+        invincible = 90
+        note(0, "C3", 0.2)
+        if shooterLives <= 0 then
+          shooterLives = 0
+        end
+      end
+    end
   end
 
   scrollY = scrollY + 0.5

@@ -405,10 +405,29 @@ function ecsCount(group) {
   return n;
 }
 
-function ecsOnCollide(groupA, groupB, fn) {
-  collisionHandlers.push({ groupA, groupB, fn });
+const collisionQueue = []; // [{tag, aId, bId, ax, ay, bx, by}]
+
+function ecsOnCollide(groupA, groupB, tag) {
+  // tag is a string identifier (not a callback), e.g. "bullet_enemy"
+  collisionHandlers.push({ groupA, groupB, tag: tag || (groupA + "_" + groupB) });
 }
-function ecsClearCollisions() { collisionHandlers.length = 0; }
+function ecsClearCollisions() { collisionHandlers.length = 0; collisionQueue.length = 0; }
+
+function ecsPopCollision() {
+  if (collisionQueue.length === 0) return null;
+  return collisionQueue.shift();
+}
+
+function ecsPopAllCollisions(tag) {
+  const result = [];
+  for (let i = collisionQueue.length - 1; i >= 0; i--) {
+    if (!tag || collisionQueue[i].tag === tag) {
+      result.push(collisionQueue[i]);
+      collisionQueue.splice(i, 1);
+    }
+  }
+  return result;
+}
 
 function ecsHitbox(e) {
   if (!e.pos || !e.hitbox) return null;
@@ -438,7 +457,7 @@ function ecsOverlap(a, b) {
   return dx * dx + dy * dy < c.r * c.r;
 }
 
-async function ecsUpdate() {
+function ecsUpdate() {
   for (let i = entities.length - 1; i >= 0; i--) {
     if (!entities[i]._alive) entities.splice(i, 1);
   }
@@ -482,8 +501,7 @@ async function ecsUpdate() {
       }
     }
   }
-  // Collect all collisions first, then fire callbacks
-  const hits = [];
+  // Detect collisions and queue them (no async callbacks)
   for (let h = 0; h < collisionHandlers.length; h++) {
     const handler = collisionHandlers[h];
     for (let i = 0; i < entities.length; i++) {
@@ -495,16 +513,19 @@ async function ecsUpdate() {
         if (!b._alive || b.group !== handler.groupB || a === b) continue;
         const hb = ecsHitbox(b);
         if (ecsOverlap(ha, hb)) {
-          hits.push({ fn: handler.fn, a, b });
+          collisionQueue.push({
+            tag: handler.tag,
+            aId: a._id, bId: b._id,
+            ax: a.pos ? a.pos.x : 0, ay: a.pos ? a.pos.y : 0,
+            bx: b.pos ? b.pos.x : 0, by: b.pos ? b.pos.y : 0,
+            aGroup: a.group, bGroup: b.group,
+          });
+          // Auto-kill both entities on collision
+          a._alive = false;
+          b._alive = false;
         }
       }
     }
-  }
-  // Fire callbacks sequentially
-  for (let i = 0; i < hits.length; i++) {
-    const h = hits[i];
-    if (!h.a._alive || !h.b._alive) continue; // already killed by earlier callback
-    try { await h.fn(h.a, h.b); } catch(e) { postMessage({type:"log", msg:"collide err: " + e.message}); }
   }
 }
 
@@ -783,6 +804,7 @@ function buildLuaGlobals() {
     each: (group, fn) => ecsEach(group, fn),
     ecount: ecsCount,
     onCollide: ecsOnCollide,
+    pollCollision: ecsPopCollision,
     clearCollisions: ecsClearCollisions,
     defSprite: (id, data) => {
       if (typeof data === 'string' && data.includes('\n')) {
@@ -873,7 +895,7 @@ async function stepUpdate() {
   if (currentScene && currentScene.update) {
     try { await currentScene.update(); } catch(e) { postMessage({type:"log", msg:"update err: " + e.message}); }
   }
-  await ecsUpdate();
+  ecsUpdate();
 }
 
 async function stepRender() {
