@@ -981,22 +981,37 @@ function title_draw()
 
   text("ENGINE TEST SUITE", 85, 25, 3)
 
-  -- Animated ship
+  -- Animated ship with hitbox
   local shipId: number = sprite_id("ship")
   local demoY: number = 50 + flr(math.sin(titleBlink * 0.06) * 4)
   sprT(shipId, 152, demoY)
+  dbg(152, demoY, 16, 16)
 
-  -- Rotating enemies
+  -- Rotating enemies with hitboxes
   local ebId: number = sprite_id("enemy_b")
   sprRot(ebId, 90, 60, titleBlink * 0.08)
   sprRot(ebId, 230, 60, -titleBlink * 0.08)
+  dbgC(90, 60, 7)
+  dbgC(230, 60, 7)
+
+  -- Demo fill shapes (visible with key 3)
+  local bx: number = 40 + flr(math.sin(titleBlink * 0.04) * 20)
+  rectf(bx, 130, 30, 12, 1)
+  circf(280 - flr(math.sin(titleBlink * 0.05) * 20), 136, 6, 2)
+
+  -- Bullet with hitbox
+  local bulId: number = sprite_id("bullet")
+  local bulY: number = 90 + flr(math.sin(titleBlink * 0.1) * 30)
+  sprT(bulId, 160, bulY)
+  dbgC(168, bulY + 4, 3)
 
   if flr(titleBlink / 20) % 2 == 0 then
     text("PRESS START", 115, 180, 3)
   end
 
-  text("5 TEST MODES INSIDE", 85, 210, 1)
-  text("SHOOTER CAMERA SPRITES INPUT SFX", 25, 222, 1)
+  text("1:HITBOX/2:SPRITE/3:FILL", 60, 200, 1)
+  text("5 TEST MODES INSIDE", 85, 212, 1)
+  text("SHOOTER CAMERA SPRITES INPUT SFX", 25, 224, 1)
 
   drawInputMonitor()
 end
