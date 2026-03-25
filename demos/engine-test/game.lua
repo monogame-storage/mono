@@ -1940,9 +1940,9 @@ local BS_ZONES = {
 
 -- Enemy type stats
 local BS_ENEMY_STATS = {
-  grunt = { hp = 6, speed = 1.0, atkRange = 20, atkDmg = 5, color = 3 },
-  knife = { hp = 4, speed = 0.6, atkRange = 100, atkDmg = 3, color = 2 },
-  boss  = { hp = 18, speed = 1.5, atkRange = 25, atkDmg = 8, color = 3 },
+  grunt = { hp = 24, speed = 1.0, atkRange = 20, atkDmg = 5, color = 3 },
+  knife = { hp = 16, speed = 0.6, atkRange = 100, atkDmg = 3, color = 2 },
+  boss  = { hp = 60, speed = 1.5, atkRange = 25, atkDmg = 8, color = 3 },
 }
 
 local bsPlayer = nil
@@ -2070,10 +2070,11 @@ local function bsSpawnZone(zone)
       group = "bsenemy",
       pos = { x = e.x, y = e.y },
       sprite = sprite_id(bsEnemySprName(e.state)),
-      hitbox = { w = 14, h = 20, ox = -7, oy = -10 },
+      hitbox = { w = 24, h = 32, ox = -12, oy = -16 },
       anchor_x = 0.5, anchor_y = 0.5,
       flipX = (e.facing < 0),
       z = e.y,
+      scale = 2,
     })
     bsSyncEnemyVis(e, #bsEnemies)
   end
@@ -2140,10 +2141,11 @@ local function bsInit()
     group = "bsplayer",
     pos = { x = bsPlayer.x, y = bsPlayer.y },
     sprite = sprite_id(bsPlayerSprName(bsPlayer.state)),
-    hitbox = { w = 12, h = 16, ox = -6, oy = -8 },
+    hitbox = { w = 24, h = 32, ox = -12, oy = -16 },
     anchor_x = 0.5, anchor_y = 0.5,
     flipX = (bsPlayer.facing < 0),
     z = bsPlayer.y,
+    scale = 2,
   })
 
   -- Callback mode: entities NOT auto-killed

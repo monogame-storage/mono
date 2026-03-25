@@ -777,11 +777,16 @@ const Mono = (() => {
       // anchor: 0,0=topleft (default), 0.5,0.5=center, 1,1=bottomright
       const ax = e.anchor_x !== undefined ? e.anchor_x : 0;
       const ay = e.anchor_y !== undefined ? e.anchor_y : 0;
-      if (e.sprite !== undefined) {
-        const drawX = Math.floor(e.pos.x - SPR_SIZE * ax);
-        const drawY = Math.floor(e.pos.y - SPR_SIZE * ay);
+      if (e.sprite !== undefined && e.sprite > 0) {
+        const s = e.scale || 1;
+        const drawX = Math.floor(e.pos.x - SPR_SIZE * s * ax);
+        const drawY = Math.floor(e.pos.y - SPR_SIZE * s * ay);
         const flipX = e.flipX || false, flipY = e.flipY || false;
-        sprT(e.sprite, drawX, drawY, flipX, flipY);
+        if (s !== 1) {
+          sprScale(e.sprite, drawX, drawY, s, flipX, flipY);
+        } else {
+          sprT(e.sprite, drawX, drawY, flipX, flipY);
+        }
       }
       if (e.hitbox) {
         const hb = ecsHitbox(e);
