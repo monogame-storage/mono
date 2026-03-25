@@ -1316,7 +1316,7 @@ const Mono = (() => {
             for (const k in ex) obj[k] = ex[k];
           } catch(e) {}
         }
-        return ecsSpawn(obj);
+        ecsSpawn(obj);
       },
       kill: ecsKill,
       killAll: ecsKillAll,
@@ -1402,7 +1402,7 @@ const Mono = (() => {
         end
       end
       if #parts > 0 then extra = "{" .. table.concat(parts, ",") .. "}" end
-      return _spawnRaw(t.group, px, py, vx, vy, t.sprite, hbType, hbA, hbB, hbC, hbD, t.gravity, t.lifetime, t.offscreen, t.anchor_x, t.anchor_y, extra)
+      _spawnRaw(t.group, px, py, vx, vy, t.sprite, hbType, hbA, hbB, hbC, hbD, t.gravity, t.lifetime, t.offscreen, t.anchor_x, t.anchor_y, extra)
     end
   `;
 
