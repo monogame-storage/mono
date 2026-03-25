@@ -638,7 +638,7 @@ local function updateGhosts()
           g.entity.pos.y = screenY(g.py)
           g.entity.sprite = ghostSpriteId(g)
         end
-        continue
+        goto continue_ghost
       end
     end
 
@@ -647,7 +647,7 @@ local function updateGhosts()
       if g.entity then
         g.entity.sprite = ghostSpriteId(g)
       end
-      continue
+      goto continue_ghost
     end
 
     local atX = abs(g.px - g.col * TILE) < speed + 0.01
@@ -704,6 +704,7 @@ local function updateGhosts()
         g.entity.sprite = ghostSpriteId(g)
       end
     end
+    ::continue_ghost::
   end
 end
 
