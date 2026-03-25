@@ -868,7 +868,7 @@ const Mono = (() => {
     // Draw order: 1 → 2 → 3
 
     // Collision overlay (key 1) — green, 70% alpha, 2px thick
-    if (debugMode && debugShapes.length > 0) {
+    if (debugMode) {
       const cr = 0, cg = 255, cb = 0, ca = 0.7;
       const TH = 2;
       for (const s of debugShapes) {
@@ -907,7 +907,7 @@ const Mono = (() => {
     }
 
     // Sprite bounding box overlay (key 2) — magenta, 70% alpha
-    if (debugSprite && debugSprBoxes.length > 0) {
+    if (debugSprite) {
       const sr = 255, sg = 0, sb = 255, sa = 0.7;
       for (const s of debugSprBoxes) {
         const ss = SPR_SIZE;
@@ -924,7 +924,7 @@ const Mono = (() => {
     }
 
     // Fill overlay (key 3) — orange, 70% alpha
-    if (debugFill && debugFillBoxes.length > 0) {
+    if (debugFill) {
       const fr = 255, fg = 136, fb = 0, fa = 0.7;
       for (const s of debugFillBoxes) {
         if (s.t === "r") {
