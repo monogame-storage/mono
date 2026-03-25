@@ -292,7 +292,7 @@ local function spawnExplosion(x, y)
   for i = 1, count do
     local angle = rnd(6.28)
     local speed = rnd(2.5) + 0.5
-    _spawnRaw("particle", x, y, speed * math.cos(angle), speed * math.sin(angle) - 1.5, partId, nil, nil, nil, nil, nil, 0.1, flr(rnd(10)) + 15, true, nil)
+    _spawnRaw("particle", x, y, speed * math.cos(angle), speed * math.sin(angle) - 1.5, partId, nil, nil, nil, nil, nil, 0.1, flr(rnd(10)) + 15, true, 0.5, 0.5, nil)
   end
   note(1, "C5", 0.06)
 end
@@ -385,7 +385,7 @@ local function shooterUpdate()
   end
   if btn("a") and shootCooldown <= 0 and ecount("bullet") < MAX_BULLETS then
     local bulletId = sprite_id("bullet")
-    _spawnRaw("bullet", playerX, playerY - SS, 0, BULLET_SPEED, bulletId, "c", 3, 8, 2, nil, nil, nil, true, nil)
+    _spawnRaw("bullet", playerX + 8, playerY - 4, 0, BULLET_SPEED, bulletId, "c", 3, 0, 0, nil, nil, nil, true, 0.5, 0.5, nil)
     shootCooldown = 6
     note(0, "A5", 0.03)
   end
@@ -402,13 +402,13 @@ local function shooterUpdate()
     if etype == 0 then
       local ea1 = sprite_id("enemy_a1")
       local ea2 = sprite_id("enemy_a2")
-      _spawnRaw("enemy", ex, -SS, rnd(2) - 1, ENEMY_SPEED + rnd(0.5), ea1, "r", 14, 10, 1, 1, nil, nil, true, nil)
+      _spawnRaw("enemy", ex, -SS, rnd(2) - 1, ENEMY_SPEED + rnd(0.5), ea1, "r", 14, 10, -7, -5, nil, nil, true, 0.5, 0.5, nil)
     elseif etype == 1 then
       local ebId = sprite_id("enemy_b")
-      _spawnRaw("enemy", ex, -SS, rnd(1.6) - 0.8, ENEMY_SPEED + rnd(0.3), ebId, "c", 6, 8, 7, nil, nil, nil, true, nil)
+      _spawnRaw("enemy", ex, -SS, rnd(1.6) - 0.8, ENEMY_SPEED + rnd(0.3), ebId, "c", 6, 0, 0, nil, nil, nil, true, 0.5, 0.5, nil)
     else
       local ea1 = sprite_id("enemy_a1")
-      _spawnRaw("enemy", ex, -SS, rnd(2.4) - 1.2, ENEMY_SPEED + 0.8, ea1, "r", 14, 10, 1, 1, nil, nil, true, nil)
+      _spawnRaw("enemy", ex, -SS, rnd(2.4) - 1.2, ENEMY_SPEED + 0.8, ea1, "r", 14, 10, -7, -5, nil, nil, true, 0.5, 0.5, nil)
     end
   end
 
@@ -425,7 +425,7 @@ local function shooterUpdate()
 
   killAll("player")
   if invincible <= 0 or flr(invincible / 3) % 2 == 0 then
-    _spawnRaw("player", playerX, playerY, nil, nil, nil, "r", 12, 14, 2, 1, nil, nil, nil, nil)
+    _spawnRaw("player", playerX + 8, playerY + 8, nil, nil, nil, "r", 12, 14, -6, -7, nil, nil, nil, 0.5, 0.5, nil)
   end
 end
 

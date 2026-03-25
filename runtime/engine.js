@@ -696,10 +696,14 @@ const Mono = (() => {
     for (let i = 0; i < entities.length; i++) {
       const e = entities[i];
       if (!e._alive || !e.pos) continue;
+      // anchor: 0,0=topleft (default), 0.5,0.5=center, 1,1=bottomright
+      const ax = e.anchor_x !== undefined ? e.anchor_x : 0;
+      const ay = e.anchor_y !== undefined ? e.anchor_y : 0;
       if (e.sprite !== undefined) {
-        const x = Math.floor(e.pos.x), y = Math.floor(e.pos.y);
+        const drawX = Math.floor(e.pos.x - SPR_SIZE * ax);
+        const drawY = Math.floor(e.pos.y - SPR_SIZE * ay);
         const flipX = e.flipX || false, flipY = e.flipY || false;
-        sprT(e.sprite, x, y, flipX, flipY);
+        sprT(e.sprite, drawX, drawY, flipX, flipY);
       }
       if (e.hitbox) {
         const hb = ecsHitbox(e);
@@ -1163,7 +1167,7 @@ const Mono = (() => {
       cam: camSet, cam_get: camGet, cam_shake: camShakeSet, cam_reset: camReset,
       frame: () => frameCount,
       overlap,
-      _spawnRaw: (group, px, py, vx, vy, sprId, hbType, hbA, hbB, hbC, hbD, grav, life, offscr, extra) => {
+      _spawnRaw: (group, px, py, vx, vy, sprId, hbType, hbA, hbB, hbC, hbD, grav, life, offscr, anchorX, anchorY, extra) => {
         const obj = { group: group };
         if (px !== undefined && px !== null) obj.pos = { x: px, y: py || 0 };
         if (vx !== undefined && vx !== null) obj.vel = { x: vx, y: vy || 0 };
@@ -1173,6 +1177,8 @@ const Mono = (() => {
         if (grav) obj.gravity = grav;
         if (life) obj.lifetime = life;
         if (offscr) obj.offscreen = true;
+        if (anchorX) obj.anchor_x = anchorX;
+        if (anchorY) obj.anchor_y = anchorY;
         if (extra) {
           try {
             const ex = JSON.parse(extra);
@@ -1264,7 +1270,7 @@ const Mono = (() => {
         end
       end
       if #parts > 0 then extra = "{" .. table.concat(parts, ",") .. "}" end
-      return _spawnRaw(t.group, px, py, vx, vy, t.sprite, hbType, hbA, hbB, hbC, hbD, t.gravity, t.lifetime, t.offscreen, extra)
+      return _spawnRaw(t.group, px, py, vx, vy, t.sprite, hbType, hbA, hbB, hbC, hbD, t.gravity, t.lifetime, t.offscreen, t.anchor_x, t.anchor_y, extra)
     end
   `;
 
