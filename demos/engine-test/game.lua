@@ -936,20 +936,29 @@ function play_update()
       if menuCursor >= #menuItems then menuCursor = 0 end
       note(0, "G5", 0.03)
     end
-    if btnp("a") or btnp("start") then
+    if btnp("a") then
       enterMode(menuCursor + 1)
       note(0, "C5", 0.05)
     end
-  elseif currentMode == MODE_SHOOTER then
-    shooterUpdate()
-  elseif currentMode == MODE_CAMERA then
-    cameraUpdate()
-  elseif currentMode == MODE_SPRITES then
-    spritesUpdate()
-  elseif currentMode == MODE_INPUT then
-    inputUpdate()
-  elseif currentMode == MODE_SOUND then
-    soundUpdate()
+  else
+    -- Start returns to menu from any test mode
+    if btnp("start") then
+      enterMode(MODE_MENU)
+      currentMode = MODE_MENU
+      return
+    end
+
+    if currentMode == MODE_SHOOTER then
+      shooterUpdate()
+    elseif currentMode == MODE_CAMERA then
+      cameraUpdate()
+    elseif currentMode == MODE_SPRITES then
+      spritesUpdate()
+    elseif currentMode == MODE_INPUT then
+      inputUpdate()
+    elseif currentMode == MODE_SOUND then
+      soundUpdate()
+    end
   end
 end
 
