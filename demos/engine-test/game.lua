@@ -1218,7 +1218,11 @@ local function tilemapUpdate()
       if btn("left") and tmapCurX > 0 then tmapCurX = tmapCurX - 1; moved = true end
       if btn("right") and tmapCurX < TMAP_W - 1 then tmapCurX = tmapCurX + 1; moved = true end
       if moved then
-        tmapMoveDelay = btnp("up") or btnp("down") or btnp("left") or btnp("right") and 8 or 3
+        if btnp("up") or btnp("down") or btnp("left") or btnp("right") then
+          tmapMoveDelay = 8
+        else
+          tmapMoveDelay = 3
+        end
       end
     end
 
