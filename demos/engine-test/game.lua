@@ -1149,6 +1149,7 @@ local TMAP_H = 15
 local tmapCurX = 0
 local tmapCurY = 0
 local tmapBlink = 0
+local tmapSelectedTile = 1  -- index into tmapTileSprIds (0=empty,1=wall,2=floor,3=deco)
 -- Tile types: 0=empty, 1=wall, 2=floor, 3=decoration
 local TMAP_TILE_NAMES = {"EMPTY", "WALL", "FLOOR", "DECO"}
 local tmapTileSprIds = {}  -- filled at init
@@ -1157,6 +1158,7 @@ local function tilemapInit()
   tmapCurX = 0
   tmapCurY = 0
   tmapBlink = 0
+  tmapSelectedTile = 1
   tmapTileSprIds[0] = 0
   tmapTileSprIds[1] = sprite_id("tile_wall")
   tmapTileSprIds[2] = sprite_id("tile_floor")
@@ -1200,16 +1202,15 @@ local function tilemapUpdate()
     note(0, "G5", 0.02)
   end
 
-  -- A cycles tile type at cursor
+  -- B cycles selected tile type
+  if btnp("b") then
+    tmapSelectedTile = (tmapSelectedTile + 1) % 4
+    note(0, "E5", 0.04)
+  end
+
+  -- A places the selected tile at cursor
   if btnp("a") then
-    local cur = mget(tmapCurX, tmapCurY)
-    -- Find which type index this is
-    local curIdx = 0
-    for k, v in pairs(tmapTileSprIds) do
-      if v == cur then curIdx = k break end
-    end
-    local nextIdx = (curIdx + 1) % 4
-    mset(tmapCurX, tmapCurY, tmapTileSprIds[nextIdx])
+    mset(tmapCurX, tmapCurY, tmapTileSprIds[tmapSelectedTile])
     note(0, "C5", 0.04)
   end
 end
@@ -1234,10 +1235,17 @@ local function tilemapDraw()
     if v == curTile then tileName = TMAP_TILE_NAMES[k + 1] break end
   end
 
-  rectf(0, H - 24, W, 24, 0)
-  text("TILEMAP " .. TMAP_W .. "x" .. TMAP_H, 4, H - 22, 3)
-  text("POS:" .. tmapCurX .. "," .. tmapCurY .. " TILE:" .. tileName .. " ID:" .. curTile, 4, H - 12, 2)
-  text("[A] CYCLE  [START] MENU", 150, H - 12, 1)
+  local selName = TMAP_TILE_NAMES[tmapSelectedTile + 1]
+
+  rectf(0, H - 34, W, 34, 0)
+  text("TILEMAP " .. TMAP_W .. "x" .. TMAP_H, 4, H - 32, 3)
+  text("BRUSH: " .. selName, 100, H - 32, 3)
+  -- Draw selected tile preview
+  if tmapTileSprIds[tmapSelectedTile] ~= 0 then
+    sprT(tmapTileSprIds[tmapSelectedTile], 160, H - 34)
+  end
+  text("POS:" .. tmapCurX .. "," .. tmapCurY .. " TILE:" .. tileName .. " ID:" .. curTile, 4, H - 20, 2)
+  text("[A] PLACE  [B] CYCLE  [START] MENU", 4, H - 10, 1)
   drawInputMonitor()
 end
 
@@ -1262,6 +1270,8 @@ local rpgDialogActive = false
 local rpgNearNPC = false
 local rpgNPCList = {}
 local rpgFrame = 0
+local RPG_WEAPONS = {"SWORD", "BOW", "STAFF", "SHIELD"}
+local rpgWeaponIdx = 1
 
 local rpgWallId = 0
 local rpgFloorId = 0
@@ -1384,6 +1394,7 @@ local function rpgInit()
   rpgDialogActive = false
   rpgNearNPC = false
   rpgFrame = 0
+  rpgWeaponIdx = 1
 
   killAll("npc")
 
@@ -1421,11 +1432,17 @@ local function rpgUpdate()
 
   -- Dialog handling
   if rpgDialogActive then
-    if btnp("b") then
+    if btnp("a") then
       rpgDialogActive = false
       rpgDialogText = ""
     end
     return  -- freeze movement while dialog open
+  end
+
+  -- B cycles weapon (cosmetic)
+  if btnp("b") then
+    rpgWeaponIdx = rpgWeaponIdx % #RPG_WEAPONS + 1
+    note(0, "A5", 0.03)
   end
 
   -- Movement (tile-based with smooth interpolation)
@@ -1561,6 +1578,7 @@ local function rpgDraw()
   -- HUD (drawn in screen space, text is not affected by cam)
   text("MINI RPG", 4, 4, 3)
   text("POS:" .. rpgPX .. "," .. rpgPY, 4, 14, 2)
+  text("WPN:" .. RPG_WEAPONS[rpgWeaponIdx], 4, 24, 3)
 
   if rpgNearNPC and not rpgDialogActive then
     if flr(rpgFrame / 15) % 2 == 0 then
@@ -1581,7 +1599,7 @@ local function rpgDraw()
       text(dline, 30, H - 62 + lineY, 3)
       lineY = lineY + 12
     end
-    text("[B] CLOSE", W - 90, H - 26, 1)
+    text("[A] CLOSE", W - 90, H - 26, 1)
   end
 
   drawInputMonitor()
