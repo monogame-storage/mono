@@ -1323,6 +1323,7 @@ local rpgNPCList = {}
 local rpgFrame = 0
 local RPG_WEAPONS = {"SWORD", "BOW", "STAFF", "SHIELD"}
 local rpgWeaponIdx = 1
+local rpgAttackTimer = 0
 
 local rpgWallId = 0
 local rpgFloorId = 0
@@ -1446,6 +1447,7 @@ local function rpgInit()
   rpgNearNPC = false
   rpgFrame = 0
   rpgWeaponIdx = 1
+  rpgAttackTimer = 0
 
   killAll("npc")
 
@@ -1480,6 +1482,7 @@ end
 
 local function rpgUpdate()
   rpgFrame = rpgFrame + 1
+  if rpgAttackTimer > 0 then rpgAttackTimer = rpgAttackTimer - 1 end
 
   -- Dialog handling
   if rpgDialogActive then
@@ -1510,10 +1513,11 @@ local function rpgUpdate()
   if not rpgMoving then
     local dx = 0
     local dy = 0
-    if btnp("up") then dy = -1
-    elseif btnp("down") then dy = 1
-    elseif btnp("left") then dx = -1
-    elseif btnp("right") then dx = 1
+    -- btn (not btnp) for continuous movement while held
+    if btn("up") then dy = -1
+    elseif btn("down") then dy = 1
+    elseif btn("left") then dx = -1
+    elseif btn("right") then dx = 1
     end
 
     if dx ~= 0 or dy ~= 0 then
@@ -1526,9 +1530,6 @@ local function rpgUpdate()
         rpgTargetY = ny
         rpgMoving = true
         rpgMoveTimer = 0
-        note(0, "G5", 0.02)
-      else
-        note(0, "C3", 0.03)
       end
     end
 
@@ -1538,13 +1539,28 @@ local function rpgUpdate()
       local dist = abs(e.tileX - rpgPX) + abs(e.tileY - rpgPY)
       if dist <= 1 then
         rpgNearNPC = true
-        if btnp("a") then
-          rpgDialogActive = true
-          rpgDialogText = rpgNPCList[e.npcIndex].msg
-          note(0, "E5", 0.05)
-        end
       end
     end)
+
+    -- A button: talk to NPC if near, otherwise weapon action
+    if btnp("a") then
+      if rpgNearNPC then
+        -- Talk to nearest NPC
+        each("npc", function(e)
+          local dist = abs(e.tileX - rpgPX) + abs(e.tileY - rpgPY)
+          if dist <= 1 and not rpgDialogActive then
+            rpgDialogActive = true
+            rpgDialogText = rpgNPCList[e.npcIndex].msg
+            note(0, "E5", 0.05)
+          end
+        end)
+      else
+        -- Weapon action
+        rpgAttackTimer = 10
+        note(0, "C4", 0.06)
+        cam_shake(2)
+      end
+    end
   end
 
   -- Smooth camera follow
@@ -1611,11 +1627,34 @@ local function rpgDraw()
     if d.kind == "player" then
       -- Player shadow
       circf(flr(d.px) + 8, flr(d.py) + 14, 5, 1)
-      sprT(rpgShipId, flr(d.px), flr(d.py))
+      -- Bobbing animation
+      local bob = flr(math.sin(rpgFrame * 0.15) * 1.5)
+      sprT(rpgShipId, flr(d.px), flr(d.py) + bob)
+      -- Weapon action effect
+      if rpgAttackTimer > 0 then
+        local wpn = RPG_WEAPONS[rpgWeaponIdx]
+        local ax = flr(d.px) + 16
+        local ay = flr(d.py) + 4 + bob
+        if wpn == "SWORD" then
+          line(ax, ay, ax + 10, ay - 6, 3)
+          line(ax, ay + 1, ax + 10, ay - 5, 3)
+        elseif wpn == "BOW" then
+          circ(ax + 6, ay, 3, 2)
+          pix(ax + 10, ay, 3)
+        elseif wpn == "STAFF" then
+          line(ax, ay + 4, ax, ay - 8, 2)
+          circf(ax, ay - 9, 2, 3)
+        elseif wpn == "SHIELD" then
+          rectf(ax - 2, ay - 4, 8, 10, 2)
+          rect(ax - 2, ay - 4, 8, 10, 3)
+        end
+      end
     elseif d.kind == "npc" then
       -- NPC shadow
       circf(flr(d.px) + 8, flr(d.py) + 14, 5, 1)
-      sprT(rpgNpcSprId, flr(d.px), flr(d.py))
+      -- NPC bobbing (offset phase per position)
+      local npcBob = flr(math.sin(rpgFrame * 0.1 + d.px) * 1.5)
+      sprT(rpgNpcSprId, flr(d.px), flr(d.py) + npcBob)
       -- Exclamation mark above NPC if player is nearby
       local dist = abs(flr(d.px / SS) - rpgPX) + abs(flr(d.py / SS) - rpgPY)
       if dist <= 2 then
