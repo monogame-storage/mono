@@ -379,7 +379,10 @@ const Mono = (() => {
 
   function spriteDefine(id, data) {
     const arr = new Uint8Array(256); let i = 0;
-    for (const ch of data) { if (ch>='0'&&ch<='3') { arr[i++]=parseInt(ch); if(i>=256) break; } }
+    for (const ch of data) {
+      const v = parseInt(ch, 16);
+      if (!isNaN(v)) { arr[i++] = v; if (i >= 256) break; }
+    }
     sprites[id] = arr;
     computeSpriteBounds(id);
   }
@@ -1179,7 +1182,7 @@ const Mono = (() => {
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
         const ch = lines[y][x] || '0';
-        data[y * w + x] = ch === '.' ? 0 : parseInt(ch) || 0;
+        data[y * w + x] = ch === '.' ? 0 : parseInt(ch, 16) || 0;
       }
     return data;
   }
@@ -1752,6 +1755,11 @@ const Mono = (() => {
       for (const [name, fn] of Object.entries(globals)) {
         lua.global.set(name, fn);
       }
+
+      // Expose engine constants to Lua
+      lua.global.set("SCREEN_W", W);
+      lua.global.set("SCREEN_H", H);
+      lua.global.set("GRAY_LEVELS", COLORS.length);
 
       // Inject Lua-side spawn wrapper (before game code, so spawn() is available)
       try { lua.doString(SPAWN_WRAPPER_LUA); } catch(e) { console.error("Mono: spawn wrapper error:", e); }

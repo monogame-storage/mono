@@ -1,12 +1,15 @@
 -- Engine Test Suite: Menu-based tests for Mono Engine v2
--- Tests: shooter, camera, sprites, input, sound, tilemap, mini RPG
+-- Tests: shooter, camera, sprites, input, sound, tilemap, mini RPG, belt-scroll
+-- Resolution: 160x144, 16 grayscale (0-15)
 
-local W = 320
-local H = 240
+local W = SCREEN_W
+local H = SCREEN_H
 local SS = 16
 
 ---------------------------------------------------------------
 -- SPRITE HELPER: parse visual 16x16 sprite and register
+-- Chars: "." = transparent (0), "1"-"9" = colors 1-9,
+--        "a"-"f" = colors 10-15
 ---------------------------------------------------------------
 local _sprNames = {}
 local _sprNext = 1
@@ -38,23 +41,25 @@ end
 
 ---------------------------------------------------------------
 -- SPRITES (all 16x16 visual format)
+-- Uses 16 grayscale: . = 0(black/transparent)
+-- 1-4 = dark grays, 5-8 = mid grays, 9-c = light grays, d-f = bright/white
 ---------------------------------------------------------------
 defVisual("ship", [[
-.......33.......
-......3333......
-.....333333.....
-....33333333....
-...3333333333...
-..333332233333..
-.33333322333333.
-3333332..2333333
-.33332....23333.
-..3332....2333..
-...332....233...
-....32....23....
-.....2....2.....
-......2..2......
-.......22.......
+.......9b.......
+......9bbd......
+.....9bbbbd.....
+....9bbbbbbd....
+...9bbbbbbbbd...
+..9bbbb88bbbbd..
+.9bbbbb88bbbbd.
+9bbbbb8..8bbbbd
+.9bbb8....8bbb.
+..9bb8....8bb..
+...9b8....8b...
+....98....8....
+.....8....8.....
+......8..8......
+.......88.......
 ................
 ]])
 
@@ -64,11 +69,11 @@ defVisual("bullet", [[
 ................
 ................
 ................
-.......33.......
-......3333......
-.....333333.....
-......3333......
-.......33.......
+.......df.......
+......dffd......
+.....dffffd.....
+......dffd......
+.......df.......
 ................
 ................
 ................
@@ -79,16 +84,16 @@ defVisual("bullet", [[
 
 defVisual("enemy_a1", [[
 ................
-...22222222.....
-..222222222222..
-.22211222211222.
-2222112222112222
-2222222222222222
-.22222222222222.
-..222222222222..
-...2222222222...
-....222..222....
-.....22..22.....
+...77777777.....
+..777777777777..
+.77744777744777.
+7777447777447777
+7777777777777777
+.77777777777777.
+..777777777777..
+...7777777777...
+....777..777....
+.....77..77.....
 ................
 ................
 ................
@@ -98,16 +103,16 @@ defVisual("enemy_a1", [[
 
 defVisual("enemy_a2", [[
 ................
-...33333333.....
-..333333333333..
-.33311333311333.
-3333113333113333
-3333333333333333
-.33333333333333.
-..333333333333..
-...3333333333...
-....333..333....
-.....33..33.....
+...aaaaaaaa.....
+..aaaaaaaaaaaa..
+.aaa55aaa55aaa.
+aaaa55aaaa55aaaa
+aaaaaaaaaaaaaaaa
+.aaaaaaaaaaaaa.
+..aaaaaaaaaaaa..
+...aaaaaaaaaa...
+....aaa..aaa....
+.....aa..aa.....
 ................
 ................
 ................
@@ -116,27 +121,27 @@ defVisual("enemy_a2", [[
 ]])
 
 defVisual("enemy_b", [[
-.......11.......
-......1111......
-.....111111.....
-....11111111....
-...1111221111...
-..111122221111..
-.11112222221111.
-..111122221111..
-...1111221111...
-....11111111....
-.....111111.....
-......1111......
-.......11.......
+.......55.......
+......5555......
+.....555555.....
+....55555555....
+...5555885555...
+..555588885555..
+.55558888885555.
+..555588885555..
+...5555885555...
+....55555555....
+.....555555.....
+......5555......
+.......55.......
 ................
 ................
 ................
 ]])
 
 defVisual("particle", [[
-33..............
-33..............
+ef..............
+ef..............
 ................
 ................
 ................
@@ -155,289 +160,289 @@ defVisual("particle", [[
 
 defVisual("star", [[
 ................
-.......3........
+.......b........
 ................
-...1............
-................
-................
-..........2.....
+...5............
 ................
 ................
-.....3..........
+..........7.....
 ................
 ................
-............1...
+.....b..........
 ................
-..2.............
+................
+............5...
+................
+..7.............
 ................
 ]])
 
 defVisual("star2", [[
-..1.......2.....
+..5.......7.....
 ................
-........1.......
+........5.......
 ................
-....3...........
+....b...........
 ................
-..........1.....
+..........5.....
 ................
-.1..............
-..........3.....
+.5..............
+..........b.....
 ................
-.......1........
+.......5........
 ................
-...........2....
-.2..............
+...........7....
+.7..............
 ................
 ]])
 
 -- Tile sprites for tilemap and RPG modes
 defVisual("tile_wall", [[
-3333333333333333
-3222222222222223
-3211111111111123
-3211111111111123
-3211111111111123
-3211111111111123
-3211111111111123
-3211111111111123
-3211111111111123
-3211111111111123
-3211111111111123
-3211111111111123
-3211111111111123
-3211111111111123
-3222222222222223
-3333333333333333
+bbbbbbbbbbbbbbbb
+b888888888888888
+b866666666666668
+b866666666666668
+b866666666666668
+b866666666666668
+b866666666666668
+b866666666666668
+b866666666666668
+b866666666666668
+b866666666666668
+b866666666666668
+b866666666666668
+b866666666666668
+b888888888888888
+bbbbbbbbbbbbbbbb
 ]])
 
 defVisual("tile_floor", [[
-1...............
+3...............
 ................
-....1...........
-................
-................
-..........1.....
+....3...........
 ................
 ................
-......1.........
+..........3.....
 ................
 ................
-...........1....
+......3.........
 ................
-.1..............
 ................
-...........1....
+...........3....
+................
+.3..............
+................
+...........3....
 ]])
 
 defVisual("tile_grass", [[
-.......2........
-..2.........2...
+.......5........
+..5.........5...
 ................
-....2.........2.
-2...............
-........2.......
-...2............
-..........2.....
-.2..............
-..........2.....
-....2...........
+....5.........5.
+5...............
+........5.......
+...5............
+..........5.....
+.5..............
+..........5.....
+....5...........
 ................
-2.........2.....
-........2.......
-...2............
-.........2......
+5.........5.....
+........5.......
+...5............
+.........5......
 ]])
 
 defVisual("tile_deco", [[
-......3333......
-.....333333.....
-....33322333....
-...3332222333...
-..333222222333..
-.33322222222333.
-3332222222222333
-3322222222222233
-3322222222222233
-3332222222222333
-.33322222222333.
-..333222222333..
-...3332222333...
-....33322333....
-.....333333.....
-......3333......
+......bbbb......
+.....bbbbbb.....
+....bbb88bbb....
+...bbb8888bbb...
+..bbb888888bbb..
+.bbb88888888bbb.
+bbb8888888888bbb
+bb888888888888bb
+bb888888888888bb
+bbb8888888888bbb
+.bbb88888888bbb.
+..bbb888888bbb..
+...bbb8888bbb...
+....bbb88bbb....
+.....bbbbbb.....
+......bbbb......
 ]])
 
 defVisual("tile_path", [[
-2222222222222222
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2111111111111112
-2222222222222222
+7777777777777777
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7555555555555557
+7777777777777777
 ]])
 
 defVisual("npc", [[
-......1111......
-.....111111.....
-....11311311....
-....11111111....
-.....111111.....
-......3333......
-.....333333.....
-....33333333....
-...3333333333...
-....33333333....
-.....333333.....
-......3333......
-.....33..33.....
-....33....33....
-...33......33...
-..33........33..
+......5555......
+.....555555.....
+....55a55a55....
+....55555555....
+.....555555.....
+......bbbb......
+.....bbbbbb.....
+....bbbbbbbb....
+...bbbbbbbbbb...
+....bbbbbbbb....
+.....bbbbbb.....
+......bbbb......
+.....55..55.....
+....55....55....
+...55......55...
+..55........55..
 ]])
 
 -- Belt-scroll beat-em-up sprites
 defVisual("hero_idle", [[
 ................
-......1111......
-.....111111.....
-....11311311....
-....11111111....
-.....111111.....
-......2222......
-.....222222.....
-....22222222....
-...2222222222...
-....22222222....
-......2222......
-.....22..22.....
-....22....22....
-...22......22...
-..11........11..
+......6666......
+.....666666.....
+....66a66a66....
+....66666666....
+.....666666.....
+......8888......
+.....888888.....
+....88888888....
+...8888888888...
+....88888888....
+......8888......
+.....88..88.....
+....88....88....
+...88......88...
+..55........55..
 ]])
 
 defVisual("hero_walk", [[
 ................
-......1111......
-.....111111.....
-....11311311....
-....11111111....
-.....111111.....
-......2222......
-.....222222.....
-....22222222....
-...2222222222...
-....22222222....
-......2222......
-.....22..22.....
-....22....22....
-..22..........22
-.11..........11.
+......6666......
+.....666666.....
+....66a66a66....
+....66666666....
+.....666666.....
+......8888......
+.....888888.....
+....88888888....
+...8888888888...
+....88888888....
+......8888......
+.....88..88.....
+....88....88....
+..88..........88
+.55..........55.
 ]])
 
 defVisual("hero_punch", [[
 ................
-......1111......
-.....111111.....
-....11311311....
-....11111111....
-.....111111.....
-......2222......
-.....222222.....
-....22222222....
-...222222222211.
-....22222222.11.
-......2222......
-.....22..22.....
-....22....22....
-...22......22...
-..11........11..
+......6666......
+.....666666.....
+....66a66a66....
+....66666666....
+.....666666.....
+......8888......
+.....888888.....
+....88888888....
+...88888888886e.
+....88888888.6e.
+......8888......
+.....88..88.....
+....88....88....
+...88......88...
+..55........55..
 ]])
 
 defVisual("hero_kick", [[
 ................
-......1111......
-.....111111.....
-....11311311....
-....11111111....
-.....111111.....
-......2222......
-.....222222.....
-....22222222....
-...2222222222...
-....22222222....
-......2222......
-.....22..22.....
-....22...22.....
-...22....2222...
-..11.....111111.
+......6666......
+.....666666.....
+....66a66a66....
+....66666666....
+.....666666.....
+......8888......
+.....888888.....
+....88888888....
+...8888888888...
+....88888888....
+......8888......
+.....88..88.....
+....88...88.....
+...88....8888...
+..55.....555555.
 ]])
 
 defVisual("thug_idle", [[
 ................
-.....333333.....
-....33333333....
-...3331133113...
-...3333333333...
-....33333333....
-.....222222.....
-....22222222....
-...2222222222...
-..222222222222..
-...2222222222...
-.....222222.....
-....22...22.....
-...22.....22....
-..22.......22...
-.11.........11..
+.....bbbbbb.....
+....bbbbbbbb....
+...bbb55bb55b...
+...bbbbbbbbbb...
+....bbbbbbbb....
+.....777777.....
+....77777777....
+...7777777777...
+..777777777777..
+...7777777777...
+.....777777.....
+....77...77.....
+...77.....77....
+..77.......77...
+.55.........55..
 ]])
 
 defVisual("thug_walk", [[
 ................
-.....333333.....
-....33333333....
-...3331133113...
-...3333333333...
-....33333333....
-.....222222.....
-....22222222....
-...2222222222...
-..222222222222..
-...2222222222...
-.....222222.....
-....22...22.....
-...22.....22....
-.22...........22
-11...........11.
+.....bbbbbb.....
+....bbbbbbbb....
+...bbb55bb55b...
+...bbbbbbbbbb...
+....bbbbbbbb....
+.....777777.....
+....77777777....
+...7777777777...
+..777777777777..
+...7777777777...
+.....777777.....
+....77...77.....
+...77.....77....
+.77...........77
+55...........55.
 ]])
 
 defVisual("thug_hit", [[
 ................
-.......333333...
-......33333333..
-.....3331133113.
-.....3333333333.
-......33333333..
-.......222222...
-......22222222..
-.....2222222222.
-....222222222222
-.....2222222222.
-.......222222...
-......22...22...
-.....22.....22..
-....22.......22.
-...11.........11
+.......bbbbbb...
+......bbbbbbbb..
+.....bbb55bb55b.
+.....bbbbbbbbbb.
+......bbbbbbbb..
+.......777777...
+......77777777..
+.....7777777777.
+....777777777777
+.....7777777777.
+.......777777...
+......77...77...
+.....77.....77..
+....77.......77.
+...55.........55
 ]])
 
 ---------------------------------------------------------------
@@ -477,10 +482,10 @@ local function initStars()
   stars = {}
   for i = 1, STAR_COUNT do
     stars[i] = {
-      x = flr(rnd(320)),
-      y = flr(rnd(240)),
+      x = flr(rnd(W)),
+      y = flr(rnd(H)),
       speed = 0.3 + rnd(1.2),
-      bright = flr(rnd(3)) + 1  -- color 1, 2, or 3
+      bright = flr(rnd(10)) + 3  -- color 3-12 for varied star brightness
     }
   end
 end
@@ -489,11 +494,11 @@ local function updateStars()
   for i = 1, #stars do
     local s = stars[i]
     s.y = s.y + s.speed
-    if s.y > 240 then
+    if s.y > H then
       s.y = -2
-      s.x = flr(rnd(320))
+      s.x = flr(rnd(W))
       s.speed = 0.3 + rnd(1.2)
-      s.bright = flr(rnd(3)) + 1
+      s.bright = flr(rnd(10)) + 3
     end
   end
 end
@@ -801,12 +806,12 @@ local function shooterDraw()
   if shooterLives <= 0 then
     -- Game over sub-screen
     drawStars()
-    text("GAME OVER", 120, 80, 3)
-    text("SCORE:" .. shooterScore, 120, 110, 2)
+    text("GAME OVER", 44, 40, 15)
+    text("SCORE:" .. shooterScore, 44, 55, 10)
     if flr(frame() / 20) % 2 == 0 then
-      text("PRESS A TO RETRY", 95, 150, 3)
+      text("PRESS A TO RETRY", 24, 80, 15)
     end
-    text("[B] BACK TO MENU", 95, 180, 1)
+    text("[B] BACK TO MENU", 24, 95, 5)
       return
   end
 
@@ -823,24 +828,24 @@ local function shooterDraw()
     end
   end)
 
-  text("SCORE:" .. shooterScore, 4, 4, 3)
-  text("LV:" .. shooterLevel, 140, 4, 2)
-  text("[B]" .. WEAPON_NAMES[weaponType + 1], 4, 14, 2)
+  text("SCORE:" .. shooterScore, 4, 4, 15)
+  text("LV:" .. shooterLevel, W - 30, 4, 10)
+  text("[B]" .. WEAPON_NAMES[weaponType + 1], 4, 14, 10)
 
   for i = 1, shooterLives do
     sprT(shipId, W - 20 * i, 1)
   end
 
-  text("[B] MENU", 4, H - 10, 1)
+  text("[B] MENU", 4, H - 10, 5)
 end
 
 ---------------------------------------------------------------
 -- CAMERA TEST STATE
 ---------------------------------------------------------------
-local CAM_MAP_W = 640
-local CAM_MAP_H = 480
-local camPX = 320
-local camPY = 240
+local CAM_MAP_W = 320
+local CAM_MAP_H = 288
+local camPX = 160
+local camPY = 144
 local camSpeed = 2
 
 local function cameraInit()
@@ -899,48 +904,48 @@ local function cameraDraw()
   -- Draw grid over the large map
   -- Vertical lines every 32px
   for gx = 0, CAM_MAP_W, 32 do
-    line(gx, 0, gx, CAM_MAP_H, 1)
+    line(gx, 0, gx, CAM_MAP_H, 3)
   end
   -- Horizontal lines every 32px
   for gy = 0, CAM_MAP_H, 32 do
-    line(0, gy, CAM_MAP_W, gy, 1)
+    line(0, gy, CAM_MAP_W, gy, 3)
   end
 
   -- Draw markers at 64px intervals
   for mx = 0, CAM_MAP_W, 64 do
     for my = 0, CAM_MAP_H, 64 do
-      circf(mx, my, 2, 2)
+      circf(mx, my, 2, 7)
     end
   end
 
   -- Draw boundary rectangle
-  rect(0, 0, CAM_MAP_W, CAM_MAP_H, 3)
+  rect(0, 0, CAM_MAP_W, CAM_MAP_H, 12)
 
   -- Draw cross at center of map
   local mcx = CAM_MAP_W / 2
   local mcy = CAM_MAP_H / 2
-  line(mcx - 20, mcy, mcx + 20, mcy, 2)
-  line(mcx, mcy - 20, mcx, mcy + 20, 2)
+  line(mcx - 20, mcy, mcx + 20, mcy, 8)
+  line(mcx, mcy - 20, mcx, mcy + 20, 8)
 
   -- Draw corner labels (world-space coordinates rendered via spr-affected draw)
-  rectf(4, 4, 40, 12, 0)
-  rectf(CAM_MAP_W - 60, 4, 60, 12, 0)
-  rectf(4, CAM_MAP_H - 16, 40, 12, 0)
-  rectf(CAM_MAP_W - 60, CAM_MAP_H - 16, 60, 12, 0)
+  rectf(4, 4, 40, 12, 1)
+  rectf(CAM_MAP_W - 60, 4, 60, 12, 1)
+  rectf(4, CAM_MAP_H - 16, 40, 12, 1)
+  rectf(CAM_MAP_W - 60, CAM_MAP_H - 16, 60, 12, 1)
 
   -- Draw player (ship sprite)
   local shipId = sprite_id("ship")
   sprT(shipId, flr(camPX) - 8, flr(camPY) - 8)
 
   -- Player position circle indicator
-  circ(flr(camPX), flr(camPY), 12, 3)
+  circ(flr(camPX), flr(camPY), 12, 12)
 
   -- HUD (text is NOT affected by cam, so it draws in screen space)
-  text("CAMERA TEST", 4, 4, 3)
-  text("POS:" .. flr(camPX) .. "," .. flr(camPY), 4, 14, 2)
-  text("MAP:" .. CAM_MAP_W .. "x" .. CAM_MAP_H, 4, 24, 1)
-  text("[A] SHAKE  [B] DASH  [START] MENU", 4, H - 10, 1)
-  text("ARROWS: MOVE", 4, H - 20, 1)
+  text("CAMERA TEST", 4, 4, 15)
+  text("POS:" .. flr(camPX) .. "," .. flr(camPY), 4, 14, 10)
+  text("MAP:" .. CAM_MAP_W .. "x" .. CAM_MAP_H, 4, 24, 5)
+  text("[A]SHAKE [B]DASH", 4, H - 20, 5)
+  text("ARROWS:MOVE [START]MENU", 4, H - 10, 5)
 end
 
 ---------------------------------------------------------------
@@ -989,12 +994,12 @@ end
 
 local function spritesDraw()
   cls(0)
-  text("SPRITE GALLERY", 100, 4, 3)
+  text("SPRITE GALLERY", 30, 4, 15)
 
-  -- Thumbnail strip
-  local thumbSize = 28
+  -- Thumbnail strip (8 sprites, 18px each = 144px, centered in 160)
+  local thumbSize = 18
   local stripX = flr((W - #sprNames * thumbSize) / 2)
-  local stripY = 20
+  local stripY = 16
 
   for idx = 1, #sprNames do
     local sid = sprite_id(sprNames[idx])
@@ -1003,12 +1008,12 @@ local function spritesDraw()
 
     -- Cell background
     if selected then
-      rectf(tx, stripY, thumbSize - 2, thumbSize - 2, 1)
-      rect(tx - 1, stripY - 1, thumbSize, thumbSize, 3)
+      rectf(tx, stripY, thumbSize - 2, thumbSize - 2, 3)
+      rect(tx - 1, stripY - 1, thumbSize, thumbSize, 12)
     else
-      rect(tx, stripY, thumbSize - 2, thumbSize - 2, 1)
+      rect(tx, stripY, thumbSize - 2, thumbSize - 2, 3)
     end
-    sprT(sid, tx + 5, stripY + 5)
+    sprT(sid, tx + 1, stripY + 1)
   end
 
   local selName = sprNames[sprCursor + 1]
@@ -1016,71 +1021,66 @@ local function spritesDraw()
 
   -- === Main preview: large center with flip applied ===
   local pvCX = W / 2
-  local pvCY = 105
+  local pvCY = 68
 
   -- Preview background
-  rectf(pvCX - 30, pvCY - 30, 60, 60, 1)
-  rect(pvCX - 31, pvCY - 31, 62, 62, 2)
+  rectf(pvCX - 20, pvCY - 20, 40, 40, 2)
+  rect(pvCX - 21, pvCY - 21, 42, 42, 7)
 
   -- Draw with current flip state + hitbox
   sprT(selId, pvCX - 8, pvCY - 8, sprFlipX, sprFlipY)
   dbg(pvCX - 8, pvCY - 8, 16, 16)
 
   -- Label
-  text(selName, pvCX - flr(#selName * 5 / 2), pvCY + 36, 3)
+  text(selName, pvCX - flr(#selName * 5 / 2), pvCY + 24, 15)
 
   -- === Animated demos (right side) ===
-  local demoX = 250
+  local demoX = 130
 
   -- 1. Auto-rotation (using unified draw)
-  text("ROTATE", demoX - 8, 58, 2)
+  text("ROT", demoX, 40, 8)
   local autoAngle = sprTimer * 0.06
-  draw(selId, demoX + 8, 82, autoAngle, 1, 1, 8, 8)
+  draw(selId, demoX + 8, 54, autoAngle, 1, 1, 8, 8)
 
   -- 2. Scale animation (using unified draw)
-  text("SCALE", demoX - 6, 105, 2)
+  text("SCL", demoX, 68, 8)
   local sc = 1 + math.sin(sprTimer * 0.08) * 0.8
-  draw(selId, demoX + 8, 125, 0, sc, sc, 8, 8)
+  draw(selId, demoX + 8, 82, 0, sc, sc, 8, 8)
   local scSz = flr(16 * sc)
-  dbg(demoX + 8 - flr(scSz / 2), 125 - flr(scSz / 2), scSz, scSz)
-  text(tostring(flr(sc * 100) / 100) .. "x", demoX - 4, 142, 1)
+  dbg(demoX + 8 - flr(scSz / 2), 82 - flr(scSz / 2), scSz, scSz)
 
   -- 3. Rot+Scale combo (using unified draw)
-  text("R+S", demoX - 2, 148, 2)
+  text("R+S", demoX, 96, 8)
   local comboSc = 0.8 + math.sin(sprTimer * 0.1) * 0.4
-  draw(selId, demoX + 8, 168, sprTimer * 0.04, comboSc, comboSc, 8, 8)
+  draw(selId, demoX + 8, 110, sprTimer * 0.04, comboSc, comboSc, 8, 8)
   local csSz = flr(16 * comboSc)
-  dbgC(demoX + 8, 168, flr(csSz / 2))
+  dbgC(demoX + 8, 110, flr(csSz / 2))
 
   -- === Static demos (left side) ===
-  local leftX = 20
+  local leftX = 4
 
   -- Normal
-  text("NORMAL", leftX, 58, 2)
-  sprT(selId, leftX + 2, 68)
+  text("NORM", leftX, 40, 8)
+  sprT(selId, leftX + 2, 50)
 
   -- Flip-X
-  text("FLIP-X", leftX, 92, 2)
-  sprT(selId, leftX + 2, 102, true, false)
+  text("FL-X", leftX, 70, 8)
+  sprT(selId, leftX + 2, 80, true, false)
 
   -- Flip-Y
-  text("FLIP-Y", leftX, 126, 2)
-  sprT(selId, leftX + 2, 136, false, true)
-
-  -- Both
-  text("BOTH", leftX, 160, 2)
-  sprT(selId, leftX + 2, 170, true, true)
+  text("FL-Y", leftX, 100, 8)
+  sprT(selId, leftX + 2, 110, false, true)
 
   -- === Flip state indicator ===
   local flipLabel = "FLIP:"
   if sprFlipX then flipLabel = flipLabel .. " X" end
   if sprFlipY then flipLabel = flipLabel .. " Y" end
   if not sprFlipX and not sprFlipY then flipLabel = flipLabel .. " -" end
-  text(flipLabel, pvCX - 20, pvCY + 46, 2)
+  text(flipLabel, pvCX - 16, pvCY + 34, 8)
 
   -- Controls
-  text("LR:SEL A:FLIPX B:FLIPY UD:ROT", 20, H - 20, 1)
-  text("[START] MENU", 4, H - 10, 1)
+  text("LR:SEL A:FLIPX", 4, H - 20, 5)
+  text("[START] MENU", 4, H - 10, 5)
 end
 
 ---------------------------------------------------------------
@@ -1098,72 +1098,70 @@ end
 
 local function inputDraw()
   cls(0)
-  text("INPUT MONITOR", 105, 8, 3)
+  text("INPUT MONITOR", 32, 4, 15)
 
-  -- D-pad (large circles)
-  local dpadX = 80
-  local dpadY = 120
-  local btnR = 16
+  -- D-pad (compact for 160x144)
+  local dpadX = 36
+  local dpadY = 60
+  local btnR = 9
 
   -- Up
   local upOn = btn("up")
-  circ(dpadX, dpadY - 40, btnR, upOn and 3 or 1)
-  if upOn then circf(dpadX, dpadY - 40, btnR - 2, 3) end
-  text("UP", dpadX - 6, dpadY - 44, upOn and 0 or 2)
+  circ(dpadX, dpadY - 18, btnR, upOn and 15 or 5)
+  if upOn then circf(dpadX, dpadY - 18, btnR - 2, 15) end
+  text("UP", dpadX - 6, dpadY - 22, upOn and 1 or 8)
 
   -- Down
   local downOn = btn("down")
-  circ(dpadX, dpadY + 40, btnR, downOn and 3 or 1)
-  if downOn then circf(dpadX, dpadY + 40, btnR - 2, 3) end
-  text("DN", dpadX - 6, dpadY + 36, downOn and 0 or 2)
+  circ(dpadX, dpadY + 18, btnR, downOn and 15 or 5)
+  if downOn then circf(dpadX, dpadY + 18, btnR - 2, 15) end
+  text("DN", dpadX - 6, dpadY + 14, downOn and 1 or 8)
 
   -- Left
   local leftOn = btn("left")
-  circ(dpadX - 40, dpadY, btnR, leftOn and 3 or 1)
-  if leftOn then circf(dpadX - 40, dpadY, btnR - 2, 3) end
-  text("LT", dpadX - 46, dpadY - 4, leftOn and 0 or 2)
+  circ(dpadX - 18, dpadY, btnR, leftOn and 15 or 5)
+  if leftOn then circf(dpadX - 18, dpadY, btnR - 2, 15) end
+  text("LT", dpadX - 24, dpadY - 4, leftOn and 1 or 8)
 
   -- Right
   local rightOn = btn("right")
-  circ(dpadX + 40, dpadY, btnR, rightOn and 3 or 1)
-  if rightOn then circf(dpadX + 40, dpadY, btnR - 2, 3) end
-  text("RT", dpadX + 34, dpadY - 4, rightOn and 0 or 2)
+  circ(dpadX + 18, dpadY, btnR, rightOn and 15 or 5)
+  if rightOn then circf(dpadX + 18, dpadY, btnR - 2, 15) end
+  text("RT", dpadX + 12, dpadY - 4, rightOn and 1 or 8)
 
   -- Action buttons
-  local actX = 240
-  local actY = 100
+  local actX = 115
+  local actY = 52
 
   -- A button
   local aOn = btn("a")
-  circ(actX, actY, btnR, aOn and 3 or 1)
-  if aOn then circf(actX, actY, btnR - 2, 3) end
-  text("A", actX - 3, actY - 4, aOn and 0 or 2)
+  circ(actX, actY, btnR, aOn and 15 or 5)
+  if aOn then circf(actX, actY, btnR - 2, 15) end
+  text("A", actX - 3, actY - 4, aOn and 1 or 8)
 
   -- B button
   local bOn = btn("b")
-  circ(actX - 36, actY + 10, btnR, bOn and 3 or 1)
-  if bOn then circf(actX - 36, actY + 10, btnR - 2, 3) end
-  text("B", actX - 39, actY + 6, bOn and 0 or 2)
+  circ(actX - 20, actY + 8, btnR, bOn and 15 or 5)
+  if bOn then circf(actX - 20, actY + 8, btnR - 2, 15) end
+  text("B", actX - 23, actY + 4, bOn and 1 or 8)
 
   -- Start
   local stOn = btn("start")
-  circ(actX - 10, actY + 50, 12, stOn and 3 or 1)
-  if stOn then circf(actX - 10, actY + 50, 10, 3) end
-  text("ST", actX - 17, actY + 46, stOn and 0 or 2)
+  circ(actX - 4, actY + 30, 7, stOn and 15 or 5)
+  if stOn then circf(actX - 4, actY + 30, 5, 15) end
+  text("ST", actX - 10, actY + 26, stOn and 1 or 8)
 
   -- Select
   local seOn = btn("select")
-  circ(actX - 40, actY + 50, 12, seOn and 3 or 1)
-  if seOn then circf(actX - 40, actY + 50, 10, 3) end
-  text("SE", actX - 47, actY + 46, seOn and 0 or 2)
+  circ(actX - 24, actY + 30, 7, seOn and 15 or 5)
+  if seOn then circf(actX - 24, actY + 30, 5, 15) end
+  text("SE", actX - 30, actY + 26, seOn and 1 or 8)
 
   -- Labels
-  text("D-PAD", dpadX - 12, dpadY + 65, 2)
-  text("BUTTONS", actX - 40, actY + 75, 2)
+  text("DPAD", dpadX - 10, dpadY + 32, 8)
+  text("BTN", actX - 14, actY + 44, 8)
 
-  -- Note: B returns to menu, shown at bottom
-  text("(B exits to menu after release)", 50, H - 20, 1)
-  text("[B] MENU", 4, H - 10, 1)
+  text("[START] MENU", 4, H - 10, 5)
 end
 
 ---------------------------------------------------------------
@@ -1220,45 +1218,42 @@ end
 
 local function soundDraw()
   cls(0)
-  text("SOUND TEST", 115, 8, 3)
+  text("SOUND TEST", 40, 4, 15)
 
   -- Note display area
   local cx = W / 2
-  local cy = 80
 
-  text("PRESS DIRECTION KEYS TO PLAY NOTES:", 30, 40, 2)
+  text("PRESS DPAD TO PLAY:", 10, 20, 8)
 
   -- Show note mapping
-  text("UP    = C4", 100, 60, 1)
-  text("DOWN  = E4", 100, 72, 1)
-  text("LEFT  = G4", 100, 84, 1)
-  text("RIGHT = A4", 100, 96, 1)
+  text("UP=C4 DN=E4", 10, 32, 5)
+  text("LT=G4 RT=A4", 10, 42, 5)
 
   -- Current note display
   if soundLastNote ~= "" then
-    text("LAST NOTE: " .. soundLastNote, 100, 120, 3)
+    text("NOTE: " .. soundLastNote, 10, 58, 15)
     -- Visual indicator
-    circf(cx, 150, 20, 3)
-    text(soundLastNote, cx - 8, 146, 0)
+    circf(cx, 84, 12, 15)
+    text(soundLastNote, cx - 8, 80, 1)
   else
-    text("LAST NOTE: ---", 100, 120, 1)
-    circ(cx, 150, 20, 1)
+    text("NOTE: ---", 10, 58, 5)
+    circ(cx, 84, 12, 5)
   end
 
   -- BGM status
   local bgmLabel = soundBgmOn and "BGM: ON" or "BGM: OFF"
-  local bgmColor = soundBgmOn and 3 or 1
-  text(bgmLabel, 130, 185, bgmColor)
-  text("[A] TOGGLE BGM", 105, 200, 2)
+  local bgmColor = soundBgmOn and 15 or 5
+  text(bgmLabel, 50, 106, bgmColor)
+  text("[A] TOGGLE BGM", 35, 116, 8)
 
-  text("[B] MENU", 4, H - 10, 1)
+  text("[START] MENU", 4, H - 10, 5)
 end
 
 ---------------------------------------------------------------
 -- TILEMAP TEST STATE
 ---------------------------------------------------------------
-local TMAP_W = 40
-local TMAP_H = 30
+local TMAP_W = 10
+local TMAP_H = 9
 local tmapCurX = 0
 local tmapCurY = 0
 local tmapBlink = 0
@@ -1291,11 +1286,11 @@ local function tilemapInit()
       end
     end
   end
-  -- Place some decorations
-  mset(5, 5, tmapTileSprIds[3])
-  mset(10, 7, tmapTileSprIds[3])
-  mset(14, 3, tmapTileSprIds[3])
-  mset(8, 12, tmapTileSprIds[3])
+  -- Place some decorations (within 10x9 bounds)
+  mset(5, 4, tmapTileSprIds[3])
+  mset(3, 6, tmapTileSprIds[3])
+  mset(7, 3, tmapTileSprIds[3])
+  mset(4, 7, tmapTileSprIds[3])
 end
 
 local tmapMoveDelay = 0
@@ -1345,32 +1340,8 @@ local function tilemapUpdate()
     end
   end
 
-  -- Camera follows cursor with deadzone (50% of screen)
-  local cx, cy = cam_get()
-  local curPixX = tmapCurX * SS + 8
-  local curPixY = tmapCurY * SS + 8
-  local screenX = curPixX - cx
-  local screenY = curPixY - cy
-  local dzX = W * 0.25  -- deadzone = 50% of screen (25% each side from center)
-  local dzY = H * 0.25
-  local centerX = W / 2
-  local centerY = H / 2
-
-  if screenX < centerX - dzX then cx = cx - (centerX - dzX - screenX) end
-  if screenX > centerX + dzX then cx = cx + (screenX - centerX - dzX) end
-  if screenY < centerY - dzY then cy = cy - (centerY - dzY - screenY) end
-  if screenY > centerY + dzY then cy = cy + (screenY - centerY - dzY) end
-
-  -- Clamp
-  if cx < 0 then cx = 0 end
-  if cy < 0 then cy = 0 end
-  local maxX = TMAP_W * SS - W
-  local maxY = TMAP_H * SS - H
-  if maxX < 0 then maxX = 0 end
-  if maxY < 0 then maxY = 0 end
-  if cx > maxX then cx = maxX end
-  if cy > maxY then cy = maxY end
-  cam(cx, cy)
+  -- 10x16=160, 9x16=144 — map fits screen exactly, no camera needed
+  cam(0, 0)
 end
 
 local function tilemapDraw()
@@ -1381,9 +1352,9 @@ local function tilemapDraw()
 
   -- Blinking cursor overlay
   if flr(tmapBlink / 8) % 2 == 0 then
-    rect(tmapCurX * SS, tmapCurY * SS, SS, SS, 3)
+    rect(tmapCurX * SS, tmapCurY * SS, SS, SS, 15)
   else
-    rect(tmapCurX * SS, tmapCurY * SS, SS, SS, 2)
+    rect(tmapCurX * SS, tmapCurY * SS, SS, SS, 8)
   end
 
   -- HUD
@@ -1398,41 +1369,41 @@ local function tilemapDraw()
   -- HUD (screen space — reset camera)
   local hcx, hcy = cam_get()
   cam(0, 0)
-  rectf(0, H - 34, W, 34, 0)
+  rectf(0, H - 30, W, 30, 1)
   if tmapTileSprIds[tmapSelectedTile] ~= 0 then
-    sprT(tmapTileSprIds[tmapSelectedTile], 160, H - 34)
+    sprT(tmapTileSprIds[tmapSelectedTile], W - 20, H - 30)
   end
   cam(hcx, hcy)
-  text("TILEMAP " .. TMAP_W .. "x" .. TMAP_H, 4, H - 32, 3)
-  text("BRUSH: " .. selName, 100, H - 32, 3)
-  text("POS:" .. tmapCurX .. "," .. tmapCurY .. " TILE:" .. tileName .. " ID:" .. curTile, 4, H - 20, 2)
-  text("[A] PAINT  [HOLD B] PALETTE  [START] MENU", 4, H - 10, 1)
+  text("TILEMAP " .. TMAP_W .. "x" .. TMAP_H, 4, H - 28, 15)
+  text("BRUSH:" .. selName, 80, H - 28, 12)
+  text("POS:" .. tmapCurX .. "," .. tmapCurY .. " " .. tileName, 4, H - 18, 8)
+  text("[A]PAINT [B]PAL [START]MENU", 4, H - 8, 5)
 
   -- Palette overlay (when B held) — screen space
   if tmapPaletteOpen then
     local pcx, pcy = cam_get()
     cam(0, 0)
-    local palX = W - 80
+    local palX = W - 76
     local palY = H - 100
-    rectf(palX - 4, palY - 4, 76, 92, 0)
-    rect(palX - 4, palY - 4, 76, 92, 3)
+    rectf(palX - 4, palY - 4, 76, 88, 1)
+    rect(palX - 4, palY - 4, 76, 88, 12)
     for i = 0, 3 do
-      local py = palY + 14 + i * 18
+      local py = palY + 14 + i * 16
       local selected = (tmapPalCur == i)
       if selected then
-        rectf(palX, py - 1, 68, 16, 1)
+        rectf(palX, py - 1, 68, 16, 3)
       end
       if tmapTileSprIds[i] ~= 0 then
         sprT(tmapTileSprIds[i], palX + 12, py)
       end
     end
     cam(pcx, pcy)
-    text("PALETTE", palX + 4, palY, 3)
+    text("PALETTE", palX + 4, palY, 15)
     for i = 0, 3 do
-      local py = palY + 14 + i * 18
+      local py = palY + 14 + i * 16
       local selected = (tmapPalCur == i)
-      if selected then text(">", palX + 2, py + 2, 3) end
-      text(TMAP_TILE_NAMES[i + 1], palX + 30, py + 4, selected and 3 or 2)
+      if selected then text(">", palX + 2, py + 2, 15) end
+      text(TMAP_TILE_NAMES[i + 1], palX + 30, py + 4, selected and 15 or 8)
     end
   end
 
@@ -1441,8 +1412,8 @@ end
 ---------------------------------------------------------------
 -- MINI RPG TEST STATE
 ---------------------------------------------------------------
-local RPG_MAP_W = 40
-local RPG_MAP_H = 30
+local RPG_MAP_W = 20
+local RPG_MAP_H = 18
 local rpgPX = 5     -- player tile X
 local rpgPY = 5     -- player tile Y
 local rpgTargetX = 5
@@ -1511,68 +1482,57 @@ local function rpgBuildMap()
   -- Door in room 1
   mset(7, 10, rpgFloorId)
 
-  -- Room 2: right area
-  for tx = 20, 35 do
+  -- Room 2: right area (adjusted to fit 20-wide map)
+  for tx = 14, 19 do
     mset(tx, 5, rpgWallId)
     mset(tx, 15, rpgWallId)
   end
   for ty = 5, 15 do
-    mset(20, ty, rpgWallId)
-    mset(35, ty, rpgWallId)
+    mset(14, ty, rpgWallId)
+    mset(19, ty, rpgWallId)
   end
   -- Floor inside room 2
   for ty = 6, 14 do
-    for tx = 21, 34 do
+    for tx = 15, 18 do
       mset(tx, ty, rpgFloorId)
     end
   end
   -- Door in room 2
-  mset(20, 10, rpgFloorId)
+  mset(14, 10, rpgFloorId)
 
-  -- Room 3: bottom area
-  for tx = 5, 18 do
-    mset(tx, 18, rpgWallId)
-    mset(tx, 26, rpgWallId)
+  -- Room 3: bottom area (adjusted to fit 18-high map)
+  for tx = 3, 11 do
+    mset(tx, 13, rpgWallId)
+    mset(tx, 17, rpgWallId)
   end
-  for ty = 18, 26 do
-    mset(5, ty, rpgWallId)
-    mset(18, ty, rpgWallId)
+  for ty = 13, 17 do
+    mset(3, ty, rpgWallId)
+    mset(11, ty, rpgWallId)
   end
   -- Floor inside room 3
-  for ty = 19, 25 do
-    for tx = 6, 17 do
+  for ty = 14, 16 do
+    for tx = 4, 10 do
       mset(tx, ty, rpgFloorId)
     end
   end
   -- Door in room 3
-  mset(12, 18, rpgFloorId)
+  mset(7, 13, rpgFloorId)
 
   -- Paths connecting rooms (using path tiles)
-  -- Path from room1 door (7,10) down to room3 door (12,18)
-  for ty = 11, 17 do
+  -- Path from room1 door (7,10) down to room3 door (7,13)
+  for ty = 11, 12 do
     mset(7, ty, rpgPathId)
     mset(8, ty, rpgPathId)
   end
-  for tx = 8, 12 do
-    mset(tx, 17, rpgPathId)
-  end
 
-  -- Path from room1 area to room2 door (20,10)
-  for tx = 8, 19 do
+  -- Path from room1 area to room2 door (14,10)
+  for tx = 8, 13 do
     mset(tx, 11, rpgPathId)
     mset(tx, 12, rpgPathId)
   end
 
-  -- Path from room2 down
-  for ty = 16, 22 do
-    mset(25, ty, rpgPathId)
-    mset(26, ty, rpgPathId)
-  end
-
   -- Some scattered walls as obstacles
-  mset(15, 14, rpgWallId)
-  mset(16, 14, rpgWallId)
-  mset(15, 15, rpgWallId)
+  mset(10, 12, rpgWallId)
 end
 
 local function rpgInit()
@@ -1604,8 +1564,8 @@ local function rpgInit()
   -- Spawn NPCs using ECS
   rpgNPCList = {
     { tx = 8, ty = 5, msg = "WELCOME TO THE DUNGEON!\nBE CAREFUL OUT THERE." },
-    { tx = 27, ty = 9, msg = "THIS IS ROOM TWO.\nFIND THE TREASURE!" },
-    { tx = 10, ty = 22, msg = "I GUARD THIS ROOM.\nNOTHING SHALL PASS!" },
+    { tx = 16, ty = 9, msg = "THIS IS ROOM TWO.\nFIND THE TREASURE!" },
+    { tx = 6, ty = 15, msg = "I GUARD THIS ROOM.\nNOTHING SHALL PASS!" },
   }
 
   for i, npc in ipairs(rpgNPCList) do
@@ -1785,7 +1745,7 @@ local function rpgDraw()
     local d = drawList[i]
     if d.kind == "player" then
       -- Player shadow
-      circf(flr(d.px) + 8, flr(d.py) + 14, 5, 1)
+      circf(flr(d.px) + 8, flr(d.py) + 14, 5, 3)
       -- Per-state bobbing animation
       local bob = 0
       if rpgState == "walk" then
@@ -1813,53 +1773,53 @@ local function rpgDraw()
         local ay = flr(d.py) + 6 + oy + bob
         if wpn == "SWORD" then
           if rpgFacing == "right" then
-            line(ax, ay, ax + 10, ay - 6, 3)
-            line(ax, ay + 1, ax + 10, ay - 5, 3)
+            line(ax, ay, ax + 10, ay - 6, 15)
+            line(ax, ay + 1, ax + 10, ay - 5, 15)
           elseif rpgFacing == "left" then
-            line(ax, ay, ax - 10, ay - 6, 3)
-            line(ax, ay + 1, ax - 10, ay - 5, 3)
+            line(ax, ay, ax - 10, ay - 6, 15)
+            line(ax, ay + 1, ax - 10, ay - 5, 15)
           elseif rpgFacing == "up" then
-            line(ax, ay, ax - 4, ay - 10, 3)
-            line(ax + 1, ay, ax - 3, ay - 10, 3)
+            line(ax, ay, ax - 4, ay - 10, 15)
+            line(ax + 1, ay, ax - 3, ay - 10, 15)
           else -- down
-            line(ax, ay, ax + 4, ay + 10, 3)
-            line(ax + 1, ay, ax + 5, ay + 10, 3)
+            line(ax, ay, ax + 4, ay + 10, 15)
+            line(ax + 1, ay, ax + 5, ay + 10, 15)
           end
         elseif wpn == "BOW" then
           if rpgFacing == "right" then
-            circ(ax + 6, ay, 3, 2); pix(ax + 10, ay, 3)
+            circ(ax + 6, ay, 3, 8); pix(ax + 10, ay, 15)
           elseif rpgFacing == "left" then
-            circ(ax - 6, ay, 3, 2); pix(ax - 10, ay, 3)
+            circ(ax - 6, ay, 3, 8); pix(ax - 10, ay, 15)
           elseif rpgFacing == "up" then
-            circ(ax, ay - 6, 3, 2); pix(ax, ay - 10, 3)
+            circ(ax, ay - 6, 3, 8); pix(ax, ay - 10, 15)
           else
-            circ(ax, ay + 6, 3, 2); pix(ax, ay + 10, 3)
+            circ(ax, ay + 6, 3, 8); pix(ax, ay + 10, 15)
           end
         elseif wpn == "STAFF" then
           if rpgFacing == "right" then
-            line(ax, ay, ax + 8, ay, 2); circf(ax + 9, ay, 2, 3)
+            line(ax, ay, ax + 8, ay, 8); circf(ax + 9, ay, 2, 15)
           elseif rpgFacing == "left" then
-            line(ax, ay, ax - 8, ay, 2); circf(ax - 9, ay, 2, 3)
+            line(ax, ay, ax - 8, ay, 8); circf(ax - 9, ay, 2, 15)
           elseif rpgFacing == "up" then
-            line(ax, ay, ax, ay - 8, 2); circf(ax, ay - 9, 2, 3)
+            line(ax, ay, ax, ay - 8, 8); circf(ax, ay - 9, 2, 15)
           else
-            line(ax, ay, ax, ay + 8, 2); circf(ax, ay + 9, 2, 3)
+            line(ax, ay, ax, ay + 8, 8); circf(ax, ay + 9, 2, 15)
           end
         elseif wpn == "SHIELD" then
           if rpgFacing == "right" then
-            rectf(ax, ay - 4, 6, 10, 2); rect(ax, ay - 4, 6, 10, 3)
+            rectf(ax, ay - 4, 6, 10, 8); rect(ax, ay - 4, 6, 10, 12)
           elseif rpgFacing == "left" then
-            rectf(ax - 6, ay - 4, 6, 10, 2); rect(ax - 6, ay - 4, 6, 10, 3)
+            rectf(ax - 6, ay - 4, 6, 10, 8); rect(ax - 6, ay - 4, 6, 10, 12)
           elseif rpgFacing == "up" then
-            rectf(ax - 4, ay - 6, 10, 6, 2); rect(ax - 4, ay - 6, 10, 6, 3)
+            rectf(ax - 4, ay - 6, 10, 6, 8); rect(ax - 4, ay - 6, 10, 6, 12)
           else
-            rectf(ax - 4, ay, 10, 6, 2); rect(ax - 4, ay, 10, 6, 3)
+            rectf(ax - 4, ay, 10, 6, 8); rect(ax - 4, ay, 10, 6, 12)
           end
         end
       end
     elseif d.kind == "npc" then
       -- NPC shadow
-      circf(flr(d.px) + 8, flr(d.py) + 14, 5, 1)
+      circf(flr(d.px) + 8, flr(d.py) + 14, 5, 3)
       -- NPC idle bob (slow gentle, offset phase per position)
       local npcBob = flr(math.sin(rpgFrame * 0.08 + d.px) * 1)
       sprT(rpgNpcSprId, flr(d.px), flr(d.py) + npcBob)
@@ -1867,41 +1827,42 @@ local function rpgDraw()
       local dist = abs(flr(d.px / SS) - rpgPX) + abs(flr(d.py / SS) - rpgPY)
       if dist <= 2 then
         if flr(rpgFrame / 10) % 2 == 0 then
-          text("!", flr(d.px) + 6, flr(d.py) - 8, 3)
+          text("!", flr(d.px) + 6, flr(d.py) - 8, 15)
         end
       end
     end
   end
 
   -- HUD (drawn in screen space, text is not affected by cam)
-  text("MINI RPG", 4, 4, 3)
-  text("POS:" .. rpgPX .. "," .. rpgPY, 4, 14, 2)
-  text("WPN:" .. RPG_WEAPONS[rpgWeaponIdx] .. " DIR:" .. rpgFacing, 4, 24, 3)
-  text("STATE:" .. rpgState, 4, 34, 2)
+  text("MINI RPG", 4, 4, 15)
+  text("POS:" .. rpgPX .. "," .. rpgPY, 4, 14, 8)
+  text("WPN:" .. RPG_WEAPONS[rpgWeaponIdx], 4, 24, 12)
+  text("DIR:" .. rpgFacing, 80, 24, 8)
+  text("STATE:" .. rpgState, 4, 34, 8)
 
   if rpgNearNPC and not rpgDialogActive then
     if flr(rpgFrame / 15) % 2 == 0 then
-      text("PRESS A TO TALK", W / 2 - 40, H - 28, 3)
+      text("PRESS A TO TALK", W / 2 - 40, H - 28, 15)
     end
   end
 
-  text("[START] MENU", 4, H - 10, 1)
+  text("[START] MENU", 4, H - 10, 5)
 
   -- Dialog box (drawn in screen space — reset camera temporarily)
   if rpgDialogActive then
     local cx, cy = cam_get()
     cam(0, 0)
-    rectf(20, H - 70, W - 40, 50, 0)
-    rect(20, H - 70, W - 40, 50, 3)
-    rect(21, H - 69, W - 42, 48, 2)
+    rectf(4, H - 48, W - 8, 44, 1)
+    rect(4, H - 48, W - 8, 44, 12)
+    rect(5, H - 47, W - 10, 42, 8)
     cam(cx, cy)
     -- text is camera-independent so no need to reset for it
     local lineY = 0
     for dline in rpgDialogText:gmatch("[^\n]+") do
-      text(dline, 30, H - 62 + lineY, 3)
-      lineY = lineY + 12
+      text(dline, 10, H - 42 + lineY, 15)
+      lineY = lineY + 10
     end
-    text("[A] CLOSE", W - 90, H - 26, 1)
+    text("[A]CLOSE", W - 48, H - 10, 5)
   end
 
 end
@@ -1909,40 +1870,40 @@ end
 ---------------------------------------------------------------
 -- BELT-SCROLL BEAT-EM-UP TEST (SINGLE DRAGON)
 ---------------------------------------------------------------
-local BS_LEVEL_W = 1200
-local BS_LEVEL_H = 240
-local BS_GROUND_Y = 140    -- top of walkable lane area
-local BS_GROUND_BOTTOM = 220  -- bottom of walkable lane area
+local BS_LEVEL_W = 600
+local BS_LEVEL_H = 144
+local BS_GROUND_Y = 84     -- top of walkable lane area
+local BS_GROUND_BOTTOM = 132  -- bottom of walkable lane area
 local BS_WALK_SPEED = 2
 local BS_LANE_SPEED = 1.5
 
 -- Zone definitions: {startX, endX, spawns}
 -- spawns: list of {type, x, y}
 local BS_ZONES = {
-  { left = 0,   right = 400,
+  { left = 0,   right = 200,
     spawns = {
-      { kind = "grunt", x = 300, y = 170 },
-      { kind = "grunt", x = 340, y = 190 },
-      { kind = "grunt", x = 360, y = 160 },
+      { kind = "grunt", x = 150, y = 100 },
+      { kind = "grunt", x = 170, y = 115 },
+      { kind = "grunt", x = 180, y = 95 },
     }},
-  { left = 400, right = 800,
+  { left = 200, right = 400,
     spawns = {
-      { kind = "grunt", x = 680, y = 175 },
-      { kind = "grunt", x = 720, y = 195 },
-      { kind = "knife", x = 750, y = 160 },
+      { kind = "grunt", x = 340, y = 105 },
+      { kind = "grunt", x = 360, y = 118 },
+      { kind = "knife", x = 375, y = 95 },
     }},
-  { left = 800, right = 1200,
+  { left = 400, right = 600,
     spawns = {
-      { kind = "grunt", x = 1050, y = 180 },
-      { kind = "boss",  x = 1100, y = 175 },
+      { kind = "grunt", x = 525, y = 108 },
+      { kind = "boss",  x = 550, y = 105 },
     }},
 }
 
 -- Enemy type stats
 local BS_ENEMY_STATS = {
-  grunt = { hp = 24, speed = 1.0, atkRange = 20, atkDmg = 5, color = 3 },
-  knife = { hp = 16, speed = 0.6, atkRange = 100, atkDmg = 3, color = 2 },
-  boss  = { hp = 60, speed = 1.5, atkRange = 25, atkDmg = 8, color = 3 },
+  grunt = { hp = 24, speed = 1.0, atkRange = 20, atkDmg = 5, color = 10 },
+  knife = { hp = 16, speed = 0.6, atkRange = 100, atkDmg = 3, color = 8 },
+  boss  = { hp = 60, speed = 1.5, atkRange = 25, atkDmg = 8, color = 12 },
 }
 
 local bsPlayer = nil
@@ -2087,11 +2048,11 @@ end
 local bsBuildings = {}
 local function bsGenBuildings()
   bsBuildings = {}
-  for bx = 0, BS_LEVEL_W - 1, 48 do
-    local bh = 30 + flr(rnd(30))
+  for bx = 0, BS_LEVEL_W - 1, 24 do
+    local bh = 15 + flr(rnd(20))
     local wins = {}
-    for wy = 100 - bh + 4, 96, 8 do
-      for wx = bx + 4, bx + 36, 10 do
+    for wy = 60 - bh + 3, 57, 6 do
+      for wx = bx + 2, bx + 18, 6 do
         if rnd(1) > 0.4 then
           wins[#wins + 1] = {x = wx, y = wy}
         end
@@ -2104,7 +2065,7 @@ end
 local function bsInit()
   bsGenBuildings()
   bsPlayer = {
-    x = 40, y = 180,
+    x = 20, y = 108,
     hp = 100, maxHp = 100,
     vx = 0, vy = 0,
     facing = 1,
@@ -2592,29 +2553,29 @@ end
 
 local function bsDrawBackground()
   -- Sky
-  rectf(0, 0, BS_LEVEL_W, 100, 0)
+  rectf(0, 0, BS_LEVEL_W, 60, 1)
 
   -- Buildings silhouette (pre-generated)
   for _, b in ipairs(bsBuildings) do
-    rectf(b.x, 100 - b.h, 40, b.h, 1)
+    rectf(b.x, 60 - b.h, 20, b.h, 3)
     for _, w in ipairs(b.wins) do
-      rectf(w.x, w.y, 4, 4, 2)
+      rectf(w.x, w.y, 3, 3, 6)
     end
   end
 
   -- Street / ground
-  rectf(0, 100, BS_LEVEL_W, 20, 1)
-  rectf(0, 120, BS_LEVEL_W, 120, 1)
+  rectf(0, 60, BS_LEVEL_W, 12, 4)
+  rectf(0, 72, BS_LEVEL_W, 72, 3)
   -- Road markings
-  for lx = 0, BS_LEVEL_W - 1, 40 do
-    rectf(lx, 108, 20, 2, 2)
+  for lx = 0, BS_LEVEL_W - 1, 20 do
+    rectf(lx, 65, 10, 2, 7)
   end
-  rectf(0, 120, BS_LEVEL_W, 2, 2)
+  rectf(0, 72, BS_LEVEL_W, 2, 6)
 
   -- Zone boundary indicators (subtle vertical lines)
   for z = 2, #BS_ZONES do
     local zx = BS_ZONES[z].left
-    line(zx, 100, zx, BS_LEVEL_H, 1)
+    line(zx, 60, zx, BS_LEVEL_H, 3)
   end
 end
 
@@ -2623,7 +2584,7 @@ local function bsDraw()
 
   -- Screen flash on hit
   if bsFlashTimer > 0 then
-    cls(3)
+    cls(15)
   end
 
   bsDrawBackground()
@@ -2632,19 +2593,19 @@ local function bsDraw()
   each("bsknife", function(e)
     local kx = flr(e.pos.x)
     local ky = flr(e.pos.y)
-    line(kx - 4, ky, kx + 4, ky, 3)
-    rectf(kx - 1, ky - 1, 3, 3, 2)
+    line(kx - 4, ky, kx + 4, ky, 15)
+    rectf(kx - 1, ky - 1, 3, 3, 8)
   end)
 
   -- Draw shadows (under sprites, which ECS renders automatically)
   -- Player shadow (always at ground Y, not affected by jump)
   local p = bsPlayer
   local shadowScale = bsJump and math.max(3, 7 + flr(bsJumpZ / 8)) or 7
-  circf(flr(p.x), flr(p.y) + 8, shadowScale, 1)
+  circf(flr(p.x), flr(p.y) + 8, shadowScale, 3)
   -- Enemy shadows
   for _, e in ipairs(bsEnemies) do
     local shadowR = e.kind == "boss" and 9 or 7
-    circf(flr(e.x), flr(e.y) + 8, shadowR, 1)
+    circf(flr(e.x), flr(e.y) + 8, shadowR, 3)
   end
 
   -- ECS auto-renders sprites for bsplayer, bsenemy (via sprite + pos + flipX)
@@ -2656,25 +2617,25 @@ local function bsDraw()
     local fy = p.y + drawJumpZ
     if bsComboCount == 3 then
       local fx = p.x + p.facing * 16
-      circf(flr(fx), flr(fy) - 4, 6, 3)
-      circf(flr(fx), flr(fy) - 4, 4, 2)
+      circf(flr(fx), flr(fy) - 4, 6, 15)
+      circf(flr(fx), flr(fy) - 4, 4, 10)
     else
       local fx = p.x + p.facing * 12
-      circf(flr(fx), flr(fy), 4, 3)
+      circf(flr(fx), flr(fy), 4, 15)
     end
   end
   if bsKickTimer > 0 and not bsJump then
     local fx = p.x + p.facing * 16
-    line(flr(p.x) + p.facing * 8, flr(p.y), flr(fx), flr(p.y) - 2, 3)
-    circf(flr(fx), flr(p.y) - 1, 3, 2)
+    line(flr(p.x) + p.facing * 8, flr(p.y), flr(fx), flr(p.y) - 2, 15)
+    circf(flr(fx), flr(p.y) - 1, 3, 10)
   end
   -- Jump kick visual
   if bsKickTimer > 0 and bsJump then
     local fy = p.y + drawJumpZ
     local fx = p.x + p.facing * 20
-    line(flr(p.x) + p.facing * 6, flr(fy), flr(fx), flr(fy) - 2, 3)
-    line(flr(p.x) + p.facing * 6, flr(fy) + 2, flr(fx), flr(fy), 3)
-    circf(flr(fx), flr(fy) - 1, 4, 2)
+    line(flr(p.x) + p.facing * 6, flr(fy), flr(fx), flr(fy) - 2, 15)
+    line(flr(p.x) + p.facing * 6, flr(fy) + 2, flr(fx), flr(fy), 15)
+    circf(flr(fx), flr(fy) - 1, 4, 10)
   end
 
   -- Enemy overlays (boss outline, knife indicator, HP bars)
@@ -2686,12 +2647,12 @@ local function bsDraw()
 
     -- Boss: draw bigger outline to distinguish
     if e.kind == "boss" and e.state ~= "ko" then
-      rect(flr(e.x) - 9, flr(e.y) - 9 + bob, 18, 18, 3)
+      rect(flr(e.x) - 9, flr(e.y) - 9 + bob, 18, 18, 12)
     end
 
     -- Knife thrower: small indicator
     if e.kind == "knife" and e.state ~= "ko" then
-      rectf(flr(e.x) + e.facing * 8, flr(e.y) - 2, 3, 6, 2)
+      rectf(flr(e.x) + e.facing * 8, flr(e.y) - 2, 3, 6, 8)
     end
 
     -- HP bar above enemy (only if alive)
@@ -2699,10 +2660,10 @@ local function bsDraw()
       local barW = e.kind == "boss" and 30 or 20
       local barX = flr(e.x) - barW / 2
       local barY = flr(e.y) - 14
-      rectf(barX, barY, barW, 3, 1)
+      rectf(barX, barY, barW, 3, 3)
       local hpW = flr(barW * e.hp / e.maxHp)
       if hpW > 0 then
-        local barCol = e.kind == "boss" and 3 or 2
+        local barCol = e.kind == "boss" and 12 or 8
         rectf(barX, barY, hpW, 3, barCol)
       end
     end
@@ -2713,24 +2674,24 @@ local function bsDraw()
     if flr(bsGoArrow / 15) % 2 == 0 then
       -- Draw in world space (affected by cam)
       local arrowX = BS_ZONES[bsZone].right - 40
-      text("GO ->", arrowX, 100, 3)
+      text("GO ->", arrowX, 100, 15)
     end
   end
 
   -- Stage clear overlay
   if bsStageClear then
     -- These use text() which is screen-space
-    text("STAGE CLEAR!", W / 2 - 36, 60, 3)
-    text("SCORE: " .. bsScore, W / 2 - 30, 80, 2)
+    text("STAGE CLEAR!", W / 2 - 36, 30, 15)
+    text("SCORE: " .. bsScore, W / 2 - 30, 45, 10)
     if bsStageClearTimer > 120 then
-      text("PRESS START FOR MENU", W / 2 - 56, 100, 1)
+      text("PRESS START", W / 2 - 30, 60, 5)
     end
   end
 
   -- Dead overlay
   if bsPlayer.hp <= 0 then
-    text("GAME OVER", W / 2 - 28, 60, 3)
-    text("SCORE: " .. bsScore, W / 2 - 30, 80, 2)
+    text("GAME OVER", W / 2 - 28, 30, 15)
+    text("SCORE: " .. bsScore, W / 2 - 30, 45, 10)
   end
 
   -- HUD (text is screen space, not affected by cam)
@@ -2739,25 +2700,25 @@ local function bsDraw()
   cam(0, 0)
 
   -- Player HP bar
-  rectf(4, 4, 80, 8, 1)
-  local hpW = flr(80 * bsPlayer.hp / bsPlayer.maxHp)
+  rectf(4, 4, 60, 6, 3)
+  local hpW = flr(60 * bsPlayer.hp / bsPlayer.maxHp)
   if hpW > 0 then
-    rectf(4, 4, hpW, 8, 3)
+    rectf(4, 4, hpW, 6, 12)
   end
-  rect(4, 4, 80, 8, 2)
+  rect(4, 4, 60, 6, 7)
 
   cam(cx, cy)
 
   -- Text HUD (screen space, no cam reset needed)
-  text("HP", 86, 5, 3)
-  text("SINGLE DRAGON", 4, 16, 3)
-  text("ZONE:" .. bsZone .. "/" .. #BS_ZONES, 4, 26, 2)
-  text("SCORE:" .. bsScore, W - 80, 4, 2)
+  text("HP", 66, 4, 12)
+  text("SINGLE DRAGON", 4, 14, 15)
+  text("ZONE:" .. bsZone .. "/" .. #BS_ZONES, 4, 24, 8)
+  text("SCORE:" .. bsScore, W - 70, 4, 10)
 
   -- Combo indicator
   if bsComboCount > 0 and bsComboWindow > 0 then
     local comboNames = {"JAB", "CROSS", "UPPER!"}
-    text(comboNames[bsComboCount], W / 2 - 16, 30, 3)
+    text(comboNames[bsComboCount], W / 2 - 16, 30, 15)
   end
 
   -- Enemy count
@@ -2765,9 +2726,9 @@ local function bsDraw()
   for _, e in ipairs(bsEnemies) do
     if e.state ~= "ko" then alive = alive + 1 end
   end
-  text("ENEMIES:" .. alive, W - 80, 14, 2)
+  text("ENEMIES:" .. alive, W - 70, 14, 8)
 
-  text("[A]PUNCH [B]KICK [A+B]JUMP [START]MENU", 4, H - 10, 1)
+  text("[A]PUNCH [B]KICK [START]MENU", 4, H - 10, 5)
 end
 
 ---------------------------------------------------------------
@@ -2829,39 +2790,38 @@ function title_draw()
   cls(0)
   drawStars()
 
-  text("ENGINE TEST SUITE", 85, 25, 3)
+  text("ENGINE TEST", 38, 10, 15)
 
   -- Animated ship with hitbox
   local shipId = sprite_id("ship")
-  local demoY = 50 + flr(math.sin(titleBlink * 0.06) * 4)
-  sprT(shipId, 152, demoY)
-  dbg(152, demoY, 16, 16)
+  local demoY = 30 + flr(math.sin(titleBlink * 0.06) * 4)
+  sprT(shipId, 72, demoY)
+  dbg(72, demoY, 16, 16)
 
   -- Rotating enemies with hitboxes
   local ebId = sprite_id("enemy_b")
-  sprRot(ebId, 90, 60, titleBlink * 0.08)
-  sprRot(ebId, 230, 60, -titleBlink * 0.08)
-  dbgC(90, 60, 7)
-  dbgC(230, 60, 7)
+  sprRot(ebId, 40, 40, titleBlink * 0.08)
+  sprRot(ebId, 120, 40, -titleBlink * 0.08)
+  dbgC(40, 40, 7)
+  dbgC(120, 40, 7)
 
   -- Demo fill shapes (visible with key 3)
-  local bx = 40 + flr(math.sin(titleBlink * 0.04) * 20)
-  rectf(bx, 130, 30, 12, 1)
-  circf(280 - flr(math.sin(titleBlink * 0.05) * 20), 136, 6, 2)
+  local bx = 20 + flr(math.sin(titleBlink * 0.04) * 15)
+  rectf(bx, 70, 20, 8, 5)
+  circf(140 - flr(math.sin(titleBlink * 0.05) * 15), 74, 4, 8)
 
   -- Bullet with hitbox
   local bulId = sprite_id("bullet")
-  local bulY = 90 + flr(math.sin(titleBlink * 0.1) * 30)
-  sprT(bulId, 160, bulY)
-  dbgC(168, bulY + 4, 3)
+  local bulY = 55 + flr(math.sin(titleBlink * 0.1) * 20)
+  sprT(bulId, 72, bulY)
+  dbgC(80, bulY + 4, 3)
 
   if flr(titleBlink / 20) % 2 == 0 then
-    text("PRESS START", 115, 180, 3)
+    text("PRESS START", 38, 100, 15)
   end
 
-  text("1:HITBOX/2:SPRITE/3:FILL", 60, 200, 1)
-  text("7 TEST MODES INSIDE", 85, 212, 1)
-  text("SHOOTER CAM SPRITE INPUT SFX MAP RPG", 10, 224, 1)
+  text("1:HIT 2:SPR 3:FILL", 22, 118, 5)
+  text("8 TEST MODES", 42, 128, 5)
 
 end
 
@@ -2940,41 +2900,29 @@ function play_draw()
   if currentMode == MODE_MENU then
     cls(0)
 
-    text("SELECT TEST", 115, 20, 3)
-    line(100, 32, 220, 32, 2)
+    text("SELECT TEST", 38, 4, 15)
+    line(4, 14, W - 4, 14, 8)
 
-    local menuStartY = 50
-    local menuSpacing = 24
-    local descriptions = {
-      "Vertical shooter - full game test",
-      "Camera follow + shake on large map",
-      "Display all sprites + sprRot demo",
-      "Full 8-button visual input monitor",
-      "Play notes + toggle BGM",
-      "20x15 tile grid - mget/mset/map test",
-      "Dungeon RPG - cam+ECS+tween+z-order",
-      "Belt-scroll beat-em-up brawler",
-    }
+    local menuStartY = 18
+    local menuSpacing = 15
 
     for i = 1, #menuItems do
       local y = menuStartY + (i - 1) * menuSpacing
       local selected = (menuCursor == i - 1)
-      local col = selected and 3 or 1
+      local col = selected and 15 or 5
 
       if selected then
         -- Highlight bar
-        rectf(30, y - 2, 260, 18, 1)
+        rectf(2, y - 1, W - 4, 13, 3)
         -- Cursor arrow
-        text(">", 34, y, 3)
+        text(">", 4, y, 15)
       end
 
-      text(tostring(i) .. ". " .. menuItems[i], 48, y, col)
-      text(descriptions[i], 56, y + 9, selected and 2 or 1)
+      text(tostring(i) .. "." .. menuItems[i], 12, y, col)
     end
 
     -- Footer
-    line(30, menuStartY + #menuItems * menuSpacing + 4, 290, menuStartY + #menuItems * menuSpacing + 4, 1)
-    text("UP/DOWN: SELECT   A/START: ENTER", 40, menuStartY + #menuItems * menuSpacing + 12, 2)
+    text("DPAD:SEL A:GO", 30, H - 10, 8)
 
     elseif currentMode == MODE_SHOOTER then
     shooterDraw()
@@ -3010,8 +2958,8 @@ end
 
 function gameover_draw()
   cls(0)
-  text("GAME OVER", 120, 80, 3)
+  text("GAME OVER", 44, 60, 15)
   if flr(frame() / 20) % 2 == 0 then
-    text("PRESS A TO CONTINUE", 85, 140, 3)
+    text("PRESS A TO CONTINUE", 18, 80, 12)
   end
 end
