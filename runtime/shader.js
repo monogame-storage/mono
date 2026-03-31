@@ -55,15 +55,14 @@ uniform sampler2D u_tex;
 uniform vec2 u_resolution;
 uniform float u_opacity;
 uniform float u_thickness;
+uniform vec3 u_grid_color;
 void main() {
   vec4 color = texture2D(u_tex, v_uv);
   vec2 pixel = v_uv * u_resolution;
   vec2 edge = fract(pixel);
-  float grid = 1.0;
   if (edge.x < u_thickness || edge.y < u_thickness) {
-    grid = 1.0 - u_opacity;
+    color.rgb = mix(color.rgb, u_grid_color, u_opacity);
   }
-  color.rgb *= grid;
   gl_FragColor = color;
 }`;
 
@@ -71,7 +70,7 @@ void main() {
   const PRESETS = {
     passthrough: { frag: FRAG_PASS, defaults: {} },
     scanlines:   { frag: FRAG_SCANLINES, defaults: { opacity: 0.4, count: 144.0 } },
-    lcd:         { frag: FRAG_LCD, defaults: { opacity: 0.5, thickness: 0.08 } },
+    lcd:         { frag: FRAG_LCD, defaults: { opacity: 1.0, thickness: 0.20, grid_color: [0, 0, 0] } },
   };
 
   // --- State ---
@@ -199,7 +198,12 @@ void main() {
     if (u.u_time != null) gl.uniform1f(u.u_time, Mono._getFrame() / 30.0);
     for (const [key, val] of Object.entries(params)) {
       const loc = u["u_" + key];
-      if (loc != null) gl.uniform1f(loc, val);
+      if (loc == null) continue;
+      if (Array.isArray(val) && val.length === 3) {
+        gl.uniform3f(loc, val[0], val[1], val[2]);
+      } else {
+        gl.uniform1f(loc, val);
+      }
     }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);

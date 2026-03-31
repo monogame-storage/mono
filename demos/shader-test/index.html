@@ -14,6 +14,7 @@
     font-family: monospace;
     font-size: 14px;
     color: #aaa;
+    flex-wrap: wrap;
   }
   #controls select, #controls input, #controls button {
     font-family: monospace;
@@ -27,8 +28,9 @@
   #controls button { cursor: pointer; }
   #controls button:hover { background: #444; }
   #controls label { color: #888; }
-  #param-group { display: none; gap: 8px; align-items: center; }
-  #param-group.visible { display: flex; }
+  .param-row { display: none; gap: 8px; align-items: center; }
+  .param-row.visible { display: flex; }
+  #info { text-align: center; font-family: monospace; font-size: 12px; color: #666; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -42,59 +44,147 @@
     <option value="scanlines">scanlines</option>
     <option value="lcd">lcd grid</option>
   </select>
-  <div id="param-group">
-    <label id="param-label"></label>
-    <input id="param-slider" type="range" min="0" max="100" value="50">
-    <span id="param-value"></span>
+  <div id="param-opacity" class="param-row">
+    <label>opacity:</label>
+    <input id="slider-opacity" type="range" min="0" max="100" value="50">
+    <span id="val-opacity">0.5</span>
   </div>
+  <div id="param-thickness" class="param-row">
+    <label>thickness:</label>
+    <input id="slider-thickness" type="range" min="1" max="50" value="8">
+    <span id="val-thickness">0.08</span>
+  </div>
+  <div id="param-gridcolor" class="param-row">
+    <label>grid:</label>
+    <input id="picker-gridcolor" type="color" value="#000000">
+  </div>
+  <label>Scale:</label>
+  <select id="scale-select">
+    <option value="max">max integer</option>
+    <option value="fit">fit (fractional)</option>
+    <option value="3">3x (480x432)</option>
+    <option value="4">4x (640x576)</option>
+    <option value="5">5x (800x720)</option>
+  </select>
 </div>
+<div id="info"></div>
 <script src="../../runtime/engine.js"></script>
 <script src="../../runtime/shader.js"></script>
 <script>
 Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
+  const W = 160, H = 144;
+  const canvas = document.getElementById("screen");
   const sel = document.getElementById("shader-select");
-  const paramGroup = document.getElementById("param-group");
-  const paramLabel = document.getElementById("param-label");
-  const paramSlider = document.getElementById("param-slider");
-  const paramValue = document.getElementById("param-value");
+  const scaleSel = document.getElementById("scale-select");
+  const info = document.getElementById("info");
 
-  const SHADER_PARAMS = {
-    scanlines: { key: "opacity", min: 0.1, max: 1.0, step: 0.05, default: 0.4 },
-    lcd:       { key: "opacity", min: 0.1, max: 1.0, step: 0.05, default: 0.5 },
-  };
+  const paramOpacity = document.getElementById("param-opacity");
+  const sliderOpacity = document.getElementById("slider-opacity");
+  const valOpacity = document.getElementById("val-opacity");
+
+  const paramThickness = document.getElementById("param-thickness");
+  const sliderThickness = document.getElementById("slider-thickness");
+  const valThickness = document.getElementById("val-thickness");
+
+  const paramGridColor = document.getElementById("param-gridcolor");
+  const pickerGridColor = document.getElementById("picker-gridcolor");
+
+  let integerScale = null; // null = fit mode
+
+  function updateInfo() {
+    const dw = parseInt(canvas.style.width) || W;
+    const dh = parseInt(canvas.style.height) || H;
+    const sx = (dw / W).toFixed(2);
+    const sy = (dh / H).toFixed(2);
+    const isInt = (dw % W === 0 && dh % H === 0);
+    info.textContent = `display: ${dw}x${dh}  scale: ${sx}x${sy}  ${isInt ? "integer" : "fractional"}`;
+  }
+
+  function maxIntegerScale() {
+    const maxW = window.innerWidth - 40;
+    const maxH = window.innerHeight - 100;
+    return Math.max(1, Math.floor(Math.min(maxW / W, maxH / H)));
+  }
+
+  function applyScale() {
+    const val = scaleSel.value;
+    let s;
+    if (val === "fit") {
+      const maxW = window.innerWidth - 40;
+      const maxH = window.innerHeight - 100;
+      s = Math.min(maxW / W, maxH / H);
+    } else if (val === "max") {
+      s = maxIntegerScale();
+    } else {
+      s = parseInt(val);
+    }
+    canvas.style.width = (W * s) + "px";
+    canvas.style.height = (H * s) + "px";
+    updateInfo();
+  }
 
   function applyShader() {
     const name = sel.value;
+    paramOpacity.className = "param-row";
+    paramThickness.className = "param-row";
+    paramGridColor.className = "param-row";
+
     if (name === "off") {
       Mono.shader.off();
-      paramGroup.className = "";
+      updateInfo();
       return;
     }
+
     Mono.shader.use(name);
-    const cfg = SHADER_PARAMS[name];
-    if (cfg) {
-      paramGroup.className = "visible";
-      paramLabel.textContent = cfg.key + ":";
-      paramSlider.min = 0;
-      paramSlider.max = 100;
-      paramSlider.value = ((cfg.default - cfg.min) / (cfg.max - cfg.min)) * 100;
-      paramValue.textContent = cfg.default.toFixed(1);
-    } else {
-      paramGroup.className = "";
+
+    if (name === "scanlines") {
+      paramOpacity.className = "param-row visible";
+      sliderOpacity.value = 40;
+      valOpacity.textContent = "0.4";
+    } else if (name === "lcd") {
+      paramOpacity.className = "param-row visible";
+      paramThickness.className = "param-row visible";
+      paramGridColor.className = "param-row visible";
+      sliderOpacity.value = 100;
+      valOpacity.textContent = "1.0";
+      sliderThickness.value = 20;
+      valThickness.textContent = "0.20";
+      pickerGridColor.value = "#000000";
     }
+    updateInfo();
   }
 
   sel.addEventListener("change", applyShader);
+  scaleSel.addEventListener("change", applyScale);
 
-  paramSlider.addEventListener("input", () => {
-    const name = sel.value;
-    const cfg = SHADER_PARAMS[name];
-    if (!cfg) return;
-    const val = cfg.min + (paramSlider.value / 100) * (cfg.max - cfg.min);
-    const rounded = Math.round(val / cfg.step) * cfg.step;
-    paramValue.textContent = rounded.toFixed(1);
-    Mono.shader.param(cfg.key, rounded);
+  sliderOpacity.addEventListener("input", () => {
+    const v = (sliderOpacity.value / 100).toFixed(2);
+    valOpacity.textContent = v;
+    Mono.shader.param("opacity", parseFloat(v));
   });
+
+  sliderThickness.addEventListener("input", () => {
+    const v = (sliderThickness.value / 100).toFixed(2);
+    valThickness.textContent = v;
+    Mono.shader.param("thickness", parseFloat(v));
+  });
+
+  pickerGridColor.addEventListener("input", () => {
+    const hex = pickerGridColor.value;
+    const r = parseInt(hex.slice(1,3), 16) / 255;
+    const g = parseInt(hex.slice(3,5), 16) / 255;
+    const b = parseInt(hex.slice(5,7), 16) / 255;
+    Mono.shader.param("grid_color", [r, g, b]);
+  });
+
+  // Default: lcd grid + max integer scale
+  scaleSel.value = "max";
+  applyScale();
+  sel.value = "lcd";
+  applyShader();
+
+  updateInfo();
+  window.addEventListener("resize", updateInfo);
 }).catch(e => console.error("Boot failed:", e));
 </script>
 </body></html>
