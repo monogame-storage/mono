@@ -2,29 +2,72 @@
 
 > 제약이 곧 창의력이다.
 
-480×320 해상도, 4색 그레이스케일, 2채널 스퀘어 웨이브 — 이 제약 안에서 게임을 만들고, 공유하고, 플레이하는 플랫폼.
+160×144 해상도, 그레이스케일(1/2/4비트), Lua 5.4 — 제약 안에서 게임을 만드는 판타지 콘솔.
 
 ## 콘솔 스펙
 
-- **해상도**: 480×320
-- **컬러**: 4단계 그레이 (`#1a1a1a`, `#6b6b6b`, `#b0b0b0`, `#e8e8e8`)
-- **입력**: 방향키 + A, B (2버튼)
-- **사운드**: 2채널 Square wave
-- **스프라이트**: 8×8px, 4색
-- **언어**: TypeScript
+- **해상도**: 160×144 고정
+- **컬러**: 그레이스케일 (1비트=2색, 2비트=4색, 4비트=16색)
+- **프레임레이트**: 30fps
+- **입력**: 방향키 + A(z), B(x), Start(Enter), Pause(Space)
+- **언어**: Lua 5.4 (Wasmoon)
+- **VRAM**: Uint8Array[23,040] — 1픽셀 = 1바이트
+
+## 구조
+
+```
+runtime/engine.js   엔진 (캔버스 + VRAM + Lua VM)
+engine-test/        엔진 테스트 (시각 + 자동 suite)
+demos/bounce/       데모 게임 (바운싱 볼)
+docs/SPEC.md        스펙 문서
+```
 
 ## 시작하기
 
 ```bash
-# 데모 게임 실행
-open demos/star-patrol/index.html
+# 로컬 서버 실행
+python3 -m http.server 8090
+
+# 브라우저에서 열기
+open http://localhost:8090
+```
+
+## API
+
+```lua
+-- 콜백
+function _init() end   -- 1회
+function _update() end -- 30fps
+function _draw() end   -- 30fps
+
+-- 그래픽
+cls(c)                  -- 화면 지우기
+pix(x,y,c)             -- 픽셀 쓰기
+gpix(x,y)              -- 픽셀 읽기
+line(x0,y0,x1,y1,c)    -- 선
+rect(x,y,w,h,c)        -- 사각형 테두리
+rectf(x,y,w,h,c)       -- 채운 사각형
+circ(x,y,r,c)          -- 원 테두리
+circf(x,y,r,c)         -- 채운 원
+text(str,x,y,c)        -- 텍스트 (4x7 폰트)
+
+-- 입력
+btn(key)                -- 누르고 있는지 (up/down/left/right/a/b/start)
+btnp(key)               -- 이번 프레임에 눌렸는지
+
+-- VRAM
+vrow(y)                 -- 행 hex 덤프
+vdump()                 -- 전체 hex 덤프
+
+-- 상수
+SCREEN_W                -- 160
+SCREEN_H                -- 144
+COLORS                  -- 팔레트 크기 (2, 4, 16)
 ```
 
 ## 문서
 
 - [콘솔 스펙](docs/SPEC.md)
-- [API 레퍼런스](docs/API.md)
-- [로드맵](docs/ROADMAP.md)
 
 ## 라이선스
 
