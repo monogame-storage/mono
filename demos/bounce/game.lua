@@ -13,7 +13,7 @@ local M = H / 10
 local bx, by     -- position
 local bvy = 0     -- vertical velocity
 local br = 3      -- radius
-local spd = 1.25   -- horizontal speed
+local spd = 1.0   -- horizontal speed
 
 -- physics
 local GRAVITY = 0.3
@@ -76,6 +76,13 @@ function _update()
     bx = bx + spd
   end
 
+  -- speed adjust
+  if btnp("a") then spd = spd * 1.1 end
+  if btnp("b") then spd = spd * 0.9 end
+  -- jump adjust
+  if btnp("up") then BOUNCE_VY = BOUNCE_VY * 1.1 end
+  if btnp("down") then BOUNCE_VY = BOUNCE_VY * 0.9 end
+
   -- gravity + bounce
   bvy = bvy + GRAVITY
   by = by + bvy
@@ -115,4 +122,14 @@ function _draw()
 
   -- score
   text("TIME " .. math.floor(frames / 30), 3, 3, 1)
+
+  -- debug: world + pixel coords (top right)
+  local wx = string.format("%.1f", bx / M)
+  local wy = string.format("%.1f", by / M)
+  local px = tostring(math.floor(bx))
+  local py = tostring(math.floor(by))
+  text("W " .. wx .. "," .. wy, W - 75, 3, 1)
+  text("P " .. px .. "," .. py, W - 75, 12, 1)
+  text("S " .. string.format("%.2f", spd), W - 75, 21, 1)
+  text("J " .. string.format("%.1f", -BOUNCE_VY), W - 75, 30, 1)
 end

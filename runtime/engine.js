@@ -188,9 +188,10 @@ var Mono = (() => {
     return rows.join("\n");
   }
 
-  // --- Debug ---
+  // --- Debug / Pause ---
   let debugMode = false;
   let debugShapes = [];
+  let paused = false;
 
   // --- Input ---
   const keyMap = {
@@ -202,8 +203,8 @@ var Mono = (() => {
   const keys = {};
   const keysPrev = {};
 
-  function btn(k) { return !!keys[k]; }
-  function btnp(k) { return !!keys[k] && !keysPrev[k]; }
+  function btn(k) { return keys[k] ? true : false; }
+  function btnp(k) { return (keys[k] && !keysPrev[k]) ? true : false; }
 
   function inputUpdate() {
     for (const k in keys) keysPrev[k] = keys[k];
@@ -249,6 +250,7 @@ var Mono = (() => {
     // Input handling
     document.addEventListener("keydown", e => {
       if (e.key === "1") { debugMode = !debugMode; return; }
+      if (e.key === " ") { paused = !paused; e.preventDefault(); return; }
       const k = keyMap[e.key];
       if (k) { keys[k] = true; e.preventDefault(); }
     });
@@ -278,11 +280,21 @@ var Mono = (() => {
     lua.global.set("circ", circ);
     lua.global.set("circf", circf);
     lua.global.set("text", drawText);
-    lua.global.set("btn", btn);
-    lua.global.set("btnp", btnp);
+    lua.global.set("_btn", (k) => keys[k] ? 1 : 0);
+    lua.global.set("_btnp", (k) => (keys[k] && !keysPrev[k]) ? 1 : 0);
     lua.global.set("vrow", vrow);
     lua.global.set("vdump", vdump);
     lua.global.set("print", (...args) => console.log("[Lua]", ...args));
+
+    // Lua wrappers (avoid Wasmoon false→nil issue)
+    await lua.doString(`
+function btn(k)
+  return _btn(k) == 1
+end
+function btnp(k)
+  return _btnp(k) == 1
+end
+    `);
 
     // Run game script
     try {
@@ -301,8 +313,9 @@ var Mono = (() => {
     const updateFn = lua.global.get("_update");
     const drawFn = lua.global.get("_draw");
     setInterval(() => {
-      if (updateFn) try { updateFn(); } catch (e) { console.error("Mono: _update error:", e); }
+      if (!paused && updateFn) try { updateFn(); } catch (e) { console.error("Mono: _update error:", e); }
       if (drawFn) try { drawFn(); } catch (e) { console.error("Mono: _draw error:", e); }
+      if (paused) drawText("PAUSED", (W - 35) / 2, H / 2 - 3, palette.length - 1);
       flush();
       inputUpdate();
     }, FRAME_MS);
