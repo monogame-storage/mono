@@ -211,10 +211,12 @@ var Mono = (() => {
   }
 
   // --- Flush buffer to canvas ---
+  let frame = 0;
   function flush() {
     imgData.data.set(new Uint8Array(buf32.buffer));
     ctx.putImageData(imgData, 0, 0);
   }
+  let flushFn = flush;
 
   // --- Boot ---
   const API = {};
@@ -309,6 +311,9 @@ end
       try { initFn(); } catch (e) { console.error("Mono: _init error:", e); }
     }
 
+    // Expose internals for plugins
+    API._internal = { canvas, ctx, buf32, colorBuf, palette, imgData, W, H };
+
     // Game loop
     const updateFn = lua.global.get("_update");
     const drawFn = lua.global.get("_draw");
@@ -328,13 +333,19 @@ end
           drawText(label, px + pad, py + pad, maxC);
         }
       }
-      flush();
+      frame++;
+      flushFn();
       inputUpdate();
     }, FRAME_MS);
   };
 
   API.vrow = vrow;
   API.vdump = vdump;
+
+  // Plugin hooks
+  API._internal = null;  // set during boot
+  API._setFlush = (fn) => { flushFn = fn; };
+  API._getFrame = () => frame;
 
   return API;
 })();

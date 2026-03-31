@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mono — Shader Test</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
+<style>
+  #controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 12px;
+    font-family: monospace;
+    font-size: 14px;
+    color: #aaa;
+  }
+  #controls select, #controls input, #controls button {
+    font-family: monospace;
+    font-size: 13px;
+    background: #222;
+    color: #eee;
+    border: 1px solid #555;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  #controls button { cursor: pointer; }
+  #controls button:hover { background: #444; }
+  #controls label { color: #888; }
+  #param-group { display: none; gap: 8px; align-items: center; }
+  #param-group.visible { display: flex; }
+</style>
+</head>
+<body>
+<div id="frame">
+  <canvas id="screen"></canvas>
+</div>
+<div id="controls">
+  <label>Shader:</label>
+  <select id="shader-select">
+    <option value="off">off</option>
+    <option value="scanlines">scanlines</option>
+    <option value="lcd">lcd grid</option>
+  </select>
+  <div id="param-group">
+    <label id="param-label"></label>
+    <input id="param-slider" type="range" min="0" max="100" value="50">
+    <span id="param-value"></span>
+  </div>
+</div>
+<script src="../../runtime/engine.js"></script>
+<script src="../../runtime/shader.js"></script>
+<script>
+Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
+  const sel = document.getElementById("shader-select");
+  const paramGroup = document.getElementById("param-group");
+  const paramLabel = document.getElementById("param-label");
+  const paramSlider = document.getElementById("param-slider");
+  const paramValue = document.getElementById("param-value");
+
+  const SHADER_PARAMS = {
+    scanlines: { key: "opacity", min: 0.1, max: 1.0, step: 0.05, default: 0.4 },
+    lcd:       { key: "opacity", min: 0.1, max: 1.0, step: 0.05, default: 0.5 },
+  };
+
+  function applyShader() {
+    const name = sel.value;
+    if (name === "off") {
+      Mono.shader.off();
+      paramGroup.className = "";
+      return;
+    }
+    Mono.shader.use(name);
+    const cfg = SHADER_PARAMS[name];
+    if (cfg) {
+      paramGroup.className = "visible";
+      paramLabel.textContent = cfg.key + ":";
+      paramSlider.min = 0;
+      paramSlider.max = 100;
+      paramSlider.value = ((cfg.default - cfg.min) / (cfg.max - cfg.min)) * 100;
+      paramValue.textContent = cfg.default.toFixed(1);
+    } else {
+      paramGroup.className = "";
+    }
+  }
+
+  sel.addEventListener("change", applyShader);
+
+  paramSlider.addEventListener("input", () => {
+    const name = sel.value;
+    const cfg = SHADER_PARAMS[name];
+    if (!cfg) return;
+    const val = cfg.min + (paramSlider.value / 100) * (cfg.max - cfg.min);
+    const rounded = Math.round(val / cfg.step) * cfg.step;
+    paramValue.textContent = rounded.toFixed(1);
+    Mono.shader.param(cfg.key, rounded);
+  });
+}).catch(e => console.error("Boot failed:", e));
+</script>
+</body></html>
