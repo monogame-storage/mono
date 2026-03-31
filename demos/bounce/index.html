@@ -2,13 +2,198 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Mono — Bounce</title>
-<link rel="stylesheet" href="../../runtime/mono.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Console shell */
+  #console {
+    background: #2a2a2a;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    max-height: 100vh;
+  }
+
+  /* Screen bezel */
+  #frame {
+    background: #111;
+    border: 3px solid #333;
+    border-radius: 6px;
+    padding: 8px;
+    margin: 12px 12px 0;
+  }
+  canvas {
+    display: block;
+    width: 320px;
+    height: 288px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  /* Gamepad */
+  #gamepad {
+    padding: 24px 32px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-top: 2px solid #3a3a3a;
+    margin-top: 12px;
+  }
+
+  /* SELECT / START row */
+  #meta-row {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  }
+  .meta-btn {
+    background: #444;
+    border: none;
+    border-radius: 8px;
+    color: #777;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 6px 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .meta-btn:active, .meta-btn.pressed { background: #666; color: #fff; }
+
+  /* Buttons row: D-pad left, AB right */
+  #buttons-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* D-pad */
+  #dpad {
+    width: 130px;
+    height: 130px;
+    position: relative;
+  }
+  .dpad-btn {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    background: #444;
+    border: none;
+    border-radius: 4px;
+    color: #999;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dpad-btn:active, .dpad-btn.pressed { background: #666; color: #fff; }
+  .dpad-up    { left: 43px; top: 0; }
+  .dpad-down  { left: 43px; top: 86px; }
+  .dpad-left  { left: 0; top: 43px; }
+  .dpad-right { left: 86px; top: 43px; }
+  .dpad-center {
+    position: absolute;
+    left: 43px; top: 43px;
+    width: 44px; height: 44px;
+    background: #444;
+  }
+
+  /* AB buttons */
+  #ab-area {
+    width: 130px;
+    height: 100px;
+    position: relative;
+  }
+  .ab-btn {
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #f07070;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ab-btn:active, .ab-btn.pressed { background: #ff9090; }
+  .btn-b { left: 0; top: 44px; }
+  .btn-a { left: 74px; top: 14px; }
+</style>
 </head>
 <body>
-<div id="frame">
-  <canvas id="screen"></canvas>
+
+<div id="console">
+  <div id="frame">
+    <canvas id="screen"></canvas>
+  </div>
+
+  <div id="gamepad">
+    <!-- SELECT / START -->
+    <div id="meta-row">
+      <button class="meta-btn" data-key=" ">SELECT</button>
+      <button class="meta-btn" data-key="Enter">START</button>
+    </div>
+
+    <!-- D-pad + AB -->
+    <div id="buttons-row">
+      <div id="dpad">
+        <button class="dpad-btn dpad-up" data-key="ArrowUp">∧</button>
+        <button class="dpad-btn dpad-down" data-key="ArrowDown">∨</button>
+        <button class="dpad-btn dpad-left" data-key="ArrowLeft">＜</button>
+        <button class="dpad-btn dpad-right" data-key="ArrowRight">＞</button>
+        <div class="dpad-center"></div>
+      </div>
+
+      <div id="ab-area">
+        <button class="ab-btn btn-b" data-key="x">B</button>
+        <button class="ab-btn btn-a" data-key="z">A</button>
+      </div>
+    </div>
+  </div>
 </div>
+
 <script src="../../runtime/engine.js"></script>
-<script>Mono.boot("screen", { game: "game.lua", colors: 1 }).catch(e => console.error("Boot failed:", e));</script>
+<script>
+  Mono.boot("screen", { game: "game.lua", colors: 1 }).catch(e => console.error("Boot failed:", e));
+
+  // Gamepad: touch/mouse → keyboard events
+  function fireKey(key, type) {
+    document.dispatchEvent(new KeyboardEvent(type, { key: key, bubbles: true }));
+  }
+
+  document.querySelectorAll("[data-key]").forEach(btn => {
+    const key = btn.dataset.key;
+    btn.addEventListener("mousedown", e => { e.preventDefault(); fireKey(key, "keydown"); btn.classList.add("pressed"); });
+    btn.addEventListener("mouseup", e => { fireKey(key, "keyup"); btn.classList.remove("pressed"); });
+    btn.addEventListener("mouseleave", e => { fireKey(key, "keyup"); btn.classList.remove("pressed"); });
+    btn.addEventListener("touchstart", e => { e.preventDefault(); fireKey(key, "keydown"); btn.classList.add("pressed"); });
+    btn.addEventListener("touchend", e => { e.preventDefault(); fireKey(key, "keyup"); btn.classList.remove("pressed"); });
+    btn.addEventListener("touchcancel", e => { fireKey(key, "keyup"); btn.classList.remove("pressed"); });
+  });
+</script>
 </body></html>
