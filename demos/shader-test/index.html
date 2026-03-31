@@ -6,31 +6,40 @@
 <link rel="stylesheet" href="../../runtime/mono.css">
 <style>
   #controls {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    justify-content: center;
-    margin-top: 12px;
+    max-width: 640px;
+    margin: 12px auto 0;
     font-family: monospace;
-    font-size: 14px;
+    font-size: 13px;
     color: #aaa;
-    flex-wrap: wrap;
   }
-  #controls select, #controls input, #controls button {
+  .section {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 6px 0;
+    border-bottom: 1px solid #333;
+  }
+  .section:last-child { border-bottom: none; }
+  .section-label {
+    color: #666;
+    font-size: 11px;
+    width: 60px;
+    flex-shrink: 0;
+  }
+  #controls select, #controls input[type="range"], #controls input[type="color"], #controls button {
     font-family: monospace;
     font-size: 13px;
     background: #222;
     color: #eee;
     border: 1px solid #555;
-    padding: 4px 8px;
+    padding: 3px 6px;
     border-radius: 4px;
   }
-  #controls button { cursor: pointer; }
-  #controls button:hover { background: #444; }
   #controls label { color: #888; }
   .param-row { display: none; gap: 8px; align-items: center; }
   .param-row.visible { display: flex; }
-  #info { text-align: center; font-family: monospace; font-size: 12px; color: #666; margin-top: 8px; }
+  #info { text-align: center; font-family: monospace; font-size: 11px; color: #555; margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -38,51 +47,79 @@
   <canvas id="screen"></canvas>
 </div>
 <div id="controls">
-  <label>Shader:</label>
-  <select id="shader-select">
-    <option value="off">off</option>
-    <option value="scanlines">scanlines</option>
-    <option value="lcd">lcd grid</option>
-    <option value="lcd3d">lcd3d</option>
-  </select>
-  <div id="param-opacity" class="param-row">
-    <label>opacity:</label>
-    <input id="slider-opacity" type="range" min="0" max="100" value="50">
-    <span id="val-opacity">0.5</span>
-  </div>
-  <div id="param-thickness" class="param-row">
-    <label>thickness:</label>
-    <input id="slider-thickness" type="range" min="1" max="50" value="8">
-    <span id="val-thickness">0.08</span>
-  </div>
-  <div id="param-gridcolor" class="param-row">
-    <label>grid:</label>
-    <input id="picker-gridcolor" type="color" value="#000000">
-  </div>
-  <div id="param-depth" class="param-row">
-    <label>depth:</label>
-    <input id="slider-depth" type="range" min="0" max="100" value="100">
-    <span id="val-depth">1.0</span>
-  </div>
-  <div id="param-tint" class="param-row visible">
-    <label>tint:</label>
-    <select id="tint-select">
-      <option value="off">off</option>
-      <option value="green">green (Game Boy)</option>
-      <option value="amber">amber (retro)</option>
-      <option value="blue">blue (cool)</option>
-      <option value="custom">custom</option>
+  <!-- Display -->
+  <div class="section">
+    <span class="section-label">Display</span>
+    <label>Scale:</label>
+    <select id="scale-select">
+      <option value="max">max integer</option>
+      <option value="fit">fit (fractional)</option>
+      <option value="3">3x (480x432)</option>
+      <option value="4">4x (640x576)</option>
+      <option value="5">5x (800x720)</option>
     </select>
-    <input id="picker-tint" type="color" value="#33ff33" style="display:none">
   </div>
-  <label>Scale:</label>
-  <select id="scale-select">
-    <option value="max">max integer</option>
-    <option value="fit">fit (fractional)</option>
-    <option value="3">3x (480x432)</option>
-    <option value="4">4x (640x576)</option>
-    <option value="5">5x (800x720)</option>
-  </select>
+  <!-- Tint -->
+  <div class="section">
+    <span class="section-label">Tint</span>
+    <div id="param-tint" class="param-row visible">
+      <label>tint:</label>
+      <select id="tint-select">
+        <option value="off">off</option>
+        <option value="green">green (Game Boy)</option>
+        <option value="amber">amber (retro)</option>
+        <option value="blue">blue (cool)</option>
+        <option value="custom">custom</option>
+      </select>
+      <input id="picker-tint" type="color" value="#33ff33" style="display:none">
+    </div>
+  </div>
+  <!-- Shader preset -->
+  <div class="section">
+    <span class="section-label">Shader</span>
+    <label>Shader:</label>
+    <select id="shader-select">
+      <option value="off">off</option>
+      <option value="scanlines">scanlines</option>
+      <option value="lcd">lcd grid</option>
+      <option value="lcd3d">lcd3d</option>
+      <option value="crt">crt</option>
+    </select>
+    <div id="param-opacity" class="param-row">
+      <label>opacity:</label>
+      <input id="slider-opacity" type="range" min="0" max="100" value="50">
+      <span id="val-opacity">0.5</span>
+    </div>
+    <div id="param-thickness" class="param-row">
+      <label>thickness:</label>
+      <input id="slider-thickness" type="range" min="1" max="50" value="8">
+      <span id="val-thickness">0.08</span>
+    </div>
+    <div id="param-gridcolor" class="param-row">
+      <label>grid:</label>
+      <input id="picker-gridcolor" type="color" value="#000000">
+    </div>
+    <div id="param-depth" class="param-row">
+      <label>depth:</label>
+      <input id="slider-depth" type="range" min="0" max="100" value="100">
+      <span id="val-depth">1.0</span>
+    </div>
+    <div id="param-curvature" class="param-row">
+      <label>curve:</label>
+      <input id="slider-curvature" type="range" min="0" max="100" value="15">
+      <span id="val-curvature">0.15</span>
+    </div>
+    <div id="param-scanline" class="param-row">
+      <label>scan:</label>
+      <input id="slider-scanline" type="range" min="0" max="100" value="30">
+      <span id="val-scanline">0.30</span>
+    </div>
+    <div id="param-vignette" class="param-row">
+      <label>vign:</label>
+      <input id="slider-vignette" type="range" min="0" max="100" value="40">
+      <span id="val-vignette">0.40</span>
+    </div>
+  </div>
 </div>
 <div id="info"></div>
 <script src="../../runtime/engine.js"></script>
@@ -90,6 +127,7 @@
 <script src="../../runtime/shaders/scanlines.js"></script>
 <script src="../../runtime/shaders/lcd.js"></script>
 <script src="../../runtime/shaders/lcd3d.js"></script>
+<script src="../../runtime/shaders/crt.js"></script>
 <script src="../../runtime/shaders/tint.js"></script>
 <script>
 Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
@@ -114,6 +152,16 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
   const sliderDepth = document.getElementById("slider-depth");
   const valDepth = document.getElementById("val-depth");
 
+  const paramCurvature = document.getElementById("param-curvature");
+  const sliderCurvature = document.getElementById("slider-curvature");
+  const valCurvature = document.getElementById("val-curvature");
+  const paramScanline = document.getElementById("param-scanline");
+  const sliderScanline = document.getElementById("slider-scanline");
+  const valScanline = document.getElementById("val-scanline");
+  const paramVignette = document.getElementById("param-vignette");
+  const sliderVignette = document.getElementById("slider-vignette");
+  const valVignette = document.getElementById("val-vignette");
+
   const tintSelect = document.getElementById("tint-select");
   const pickerTint = document.getElementById("picker-tint");
 
@@ -123,7 +171,9 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
     blue:  [0.4, 0.6, 1.0],
   };
 
-  let integerScale = null; // null = fit mode
+  // Chain order: tint → lcd/lcd3d/scanlines → crt
+  Mono.shader.order(["tint", "scanlines", "lcd", "lcd3d", "crt"]);
+  let currentShader = null;
 
   function updateInfo() {
     const dw = parseInt(canvas.style.width) || W;
@@ -163,14 +213,20 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
     paramThickness.className = "param-row";
     paramGridColor.className = "param-row";
     paramDepth.className = "param-row";
+    paramCurvature.className = "param-row";
+    paramScanline.className = "param-row";
+    paramVignette.className = "param-row";
+
+    if (currentShader) Mono.shader.disable(currentShader);
+    currentShader = null;
 
     if (name === "off") {
-      Mono.shader.off();
       updateInfo();
       return;
     }
 
-    Mono.shader.use(name);
+    Mono.shader.enable(name);
+    currentShader = name;
 
     if (name === "scanlines") {
       paramOpacity.className = "param-row visible";
@@ -197,6 +253,16 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
       sliderDepth.value = 100;
       valDepth.textContent = "1.0";
       pickerGridColor.value = "#000000";
+    } else if (name === "crt") {
+      paramCurvature.className = "param-row visible";
+      paramScanline.className = "param-row visible";
+      paramVignette.className = "param-row visible";
+      sliderCurvature.value = 15;
+      valCurvature.textContent = "0.15";
+      sliderScanline.value = 30;
+      valScanline.textContent = "0.30";
+      sliderVignette.value = 40;
+      valVignette.textContent = "0.40";
     }
     updateInfo();
   }
@@ -207,19 +273,35 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
   sliderOpacity.addEventListener("input", () => {
     const v = (sliderOpacity.value / 100).toFixed(2);
     valOpacity.textContent = v;
-    Mono.shader.param("opacity", parseFloat(v));
+    if (currentShader) Mono.shader.param(currentShader, "opacity", parseFloat(v));
   });
 
   sliderThickness.addEventListener("input", () => {
     const v = (sliderThickness.value / 100).toFixed(2);
     valThickness.textContent = v;
-    Mono.shader.param("thickness", parseFloat(v));
+    if (currentShader) Mono.shader.param(currentShader, "thickness", parseFloat(v));
+  });
+
+  sliderCurvature.addEventListener("input", () => {
+    const v = (sliderCurvature.value / 100).toFixed(2);
+    valCurvature.textContent = v;
+    if (currentShader) Mono.shader.param(currentShader, "curvature", parseFloat(v));
+  });
+  sliderScanline.addEventListener("input", () => {
+    const v = (sliderScanline.value / 100).toFixed(2);
+    valScanline.textContent = v;
+    if (currentShader) Mono.shader.param(currentShader, "scanline", parseFloat(v));
+  });
+  sliderVignette.addEventListener("input", () => {
+    const v = (sliderVignette.value / 100).toFixed(2);
+    valVignette.textContent = v;
+    if (currentShader) Mono.shader.param(currentShader, "vignette", parseFloat(v));
   });
 
   sliderDepth.addEventListener("input", () => {
     const v = (sliderDepth.value / 100).toFixed(1);
     valDepth.textContent = v;
-    Mono.shader.param("depth", parseFloat(v));
+    if (currentShader) Mono.shader.param(currentShader, "depth", parseFloat(v));
   });
 
   tintSelect.addEventListener("change", () => {
@@ -253,7 +335,7 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
     const r = parseInt(hex.slice(1,3), 16) / 255;
     const g = parseInt(hex.slice(3,5), 16) / 255;
     const b = parseInt(hex.slice(5,7), 16) / 255;
-    Mono.shader.param("grid_color", [r, g, b]);
+    if (currentShader) Mono.shader.param(currentShader, "grid_color", [r, g, b]);
   });
 
   // Default: lcd grid + max integer scale

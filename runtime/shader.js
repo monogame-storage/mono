@@ -1,28 +1,26 @@
 /**
  * Mono Shader Plugin — Core
- * 2-pass WebGL post-processing pipeline.
- *   Pass 1: preset shader (lcd3d, scanlines, etc.)
- *   Pass 2: post-effects (tint, etc.) — composable on top of any preset
+ * N-pass WebGL post-processing chain.
+ * Chain order: tint → lcd3d → crt (configurable)
  *
  * JS API:
- *   Mono.shader.use("lcd3d")
- *   Mono.shader.off()
- *   Mono.shader.param("opacity", 0.6)
- *   Mono.shader.tint([0.2, 0.9, 0.3])   // green tint
- *   Mono.shader.tint(null)               // remove tint
- *   Mono.shader.register(name, glslFragment, defaults)
+ *   Mono.shader.enable("lcd3d", { opacity: 1.0 })
+ *   Mono.shader.disable("lcd3d")
+ *   Mono.shader.param("lcd3d", "opacity", 0.5)
+ *   Mono.shader.tint([0.6, 0.9, 0.3])   // shortcut: enable tint
+ *   Mono.shader.tint(null)               // shortcut: disable tint
+ *   Mono.shader.order(["tint","lcd3d","crt"])  // set chain order
+ *   Mono.shader.register(name, glsl, defaults)
  *   Mono.shader.list()
  *   Mono.shader.current()
- *
- * Preset files (runtime/shaders/*.js) call register() to add themselves.
  */
 (() => {
   "use strict";
 
   if (typeof Mono === "undefined") throw new Error("shader.js requires engine.js");
 
-  // --- Shaders ---
-  const VERT = `
+  // --- Vertex shaders ---
+  const VERT_FLIP = `
 attribute vec2 a_pos;
 varying vec2 v_uv;
 void main() {
@@ -30,8 +28,7 @@ void main() {
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }`;
 
-  // Pass-through (no Y flip — used for pass2 which reads from FBO)
-  const VERT_PASS2 = `
+  const VERT_NOOP = `
 attribute vec2 a_pos;
 varying vec2 v_uv;
 void main() {
@@ -47,27 +44,25 @@ void main() {
   gl_FragColor = texture2D(u_tex, v_uv);
 }`;
 
-  // --- Registries ---
-  const EFFECTS = {};    // name → { frag }
+  // --- Registry ---
+  const REGISTRY = {};  // name → { frag, defaults }
 
-  // --- Preset registry ---
-  const PRESETS = {
-    passthrough: { frag: FRAG_PASS, defaults: {} },
-  };
+  // --- Chain state ---
+  let chain = [];          // ordered shader names, e.g. ["tint","lcd3d","crt"]
+  let active = {};         // name → true (enabled shaders)
+  let chainParams = {};    // name → { key: val }
 
-  // --- State ---
+  // --- WebGL state ---
   let gl = null;
   let glCanvas = null;
-  let srcTex = null;     // texture from 2D canvas
-  let fbo = null;        // framebuffer for pass1 output
-  let fboTex = null;     // texture attached to FBO
+  let srcTex = null;
+  let fbos = [null, null];
+  let fboTexs = [null, null];
   let quadBuf = null;
-  let programs = {};     // pass1 programs (keyed by preset name)
-  let pass2Programs = {};// pass2 programs
-  let activePreset = null;
-  let params = {};
-  let tintColor = null;  // [r,g,b] or null
+  let progsFlip = {};      // first pass (Y-flip)
+  let progsNoFlip = {};    // subsequent passes
   let initialized = false;
+  let lastRW = 0, lastRH = 0;
 
   function getInternal() {
     const i = Mono._internal;
@@ -110,16 +105,13 @@ void main() {
     return { program: prog, uniforms };
   }
 
-  function buildProgram(name, fragSrc) {
-    if (programs[name]) return programs[name];
-    programs[name] = link(VERT, fragSrc);
-    return programs[name];
-  }
-
-  function buildPass2(name, fragSrc) {
-    if (pass2Programs[name]) return pass2Programs[name];
-    pass2Programs[name] = link(VERT_PASS2, fragSrc);
-    return pass2Programs[name];
+  function getProgram(name, flip) {
+    const cache = flip ? progsFlip : progsNoFlip;
+    if (cache[name]) return cache[name];
+    const entry = REGISTRY[name];
+    if (!entry) return null;
+    cache[name] = link(flip ? VERT_FLIP : VERT_NOOP, entry.frag);
+    return cache[name];
   }
 
   function createTexture() {
@@ -132,9 +124,14 @@ void main() {
     return t;
   }
 
-  // --- Init WebGL ---
-  let lastRW = 0, lastRH = 0;
+  function resizeFboTextures(rw, rh) {
+    for (let i = 0; i < 2; i++) {
+      gl.bindTexture(gl.TEXTURE_2D, fboTexs[i]);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, rw, rh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    }
+  }
 
+  // --- Init WebGL ---
   function initGL() {
     if (initialized) return;
     const { canvas, W, H } = getInternal();
@@ -157,11 +154,7 @@ void main() {
         lastRH = rh;
         if (gl) {
           gl.viewport(0, 0, rw, rh);
-          // Resize FBO texture to match
-          if (fboTex) {
-            gl.bindTexture(gl.TEXTURE_2D, fboTex);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, rw, rh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-          }
+          resizeFboTextures(rw, rh);
         }
       }
       glCanvas.style.width = dw + "px";
@@ -174,30 +167,26 @@ void main() {
     gl = glCanvas.getContext("webgl", { alpha: false, antialias: false });
     if (!gl) throw new Error("WebGL not available");
 
-    // Quad
     quadBuf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
 
-    // Source texture (from 2D canvas)
     srcTex = createTexture();
 
-    // FBO for pass1 output
-    fboTex = createTexture();
+    // Ping-pong FBOs
     const rw = glCanvas.width, rh = glCanvas.height;
     lastRW = rw; lastRH = rh;
-    gl.bindTexture(gl.TEXTURE_2D, fboTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, rw, rh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-
-    fbo = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTex, 0);
+    for (let i = 0; i < 2; i++) {
+      fboTexs[i] = createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, fboTexs[i]);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, rw, rh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      fbos[i] = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbos[i]);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTexs[i], 0);
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
     syncSize();
-    buildProgram("passthrough", FRAG_PASS);
-    buildPass2("passthrough", FRAG_PASS);
-
     Mono._setFlush(shaderFlush);
     initialized = true;
   }
@@ -209,33 +198,13 @@ void main() {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
-  // --- Render pipeline ---
-  function renderGL() {
-    const { canvas: src, W, H } = getInternal();
-    const needPass2 = tintColor != null;
-
-    // Upload source
-    gl.bindTexture(gl.TEXTURE_2D, srcTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
-
-    // --- Pass 1: preset shader ---
-    const presetName = activePreset || "passthrough";
-    const p1 = programs[presetName];
-    if (!p1) return;
-
-    if (needPass2) {
-      // Render to FBO
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-      gl.viewport(0, 0, lastRW, lastRH);
-    }
-
-    gl.useProgram(p1.program);
-    const u1 = p1.uniforms;
-    if (u1.u_tex != null) gl.uniform1i(u1.u_tex, 0);
-    if (u1.u_resolution != null) gl.uniform2f(u1.u_resolution, W, H);
-    if (u1.u_time != null) gl.uniform1f(u1.u_time, Mono._getFrame() / 30.0);
+  function setUniforms(prog, params, W, H) {
+    const u = prog.uniforms;
+    if (u.u_tex != null) gl.uniform1i(u.u_tex, 0);
+    if (u.u_resolution != null) gl.uniform2f(u.u_resolution, W, H);
+    if (u.u_time != null) gl.uniform1f(u.u_time, Mono._getFrame() / 30.0);
     for (const [key, val] of Object.entries(params)) {
-      const loc = u1["u_" + key];
+      const loc = u["u_" + key];
       if (loc == null) continue;
       if (Array.isArray(val) && val.length === 3) {
         gl.uniform3f(loc, val[0], val[1], val[2]);
@@ -243,24 +212,57 @@ void main() {
         gl.uniform1f(loc, val);
       }
     }
-    drawQuad();
+  }
 
-    if (!needPass2) return;
+  // --- Render pipeline ---
+  function renderGL() {
+    const { canvas: src, W, H } = getInternal();
 
-    // --- Pass 2: tint ---
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, lastRW, lastRH);
+    // Upload source texture
+    gl.bindTexture(gl.TEXTURE_2D, srcTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
 
-    gl.bindTexture(gl.TEXTURE_2D, fboTex);
-    if (!pass2Programs["tint"] && EFFECTS["tint"]) {
-      buildPass2("tint", EFFECTS["tint"].frag);
+    // Build active chain
+    const passes = chain.filter(n => active[n] && REGISTRY[n]);
+    if (passes.length === 0) {
+      // Passthrough: just copy srcTex to screen
+      const p = getProgram("_pass", true);
+      if (!p) {
+        REGISTRY["_pass"] = { frag: FRAG_PASS, defaults: {} };
+        getProgram("_pass", true);
+      }
+      const prog = progsFlip["_pass"];
+      gl.useProgram(prog.program);
+      setUniforms(prog, {}, W, H);
+      drawQuad();
+      return;
     }
-    const p2 = pass2Programs["tint"];
-    if (!p2) return;
-    gl.useProgram(p2.program);
-    if (p2.uniforms.u_tex != null) gl.uniform1i(p2.uniforms.u_tex, 0);
-    if (p2.uniforms.u_tint != null) gl.uniform3f(p2.uniforms.u_tint, tintColor[0], tintColor[1], tintColor[2]);
-    drawQuad();
+
+    let inputTex = srcTex;
+    for (let i = 0; i < passes.length; i++) {
+      const name = passes[i];
+      const isFirst = (i === 0);
+      const isLast = (i === passes.length - 1);
+      const prog = getProgram(name, isFirst);
+      if (!prog) continue;
+
+      // Output: screen (last) or FBO (intermediate)
+      if (isLast) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      } else {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbos[i % 2]);
+      }
+      gl.viewport(0, 0, lastRW, lastRH);
+
+      gl.bindTexture(gl.TEXTURE_2D, inputTex);
+      gl.useProgram(prog.program);
+      setUniforms(prog, chainParams[name] || REGISTRY[name].defaults, W, H);
+      drawQuad();
+
+      if (!isLast) {
+        inputTex = fboTexs[i % 2];
+      }
+    }
   }
 
   function shaderFlush() {
@@ -273,50 +275,71 @@ void main() {
   // --- Public API ---
   const shader = {};
 
-  shader.use = function (name, userParams) {
-    const preset = PRESETS[name];
-    if (!preset) throw new Error("Unknown shader: " + name + ". Available: " + shader.list().join(", "));
+  shader.register = function (name, fragSrc, defaults) {
+    REGISTRY[name] = { frag: fragSrc, defaults: defaults || {} };
+    // Auto-add to chain order if not present
+    if (chain.indexOf(name) === -1) chain.push(name);
+  };
+
+  // Keep for backwards compat
+  shader.registerEffect = shader.register;
+
+  shader.enable = function (name, userParams) {
+    if (!REGISTRY[name]) throw new Error("Unknown shader: " + name);
     initGL();
-    buildProgram(name, preset.frag);
-    activePreset = name;
-    params = Object.assign({}, preset.defaults);
+    active[name] = true;
     if (userParams) {
-      for (const [k, v] of Object.entries(userParams)) params[k] = v;
+      chainParams[name] = Object.assign({}, REGISTRY[name].defaults, userParams);
+    } else if (!chainParams[name]) {
+      chainParams[name] = Object.assign({}, REGISTRY[name].defaults);
     }
   };
 
-  shader.off = function () {
-    activePreset = null;
-    params = {};
+  shader.disable = function (name) {
+    active[name] = false;
   };
 
-  shader.param = function (key, value) {
-    params[key] = value;
+  /** Set param for a specific shader in the chain */
+  shader.param = function (name, key, value) {
+    if (!chainParams[name]) chainParams[name] = Object.assign({}, REGISTRY[name]?.defaults || {});
+    chainParams[name][key] = value;
   };
 
+  /** Convenience: enable/disable tint */
   shader.tint = function (color) {
     if (color == null) {
-      tintColor = null;
+      shader.disable("tint");
       return;
     }
     initGL();
-    tintColor = color;
+    shader.enable("tint", { tint: color });
   };
 
-  shader.register = function (name, fragSrc, defaults) {
-    PRESETS[name] = { frag: fragSrc, defaults: defaults || {} };
+  /** Convenience: enable a preset (backwards compat with old shader.use) */
+  shader.use = function (name, userParams) {
+    shader.enable(name, userParams);
   };
 
-  shader.registerEffect = function (name, fragSrc) {
-    EFFECTS[name] = { frag: fragSrc };
+  /** Disable all */
+  shader.off = function () {
+    for (const name in active) active[name] = false;
+    chainParams = {};
+  };
+
+  /** Set chain order */
+  shader.order = function (names) {
+    chain = names.slice();
   };
 
   shader.list = function () {
-    return Object.keys(PRESETS).filter(n => n !== "passthrough");
+    return Object.keys(REGISTRY).filter(n => n !== "_pass");
   };
 
   shader.current = function () {
-    return { preset: activePreset, params: Object.assign({}, params), tint: tintColor };
+    return {
+      chain: chain.filter(n => active[n]),
+      params: Object.assign({}, chainParams),
+    };
   };
 
   Mono.shader = shader;

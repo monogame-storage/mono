@@ -7,7 +7,7 @@
  *   Mono.shader.tint([0.6, 0.9, 0.3])  // green
  *   Mono.shader.tint(null)              // remove
  */
-Mono.shader.registerEffect("tint", `
+Mono.shader.register("tint", `
 precision mediump float;
 varying vec2 v_uv;
 uniform sampler2D u_tex;
