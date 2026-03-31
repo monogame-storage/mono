@@ -94,6 +94,7 @@ var Mono = (() => {
     const col = palette[c] || palette[0];
     buf32.fill(col);
     colorBuf.fill(c || 0);
+    debugShapes = [];
   }
 
   function line(x0, y0, x1, y1, c) {
@@ -116,6 +117,7 @@ var Mono = (() => {
     w = Math.floor(w); h = Math.floor(h);
     for (let i = 0; i < w; i++) { setPix(x + i, y, c); setPix(x + i, y + h - 1, c); }
     for (let i = 0; i < h; i++) { setPix(x, y + i, c); setPix(x + w - 1, y + i, c); }
+    if (debugMode) debugShapes.push({ x, y, w, h });
   }
 
   function rectf(x, y, w, h, c) {
@@ -124,6 +126,7 @@ var Mono = (() => {
     for (let py = y; py < y + h; py++)
       for (let px = x; px < x + w; px++)
         setPix(px, py, c);
+    if (debugMode) debugShapes.push({ x, y, w, h });
   }
 
   function circ(cx, cy, r, c) {
@@ -138,6 +141,7 @@ var Mono = (() => {
       if (d < 0) { d += 2 * y + 1; }
       else { x--; d += 2 * (y - x) + 1; }
     }
+    if (debugMode) debugShapes.push({ x: cx - r, y: cy - r, w: r * 2 + 1, h: r * 2 + 1 });
   }
 
   function circf(cx, cy, r, c) {
@@ -150,6 +154,7 @@ var Mono = (() => {
       if (d < 0) { d += 2 * y + 1; }
       else { x--; d += 2 * (y - x) + 1; }
     }
+    if (debugMode) debugShapes.push({ x: cx - r, y: cy - r, w: r * 2 + 1, h: r * 2 + 1 });
   }
 
   function drawText(str, x, y, c) {
@@ -181,6 +186,27 @@ var Mono = (() => {
     const rows = [];
     for (let y = 0; y < H; y++) rows.push(vrow(y));
     return rows.join("\n");
+  }
+
+  // --- Debug ---
+  let debugMode = false;
+  let debugShapes = [];
+
+  // --- Input ---
+  const keyMap = {
+    "ArrowUp": "up", "ArrowDown": "down", "ArrowLeft": "left", "ArrowRight": "right",
+    "w": "up", "s": "down", "a": "left", "d": "right",
+    "z": "a", "Z": "a", "x": "b", "X": "b",
+    "Enter": "start", " ": "select"
+  };
+  const keys = {};
+  const keysPrev = {};
+
+  function btn(k) { return !!keys[k]; }
+  function btnp(k) { return !!keys[k] && !keysPrev[k]; }
+
+  function inputUpdate() {
+    for (const k in keys) keysPrev[k] = keys[k];
   }
 
   // --- Flush buffer to canvas ---
@@ -220,6 +246,17 @@ var Mono = (() => {
     fitCanvas();
     window.addEventListener("resize", fitCanvas);
 
+    // Input handling
+    document.addEventListener("keydown", e => {
+      if (e.key === "1") { debugMode = !debugMode; return; }
+      const k = keyMap[e.key];
+      if (k) { keys[k] = true; e.preventDefault(); }
+    });
+    document.addEventListener("keyup", e => {
+      const k = keyMap[e.key];
+      if (k) { keys[k] = false; e.preventDefault(); }
+    });
+
     // Fetch game source
     const gameSrc = await fetch(opts.game).then(r => r.text());
 
@@ -241,6 +278,8 @@ var Mono = (() => {
     lua.global.set("circ", circ);
     lua.global.set("circf", circf);
     lua.global.set("text", drawText);
+    lua.global.set("btn", btn);
+    lua.global.set("btnp", btnp);
     lua.global.set("vrow", vrow);
     lua.global.set("vdump", vdump);
     lua.global.set("print", (...args) => console.log("[Lua]", ...args));
@@ -265,6 +304,7 @@ var Mono = (() => {
       if (updateFn) try { updateFn(); } catch (e) { console.error("Mono: _update error:", e); }
       if (drawFn) try { drawFn(); } catch (e) { console.error("Mono: _draw error:", e); }
       flush();
+      inputUpdate();
     }, FRAME_MS);
   };
 

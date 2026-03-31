@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mono — Bounce</title>
+<link rel="stylesheet" href="../../runtime/mono.css">
+</head>
+<body>
+<div id="frame">
+  <canvas id="screen"></canvas>
+</div>
+<script src="../../runtime/engine.js"></script>
+<script>Mono.boot("screen", { game: "game.lua", colors: 1 }).catch(e => console.error("Boot failed:", e));</script>
+</body></html>
