@@ -43,6 +43,7 @@
     <option value="off">off</option>
     <option value="scanlines">scanlines</option>
     <option value="lcd">lcd grid</option>
+    <option value="lcd3d">lcd3d</option>
   </select>
   <div id="param-opacity" class="param-row">
     <label>opacity:</label>
@@ -58,6 +59,11 @@
     <label>grid:</label>
     <input id="picker-gridcolor" type="color" value="#000000">
   </div>
+  <div id="param-depth" class="param-row">
+    <label>depth:</label>
+    <input id="slider-depth" type="range" min="0" max="100" value="100">
+    <span id="val-depth">1.0</span>
+  </div>
   <label>Scale:</label>
   <select id="scale-select">
     <option value="max">max integer</option>
@@ -70,6 +76,9 @@
 <div id="info"></div>
 <script src="../../runtime/engine.js"></script>
 <script src="../../runtime/shader.js"></script>
+<script src="../../runtime/shaders/scanlines.js"></script>
+<script src="../../runtime/shaders/lcd.js"></script>
+<script src="../../runtime/shaders/lcd3d.js"></script>
 <script>
 Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
   const W = 160, H = 144;
@@ -88,6 +97,10 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
 
   const paramGridColor = document.getElementById("param-gridcolor");
   const pickerGridColor = document.getElementById("picker-gridcolor");
+
+  const paramDepth = document.getElementById("param-depth");
+  const sliderDepth = document.getElementById("slider-depth");
+  const valDepth = document.getElementById("val-depth");
 
   let integerScale = null; // null = fit mode
 
@@ -128,6 +141,7 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
     paramOpacity.className = "param-row";
     paramThickness.className = "param-row";
     paramGridColor.className = "param-row";
+    paramDepth.className = "param-row";
 
     if (name === "off") {
       Mono.shader.off();
@@ -150,6 +164,18 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
       sliderThickness.value = 20;
       valThickness.textContent = "0.20";
       pickerGridColor.value = "#000000";
+    } else if (name === "lcd3d") {
+      paramOpacity.className = "param-row visible";
+      paramThickness.className = "param-row visible";
+      paramGridColor.className = "param-row visible";
+      paramDepth.className = "param-row visible";
+      sliderOpacity.value = 100;
+      valOpacity.textContent = "1.0";
+      sliderThickness.value = 20;
+      valThickness.textContent = "0.20";
+      sliderDepth.value = 100;
+      valDepth.textContent = "1.0";
+      pickerGridColor.value = "#000000";
     }
     updateInfo();
   }
@@ -169,6 +195,12 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
     Mono.shader.param("thickness", parseFloat(v));
   });
 
+  sliderDepth.addEventListener("input", () => {
+    const v = (sliderDepth.value / 100).toFixed(1);
+    valDepth.textContent = v;
+    Mono.shader.param("depth", parseFloat(v));
+  });
+
   pickerGridColor.addEventListener("input", () => {
     const hex = pickerGridColor.value;
     const r = parseInt(hex.slice(1,3), 16) / 255;
@@ -180,7 +212,7 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
   // Default: lcd grid + max integer scale
   scaleSel.value = "max";
   applyScale();
-  sel.value = "lcd";
+  sel.value = "lcd3d";
   applyShader();
 
   updateInfo();
