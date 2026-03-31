@@ -47,17 +47,8 @@ void main() {
   gl_FragColor = texture2D(u_tex, v_uv);
 }`;
 
-  const FRAG_TINT = `
-precision mediump float;
-varying vec2 v_uv;
-uniform sampler2D u_tex;
-uniform vec3 u_tint;
-void main() {
-  vec4 color = texture2D(u_tex, v_uv);
-  float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-  color.rgb = vec3(lum) * u_tint;
-  gl_FragColor = color;
-}`;
+  // --- Registries ---
+  const EFFECTS = {};    // name → { frag }
 
   // --- Preset registry ---
   const PRESETS = {
@@ -206,7 +197,6 @@ void main() {
     syncSize();
     buildProgram("passthrough", FRAG_PASS);
     buildPass2("passthrough", FRAG_PASS);
-    buildPass2("tint", FRAG_TINT);
 
     Mono._setFlush(shaderFlush);
     initialized = true;
@@ -262,7 +252,11 @@ void main() {
     gl.viewport(0, 0, lastRW, lastRH);
 
     gl.bindTexture(gl.TEXTURE_2D, fboTex);
+    if (!pass2Programs["tint"] && EFFECTS["tint"]) {
+      buildPass2("tint", EFFECTS["tint"].frag);
+    }
     const p2 = pass2Programs["tint"];
+    if (!p2) return;
     gl.useProgram(p2.program);
     if (p2.uniforms.u_tex != null) gl.uniform1i(p2.uniforms.u_tex, 0);
     if (p2.uniforms.u_tint != null) gl.uniform3f(p2.uniforms.u_tint, tintColor[0], tintColor[1], tintColor[2]);
@@ -311,6 +305,10 @@ void main() {
 
   shader.register = function (name, fragSrc, defaults) {
     PRESETS[name] = { frag: fragSrc, defaults: defaults || {} };
+  };
+
+  shader.registerEffect = function (name, fragSrc) {
+    EFFECTS[name] = { frag: fragSrc };
   };
 
   shader.list = function () {
