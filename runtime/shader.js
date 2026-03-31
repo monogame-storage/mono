@@ -335,6 +335,14 @@ void main() {
     return Object.keys(REGISTRY).filter(n => n !== "_pass");
   };
 
+  shader.defaults = function (name) {
+    return REGISTRY[name] ? Object.assign({}, REGISTRY[name].defaults) : null;
+  };
+
+  shader.chainOrder = function () {
+    return chain.slice();
+  };
+
   shader.current = function () {
     return {
       chain: chain.filter(n => active[n]),

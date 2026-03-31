@@ -8,6 +8,7 @@
   #controls {
     max-width: 640px;
     margin: 12px auto 0;
+    padding: 12px 16px;
     font-family: monospace;
     font-size: 13px;
     color: #aaa;
@@ -17,17 +18,42 @@
     gap: 10px;
     align-items: center;
     flex-wrap: wrap;
-    padding: 6px 0;
+    padding: 8px 4px;
     border-bottom: 1px solid #333;
   }
-  .section:last-child { border-bottom: none; }
   .section-label {
     color: #666;
     font-size: 11px;
-    width: 60px;
+    width: 50px;
     flex-shrink: 0;
   }
-  #controls select, #controls input[type="range"], #controls input[type="color"], #controls button {
+  .shader-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 8px 4px;
+    border-bottom: 1px solid #2a2a2a;
+  }
+  .shader-row:last-child { border-bottom: none; }
+  .shader-row .drag-handle {
+    cursor: grab;
+    color: #555;
+    font-size: 14px;
+    padding: 0 2px;
+    user-select: none;
+  }
+  .shader-row .drag-handle:hover { color: #aaa; }
+  .shader-row .drag-handle:active { cursor: grabbing; }
+  .shader-row.dragging { opacity: 0.3; }
+  .shader-row.drag-over { border-top: 2px solid #888; }
+  .shader-row label.name {
+    color: #ccc;
+    width: 65px;
+    flex-shrink: 0;
+  }
+  .shader-params { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #controls select, #controls input[type="range"], #controls input[type="color"] {
     font-family: monospace;
     font-size: 13px;
     background: #222;
@@ -37,8 +63,35 @@
     border-radius: 4px;
   }
   #controls label { color: #888; }
-  .param-row { display: none; gap: 8px; align-items: center; }
-  .param-row.visible { display: flex; }
+  .btn-remove {
+    background: none;
+    border: 1px solid #555;
+    color: #888;
+    font-family: monospace;
+    font-size: 13px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: auto;
+  }
+  .btn-remove:hover { color: #f66; border-color: #f66; }
+  #add-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 0;
+  }
+  #add-row select, #add-row button {
+    font-family: monospace;
+    font-size: 13px;
+    background: #222;
+    color: #eee;
+    border: 1px solid #555;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #add-row button:hover { background: #444; }
   #info { text-align: center; font-family: monospace; font-size: 11px; color: #555; margin-top: 6px; }
 </style>
 </head>
@@ -47,7 +100,6 @@
   <canvas id="screen"></canvas>
 </div>
 <div id="controls">
-  <!-- Display -->
   <div class="section">
     <span class="section-label">Display</span>
     <label>Scale:</label>
@@ -59,122 +111,40 @@
       <option value="5">5x (800x720)</option>
     </select>
   </div>
-  <!-- Tint -->
-  <div class="section">
-    <span class="section-label">Tint</span>
-    <div id="param-tint" class="param-row visible">
-      <label>tint:</label>
-      <select id="tint-select">
-        <option value="off">off</option>
-        <option value="green">green (Game Boy)</option>
-        <option value="amber">amber (retro)</option>
-        <option value="blue">blue (cool)</option>
-        <option value="custom">custom</option>
-      </select>
-      <input id="picker-tint" type="color" value="#33ff33" style="display:none">
-    </div>
-  </div>
-  <!-- Shader preset -->
-  <div class="section">
-    <span class="section-label">Shader</span>
-    <label>Shader:</label>
-    <select id="shader-select">
-      <option value="off">off</option>
-      <option value="scanlines">scanlines</option>
-      <option value="lcd">lcd grid</option>
-      <option value="lcd3d">lcd3d</option>
-      <option value="crt">crt</option>
-    </select>
-    <div id="param-opacity" class="param-row">
-      <label>opacity:</label>
-      <input id="slider-opacity" type="range" min="0" max="100" value="50">
-      <span id="val-opacity">0.5</span>
-    </div>
-    <div id="param-thickness" class="param-row">
-      <label>thickness:</label>
-      <input id="slider-thickness" type="range" min="1" max="50" value="8">
-      <span id="val-thickness">0.08</span>
-    </div>
-    <div id="param-gridcolor" class="param-row">
-      <label>grid:</label>
-      <input id="picker-gridcolor" type="color" value="#000000">
-    </div>
-    <div id="param-depth" class="param-row">
-      <label>depth:</label>
-      <input id="slider-depth" type="range" min="0" max="100" value="100">
-      <span id="val-depth">1.0</span>
-    </div>
-    <div id="param-curvature" class="param-row">
-      <label>curve:</label>
-      <input id="slider-curvature" type="range" min="0" max="100" value="15">
-      <span id="val-curvature">0.15</span>
-    </div>
-    <div id="param-scanline" class="param-row">
-      <label>scan:</label>
-      <input id="slider-scanline" type="range" min="0" max="100" value="30">
-      <span id="val-scanline">0.30</span>
-    </div>
-    <div id="param-vignette" class="param-row">
-      <label>vign:</label>
-      <input id="slider-vignette" type="range" min="0" max="100" value="40">
-      <span id="val-vignette">0.40</span>
-    </div>
+  <div id="chain-ui"></div>
+  <div id="add-row">
+    <select id="add-select"></select>
+    <button id="add-btn">+</button>
   </div>
 </div>
 <div id="info"></div>
 <script src="../../runtime/engine.js"></script>
 <script src="../../runtime/shader.js"></script>
+<script src="../../runtime/shaders/tint.js"></script>
 <script src="../../runtime/shaders/scanlines.js"></script>
 <script src="../../runtime/shaders/lcd.js"></script>
 <script src="../../runtime/shaders/lcd3d.js"></script>
 <script src="../../runtime/shaders/crt.js"></script>
-<script src="../../runtime/shaders/tint.js"></script>
 <script>
 Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
   const W = 160, H = 144;
   const canvas = document.getElementById("screen");
-  const sel = document.getElementById("shader-select");
   const scaleSel = document.getElementById("scale-select");
+  const chainUI = document.getElementById("chain-ui");
+  const addSelect = document.getElementById("add-select");
+  const addBtn = document.getElementById("add-btn");
   const info = document.getElementById("info");
 
-  const paramOpacity = document.getElementById("param-opacity");
-  const sliderOpacity = document.getElementById("slider-opacity");
-  const valOpacity = document.getElementById("val-opacity");
-
-  const paramThickness = document.getElementById("param-thickness");
-  const sliderThickness = document.getElementById("slider-thickness");
-  const valThickness = document.getElementById("val-thickness");
-
-  const paramGridColor = document.getElementById("param-gridcolor");
-  const pickerGridColor = document.getElementById("picker-gridcolor");
-
-  const paramDepth = document.getElementById("param-depth");
-  const sliderDepth = document.getElementById("slider-depth");
-  const valDepth = document.getElementById("val-depth");
-
-  const paramCurvature = document.getElementById("param-curvature");
-  const sliderCurvature = document.getElementById("slider-curvature");
-  const valCurvature = document.getElementById("val-curvature");
-  const paramScanline = document.getElementById("param-scanline");
-  const sliderScanline = document.getElementById("slider-scanline");
-  const valScanline = document.getElementById("val-scanline");
-  const paramVignette = document.getElementById("param-vignette");
-  const sliderVignette = document.getElementById("slider-vignette");
-  const valVignette = document.getElementById("val-vignette");
-
-  const tintSelect = document.getElementById("tint-select");
-  const pickerTint = document.getElementById("picker-tint");
-
-  const TINT_PRESETS = {
+  const TINT_COLORS = {
     green: [0.6, 0.9, 0.3],
     amber: [1.0, 0.75, 0.3],
     blue:  [0.4, 0.6, 1.0],
   };
 
-  // Chain order: tint → lcd/lcd3d/scanlines → crt
-  Mono.shader.order(["tint", "scanlines", "lcd", "lcd3d", "crt"]);
-  let currentShader = null;
+  // Active chain (UI state — ordered list of shader names currently shown)
+  let uiChain = [];
 
+  // --- Scale ---
   function updateInfo() {
     const dw = parseInt(canvas.style.width) || W;
     const dh = parseInt(canvas.style.height) || H;
@@ -184,21 +154,15 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
     info.textContent = `display: ${dw}x${dh}  scale: ${sx}x${sy}  ${isInt ? "integer" : "fractional"}`;
   }
 
-  function maxIntegerScale() {
-    const maxW = window.innerWidth - 40;
-    const maxH = window.innerHeight - 100;
-    return Math.max(1, Math.floor(Math.min(maxW / W, maxH / H)));
-  }
-
   function applyScale() {
     const val = scaleSel.value;
+    const maxW = window.innerWidth - 40;
+    const maxH = window.innerHeight - 140;
     let s;
     if (val === "fit") {
-      const maxW = window.innerWidth - 40;
-      const maxH = window.innerHeight - 100;
       s = Math.min(maxW / W, maxH / H);
     } else if (val === "max") {
-      s = maxIntegerScale();
+      s = Math.max(1, Math.floor(Math.min(maxW / W, maxH / H)));
     } else {
       s = parseInt(val);
     }
@@ -206,143 +170,202 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
     canvas.style.height = (H * s) + "px";
     updateInfo();
   }
+  scaleSel.addEventListener("change", applyScale);
 
-  function applyShader() {
-    const name = sel.value;
-    paramOpacity.className = "param-row";
-    paramThickness.className = "param-row";
-    paramGridColor.className = "param-row";
-    paramDepth.className = "param-row";
-    paramCurvature.className = "param-row";
-    paramScanline.className = "param-row";
-    paramVignette.className = "param-row";
+  // --- Helpers ---
+  function hexToRgb(hex) {
+    return [
+      parseInt(hex.slice(1,3), 16) / 255,
+      parseInt(hex.slice(3,5), 16) / 255,
+      parseInt(hex.slice(5,7), 16) / 255,
+    ];
+  }
+  function rgbToHex(rgb) {
+    return "#" + rgb.map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
+  }
 
-    if (currentShader) Mono.shader.disable(currentShader);
-    currentShader = null;
+  // --- Sync engine chain from uiChain ---
+  function syncChain() {
+    Mono.shader.order(uiChain);
+    // Disable shaders not in uiChain
+    for (const name of Mono.shader.list()) {
+      if (uiChain.indexOf(name) === -1) Mono.shader.disable(name);
+    }
+  }
 
-    if (name === "off") {
-      updateInfo();
+  // --- Build param controls for a shader ---
+  function buildParams(name, paramsDiv) {
+    const defaults = Mono.shader.defaults(name);
+    if (!defaults) return;
+
+    if (name === "tint") {
+      const sel = document.createElement("select");
+      sel.innerHTML = '<option value="green">green</option><option value="amber">amber</option><option value="blue">blue</option><option value="custom">custom</option>';
+      const picker = document.createElement("input");
+      picker.type = "color";
+      picker.value = rgbToHex(TINT_COLORS.green);
+      picker.style.display = "none";
+      sel.addEventListener("change", () => {
+        if (sel.value === "custom") {
+          picker.style.display = "";
+          Mono.shader.param("tint", "tint", hexToRgb(picker.value));
+        } else {
+          picker.style.display = "none";
+          Mono.shader.param("tint", "tint", TINT_COLORS[sel.value]);
+        }
+      });
+      picker.addEventListener("input", () => {
+        Mono.shader.param("tint", "tint", hexToRgb(picker.value));
+      });
+      paramsDiv.appendChild(sel);
+      paramsDiv.appendChild(picker);
       return;
     }
 
-    Mono.shader.enable(name);
-    currentShader = name;
-
-    if (name === "scanlines") {
-      paramOpacity.className = "param-row visible";
-      sliderOpacity.value = 40;
-      valOpacity.textContent = "0.4";
-    } else if (name === "lcd") {
-      paramOpacity.className = "param-row visible";
-      paramThickness.className = "param-row visible";
-      paramGridColor.className = "param-row visible";
-      sliderOpacity.value = 100;
-      valOpacity.textContent = "1.0";
-      sliderThickness.value = 20;
-      valThickness.textContent = "0.20";
-      pickerGridColor.value = "#000000";
-    } else if (name === "lcd3d") {
-      paramOpacity.className = "param-row visible";
-      paramThickness.className = "param-row visible";
-      paramGridColor.className = "param-row visible";
-      paramDepth.className = "param-row visible";
-      sliderOpacity.value = 100;
-      valOpacity.textContent = "1.0";
-      sliderThickness.value = 20;
-      valThickness.textContent = "0.20";
-      sliderDepth.value = 100;
-      valDepth.textContent = "1.0";
-      pickerGridColor.value = "#000000";
-    } else if (name === "crt") {
-      paramCurvature.className = "param-row visible";
-      paramScanline.className = "param-row visible";
-      paramVignette.className = "param-row visible";
-      sliderCurvature.value = 15;
-      valCurvature.textContent = "0.15";
-      sliderScanline.value = 30;
-      valScanline.textContent = "0.30";
-      sliderVignette.value = 40;
-      valVignette.textContent = "0.40";
+    for (const [key, val] of Object.entries(defaults)) {
+      if (Array.isArray(val) && val.length === 3) {
+        const lp = document.createElement("label");
+        lp.textContent = key.replace(/_/g, " ").slice(0, 5) + ":";
+        const picker = document.createElement("input");
+        picker.type = "color";
+        picker.value = rgbToHex(val);
+        picker.addEventListener("input", () => {
+          Mono.shader.param(name, key, hexToRgb(picker.value));
+        });
+        paramsDiv.appendChild(lp);
+        paramsDiv.appendChild(picker);
+      } else if (typeof val === "number") {
+        const lp = document.createElement("label");
+        lp.textContent = key.slice(0, 5) + ":";
+        const isLarge = val > 1;
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = 0;
+        slider.max = 100;
+        slider.value = Math.round((isLarge ? val / 5 : val) * 100);
+        const span = document.createElement("span");
+        span.textContent = isLarge ? val.toFixed(0) : val.toFixed(2);
+        slider.addEventListener("input", () => {
+          const v = isLarge
+            ? Math.round((slider.value / 100) * 500)
+            : parseFloat((slider.value / 100).toFixed(2));
+          span.textContent = isLarge ? v : v.toFixed(2);
+          Mono.shader.param(name, key, v);
+        });
+        paramsDiv.appendChild(lp);
+        paramsDiv.appendChild(slider);
+        paramsDiv.appendChild(span);
+      }
     }
-    updateInfo();
   }
 
-  sel.addEventListener("change", applyShader);
-  scaleSel.addEventListener("change", applyScale);
+  // --- Add shader row ---
+  function addShaderRow(name) {
+    if (uiChain.indexOf(name) !== -1) return; // already in chain
 
-  sliderOpacity.addEventListener("input", () => {
-    const v = (sliderOpacity.value / 100).toFixed(2);
-    valOpacity.textContent = v;
-    if (currentShader) Mono.shader.param(currentShader, "opacity", parseFloat(v));
-  });
+    uiChain.push(name);
+    syncChain();
+    Mono.shader.enable(name);
 
-  sliderThickness.addEventListener("input", () => {
-    const v = (sliderThickness.value / 100).toFixed(2);
-    valThickness.textContent = v;
-    if (currentShader) Mono.shader.param(currentShader, "thickness", parseFloat(v));
-  });
+    const row = document.createElement("div");
+    row.className = "shader-row";
+    row.dataset.name = name;
+    const handle = document.createElement("span");
+    handle.className = "drag-handle";
+    handle.textContent = "☰";
+    handle.draggable = true;
 
-  sliderCurvature.addEventListener("input", () => {
-    const v = (sliderCurvature.value / 100).toFixed(2);
-    valCurvature.textContent = v;
-    if (currentShader) Mono.shader.param(currentShader, "curvature", parseFloat(v));
-  });
-  sliderScanline.addEventListener("input", () => {
-    const v = (sliderScanline.value / 100).toFixed(2);
-    valScanline.textContent = v;
-    if (currentShader) Mono.shader.param(currentShader, "scanline", parseFloat(v));
-  });
-  sliderVignette.addEventListener("input", () => {
-    const v = (sliderVignette.value / 100).toFixed(2);
-    valVignette.textContent = v;
-    if (currentShader) Mono.shader.param(currentShader, "vignette", parseFloat(v));
-  });
+    const lbl = document.createElement("label");
+    lbl.className = "name";
+    lbl.textContent = name;
 
-  sliderDepth.addEventListener("input", () => {
-    const v = (sliderDepth.value / 100).toFixed(1);
-    valDepth.textContent = v;
-    if (currentShader) Mono.shader.param(currentShader, "depth", parseFloat(v));
-  });
+    const paramsDiv = document.createElement("div");
+    paramsDiv.className = "shader-params";
+    buildParams(name, paramsDiv);
 
-  tintSelect.addEventListener("change", () => {
-    const val = tintSelect.value;
-    if (val === "off") {
-      Mono.shader.tint(null);
-      pickerTint.style.display = "none";
-    } else if (val === "custom") {
-      pickerTint.style.display = "";
-      const hex = pickerTint.value;
-      const r = parseInt(hex.slice(1,3), 16) / 255;
-      const g = parseInt(hex.slice(3,5), 16) / 255;
-      const b = parseInt(hex.slice(5,7), 16) / 255;
-      Mono.shader.tint([r, g, b]);
-    } else {
-      pickerTint.style.display = "none";
-      Mono.shader.tint(TINT_PRESETS[val]);
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "btn-remove";
+    removeBtn.textContent = "−";
+    removeBtn.addEventListener("click", () => {
+      Mono.shader.disable(name);
+      uiChain = uiChain.filter(n => n !== name);
+      syncChain();
+      row.remove();
+      updateAddSelect();
+    });
+
+    row.appendChild(handle);
+    row.appendChild(lbl);
+    row.appendChild(paramsDiv);
+    row.appendChild(removeBtn);
+    chainUI.appendChild(row);
+
+    // Drag & drop (only from handle)
+    handle.addEventListener("dragstart", (e) => {
+      row.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", name);
+    });
+    handle.addEventListener("dragend", () => {
+      row.classList.remove("dragging");
+      chainUI.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+    });
+    row.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const dragging = chainUI.querySelector(".dragging");
+      if (dragging !== row) row.classList.add("drag-over");
+    });
+    row.addEventListener("dragleave", () => {
+      row.classList.remove("drag-over");
+    });
+    row.addEventListener("drop", (e) => {
+      e.preventDefault();
+      row.classList.remove("drag-over");
+      const draggedName = e.dataTransfer.getData("text/plain");
+      if (draggedName === name) return;
+      // Reorder: move draggedName before this row's name
+      const fromIdx = uiChain.indexOf(draggedName);
+      const toIdx = uiChain.indexOf(name);
+      if (fromIdx === -1 || toIdx === -1) return;
+      uiChain.splice(fromIdx, 1);
+      uiChain.splice(toIdx, 0, draggedName);
+      syncChain();
+      // Reorder DOM
+      const draggedRow = chainUI.querySelector("[data-name='" + draggedName + "']");
+      chainUI.insertBefore(draggedRow, row);
+    });
+
+    updateAddSelect();
+  }
+
+  // --- Update add dropdown (only show shaders not in chain) ---
+  function updateAddSelect() {
+    const available = Mono.shader.list().filter(n => uiChain.indexOf(n) === -1);
+    addSelect.innerHTML = "";
+    for (const name of available) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      addSelect.appendChild(opt);
     }
+    addBtn.disabled = available.length === 0;
+    addSelect.style.display = available.length === 0 ? "none" : "";
+  }
+
+  addBtn.addEventListener("click", () => {
+    const name = addSelect.value;
+    if (name) addShaderRow(name);
   });
 
-  pickerTint.addEventListener("input", () => {
-    const hex = pickerTint.value;
-    const r = parseInt(hex.slice(1,3), 16) / 255;
-    const g = parseInt(hex.slice(3,5), 16) / 255;
-    const b = parseInt(hex.slice(5,7), 16) / 255;
-    Mono.shader.tint([r, g, b]);
-  });
-
-  pickerGridColor.addEventListener("input", () => {
-    const hex = pickerGridColor.value;
-    const r = parseInt(hex.slice(1,3), 16) / 255;
-    const g = parseInt(hex.slice(3,5), 16) / 255;
-    const b = parseInt(hex.slice(5,7), 16) / 255;
-    if (currentShader) Mono.shader.param(currentShader, "grid_color", [r, g, b]);
-  });
-
-  // Default: lcd grid + max integer scale
+  // --- Init defaults ---
   scaleSel.value = "max";
   applyScale();
-  sel.value = "lcd3d";
-  applyShader();
+
+  addShaderRow("tint");
+  addShaderRow("scanlines");
+  addShaderRow("lcd3d");
+  addShaderRow("crt");
 
   updateInfo();
   window.addEventListener("resize", updateInfo);

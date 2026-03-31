@@ -17,4 +17,4 @@ void main() {
   float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
   color.rgb = vec3(lum) * u_tint;
   gl_FragColor = color;
-}`);
+}`, { tint: [0.6, 0.9, 0.3] });
