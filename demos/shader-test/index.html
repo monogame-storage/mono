@@ -63,7 +63,8 @@
     border-radius: 4px;
   }
   #controls label { color: #888; }
-  .btn-remove {
+  .row-buttons { display: flex; gap: 4px; margin-left: auto; }
+  .btn-remove, .btn-toggle {
     background: none;
     border: 1px solid #555;
     color: #888;
@@ -72,9 +73,13 @@
     padding: 1px 7px;
     border-radius: 4px;
     cursor: pointer;
-    margin-left: auto;
   }
   .btn-remove:hover { color: #f66; border-color: #f66; }
+  .btn-toggle { min-width: 28px; }
+  .btn-toggle.on { color: #8f8; border-color: #585; }
+  .btn-toggle.off { color: #888; border-color: #555; }
+  .shader-row.disabled .shader-params { opacity: 0.3; pointer-events: none; }
+  .shader-row.disabled label.name { color: #666; }
   #add-row {
     display: flex;
     gap: 8px;
@@ -200,7 +205,7 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
 
     if (name === "tint") {
       const sel = document.createElement("select");
-      sel.innerHTML = '<option value="green">green</option><option value="amber">amber</option><option value="blue">blue</option><option value="custom">custom</option>';
+      sel.innerHTML = '<option value="amber">amber</option><option value="green">green</option><option value="blue">blue</option><option value="custom">custom</option>';
       const picker = document.createElement("input");
       picker.type = "color";
       picker.value = rgbToHex(TINT_COLORS.green);
@@ -283,6 +288,9 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
     paramsDiv.className = "shader-params";
     buildParams(name, paramsDiv);
 
+    const buttonsDiv = document.createElement("div");
+    buttonsDiv.className = "row-buttons";
+
     const removeBtn = document.createElement("button");
     removeBtn.className = "btn-remove";
     removeBtn.textContent = "−";
@@ -294,10 +302,31 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
       updateAddSelect();
     });
 
+    const toggleBtn = document.createElement("button");
+    toggleBtn.className = "btn-toggle on";
+    toggleBtn.textContent = "on";
+    toggleBtn.addEventListener("click", () => {
+      const isOn = toggleBtn.classList.contains("on");
+      if (isOn) {
+        Mono.shader.disable(name);
+        toggleBtn.className = "btn-toggle off";
+        toggleBtn.textContent = "off";
+        row.classList.add("disabled");
+      } else {
+        Mono.shader.enable(name);
+        toggleBtn.className = "btn-toggle on";
+        toggleBtn.textContent = "on";
+        row.classList.remove("disabled");
+      }
+    });
+
+    buttonsDiv.appendChild(removeBtn);
+    buttonsDiv.appendChild(toggleBtn);
+
     row.appendChild(handle);
     row.appendChild(lbl);
     row.appendChild(paramsDiv);
-    row.appendChild(removeBtn);
+    row.appendChild(buttonsDiv);
     chainUI.appendChild(row);
 
     // Drag & drop (only from handle)

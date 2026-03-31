@@ -27,4 +27,4 @@ void main() {
   color.rgb *= v;
 
   gl_FragColor = color;
-}`, { curvature: 0.15, vignette: 0.4 });
+}`, { curvature: 0.02, vignette: 0.1 });

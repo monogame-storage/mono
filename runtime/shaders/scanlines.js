@@ -13,4 +13,4 @@ void main() {
   float scanline = mod(gl_FragCoord.y, 2.0) < 1.0 ? 1.0 : 1.0 - u_opacity;
   color.rgb *= scanline;
   gl_FragColor = color;
-}`, { opacity: 0.3 });
+}`, { opacity: 0.2 });
