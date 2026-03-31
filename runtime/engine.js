@@ -315,7 +315,19 @@ end
     setInterval(() => {
       if (!paused && updateFn) try { updateFn(); } catch (e) { console.error("Mono: _update error:", e); }
       if (drawFn) try { drawFn(); } catch (e) { console.error("Mono: _draw error:", e); }
-      if (paused) drawText("PAUSED", (W - 35) / 2, H / 2 - 3, palette.length - 1);
+      if (paused) {
+        const maxC = palette.length - 1;
+        const label = "PAUSED";
+        const tw = label.length * (FONT_W + 1) - 1;  // text width
+        const pad = 6;
+        const pw = tw + pad * 2, ph = FONT_H + pad * 2;
+        const px = Math.floor((W - pw) / 2), py = Math.floor((H - ph) / 2);
+        rectf(px, py, pw, ph, 0);
+        rect(px, py, pw, ph, maxC);
+        if (Math.floor(Date.now() / 500) % 2 === 0) {
+          drawText(label, px + pad, py + pad, maxC);
+        }
+      }
       flush();
       inputUpdate();
     }, FRAME_MS);
