@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+</style>
+</head>
+<body>
+<canvas id="screen"></canvas>
+<script src="../runtime/engine.js"></script>
+<script>
+  var test = new URLSearchParams(location.search).get("test") || "pixel";
+  var colors = parseInt(new URLSearchParams(location.search).get("colors") || "1");
+  var isSuite = (test === "suite");
+  var isChild = (window.parent !== window);
+
+  // Intercept Lua print
+  var _results = [];
+  var _failCount = 0;
+  var _origLog = console.log;
+  console.log = function() {
+    _origLog.apply(console, arguments);
+    var msg = Array.prototype.join.call(arguments, " ");
+
+    if (isSuite && isChild) {
+      // Stream every line to parent
+      var done = msg.indexOf("========") >= 0 && _results.length > 0;
+      if (msg.indexOf("FAIL:") >= 0) _failCount++;
+      _results.push(msg);
+      window.parent.postMessage({
+        type: "suite-log",
+        line: msg,
+        done: done,
+        failed: _failCount
+      }, "*");
+    } else {
+      if (msg.indexOf("PASS:") >= 0 || msg.indexOf("FAIL:") >= 0) {
+        _results.push(msg);
+      }
+    }
+  };
+
+  var gameFile = isSuite ? "suite.lua" : "test-" + test + ".lua";
+  Mono.boot("screen", { game: gameFile, colors: colors })
+    .then(function() {
+      window.getVdump = Mono.vdump;
+
+      if (!isSuite && isChild) {
+        var hasFail = _results.some(function(r) { return r.indexOf("FAIL:") >= 0; });
+        window.parent.postMessage({
+          type: "test-result",
+          test: test,
+          pass: !hasFail,
+          results: _results
+        }, "*");
+      }
+    })
+    ["catch"](function(e) {
+      console.error("Boot failed:", e);
+      if (isChild) {
+        window.parent.postMessage({
+          type: isSuite ? "suite-log" : "test-result",
+          test: test,
+          pass: false,
+          line: "FAIL: boot error",
+          done: true,
+          failed: 1,
+          results: ["FAIL: boot error"]
+        }, "*");
+      }
+    });
+</script>
+</body></html>

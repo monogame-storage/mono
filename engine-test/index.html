@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mono — Engine Test</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a1a;
+    color: #e8e8e8;
+    font-family: monospace;
+    padding: 24px;
+  }
+  h1 {
+    font-size: 14px;
+    color: #6b6b6b;
+    margin-bottom: 24px;
+    letter-spacing: 2px;
+  }
+  .section {
+    margin-bottom: 32px;
+  }
+  .section h2 {
+    font-size: 12px;
+    color: #b0b0b0;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 200px);
+    gap: 16px;
+  }
+  .cell {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .cell iframe {
+    display: block;
+    width: 200px;
+    height: 180px;
+    border: none;
+  }
+  .cell .footer {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    border-top: 1px solid #333;
+    gap: 6px;
+  }
+  .cell .label {
+    font-size: 11px;
+    color: #6b6b6b;
+    flex: 1;
+  }
+  .chip {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+  .chip.pass { background: #0a3d0a; color: #4ade80; }
+  .chip.fail { background: #3d0a0a; color: #f87171; }
+  .chip.wait { background: #333; color: #6b6b6b; }
+  .btn-vram {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid #555;
+    background: #222;
+    color: #b0b0b0;
+    cursor: pointer;
+    font-family: monospace;
+  }
+  .btn-vram:hover { border-color: #999; color: #e8e8e8; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 16px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: auto;
+  }
+  .modal h3 {
+    font-size: 12px;
+    color: #b0b0b0;
+    margin-bottom: 8px;
+  }
+  .modal pre {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 9px;
+    line-height: 1.3;
+    color: #4ade80;
+    white-space: pre;
+    overflow: auto;
+  }
+  .modal .close {
+    float: right;
+    background: none;
+    border: 1px solid #555;
+    color: #b0b0b0;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 11px;
+  }
+  .modal .close:hover { border-color: #999; color: #e8e8e8; }
+</style>
+</head>
+<body>
+<h1>MONO ENGINE TEST</h1>
+
+<div class="section">
+  <h2>Drawing Primitives</h2>
+  <div class="grid">
+    <div class="cell" data-test="pixel">
+      <iframe src="run.html?test=pixel"></iframe>
+      <div class="footer">
+        <span class="label">pixel</span>
+        <button class="btn-vram" onclick="requestVdump('pixel')">VRAM</button>
+        <span class="chip wait" id="chip-pixel">...</span>
+      </div>
+    </div>
+    <div class="cell" data-test="line">
+      <iframe src="run.html?test=line"></iframe>
+      <div class="footer">
+        <span class="label">line</span>
+        <button class="btn-vram" onclick="requestVdump('line')">VRAM</button>
+        <span class="chip wait" id="chip-line">...</span>
+      </div>
+    </div>
+    <div class="cell" data-test="rect">
+      <iframe src="run.html?test=rect"></iframe>
+      <div class="footer">
+        <span class="label">rect</span>
+        <button class="btn-vram" onclick="requestVdump('rect')">VRAM</button>
+        <span class="chip wait" id="chip-rect">...</span>
+      </div>
+    </div>
+    <div class="cell" data-test="circ">
+      <iframe src="run.html?test=circ"></iframe>
+      <div class="footer">
+        <span class="label">circ</span>
+        <button class="btn-vram" onclick="requestVdump('circ')">VRAM</button>
+        <span class="chip wait" id="chip-circ">...</span>
+      </div>
+    </div>
+    <div class="cell" data-test="text">
+      <iframe src="run.html?test=text"></iframe>
+      <div class="footer">
+        <span class="label">text</span>
+        <button class="btn-vram" onclick="requestVdump('text')">VRAM</button>
+        <span class="chip wait" id="chip-text">...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Test Suite</h2>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+    <button class="btn-vram" id="btn-suite" onclick="runSuite()" style="padding:4px 12px;">Run Suite</button>
+    <button class="btn-vram" id="btn-copy" onclick="copySuiteLog()" style="padding:4px 12px;display:none;">Copy</button>
+    <span class="chip wait" id="chip-suite">...</span>
+  </div>
+  <pre id="suite-log" style="font-family:'Courier New',Courier,monospace;font-size:11px;line-height:1.4;color:#b0b0b0;background:#111;border:1px solid #333;border-radius:4px;padding:12px;max-height:400px;overflow:auto;display:none;"></pre>
+  <iframe id="suite-frame" style="display:none;width:0;height:0;border:none;"></iframe>
+</div>
+
+<div class="modal-overlay" id="vram-modal">
+  <div class="modal">
+    <button class="close" onclick="closeModal()">close</button>
+    <h3 id="vram-title">VRAM</h3>
+    <pre id="vram-content"></pre>
+  </div>
+</div>
+
+<script>
+  // Test result chips
+  window.addEventListener("message", (e) => {
+    if (!e.data) return;
+    if (e.data.type === "test-result") {
+      const chip = document.getElementById("chip-" + e.data.test);
+      if (!chip) return;
+      if (e.data.pass) {
+        chip.textContent = "PASS";
+        chip.className = "chip pass";
+      } else {
+        chip.textContent = "FAIL";
+        chip.className = "chip fail";
+      }
+      chip.title = e.data.results.join("\n");
+    }
+  });
+
+  function requestVdump(test) {
+    const cell = document.querySelector(`.cell[data-test="${test}"]`);
+    const iframe = cell && cell.querySelector("iframe");
+    if (iframe && iframe.contentWindow && iframe.contentWindow.getVdump) {
+      const data = iframe.contentWindow.getVdump();
+      document.getElementById("vram-title").textContent = "VRAM — " + test;
+      document.getElementById("vram-content").textContent = data;
+      document.getElementById("vram-modal").classList.add("open");
+    }
+  }
+
+  function closeModal() {
+    document.getElementById("vram-modal").classList.remove("open");
+  }
+
+  document.getElementById("vram-modal").addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+
+  // Suite runner
+  function runSuite() {
+    const chip = document.getElementById("chip-suite");
+    const log = document.getElementById("suite-log");
+    const frame = document.getElementById("suite-frame");
+    chip.textContent = "...";
+    chip.className = "chip wait";
+    log.style.display = "block";
+    log.textContent = "Running...\n";
+    frame.src = "run.html?test=suite";
+  }
+
+  function copySuiteLog() {
+    const text = document.getElementById("suite-log").textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById("btn-copy");
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+    });
+  }
+
+  window.addEventListener("message", (e) => {
+    if (!e.data || e.data.type !== "suite-log") return;
+    const log = document.getElementById("suite-log");
+    const chip = document.getElementById("chip-suite");
+    log.textContent += e.data.line + "\n";
+    log.scrollTop = log.scrollHeight;
+    if (e.data.done) {
+      if (e.data.failed === 0) {
+        chip.textContent = "PASS";
+        chip.className = "chip pass";
+      } else {
+        chip.textContent = "FAIL";
+        chip.className = "chip fail";
+      }
+      document.getElementById("btn-copy").style.display = "";
+    }
+  });
+</script>
+</body>
+</html>
