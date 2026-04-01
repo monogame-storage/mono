@@ -11,7 +11,7 @@ function _draw()
   rectf(50, 80, 60, 30, 1)
 end
 
-function _init()
+function _start()
   cls(0)
   -- test rectf
   rectf(10, 10, 5, 5, 1)

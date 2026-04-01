@@ -5,7 +5,7 @@ function _draw()
   text("HELLO WORLD", 25, 68, 1)
 end
 
-function _init()
+function _start()
   cls(0)
   text("A", 0, 0, 1)
   -- 'A' top-left: row 0 should be .XX. pattern (pixels 1,2 set)

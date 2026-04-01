@@ -41,6 +41,14 @@ Adjust the paths to `engine.js` and `mono.css` relative to your project folder.
 ### Minimal game.lua (Hello World)
 
 ```lua
+function _init()
+  mode(4)  -- 16 grayscale
+end
+
+function _start()
+  go("title")
+end
+
 function title_init()
 end
 
@@ -89,16 +97,58 @@ Open `http://localhost:8000` in a browser.
 | Property        | Value                                           |
 |-----------------|-------------------------------------------------|
 | Resolution      | 160 x 144 pixels                                |
-| Color palette   | 16 grayscale (4-bit): 0 `#000000` to 15 `#ffffff`, evenly spaced |
+| Color palette   | Up to 16 grayscale (4-bit), configurable via `mode()` |
 | Sprite size     | 16 x 16 pixels (default)                        |
 | Frame rate      | 30 FPS                                          |
 | Input           | 8 buttons: up, down, left, right, a, b, start, select |
 | Language        | Lua 5.4 via Wasmoon                             |
 | Audio           | 2 channels, square wave                         |
 
+### Graphics Mode
+
+```lua
+mode(bits)   -- set color depth: 1 = 2 colors, 2 = 4 colors, 4 = 16 colors
+```
+
+| bits | Colors | Palette                                       |
+|------|--------|-----------------------------------------------|
+| 1    | 2      | `#000000`, `#ffffff`                          |
+| 2    | 4      | `#000000`, `#555555`, `#aaaaaa`, `#ffffff`    |
+| 4    | 16     | 0 `#000000` to 15 `#ffffff`, evenly spaced    |
+
+Call `mode()` inside `_init()` before any drawing. It rebuilds the palette and updates the `COLORS` global.
+
+Default is 1-bit (2 colors) if `mode()` is never called.
+
 ---
 
 ## 3. Game Structure
+
+### Lifecycle: `_init` → `_start` → loop
+
+Before any scene runs, the engine calls two global functions (if defined):
+
+```lua
+function _init()
+  -- System configuration phase.
+  -- Call mode() here to set color depth.
+  mode(4)  -- 16 grayscale
+end
+
+function _start()
+  -- Game initialization phase.
+  -- Define sprites, set up initial state, etc.
+  -- The palette and COLORS global are ready here.
+end
+```
+
+**Order:**
+1. `_init()` — configure hardware (mode, etc.). Called before internals are exposed.
+2. Engine exposes `_internal` for plugins (shader, etc.)
+3. `_start()` — game setup (sprites, variables, scene prep)
+4. Game loop begins (`_update` → `_draw` each frame)
+
+Both are optional. If your game uses scenes, `_start()` is a good place to call `go("title")`.
 
 ### Scenes
 
@@ -145,7 +195,7 @@ local f = frame()  -- returns the current frame number (starts at 0, increments 
 
 ## 4. Graphics API
 
-All drawing functions use integer color values 0-3.
+All drawing functions use integer color values from 0 to `COLORS - 1` (e.g., 0-1 in 1-bit mode, 0-15 in 4-bit mode).
 
 ### Screen
 
@@ -343,7 +393,44 @@ end
 
 ---
 
-## 7. Input
+## 7. Images
+
+Load external images (PNG, JPG, WebP, BMP, GIF, SVG) and draw them. Images are auto-quantized to the current grayscale palette. Transparent pixels (alpha < 128) are skipped.
+
+```lua
+local id = loadImage("bg.png")     -- load image, returns integer ID
+                                    -- call in _start(), loaded before game loop begins
+
+drawImage(id, x, y)                -- draw full image at (x, y), camera-affected
+drawImageRegion(id, sx, sy, sw, sh, dx, dy)  -- draw sub-region of image
+                                    -- sx,sy,sw,sh = source rect
+                                    -- dx,dy = screen destination, camera-affected
+```
+
+- `loadImage` returns an ID synchronously; the actual fetch happens async and completes before the game loop starts
+- Path is relative to the game folder (e.g., `"world01.png"`) or absolute (`"/assets/bg.png"`)
+- All browser-supported image formats work (PNG, JPG, WebP, BMP, GIF, SVG)
+- Images are quantized using luminance: `0.299R + 0.587G + 0.114B` → nearest palette gray
+
+Example (Gals Panic style reveal):
+
+```lua
+local bg
+
+function _start()
+  bg = loadImage("world01.png")
+end
+
+function _draw()
+  cls(0)
+  -- reveal a 40x40 region of the background at screen position (10, 10)
+  drawImageRegion(bg, 10, 10, 40, 40, 10, 10)
+end
+```
+
+---
+
+## 8. Input
 
 ### Button State
 
@@ -373,7 +460,7 @@ Korean keyboard layout (ㅈㄴㅁㅇ / ㅋㅌ) is also mapped for convenience.
 
 ---
 
-## 8. Audio
+## 9. Audio
 
 ### Sound Effects
 
@@ -422,7 +509,7 @@ bgm_vol(vol)         -- set BGM volume (0.0 to 1.0)
 
 ---
 
-## 9. Tilemap
+## 10. Tilemap
 
 ### Set and Get Tiles
 
@@ -459,7 +546,7 @@ map(0, 0, 20, 15, 0, 0)
 
 ---
 
-## 10. ECS (Entity Component System)
+## 11. ECS (Entity Component System)
 
 ### Spawning Entities
 
@@ -571,7 +658,7 @@ Each frame, the engine runs (in order):
 
 ---
 
-## 11. Tween
+## 12. Tween
 
 ```lua
 tween(entityId, property, toValue, frames, easing)
@@ -600,7 +687,7 @@ Easing functions:
 
 ---
 
-## 12. Scene Management
+## 13. Scene Management
 
 ```lua
 go("play")              -- transition to scene; calls <scene>_init(), resets camera, clears ECS, stops BGM
@@ -616,7 +703,7 @@ When `go()` is called:
 
 ---
 
-## 13. Math and Utility
+## 14. Math and Utility
 
 ```lua
 rnd(n)      -- random float from 0 (inclusive) to n (exclusive)
@@ -632,7 +719,7 @@ overlap(x1, y1, w1, h1, x2, y2, w2, h2)   -- AABB overlap check, returns boolean
 
 ---
 
-## 14. Debug Overlays
+## 15. Debug Overlays
 
 Press number keys during gameplay to toggle overlays:
 
@@ -653,7 +740,7 @@ These are automatically registered by the ECS for entities with hitboxes. Call t
 
 ---
 
-## 15. Pause
+## 16. Pause
 
 - Press **Select** (Space) during the `play` scene to toggle pause
 - While paused, `<scene>_update()` is skipped; draw still runs
@@ -662,7 +749,7 @@ These are automatically registered by the ECS for entities with hitboxes. Call t
 
 ---
 
-## 16. Portal Integration
+## 17. Portal Integration
 
 The engine communicates with a parent iframe via `postMessage` for demo recording/playback:
 
@@ -682,7 +769,7 @@ Demo data is saved to `localStorage` under the key `mono_demo_<gameId>` where `g
 
 ---
 
-## 17. Memory (RAM)
+## 18. Memory (RAM)
 
 The engine provides 4096 bytes of RAM accessible from Lua:
 
@@ -696,7 +783,7 @@ peek16(addr)            -- read 16-bit value
 
 ---
 
-## 18. Examples
+## 19. Examples
 
 ### Minimal Shooter
 

@@ -42,6 +42,13 @@
 - [ ] AI 자동 수정 — 플랫폼이 신고 내용을 분석하고 코드를 자동 패치 (개발자 승인 후 반영)
 - [ ] 자동 회귀 테스트 — AI 패치 적용 전 게임이 정상 동작하는지 검증
 
+## Phase 6: LLM 개발 지원
+
+- [x] `.mono/CONTEXT.md` 자동 생성 (에디터 Open Folder 시)
+- [x] `.mono/PROPOSALS.md` 워크플로 (LLM이 API 제안 → 구현 시 [DONE] 자동 마킹)
+- [x] 에디터 파일 감시 (5초 주기 트리 새로고침 + 탭 전환 시 디스크 변경 감지)
+- [ ] `mono-test.js` — Headless CLI 테스트 러너 (Node.js + Wasmoon + vdump 검증) → [상세](CLI-TEST-RUNNER.md)
+
 ## 데모 게임 목록
 
 - [x] Star Patrol (슈팅) — API 전체 검증용

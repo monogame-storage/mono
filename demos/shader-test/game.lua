@@ -8,7 +8,7 @@ local H = SCREEN_H
 local boxes = {}
 local NUM_BOXES = 8
 
-function _init()
+function _start()
   for i = 1, NUM_BOXES do
     boxes[i] = {
       x = math.random(10, W - 30),

@@ -1,0 +1,1822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mono — Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Oswald:wght@600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a1a;
+    color: #e8e8e8;
+    font-family: 'JetBrains Mono', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ── Workspace (no toolbar — activity bar IS the chrome) ── */
+  #workspace {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+    background: #1a1a1a;
+  }
+
+  /* ── Activity Bar ── */
+  #activity-bar {
+    width: 44px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 0;
+    background: #111;
+  }
+  .ab-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: #777;
+    font-size: 18px;
+    cursor: pointer;
+  }
+  .ab-btn:hover { background: #2d2d2d; color: #e8e8e8; }
+  .ab-btn.active { background: #2d2d2d; color: #e8e8e8; }
+  .ab-spacer { flex: 1; }
+
+  /* ── Explorer Sidebar ── */
+  #explorer {
+    width: 200px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+    border-right: 1px solid #1a1a1a;
+  }
+  #explorer-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
+    flex-shrink: 0;
+  }
+  #explorer-head span {
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: #777;
+  }
+  #explorer-head .spacer { flex: 1; }
+  #explorer-head button {
+    background: none;
+    border: none;
+    color: #777;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #explorer-head button:hover { color: #e8e8e8; }
+  #btn-open-folder {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: calc(100% - 16px);
+    margin: 8px auto;
+    padding: 6px 10px;
+    background: #2d2d2d;
+    border: 1px dashed #555;
+    border-radius: 6px;
+    color: #aaa;
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    justify-content: center;
+  }
+  #btn-open-folder:hover { border-color: #00d4aa; color: #00d4aa; }
+  .tree-folder {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 12px 0 28px;
+    font-size: 11px;
+    color: #999;
+    cursor: pointer;
+  }
+  .tree-folder:hover { background: #2d2d2d; }
+  .tree-folder .icon { font-size: 10px; color: #777; }
+  .file-modified {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ff6b35;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .tree-file .file-delete {
+    display: none;
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 10px;
+    cursor: pointer;
+    padding: 0 2px;
+    flex-shrink: 0;
+    font-family: inherit;
+  }
+  .tree-file:hover .file-delete { display: block; }
+  .tree-file:hover .file-modified { display: none; }
+  .tree-file .file-delete:hover { color: #e55; }
+
+  /* Context menu */
+  #ctx-menu {
+    display: none;
+    position: fixed;
+    background: #2d2d2d;
+    border: 1px solid #3d3d3d;
+    border-radius: 6px;
+    padding: 4px 0;
+    min-width: 120px;
+    z-index: 999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  #ctx-menu.show { display: block; }
+  .ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 10px;
+    color: #e8e8e8;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .ctx-item:hover { background: #3d3d3d; }
+  .ctx-item.danger { color: #e55; }
+  .ctx-item.danger:hover { background: #4a2020; }
+
+  #file-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .tree-section {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #e8e8e8;
+    cursor: pointer;
+  }
+  .tree-section .icon { color: #777; font-size: 10px; }
+  .tree-file {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 12px 0 28px;
+    font-size: 11px;
+    color: #777;
+    cursor: pointer;
+  }
+  .tree-file:hover { background: #2d2d2d; color: #e8e8e8; }
+  .tree-file.active { background: #2d2d2d; color: #e8e8e8; }
+  .tree-file .dot { width: 8px; height: 8px; display: inline-block; }
+  .file-icon { font-size: 10px; }
+  .file-icon.lua { color: #ff6b35; }
+  .file-icon.default { color: #777; }
+
+  /* ── Main Area (center) ── */
+  #main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 1px;
+    background: #1a1a1a;
+  }
+
+  /* Code tab bar */
+  #code-tabs {
+    display: flex;
+    align-items: flex-end;
+    background: #2d2d2d;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .code-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 14px;
+    height: 28px;
+    font-size: 10px;
+    color: #777;
+    background: #2d2d2d;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+  }
+  .code-tab.active {
+    height: 30px;
+    color: #e8e8e8;
+    font-weight: 600;
+    background: #212121;
+  }
+  .code-tab .file-icon { font-size: 10px; }
+  .code-tab .close-x {
+    font-size: 8px;
+    color: #555;
+    margin-left: 4px;
+    cursor: pointer;
+  }
+  .code-tab .close-x:hover { color: #e8e8e8; }
+
+  /* Code Editor */
+  #code-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+    min-height: 0;
+  }
+  #editor-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: #1e1e1e;
+  }
+  #image-viewer {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: #1a1a1a;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+  }
+  #image-viewer.show { display: flex; }
+  #image-viewer img {
+    max-width: 100%;
+    max-height: 80%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    border: 1px solid #3d3d3d;
+  }
+  #image-viewer .img-info {
+    font-size: 9px;
+    color: #777;
+  }
+  .cm-editor { height: 100%; font-size: 13px; }
+  .cm-editor .cm-scroller {
+    overflow: auto;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* AI Prompt */
+  #ai-panel {
+    height: 200px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+  }
+  #ai-tabs {
+    display: flex;
+    align-items: flex-end;
+    background: #2d2d2d;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .ai-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 12px;
+    height: 30px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #ff6b35;
+    background: #212121;
+    border-radius: 4px 4px 0 0;
+  }
+  .ai-model-tag {
+    margin-left: auto;
+    background: #1a1a1a;
+    color: #777;
+    font-size: 8px;
+    font-weight: 600;
+    padding: 0 6px;
+    height: 22px;
+    line-height: 22px;
+    border-radius: 3px;
+    margin-right: 8px;
+  }
+  #ai-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    min-height: 0;
+  }
+  #prompt-box {
+    flex: 1;
+    background: #1e1e1e;
+    border: none;
+    border-radius: 6px;
+    color: #e8e8e8;
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    resize: none;
+    outline: none;
+  }
+  #prompt-box::placeholder { color: #3d3d3d; font-size: 9px; }
+  #ai-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .context-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #2d2d2d;
+    padding: 0 7px;
+    height: 22px;
+    border-radius: 4px;
+    font-size: 9px;
+    color: #e8e8e8;
+  }
+  .context-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-teal { background: #00d4aa; }
+  .dot-orange { background: #ff6b35; }
+  #ai-actions .spacer { flex: 1; }
+  #btn-generate {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: #ff6b35;
+    border: none;
+    border-radius: 6px;
+    color: #0d0d0d;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 14px;
+    height: 28px;
+    cursor: pointer;
+  }
+  #btn-generate:hover { background: #ff8555; }
+
+  /* ── Right Column ── */
+  #right-col {
+    width: 360px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: #1a1a1a;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Panel tabs common */
+  .panel-tabs {
+    display: flex;
+    align-items: flex-end;
+    background: #2d2d2d;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .panel-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 12px;
+    height: 30px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    background: #212121;
+    border-radius: 4px 4px 0 0;
+  }
+  .panel-tab-inactive {
+    height: 28px;
+    color: #777;
+    font-weight: 400;
+    background: #2d2d2d;
+  }
+
+  /* Engine */
+  #engine-panel {
+    height: 96px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+  }
+  #engine-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 14px;
+  }
+  #engine-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .en-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    padding: 0 14px;
+    height: 30px;
+    cursor: pointer;
+  }
+  .en-btn:hover { filter: brightness(1.2); }
+  #btn-start { background: #4a8a4a; }
+  #btn-stop { background: #8a4a4a; }
+  #btn-pause, #btn-step { background: #2d2d2d; }
+  .en-sep { width: 1px; height: 20px; background: #3d3d3d; }
+  #engine-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background: #777;
+  }
+  .status-dot.running { background: #00d4aa; }
+  #status-text { color: #777; }
+  #status-text.running { color: #00d4aa; }
+  .status-sep { width: 1px; height: 12px; background: #3d3d3d; }
+  #status-fps, #status-frame { color: #777; }
+
+  /* Console Screen */
+  #screen-panel {
+    flex: 1;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+  }
+  #screen-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0a0a0a;
+    gap: 4px;
+    padding: 8px;
+    outline: none;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #screen-body:focus {
+    box-shadow: inset 0 0 0 1px #00d4aa44;
+  }
+  canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    aspect-ratio: 320 / 288;
+    object-fit: contain;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    border: 1px solid #3d3d3d;
+    background: #000;
+  }
+  #screen-footer {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
+  #screen-label {
+    font-size: 8px;
+    color: #3d3d3d;
+  }
+  #shader-toggle {
+    margin-left: auto;
+    background: none;
+    border: 1px solid #3d3d3d;
+    border-radius: 3px;
+    color: #3d3d3d;
+    font-family: inherit;
+    font-size: 7px;
+    padding: 1px 5px;
+    cursor: pointer;
+  }
+  #shader-toggle:hover { color: #aaa; border-color: #aaa; }
+  #shader-toggle.active { color: #00d4aa; border-color: #00d4aa; }
+
+  /* Console Gamepad */
+  #gamepad-panel {
+    height: 150px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+  }
+  #gamepad-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 24px;
+  }
+
+  /* D-pad */
+  .dpad {
+    width: 110px;
+    height: 110px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .dpad-btn {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    background: #2d2d2d;
+    border: none;
+    border-radius: 4px;
+    color: #999;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dpad-btn:active, .dpad-btn.pressed { background: #555; color: #fff; }
+  .dpad-up    { left: 37px; top: 0; }
+  .dpad-down  { left: 37px; top: 74px; }
+  .dpad-left  { left: 0; top: 37px; }
+  .dpad-right { left: 74px; top: 37px; }
+  .dpad-center {
+    position: absolute;
+    left: 37px; top: 37px;
+    width: 36px; height: 36px;
+    background: #2d2d2d;
+  }
+
+  /* Meta buttons */
+  .meta-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .meta-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2d2d2d;
+    border: none;
+    border-radius: 8px;
+    color: #777;
+    font-family: inherit;
+    font-size: 7px;
+    font-weight: 600;
+    width: 50px;
+    height: 16px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .meta-btn:active, .meta-btn.pressed { background: #555; color: #fff; }
+
+  /* AB buttons */
+  .ab-area {
+    width: 110px;
+    height: 90px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .ab-btn {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #e05555;
+    border: none;
+    color: #fff;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ab-btn:active, .ab-btn.pressed { background: #ff7070; }
+  .btn-b { left: 0; top: 40px; }
+  .btn-a { left: 60px; top: 10px; }
+
+  /* Console Accel */
+  #accel-panel {
+    height: 120px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+  }
+  #accel-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 8px 16px;
+  }
+  .tilt-viz {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #2d2d2d;
+    border: 1px solid #3d3d3d;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .tilt-cross-h, .tilt-cross-v {
+    position: absolute;
+    background: #3d3d3d;
+  }
+  .tilt-cross-h { width: 100%; height: 1px; top: 50%; }
+  .tilt-cross-v { height: 100%; width: 1px; left: 50%; }
+  .tilt-dot {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ff6b35;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .accel-data {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+  }
+  .accel-data .label { font-size: 9px; color: #00d4aa; margin-top: 4px; }
+
+  /* Console Log */
+  #log-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+    min-height: 60px;
+    overflow: hidden;
+    resize: both;
+  }
+  #log-body {
+    flex: 1;
+    overflow: auto;
+    padding: 8px 12px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #aaa;
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+  }
+  #log-body .log-line { white-space: pre-wrap; word-break: break-all; }
+  #log-body .log-error { color: #e66; }
+  #log-body .log-info { color: #777; }
+  .log-tabs-extra {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    margin-right: 8px;
+  }
+  .log-clear {
+    background: none;
+    border: none;
+    color: #777;
+    font-family: inherit;
+    font-size: 9px;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+  .log-clear:hover { color: #e8e8e8; }
+</style>
+</head>
+<body>
+
+<!-- Workspace -->
+<div id="workspace">
+  <!-- Activity Bar -->
+  <div id="activity-bar">
+    <button class="ab-btn active" id="ab-files" title="Explorer">&#128193;</button>
+    <button class="ab-btn" id="ab-search" title="Search">&#128269;</button>
+    <button class="ab-btn" id="ab-examples" title="Examples">&#128214;</button>
+    <div class="ab-spacer"></div>
+    <button class="ab-btn" id="ab-settings" title="Settings">&#9881;</button>
+  </div>
+
+  <!-- Explorer -->
+  <div id="explorer">
+    <div id="explorer-head">
+      <span>EXPLORER</span>
+      <div class="spacer"></div>
+      <button title="New file" id="btn-new-file">+</button>
+    </div>
+    <div id="file-tree">
+      <button id="btn-open-folder">&#128193; Open Folder</button>
+    </div>
+  </div>
+
+  <!-- Main Area -->
+  <div id="main-area">
+    <!-- Code Tabs -->
+    <div id="code-tabs"></div>
+
+    <!-- Code Editor -->
+    <div id="code-panel">
+      <div id="editor-wrap"></div>
+      <div id="image-viewer">
+        <img id="img-preview" />
+        <span class="img-info" id="img-info"></span>
+      </div>
+    </div>
+
+    <!-- AI Prompt -->
+    <div id="ai-panel">
+      <div id="ai-tabs">
+        <div class="ai-tab">&#10024; ai_prompt</div>
+        <div style="flex:1"></div>
+        <div class="ai-model-tag">claude-sonnet-4-6</div>
+      </div>
+      <div id="ai-body">
+        <textarea id="prompt-box" placeholder="// describe your game in natural language"></textarea>
+        <div id="ai-actions">
+          <div class="context-chip"><span class="dot dot-teal"></span> API.md</div>
+          <div class="context-chip"><span class="dot dot-orange"></span> AI-PITFALLS.md</div>
+          <div class="spacer"></div>
+          <button id="btn-generate">&#10024; Generate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column -->
+  <div id="right-col">
+    <!-- Engine -->
+    <div id="engine-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab">&#9881; engine</div>
+      </div>
+      <div id="engine-body">
+        <div id="engine-btns">
+          <button class="en-btn" id="btn-start">&#9654; Start</button>
+          <button class="en-btn" id="btn-stop">&#9632; Stop</button>
+          <div class="en-sep"></div>
+          <button class="en-btn" id="btn-pause">&#10074;&#10074; Pause</button>
+          <button class="en-btn" id="btn-step">&#9654;&#10074; Step</button>
+        </div>
+        <div id="engine-status">
+          <div class="status-dot" id="status-dot"></div>
+          <span id="status-text">stopped</span>
+          <div class="status-sep"></div>
+          <span id="status-fps">-- fps</span>
+          <div class="status-sep"></div>
+          <span id="status-frame">frame: 0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console Screen -->
+    <div id="screen-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab">&#9635; console.screen</div>
+      </div>
+      <div id="screen-body" tabindex="0">
+        <canvas id="screen"></canvas>
+        <div id="screen-footer">
+          <span id="screen-label">160x144 // 2x</span>
+          <button id="shader-toggle" class="active">SHADER</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console Gamepad -->
+    <div id="gamepad-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab">&#127918; console.gamepad</div>
+      </div>
+      <div id="gamepad-body">
+        <div class="dpad">
+          <button class="dpad-btn dpad-up" data-key="ArrowUp">&#8743;</button>
+          <button class="dpad-btn dpad-down" data-key="ArrowDown">&#8744;</button>
+          <button class="dpad-btn dpad-left" data-key="ArrowLeft">&#60;</button>
+          <button class="dpad-btn dpad-right" data-key="ArrowRight">&#62;</button>
+          <div class="dpad-center"></div>
+        </div>
+        <div class="meta-btns">
+          <button class="meta-btn" data-key=" ">SEL</button>
+          <button class="meta-btn" data-key="Enter">START</button>
+        </div>
+        <div class="ab-area">
+          <button class="ab-btn btn-b" data-key="x">B</button>
+          <button class="ab-btn btn-a" data-key="z">A</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console Accel -->
+    <div id="accel-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab">&#128241; console.accel</div>
+      </div>
+      <div id="accel-body">
+        <div class="tilt-viz">
+          <div class="tilt-cross-h"></div>
+          <div class="tilt-cross-v"></div>
+          <div class="tilt-dot" id="tilt-dot"></div>
+        </div>
+        <div class="accel-data">
+          <span id="accel-x">x:  0.00</span>
+          <span id="accel-y">y:  0.00</span>
+          <span id="accel-z">z:  0.00</span>
+          <span class="label" id="accel-status">tilt: disabled</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console Log -->
+    <div id="log-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab">&#10095;_ console.log</div>
+        <div class="log-tabs-extra">
+          <button class="log-clear" id="btn-copy-log">copy</button>
+          <button class="log-clear" id="btn-clear">clear</button>
+        </div>
+      </div>
+      <div id="log-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Context menu -->
+<div id="ctx-menu">
+  <div class="ctx-item danger" id="ctx-delete">&#128465; Delete</div>
+</div>
+
+<script src="../runtime/engine.js?v=1"></script>
+<script src="../runtime/shader.js?v=1"></script>
+<script src="../runtime/shaders/tint.js?v=1"></script>
+<script src="../runtime/shaders/scanlines.js?v=1"></script>
+<script src="../runtime/shaders/lcd3d.js?v=1"></script>
+<script src="../runtime/shaders/crt.js?v=1"></script>
+
+<script type="module">
+import {EditorView, basicSetup} from "https://esm.sh/codemirror@6.0.2?bundle-deps";
+
+const darkTheme = EditorView.theme({
+  "&": { backgroundColor: "#1e1e1e", color: "#d4d4d4" },
+  ".cm-content": { caretColor: "#fff" },
+  ".cm-gutters": { backgroundColor: "#1e1e1e", color: "#555", borderRight: "1px solid #333" },
+  ".cm-activeLineGutter": { backgroundColor: "#2a2a2a" },
+  ".cm-activeLine": { backgroundColor: "#ffffff08" },
+  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": { backgroundColor: "#264f78" },
+  ".cm-cursor": { borderLeftColor: "#fff" }
+}, {dark: true});
+
+// ── Project file system ──
+let dirHandle = null;        // FileSystemDirectoryHandle
+const files = {};            // { "main.lua": { content, handle, modified } }
+let currentFile = null;
+const openTabs = [];         // ordered tab names
+
+// ── Editor ──
+const editor = new EditorView({
+  doc: "-- Open a folder to start",
+  extensions: [basicSetup, darkTheme],
+  parent: document.getElementById("editor-wrap")
+});
+
+// File icon helper
+function fileIconHTML(name) {
+  if (name.endsWith(".lua")) return '<span class="file-icon lua">&#9632;</span>';
+  if (name.endsWith(".png") || name.endsWith(".jpg")) return '<span class="file-icon" style="color:#8b5cf6">&#9632;</span>';
+  return '<span class="file-icon default">&#9632;</span>';
+}
+
+// ── Open folder ──
+async function openFolder() {
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+  } catch (e) {
+    return; // user cancelled
+  }
+
+  // Clear state
+  for (const k in files) delete files[k];
+  openTabs.length = 0;
+  currentFile = null;
+
+  // Read directory
+  await readDirectory(dirHandle, "");
+
+  renderFileTree();
+
+  // Auto-open main.lua if exists
+  const mainFile = Object.keys(files).find(f => f === "main.lua") ||
+                   Object.keys(files).find(f => f.endsWith(".lua")) ||
+                   Object.keys(files)[0];
+  if (mainFile) {
+    await openFile(mainFile);
+  }
+
+  // Auto-generate .mono/CONTEXT.md
+  await ensureMonoContext(dirHandle);
+
+  // Start watching PROPOSALS.md for implemented APIs
+  startProposalsWatch(dirHandle);
+
+  // Start auto-refreshing file tree for external changes
+  startFileTreeRefresh();
+
+  logToConsole("Opened: " + dirHandle.name, "log-info");
+}
+
+const MONO_VERSION = "0.1.0";
+
+function monoContext() {
+  const baseUrl = window.location.origin;
+  return `# Mono Game Project (engine v${MONO_VERSION})
+
+This is a [Mono](https://github.com/ssk-play/mono) fantasy console game.
+
+## Constraints
+- Resolution: 160x144
+- Colors: 16 grayscale (4-bit), configurable via \`mode()\`
+- Sprites: 16x16
+- Language: Lua 5.4 (via Wasmoon)
+- Frame rate: 30 FPS
+- Input: 8 buttons (up, down, left, right, a, b, start, select)
+
+## Lifecycle
+\`\`\`
+_init()    -- system config: call mode() here
+_start()   -- game init: sprites, variables, go("title")
+_update()  -- called every frame (game logic)
+_draw()    -- called every frame (rendering)
+\`\`\`
+
+## Documentation
+- API Reference: ${baseUrl}/docs/DEV.md
+- Common AI Mistakes: ${baseUrl}/docs/AI-PITFALLS.md
+- Source: https://github.com/ssk-play/mono
+
+## Key Rules
+- Lua 5.4, NOT Luau — no type annotations
+- \`local function\` must be defined BEFORE it's called
+- Never return \`null\` from JS — use \`false\`
+- \`pollCollision()\` returns \`false\` when empty, not \`nil\`
+- Never use \`rnd()\` in \`_draw()\` — generate once in init, store in table
+- Camera affects shapes/sprites but NOT \`text()\`
+- Diagonal movement must be normalized (0.7071 factor)
+
+## Status
+This engine is under active development. Not all APIs listed in the docs may be implemented yet,
+and some game patterns may require APIs that don't exist yet.
+
+If you need a feature that isn't available, write a proposal to \`.mono/PROPOSALS.md\` with:
+- **What**: the API name and signature you'd want
+- **Why**: what game feature requires it
+- **Workaround**: how you're handling it now (if at all)
+
+Example:
+\`\`\`
+## loadImage(path) → imageId
+Need to load PNG as background for Gals Panic style reveal.
+Currently no workaround — cannot load external images from Lua.
+\`\`\`
+
+The developer will review proposals and prioritize implementation.
+`;
+}
+
+async function ensureMonoContext(rootHandle) {
+  try {
+    // Get or create .mono directory
+    const monoDir = await rootHandle.getDirectoryHandle(".mono", { create: true });
+
+    // Always overwrite with latest engine context
+    const handle = await monoDir.getFileHandle("CONTEXT.md", { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(monoContext());
+    await writable.close();
+    logToConsole("Created .mono/CONTEXT.md", "log-info");
+  } catch (e) {
+    // silently skip if permissions fail
+  }
+}
+
+// --- Proposals watcher: auto-mark [DONE] when API is implemented ---
+let proposalsWatchTimer = null;
+let knownEngineAPIs = null; // cached set of registered API names
+
+async function fetchEngineAPIs() {
+  try {
+    const resp = await fetch("/runtime/engine.js");
+    if (!resp.ok) return null;
+    const src = await resp.text();
+    const apis = new Set();
+    const re = /lua\.global\.set\("(\w+)"/g;
+    let m;
+    while ((m = re.exec(src)) !== null) apis.add(m[1]);
+    return apis;
+  } catch (e) { return null; }
+}
+
+async function checkProposals(rootHandle) {
+  if (!rootHandle) return;
+  try {
+    const monoDir = await rootHandle.getDirectoryHandle(".mono", { create: false });
+    const fileHandle = await monoDir.getFileHandle("PROPOSALS.md", { create: false });
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    if (!text.trim()) return;
+
+    // Refresh engine API list
+    const apis = await fetchEngineAPIs();
+    if (!apis || apis.size === 0) return;
+
+    // Parse proposals: headings like "## loadImage(path) → imageId" or "## drawImage(id, x, y)"
+    let changed = false;
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Match ## headings that aren't already [DONE]
+      const headingMatch = line.match(/^(##\s+)(?!\[DONE\])(\w+)\s*\(/);
+      if (headingMatch) {
+        const apiName = headingMatch[2];
+        if (apis.has(apiName)) {
+          lines[i] = headingMatch[1] + "[DONE] " + line.slice(headingMatch[1].length);
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      const writable = await fileHandle.createWritable();
+      await writable.write(lines.join("\n"));
+      await writable.close();
+      logToConsole("Updated .mono/PROPOSALS.md — marked implemented APIs as [DONE]", "log-info");
+    }
+  } catch (e) {
+    // PROPOSALS.md doesn't exist or no .mono dir — that's fine
+  }
+}
+
+function startProposalsWatch(rootHandle) {
+  if (proposalsWatchTimer) clearInterval(proposalsWatchTimer);
+  // Check immediately, then every 30 seconds
+  checkProposals(rootHandle);
+  proposalsWatchTimer = setInterval(() => checkProposals(rootHandle), 30000);
+}
+
+function stopProposalsWatch() {
+  if (proposalsWatchTimer) { clearInterval(proposalsWatchTimer); proposalsWatchTimer = null; }
+}
+
+// --- File tree auto-refresh: detect new/deleted files from local edits ---
+let fileTreeRefreshTimer = null;
+
+async function refreshFileTree() {
+  if (!dirHandle) return;
+  const oldPaths = new Set(Object.keys(files));
+  const newFiles = {};
+  await scanDirectory(dirHandle, "", newFiles);
+  const newPaths = new Set(Object.keys(newFiles));
+
+  let changed = false;
+  // Detect new files
+  for (const p of newPaths) {
+    if (!oldPaths.has(p)) {
+      files[p] = newFiles[p];
+      changed = true;
+    }
+  }
+  // Detect deleted files
+  for (const p of oldPaths) {
+    if (!newPaths.has(p)) {
+      delete files[p];
+      // Close tab if open
+      const idx = openTabs.indexOf(p);
+      if (idx >= 0) openTabs.splice(idx, 1);
+      if (currentFile === p) currentFile = openTabs[openTabs.length - 1] || null;
+      changed = true;
+    }
+  }
+  if (changed) {
+    renderFileTree();
+    renderTabs();
+  }
+}
+
+async function scanDirectory(handle, prefix, out) {
+  for await (const entry of handle.values()) {
+    const path = prefix ? prefix + "/" + entry.name : entry.name;
+    if (entry.kind === "file") {
+      if (entry.name.startsWith(".")) continue;
+      out[path] = { content: null, handle: entry, modified: false };
+    } else if (entry.kind === "directory") {
+      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+      await scanDirectory(entry, path, out);
+    }
+  }
+}
+
+function startFileTreeRefresh() {
+  if (fileTreeRefreshTimer) clearInterval(fileTreeRefreshTimer);
+  fileTreeRefreshTimer = setInterval(refreshFileTree, 5000);
+}
+
+function stopFileTreeRefresh() {
+  if (fileTreeRefreshTimer) { clearInterval(fileTreeRefreshTimer); fileTreeRefreshTimer = null; }
+}
+
+async function readDirectory(handle, prefix) {
+  for await (const entry of handle.values()) {
+    const path = prefix ? prefix + "/" + entry.name : entry.name;
+    if (entry.kind === "file") {
+      // Skip hidden files and non-relevant files
+      if (entry.name.startsWith(".")) continue;
+      files[path] = { content: null, handle: entry, modified: false };
+    } else if (entry.kind === "directory") {
+      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+      await readDirectory(entry, path);
+    }
+  }
+}
+
+async function readFileContent(path, forceReload) {
+  const f = files[path];
+  if (!f) return "";
+  if (!forceReload && f.content !== null) return f.content;
+  const file = await f.handle.getFile();
+  const diskContent = await file.text();
+  // Track disk timestamp for change detection
+  f.lastModified = file.lastModified;
+  f.content = diskContent;
+  f.modified = false;
+  return f.content;
+}
+
+// Check if file changed on disk since last read
+async function hasFileChangedOnDisk(path) {
+  const f = files[path];
+  if (!f || f.lastModified === undefined) return false;
+  try {
+    const file = await f.handle.getFile();
+    return file.lastModified !== f.lastModified;
+  } catch (e) { return false; }
+}
+
+// ── File tree rendering ──
+function renderFileTree() {
+  const tree = document.getElementById("file-tree");
+  const sorted = Object.keys(files).sort((a, b) => {
+    // folders first, then by name
+    const da = a.includes("/"), db = b.includes("/");
+    if (da !== db) return da ? -1 : 1;
+    return a.localeCompare(b);
+  });
+
+  // Group by folder
+  const folders = {};
+  const rootFiles = [];
+  for (const path of sorted) {
+    const slash = path.indexOf("/");
+    if (slash >= 0) {
+      const dir = path.substring(0, slash);
+      if (!folders[dir]) folders[dir] = [];
+      folders[dir].push(path);
+    } else {
+      rootFiles.push(path);
+    }
+  }
+
+  let html = '';
+  if (dirHandle) {
+    html += `<div class="tree-section"><span class="icon">&#9660;</span>${dirHandle.name}</div>`;
+  }
+
+  function fileRowHTML(f, displayName, active, mod, extraStyle) {
+    const style = extraStyle ? ` style="${extraStyle}"` : '';
+    return `<div class="tree-file${active}" data-file="${f}"${style}>${fileIconHTML(f)} ${displayName} ${mod}<button class="file-delete" data-del="${f}" title="Delete">&#10005;</button></div>`;
+  }
+
+  // Root files
+  for (const f of rootFiles) {
+    const active = f === currentFile ? " active" : "";
+    const mod = files[f].modified ? '<span class="file-modified"></span>' : '';
+    html += fileRowHTML(f, f, active, mod, '');
+  }
+
+  // Subfolders
+  for (const [dir, items] of Object.entries(folders)) {
+    html += `<div class="tree-folder"><span class="icon">&#9660;</span> ${dir}</div>`;
+    for (const f of items) {
+      const name = f.substring(dir.length + 1);
+      const active = f === currentFile ? " active" : "";
+      const mod = files[f].modified ? '<span class="file-modified"></span>' : '';
+      html += fileRowHTML(f, name, active, mod, 'padding-left:40px');
+    }
+  }
+
+  if (!dirHandle) {
+    html = '<button id="btn-open-folder">&#128193; Open Folder</button>';
+  }
+
+  tree.innerHTML = html;
+
+  // Rebind clicks
+  tree.querySelectorAll(".tree-file").forEach(el => {
+    el.addEventListener("click", (e) => {
+      if (e.target.closest(".file-delete")) return;
+      openFile(el.dataset.file);
+    });
+  });
+  // Delete buttons
+  tree.querySelectorAll(".file-delete").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteFile(btn.dataset.del);
+    });
+  });
+}
+
+// ── Tab management ──
+function renderTabs() {
+  const tabBar = document.getElementById("code-tabs");
+  let html = '';
+  for (const name of openTabs) {
+    const active = name === currentFile ? " active" : "";
+    const mod = files[name] && files[name].modified ? " *" : "";
+    html += `<button class="code-tab${active}" data-file="${name}">
+      ${fileIconHTML(name)} ${name.split("/").pop()}${mod}
+      <span class="close-x" data-close="${name}">&#10005;</span>
+    </button>`;
+  }
+  tabBar.innerHTML = html;
+
+  tabBar.querySelectorAll(".code-tab").forEach(tab => {
+    tab.addEventListener("click", (e) => {
+      if (e.target.dataset.close) return;
+      openFile(tab.dataset.file);
+    });
+  });
+  tabBar.querySelectorAll(".close-x").forEach(x => {
+    x.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeTab(x.dataset.close);
+    });
+  });
+}
+
+// File type helpers
+const TEXT_EXTS = [".lua", ".txt", ".json", ".md", ".toml", ".cfg", ".ini", ".csv", ".xml", ".html", ".css", ".js"];
+const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".svg"];
+function isTextFile(name) { return TEXT_EXTS.some(ext => name.toLowerCase().endsWith(ext)); }
+function isImageFile(name) { return IMAGE_EXTS.some(ext => name.toLowerCase().endsWith(ext)); }
+
+function showEditor() {
+  document.getElementById("editor-wrap").style.display = "";
+  document.getElementById("image-viewer").classList.remove("show");
+}
+function showImageViewer(url, info) {
+  document.getElementById("editor-wrap").style.display = "none";
+  const viewer = document.getElementById("image-viewer");
+  viewer.classList.add("show");
+  document.getElementById("img-preview").src = url;
+  document.getElementById("img-info").textContent = info;
+}
+
+async function openFile(name) {
+  if (!files[name]) return;
+
+  const canOpen = isTextFile(name) || isImageFile(name);
+  if (!canOpen) {
+    logToConsole("Cannot open: " + name + " (unsupported type)", "log-info");
+    return;
+  }
+
+  // Save current editor content if text
+  if (currentFile && files[currentFile] && isTextFile(currentFile)) {
+    const content = editor.state.doc.toString();
+    if (files[currentFile].content !== content) {
+      files[currentFile].content = content;
+      files[currentFile].modified = true;
+    }
+  }
+
+  // Add to open tabs if not there
+  if (!openTabs.includes(name)) openTabs.push(name);
+  currentFile = name;
+
+  if (isImageFile(name)) {
+    // Show image viewer
+    const file = await files[name].handle.getFile();
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      showImageViewer(url, name + " — " + img.naturalWidth + "x" + img.naturalHeight);
+    };
+    img.onerror = () => {
+      showImageViewer(url, name);
+    };
+    img.src = url;
+  } else {
+    // Show text editor — reload from disk if changed externally
+    showEditor();
+    const diskChanged = await hasFileChangedOnDisk(name);
+    const content = await readFileContent(name, diskChanged);
+    editor.dispatch({
+      changes: { from: 0, to: editor.state.doc.length, insert: content }
+    });
+    if (diskChanged) logToConsole(name + " reloaded (changed on disk)", "log-info");
+  }
+
+  renderTabs();
+  renderFileTree();
+}
+
+function closeTab(name) {
+  const idx = openTabs.indexOf(name);
+  if (idx < 0) return;
+  openTabs.splice(idx, 1);
+
+  if (currentFile === name) {
+    if (openTabs.length > 0) {
+      const next = openTabs[Math.min(idx, openTabs.length - 1)];
+      openFile(next);
+    } else {
+      currentFile = null;
+      showEditor();
+      editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: "-- No file open" }
+      });
+      renderTabs();
+      renderFileTree();
+    }
+  } else {
+    renderTabs();
+  }
+}
+
+// ── Save file to local disk ──
+async function saveCurrentFile() {
+  if (!currentFile || !files[currentFile]) return;
+  files[currentFile].content = editor.state.doc.toString();
+
+  if (dirHandle && files[currentFile].handle) {
+    try {
+      const writable = await files[currentFile].handle.createWritable();
+      await writable.write(files[currentFile].content);
+      await writable.close();
+      files[currentFile].modified = false;
+      renderTabs();
+      renderFileTree();
+      logToConsole("Saved: " + currentFile, "log-info");
+    } catch (e) {
+      logToConsole("Save error: " + e.message, "log-error");
+    }
+  }
+}
+
+// ── New file ──
+async function createNewFile() {
+  if (!dirHandle) {
+    logToConsole("Open a folder first.", "log-error");
+    return;
+  }
+  const name = prompt("File name (e.g. enemy.lua):");
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+
+  try {
+    const handle = await dirHandle.getFileHandle(trimmed, { create: true });
+    const writable = await handle.createWritable();
+    await writable.write("-- " + trimmed + "\n");
+    await writable.close();
+    files[trimmed] = { content: "-- " + trimmed + "\n", handle, modified: false };
+    renderFileTree();
+    await openFile(trimmed);
+    logToConsole("Created: " + trimmed, "log-info");
+  } catch (e) {
+    logToConsole("Create error: " + e.message, "log-error");
+  }
+}
+
+// ── Delete file ──
+async function deleteFile(name) {
+  if (!dirHandle || !files[name]) return;
+  if (!confirm("Delete \"" + name + "\"?")) return;
+
+  try {
+    await dirHandle.removeEntry(name);
+    delete files[name];
+
+    // Close tab if open
+    const tabIdx = openTabs.indexOf(name);
+    if (tabIdx >= 0) openTabs.splice(tabIdx, 1);
+
+    // Switch away if it was current
+    if (currentFile === name) {
+      if (openTabs.length > 0) {
+        await openFile(openTabs[Math.min(tabIdx, openTabs.length - 1)]);
+      } else {
+        currentFile = null;
+        editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: "-- No file open" } });
+        renderTabs();
+      }
+    }
+
+    renderFileTree();
+    logToConsole("Deleted: " + name, "log-info");
+  } catch (e) {
+    logToConsole("Delete error: " + e.message, "log-error");
+  }
+}
+
+// ── Context menu ──
+const ctxMenu = document.getElementById("ctx-menu");
+let ctxTarget = null;
+
+document.getElementById("file-tree").addEventListener("contextmenu", (e) => {
+  const fileEl = e.target.closest(".tree-file");
+  if (!fileEl) return;
+  e.preventDefault();
+  ctxTarget = fileEl.dataset.file;
+  ctxMenu.style.left = e.clientX + "px";
+  ctxMenu.style.top = e.clientY + "px";
+  ctxMenu.classList.add("show");
+});
+
+document.getElementById("ctx-delete").addEventListener("click", () => {
+  ctxMenu.classList.remove("show");
+  if (ctxTarget) deleteFile(ctxTarget);
+  ctxTarget = null;
+});
+
+document.addEventListener("click", () => {
+  ctxMenu.classList.remove("show");
+});
+
+// Ctrl+S to save
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+    e.preventDefault();
+    saveCurrentFile();
+  }
+});
+
+// Open folder button — use event delegation since innerHTML replaces the button
+document.getElementById("file-tree").addEventListener("click", (e) => {
+  if (e.target.id === "btn-open-folder" || e.target.closest("#btn-open-folder")) {
+    openFolder();
+  }
+});
+document.getElementById("btn-new-file").addEventListener("click", createNewFile);
+
+// ── Drag & drop files into explorer ──
+const fileTree = document.getElementById("file-tree");
+const explorer = document.getElementById("explorer");
+
+explorer.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "copy";
+  explorer.style.outline = "2px dashed #00d4aa";
+  explorer.style.outlineOffset = "-2px";
+});
+
+explorer.addEventListener("dragleave", (e) => {
+  if (!explorer.contains(e.relatedTarget)) {
+    explorer.style.outline = "";
+    explorer.style.outlineOffset = "";
+  }
+});
+
+// Shared: import a File object into the project folder
+async function importFile(file, label) {
+  const name = file.name;
+  try {
+    const handle = await dirHandle.getFileHandle(name, { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(await file.arrayBuffer());
+    await writable.close();
+
+    let content = null;
+    if (name.endsWith(".lua") || name.endsWith(".txt") || name.endsWith(".json") || name.endsWith(".md")) {
+      content = await file.text();
+    }
+
+    files[name] = { content, handle, modified: false };
+    logToConsole(label + ": " + name, "log-info");
+  } catch (err) {
+    logToConsole(label + " error (" + name + "): " + err.message, "log-error");
+  }
+}
+
+explorer.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  explorer.style.outline = "";
+  explorer.style.outlineOffset = "";
+
+  if (!dirHandle) {
+    logToConsole("Open a folder first.", "log-error");
+    return;
+  }
+
+  // Collect all files first — DataTransferItemList is live and invalidates during async
+  const collected = [];
+  for (const item of e.dataTransfer.items) {
+    if (item.kind === "file") {
+      const file = item.getAsFile();
+      if (file) collected.push(file);
+    }
+  }
+
+  for (const file of collected) await importFile(file, "Dropped");
+  if (collected.length) renderFileTree();
+});
+
+// ── Paste files into explorer (Cmd+V / Ctrl+V) ──
+explorer.setAttribute("tabindex", "0");
+explorer.addEventListener("paste", async (e) => {
+  if (!dirHandle) {
+    logToConsole("Open a folder first.", "log-error");
+    return;
+  }
+
+  // Collect all files first — clipboard items list is live
+  const collected = [];
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.kind === "file") {
+      const file = item.getAsFile();
+      if (file) collected.push(file);
+    }
+  }
+
+  for (const file of collected) await importFile(file, "Pasted");
+  if (collected.length) renderFileTree();
+});
+
+// ── Console log ──
+const logBody = document.getElementById("log-body");
+
+function logToConsole(msg, cls = "") {
+  const el = document.createElement("div");
+  el.className = "log-line " + cls;
+  el.textContent = msg;
+  logBody.appendChild(el);
+  logBody.scrollTop = logBody.scrollHeight;
+}
+
+document.getElementById("btn-clear").addEventListener("click", () => {
+  logBody.innerHTML = "";
+});
+document.getElementById("btn-copy-log").addEventListener("click", () => {
+  const text = [...logBody.querySelectorAll(".log-line")].map(el => el.textContent).join("\n");
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById("btn-copy-log");
+    btn.textContent = "copied!";
+    setTimeout(() => btn.textContent = "copy", 1500);
+  });
+});
+
+// Hook console for Lua output
+const _origLog = console.log;
+const _origErr = console.error;
+console.log = (...args) => {
+  const msg = args.join(" ");
+  if (msg.startsWith("[Lua]")) logToConsole(msg.replace("[Lua] ", ""));
+  _origLog.apply(console, args);
+};
+console.error = (...args) => {
+  logToConsole(args.join(" "), "log-error");
+  _origErr.apply(console, args);
+};
+
+// ── Engine controls ──
+let running = false;
+let fpsInterval = null;
+
+function updateStatus(isRunning) {
+  running = isRunning;
+  const dot = document.getElementById("status-dot");
+  const text = document.getElementById("status-text");
+  dot.className = "status-dot" + (isRunning ? " running" : "");
+  text.className = isRunning ? "running" : "";
+  text.textContent = isRunning ? "running" : "stopped";
+  document.getElementById("status-fps").textContent = isRunning ? "30 fps" : "-- fps";
+}
+
+function updateFrame() {
+  if (running) {
+    const f = Mono._getFrame();
+    document.getElementById("status-frame").textContent = "frame: " + f;
+  }
+}
+
+async function start() {
+  if (running) Mono.stop();
+  saveCurrentFile();
+  logBody.innerHTML = "";
+  logToConsole("Booting...", "log-info");
+
+  // Save current and read main.lua
+  if (currentFile && files[currentFile]) {
+    files[currentFile].content = editor.state.doc.toString();
+  }
+  const mainContent = files["main.lua"] ? files["main.lua"].content : null;
+  if (!mainContent) {
+    logToConsole("No main.lua found in project.", "log-error");
+    return;
+  }
+  const source = mainContent;
+  try {
+    // Build blob URL map for local image assets
+    const assets = {};
+    for (const [path, f] of Object.entries(files)) {
+      if (isImageFile(path)) {
+        try {
+          const file = await f.handle.getFile();
+          assets[path] = URL.createObjectURL(file);
+        } catch (e) { /* skip unreadable */ }
+      }
+    }
+    await Mono.boot("screen", { source, assets, noAutoFit: true, externalInput: true });
+    updateStatus(true);
+    logToConsole("Running.", "log-info");
+    document.getElementById("screen-body").focus();
+
+    // Default shader chain
+    Mono.shader.enable("tint");
+    Mono.shader.enable("scanlines");
+    Mono.shader.enable("lcd3d");
+    Mono.shader.enable("crt");
+    Mono.shader.order(["tint", "scanlines", "lcd3d", "crt"]);
+
+    if (fpsInterval) clearInterval(fpsInterval);
+    fpsInterval = setInterval(updateFrame, 200);
+  } catch (e) {
+    logToConsole("Boot error: " + e.message, "log-error");
+    updateStatus(false);
+  }
+}
+
+function stop() {
+  if (running) {
+    Mono.stop();
+    updateStatus(false);
+    if (fpsInterval) { clearInterval(fpsInterval); fpsInterval = null; }
+    logToConsole("Stopped.", "log-info");
+  }
+}
+
+document.getElementById("btn-start").addEventListener("click", start);
+document.getElementById("btn-stop").addEventListener("click", stop);
+document.getElementById("btn-pause").addEventListener("click", () => {
+  if (running) {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent("keyup", { key: " ", bubbles: true }));
+  }
+});
+
+// Cmd/Ctrl+Enter to run (global)
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    start();
+  }
+});
+
+// ── Screen widget: keyboard → engine ──
+const screenBody = document.getElementById("screen-body");
+screenBody.addEventListener("keydown", (e) => {
+  if (!running || !Mono.setKey) return;
+  const k = Mono.keyMap ? Mono.keyMap[e.key] : null;
+  if (k) {
+    Mono.setKey(k, true);
+    e.preventDefault();
+  } else if (e.key.length === 1) {
+    console.warn('[Mono] Valid keys: arrows, z(A), x(B), Enter(Start), Space(Select)');
+  }
+});
+screenBody.addEventListener("keyup", (e) => {
+  if (!running || !Mono.setKey) return;
+  const k = Mono.keyMap ? Mono.keyMap[e.key] : null;
+  if (k) {
+    Mono.setKey(k, false);
+    e.preventDefault();
+  }
+});
+
+// ── Gamepad buttons → engine ──
+document.querySelectorAll("[data-key]").forEach(btn => {
+  const key = btn.dataset.key;
+  const getName = () => (Mono.keyMap && Mono.keyMap[key]) || key;
+
+  function down(e) {
+    e.preventDefault();
+    if (Mono.setKey) Mono.setKey(getName(), true);
+    btn.classList.add("pressed");
+  }
+  function up(e) {
+    if (e) e.preventDefault();
+    if (Mono.setKey) Mono.setKey(getName(), false);
+    btn.classList.remove("pressed");
+  }
+
+  btn.addEventListener("mousedown", down);
+  btn.addEventListener("mouseup", up);
+  btn.addEventListener("mouseleave", up);
+  btn.addEventListener("touchstart", down);
+  btn.addEventListener("touchend", up);
+  btn.addEventListener("touchcancel", up);
+});
+
+// ── Shader toggle ──
+let shaderOn = true;
+document.getElementById("shader-toggle").addEventListener("click", () => {
+  shaderOn = !shaderOn;
+  const btn = document.getElementById("shader-toggle");
+  btn.classList.toggle("active", shaderOn);
+  if (Mono.shader) {
+    ["tint", "scanlines", "lcd3d", "crt"].forEach(s => {
+      if (shaderOn) Mono.shader.enable(s);
+      else Mono.shader.disable(s);
+    });
+  }
+});
+
+// ── Accelerometer ──
+if (window.DeviceMotionEvent) {
+  window.addEventListener("devicemotion", (e) => {
+    const a = e.accelerationIncludingGravity;
+    if (!a) return;
+    document.getElementById("accel-x").textContent = "x: " + (a.x || 0).toFixed(2);
+    document.getElementById("accel-y").textContent = "y: " + (a.y || 0).toFixed(2);
+    document.getElementById("accel-z").textContent = "z: " + (a.z || 0).toFixed(2);
+    document.getElementById("accel-status").textContent = "tilt: enabled";
+
+    const dot = document.getElementById("tilt-dot");
+    const nx = Math.max(-1, Math.min(1, (a.x || 0) / 9.8));
+    const ny = Math.max(-1, Math.min(1, (a.y || 0) / 9.8));
+    dot.style.left = (50 + nx * 40) + "%";
+    dot.style.top = (50 - ny * 40) + "%";
+  });
+}
+</script>
+</body>
+</html>

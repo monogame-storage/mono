@@ -329,10 +329,30 @@
     border: 1px solid #3d3d3d;
     background: #000;
   }
+  #screen-footer {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
   #screen-label {
     font-size: 8px;
     color: #3d3d3d;
   }
+  #shader-toggle {
+    margin-left: auto;
+    background: none;
+    border: 1px solid #3d3d3d;
+    border-radius: 3px;
+    color: #3d3d3d;
+    font-family: inherit;
+    font-size: 7px;
+    padding: 1px 5px;
+    cursor: pointer;
+  }
+  #shader-toggle:hover { color: #aaa; border-color: #aaa; }
+  #shader-toggle.active { color: #00d4aa; border-color: #00d4aa; }
 
   /* Console Gamepad */
   #gamepad-panel {
@@ -593,7 +613,10 @@
       </div>
       <div id="screen-body" tabindex="0">
         <canvas id="screen"></canvas>
-        <span id="screen-label">160x144 // 2x</span>
+        <div id="screen-footer">
+          <span id="screen-label">160x144 // 2x</span>
+          <button id="shader-toggle" class="active">SHADER</button>
+        </div>
       </div>
     </div>
 
@@ -677,10 +700,20 @@ const darkTheme = EditorView.theme({
 const DEFAULT_CODE = `-- Mono Playground
 -- 160x144, 16 grayscale, Lua 5.4
 
+function _init()
+  mode(4)  -- 16 grayscale
+end
+
 local px, py = 80, 72
 local spd = 2
 local t = 0
 local trail = {}
+
+function _start()
+  px = 80
+  py = 72
+  trail = {}
+end
 
 function _update()
   t = t + 1
@@ -796,7 +829,7 @@ async function start() {
 
   const source = editor.state.doc.toString();
   try {
-    await Mono.boot("screen", { source, colors: 4, noAutoFit: true, externalInput: true });
+    await Mono.boot("screen", { source, noAutoFit: true, externalInput: true });
     updateStatus(true);
     logToConsole("Running.", "log-info");
     document.getElementById("screen-body").focus();
@@ -888,6 +921,20 @@ document.querySelectorAll("[data-key]").forEach(btn => {
   btn.addEventListener("touchstart", down);
   btn.addEventListener("touchend", up);
   btn.addEventListener("touchcancel", up);
+});
+
+// Shader toggle
+let shaderOn = true;
+document.getElementById("shader-toggle").addEventListener("click", () => {
+  shaderOn = !shaderOn;
+  const btn = document.getElementById("shader-toggle");
+  btn.classList.toggle("active", shaderOn);
+  if (Mono.shader) {
+    ["tint", "scanlines", "lcd3d", "crt"].forEach(s => {
+      if (shaderOn) Mono.shader.enable(s);
+      else Mono.shader.disable(s);
+    });
+  }
 });
 
 // Accelerometer
