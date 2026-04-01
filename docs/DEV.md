@@ -41,6 +41,14 @@ Adjust the paths to `engine.js` and `mono.css` relative to your project folder.
 ### Minimal game.lua (Hello World)
 
 ```lua
+function _init()
+  mode(4)  -- 16 grayscale
+end
+
+function _start()
+  go("title")
+end
+
 function title_init()
 end
 
@@ -89,16 +97,58 @@ Open `http://localhost:8000` in a browser.
 | Property        | Value                                           |
 |-----------------|-------------------------------------------------|
 | Resolution      | 160 x 144 pixels                                |
-| Color palette   | 16 grayscale (4-bit): 0 `#000000` to 15 `#ffffff`, evenly spaced |
+| Color palette   | Up to 16 grayscale (4-bit), configurable via `mode()` |
 | Sprite size     | 16 x 16 pixels (default)                        |
 | Frame rate      | 30 FPS                                          |
 | Input           | 8 buttons: up, down, left, right, a, b, start, select |
 | Language        | Lua 5.4 via Wasmoon                             |
 | Audio           | 2 channels, square wave                         |
 
+### Graphics Mode
+
+```lua
+mode(bits)   -- set color depth: 1 = 2 colors, 2 = 4 colors, 4 = 16 colors
+```
+
+| bits | Colors | Palette                                       |
+|------|--------|-----------------------------------------------|
+| 1    | 2      | `#000000`, `#ffffff`                          |
+| 2    | 4      | `#000000`, `#555555`, `#aaaaaa`, `#ffffff`    |
+| 4    | 16     | 0 `#000000` to 15 `#ffffff`, evenly spaced    |
+
+Call `mode()` inside `_init()` before any drawing. It rebuilds the palette and updates the `COLORS` global.
+
+Default is 1-bit (2 colors) if `mode()` is never called.
+
 ---
 
 ## 3. Game Structure
+
+### Lifecycle: `_init` → `_start` → loop
+
+Before any scene runs, the engine calls two global functions (if defined):
+
+```lua
+function _init()
+  -- System configuration phase.
+  -- Call mode() here to set color depth.
+  mode(4)  -- 16 grayscale
+end
+
+function _start()
+  -- Game initialization phase.
+  -- Define sprites, set up initial state, etc.
+  -- The palette and COLORS global are ready here.
+end
+```
+
+**Order:**
+1. `_init()` — configure hardware (mode, etc.). Called before internals are exposed.
+2. Engine exposes `_internal` for plugins (shader, etc.)
+3. `_start()` — game setup (sprites, variables, scene prep)
+4. Game loop begins (`_update` → `_draw` each frame)
+
+Both are optional. If your game uses scenes, `_start()` is a good place to call `go("title")`.
 
 ### Scenes
 
@@ -145,7 +195,7 @@ local f = frame()  -- returns the current frame number (starts at 0, increments 
 
 ## 4. Graphics API
 
-All drawing functions use integer color values 0-3.
+All drawing functions use integer color values from 0 to `COLORS - 1` (e.g., 0-1 in 1-bit mode, 0-15 in 4-bit mode).
 
 ### Screen
 
