@@ -265,6 +265,29 @@
     overflow: hidden;
     background: #1e1e1e;
   }
+  #image-viewer {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: #1a1a1a;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+  }
+  #image-viewer.show { display: flex; }
+  #image-viewer img {
+    max-width: 100%;
+    max-height: 80%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    border: 1px solid #3d3d3d;
+  }
+  #image-viewer .img-info {
+    font-size: 9px;
+    color: #777;
+  }
   .cm-editor { height: 100%; font-size: 13px; }
   .cm-editor .cm-scroller {
     overflow: auto;
@@ -750,6 +773,10 @@
     <!-- Code Editor -->
     <div id="code-panel">
       <div id="editor-wrap"></div>
+      <div id="image-viewer">
+        <img id="img-preview" />
+        <span class="img-info" id="img-info"></span>
+      </div>
     </div>
 
     <!-- AI Prompt -->
@@ -1067,11 +1094,35 @@ function renderTabs() {
   });
 }
 
+// File type helpers
+const TEXT_EXTS = [".lua", ".txt", ".json", ".md", ".toml", ".cfg", ".ini", ".csv", ".xml", ".html", ".css", ".js"];
+const IMAGE_EXTS = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".svg"];
+function isTextFile(name) { return TEXT_EXTS.some(ext => name.toLowerCase().endsWith(ext)); }
+function isImageFile(name) { return IMAGE_EXTS.some(ext => name.toLowerCase().endsWith(ext)); }
+
+function showEditor() {
+  document.getElementById("editor-wrap").style.display = "";
+  document.getElementById("image-viewer").classList.remove("show");
+}
+function showImageViewer(url, info) {
+  document.getElementById("editor-wrap").style.display = "none";
+  const viewer = document.getElementById("image-viewer");
+  viewer.classList.add("show");
+  document.getElementById("img-preview").src = url;
+  document.getElementById("img-info").textContent = info;
+}
+
 async function openFile(name) {
   if (!files[name]) return;
 
-  // Save current editor content
-  if (currentFile && files[currentFile]) {
+  const canOpen = isTextFile(name) || isImageFile(name);
+  if (!canOpen) {
+    logToConsole("Cannot open: " + name + " (unsupported type)", "log-info");
+    return;
+  }
+
+  // Save current editor content if text
+  if (currentFile && files[currentFile] && isTextFile(currentFile)) {
     const content = editor.state.doc.toString();
     if (files[currentFile].content !== content) {
       files[currentFile].content = content;
@@ -1079,17 +1130,30 @@ async function openFile(name) {
     }
   }
 
-  // Read content if needed
-  const content = await readFileContent(name);
-
   // Add to open tabs if not there
   if (!openTabs.includes(name)) openTabs.push(name);
   currentFile = name;
 
-  // Update editor
-  editor.dispatch({
-    changes: { from: 0, to: editor.state.doc.length, insert: content }
-  });
+  if (isImageFile(name)) {
+    // Show image viewer
+    const file = await files[name].handle.getFile();
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      showImageViewer(url, name + " — " + img.naturalWidth + "x" + img.naturalHeight);
+    };
+    img.onerror = () => {
+      showImageViewer(url, name);
+    };
+    img.src = url;
+  } else {
+    // Show text editor
+    showEditor();
+    const content = await readFileContent(name);
+    editor.dispatch({
+      changes: { from: 0, to: editor.state.doc.length, insert: content }
+    });
+  }
 
   renderTabs();
   renderFileTree();
@@ -1106,6 +1170,7 @@ function closeTab(name) {
       openFile(next);
     } else {
       currentFile = null;
+      showEditor();
       editor.dispatch({
         changes: { from: 0, to: editor.state.doc.length, insert: "-- No file open" }
       });
@@ -1250,6 +1315,27 @@ explorer.addEventListener("dragleave", (e) => {
   }
 });
 
+// Shared: import a File object into the project folder
+async function importFile(file, label) {
+  const name = file.name;
+  try {
+    const handle = await dirHandle.getFileHandle(name, { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(await file.arrayBuffer());
+    await writable.close();
+
+    let content = null;
+    if (name.endsWith(".lua") || name.endsWith(".txt") || name.endsWith(".json") || name.endsWith(".md")) {
+      content = await file.text();
+    }
+
+    files[name] = { content, handle, modified: false };
+    logToConsole(label + ": " + name, "log-info");
+  } catch (err) {
+    logToConsole(label + " error (" + name + "): " + err.message, "log-error");
+  }
+}
+
 explorer.addEventListener("drop", async (e) => {
   e.preventDefault();
   explorer.style.outline = "";
@@ -1260,36 +1346,40 @@ explorer.addEventListener("drop", async (e) => {
     return;
   }
 
-  const items = e.dataTransfer.items;
-  if (!items) return;
-
-  for (const item of items) {
-    if (item.kind !== "file") continue;
-    const file = item.getAsFile();
-    if (!file) continue;
-
-    const name = file.name;
-    try {
-      // Write file to local directory
-      const handle = await dirHandle.getFileHandle(name, { create: true });
-      const writable = await handle.createWritable();
-      await writable.write(await file.arrayBuffer());
-      await writable.close();
-
-      // Read back as text if it's a text file
-      let content = null;
-      if (name.endsWith(".lua") || name.endsWith(".txt") || name.endsWith(".json") || name.endsWith(".md")) {
-        content = await file.text();
-      }
-
-      files[name] = { content, handle, modified: false };
-      logToConsole("Dropped: " + name, "log-info");
-    } catch (err) {
-      logToConsole("Drop error (" + name + "): " + err.message, "log-error");
+  // Collect all files first — DataTransferItemList is live and invalidates during async
+  const collected = [];
+  for (const item of e.dataTransfer.items) {
+    if (item.kind === "file") {
+      const file = item.getAsFile();
+      if (file) collected.push(file);
     }
   }
 
-  renderFileTree();
+  for (const file of collected) await importFile(file, "Dropped");
+  if (collected.length) renderFileTree();
+});
+
+// ── Paste files into explorer (Cmd+V / Ctrl+V) ──
+explorer.setAttribute("tabindex", "0");
+explorer.addEventListener("paste", async (e) => {
+  if (!dirHandle) {
+    logToConsole("Open a folder first.", "log-error");
+    return;
+  }
+
+  // Collect all files first — clipboard items list is live
+  const collected = [];
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.kind === "file") {
+      const file = item.getAsFile();
+      if (file) collected.push(file);
+    }
+  }
+
+  for (const file of collected) await importFile(file, "Pasted");
+  if (collected.length) renderFileTree();
 });
 
 // ── Console log ──
