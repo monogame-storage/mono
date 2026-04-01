@@ -966,7 +966,84 @@ async function openFolder() {
     await openFile(mainFile);
   }
 
+  // Auto-generate .mono/CONTEXT.md if missing
+  await ensureMonoContext(dirHandle);
+
   logToConsole("Opened: " + dirHandle.name, "log-info");
+}
+
+const MONO_VERSION = "0.1.0";
+
+function monoContext() {
+  const baseUrl = window.location.origin;
+  return `# Mono Game Project (engine v${MONO_VERSION})
+
+This is a [Mono](https://github.com/ssk-play/mono) fantasy console game.
+
+## Constraints
+- Resolution: 160x144
+- Colors: 16 grayscale (4-bit), configurable via \`mode()\`
+- Sprites: 16x16
+- Language: Lua 5.4 (via Wasmoon)
+- Frame rate: 30 FPS
+- Input: 8 buttons (up, down, left, right, a, b, start, select)
+
+## Lifecycle
+\`\`\`
+_init()    -- system config: call mode() here
+_start()   -- game init: sprites, variables, go("title")
+_update()  -- called every frame (game logic)
+_draw()    -- called every frame (rendering)
+\`\`\`
+
+## Documentation
+- API Reference: ${baseUrl}/docs/DEV.md
+- Common AI Mistakes: ${baseUrl}/docs/AI-PITFALLS.md
+- Source: https://github.com/ssk-play/mono
+
+## Key Rules
+- Lua 5.4, NOT Luau — no type annotations
+- \`local function\` must be defined BEFORE it's called
+- Never return \`null\` from JS — use \`false\`
+- \`pollCollision()\` returns \`false\` when empty, not \`nil\`
+- Never use \`rnd()\` in \`_draw()\` — generate once in init, store in table
+- Camera affects shapes/sprites but NOT \`text()\`
+- Diagonal movement must be normalized (0.7071 factor)
+
+## Status
+This engine is under active development. Not all APIs listed in the docs may be implemented yet,
+and some game patterns may require APIs that don't exist yet.
+
+If you need a feature that isn't available, write a proposal to \`.mono/PROPOSALS.md\` with:
+- **What**: the API name and signature you'd want
+- **Why**: what game feature requires it
+- **Workaround**: how you're handling it now (if at all)
+
+Example:
+\`\`\`
+## loadImage(path) → imageId
+Need to load PNG as background for Gals Panic style reveal.
+Currently no workaround — cannot load external images from Lua.
+\`\`\`
+
+The developer will review proposals and prioritize implementation.
+`;
+}
+
+async function ensureMonoContext(rootHandle) {
+  try {
+    // Get or create .mono directory
+    const monoDir = await rootHandle.getDirectoryHandle(".mono", { create: true });
+
+    // Always overwrite with latest engine context
+    const handle = await monoDir.getFileHandle("CONTEXT.md", { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(monoContext());
+    await writable.close();
+    logToConsole("Created .mono/CONTEXT.md", "log-info");
+  } catch (e) {
+    // silently skip if permissions fail
+  }
 }
 
 async function readDirectory(handle, prefix) {
