@@ -966,8 +966,11 @@ async function openFolder() {
     await openFile(mainFile);
   }
 
-  // Auto-generate .mono/CONTEXT.md if missing
+  // Auto-generate .mono/CONTEXT.md
   await ensureMonoContext(dirHandle);
+
+  // Start watching PROPOSALS.md for implemented APIs
+  startProposalsWatch(dirHandle);
 
   logToConsole("Opened: " + dirHandle.name, "log-info");
 }
@@ -1044,6 +1047,74 @@ async function ensureMonoContext(rootHandle) {
   } catch (e) {
     // silently skip if permissions fail
   }
+}
+
+// --- Proposals watcher: auto-mark [DONE] when API is implemented ---
+let proposalsWatchTimer = null;
+let knownEngineAPIs = null; // cached set of registered API names
+
+async function fetchEngineAPIs() {
+  try {
+    const resp = await fetch("/runtime/engine.js");
+    if (!resp.ok) return null;
+    const src = await resp.text();
+    const apis = new Set();
+    const re = /lua\.global\.set\("(\w+)"/g;
+    let m;
+    while ((m = re.exec(src)) !== null) apis.add(m[1]);
+    return apis;
+  } catch (e) { return null; }
+}
+
+async function checkProposals(rootHandle) {
+  if (!rootHandle) return;
+  try {
+    const monoDir = await rootHandle.getDirectoryHandle(".mono", { create: false });
+    const fileHandle = await monoDir.getFileHandle("PROPOSALS.md", { create: false });
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    if (!text.trim()) return;
+
+    // Refresh engine API list
+    const apis = await fetchEngineAPIs();
+    if (!apis || apis.size === 0) return;
+
+    // Parse proposals: headings like "## loadImage(path) → imageId" or "## drawImage(id, x, y)"
+    let changed = false;
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Match ## headings that aren't already [DONE]
+      const headingMatch = line.match(/^(##\s+)(?!\[DONE\])(\w+)\s*\(/);
+      if (headingMatch) {
+        const apiName = headingMatch[2];
+        if (apis.has(apiName)) {
+          lines[i] = headingMatch[1] + "[DONE] " + line.slice(headingMatch[1].length);
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      const writable = await fileHandle.createWritable();
+      await writable.write(lines.join("\n"));
+      await writable.close();
+      logToConsole("Updated .mono/PROPOSALS.md — marked implemented APIs as [DONE]", "log-info");
+    }
+  } catch (e) {
+    // PROPOSALS.md doesn't exist or no .mono dir — that's fine
+  }
+}
+
+function startProposalsWatch(rootHandle) {
+  if (proposalsWatchTimer) clearInterval(proposalsWatchTimer);
+  // Check immediately, then every 30 seconds
+  checkProposals(rootHandle);
+  proposalsWatchTimer = setInterval(() => checkProposals(rootHandle), 30000);
+}
+
+function stopProposalsWatch() {
+  if (proposalsWatchTimer) { clearInterval(proposalsWatchTimer); proposalsWatchTimer = null; }
 }
 
 async function readDirectory(handle, prefix) {
