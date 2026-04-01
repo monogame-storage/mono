@@ -972,6 +972,9 @@ async function openFolder() {
   // Start watching PROPOSALS.md for implemented APIs
   startProposalsWatch(dirHandle);
 
+  // Start auto-refreshing file tree for external changes
+  startFileTreeRefresh();
+
   logToConsole("Opened: " + dirHandle.name, "log-info");
 }
 
@@ -1117,6 +1120,63 @@ function stopProposalsWatch() {
   if (proposalsWatchTimer) { clearInterval(proposalsWatchTimer); proposalsWatchTimer = null; }
 }
 
+// --- File tree auto-refresh: detect new/deleted files from local edits ---
+let fileTreeRefreshTimer = null;
+
+async function refreshFileTree() {
+  if (!dirHandle) return;
+  const oldPaths = new Set(Object.keys(files));
+  const newFiles = {};
+  await scanDirectory(dirHandle, "", newFiles);
+  const newPaths = new Set(Object.keys(newFiles));
+
+  let changed = false;
+  // Detect new files
+  for (const p of newPaths) {
+    if (!oldPaths.has(p)) {
+      files[p] = newFiles[p];
+      changed = true;
+    }
+  }
+  // Detect deleted files
+  for (const p of oldPaths) {
+    if (!newPaths.has(p)) {
+      delete files[p];
+      // Close tab if open
+      const idx = openTabs.indexOf(p);
+      if (idx >= 0) openTabs.splice(idx, 1);
+      if (currentFile === p) currentFile = openTabs[openTabs.length - 1] || null;
+      changed = true;
+    }
+  }
+  if (changed) {
+    renderFileTree();
+    renderTabs();
+  }
+}
+
+async function scanDirectory(handle, prefix, out) {
+  for await (const entry of handle.values()) {
+    const path = prefix ? prefix + "/" + entry.name : entry.name;
+    if (entry.kind === "file") {
+      if (entry.name.startsWith(".")) continue;
+      out[path] = { content: null, handle: entry, modified: false };
+    } else if (entry.kind === "directory") {
+      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+      await scanDirectory(entry, path, out);
+    }
+  }
+}
+
+function startFileTreeRefresh() {
+  if (fileTreeRefreshTimer) clearInterval(fileTreeRefreshTimer);
+  fileTreeRefreshTimer = setInterval(refreshFileTree, 5000);
+}
+
+function stopFileTreeRefresh() {
+  if (fileTreeRefreshTimer) { clearInterval(fileTreeRefreshTimer); fileTreeRefreshTimer = null; }
+}
+
 async function readDirectory(handle, prefix) {
   for await (const entry of handle.values()) {
     const path = prefix ? prefix + "/" + entry.name : entry.name;
@@ -1131,13 +1191,27 @@ async function readDirectory(handle, prefix) {
   }
 }
 
-async function readFileContent(path) {
+async function readFileContent(path, forceReload) {
   const f = files[path];
   if (!f) return "";
-  if (f.content !== null) return f.content;
+  if (!forceReload && f.content !== null) return f.content;
   const file = await f.handle.getFile();
-  f.content = await file.text();
+  const diskContent = await file.text();
+  // Track disk timestamp for change detection
+  f.lastModified = file.lastModified;
+  f.content = diskContent;
+  f.modified = false;
   return f.content;
+}
+
+// Check if file changed on disk since last read
+async function hasFileChangedOnDisk(path) {
+  const f = files[path];
+  if (!f || f.lastModified === undefined) return false;
+  try {
+    const file = await f.handle.getFile();
+    return file.lastModified !== f.lastModified;
+  } catch (e) { return false; }
 }
 
 // ── File tree rendering ──
@@ -1295,12 +1369,14 @@ async function openFile(name) {
     };
     img.src = url;
   } else {
-    // Show text editor
+    // Show text editor — reload from disk if changed externally
     showEditor();
-    const content = await readFileContent(name);
+    const diskChanged = await hasFileChangedOnDisk(name);
+    const content = await readFileContent(name, diskChanged);
     editor.dispatch({
       changes: { from: 0, to: editor.state.doc.length, insert: content }
     });
+    if (diskChanged) logToConsole(name + " reloaded (changed on disk)", "log-info");
   }
 
   renderTabs();
