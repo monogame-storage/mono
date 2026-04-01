@@ -719,6 +719,9 @@
     font-size: 11px;
     line-height: 1.6;
     color: #aaa;
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
   }
   #log-body .log-line { white-space: pre-wrap; word-break: break-all; }
   #log-body .log-error { color: #e66; }
@@ -736,6 +739,7 @@
     font-family: inherit;
     font-size: 9px;
     cursor: pointer;
+    margin-left: 8px;
   }
   .log-clear:hover { color: #e8e8e8; }
 </style>
@@ -887,6 +891,7 @@
       <div class="panel-tabs">
         <div class="panel-tab">&#10095;_ console.log</div>
         <div class="log-tabs-extra">
+          <button class="log-clear" id="btn-copy-log">copy</button>
           <button class="log-clear" id="btn-clear">clear</button>
         </div>
       </div>
@@ -1620,6 +1625,14 @@ function logToConsole(msg, cls = "") {
 document.getElementById("btn-clear").addEventListener("click", () => {
   logBody.innerHTML = "";
 });
+document.getElementById("btn-copy-log").addEventListener("click", () => {
+  const text = [...logBody.querySelectorAll(".log-line")].map(el => el.textContent).join("\n");
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById("btn-copy-log");
+    btn.textContent = "copied!";
+    setTimeout(() => btn.textContent = "copy", 1500);
+  });
+});
 
 // Hook console for Lua output
 const _origLog = console.log;
@@ -1672,7 +1685,17 @@ async function start() {
   }
   const source = mainContent;
   try {
-    await Mono.boot("screen", { source, noAutoFit: true, externalInput: true });
+    // Build blob URL map for local image assets
+    const assets = {};
+    for (const [path, f] of Object.entries(files)) {
+      if (isImageFile(path)) {
+        try {
+          const file = await f.handle.getFile();
+          assets[path] = URL.createObjectURL(file);
+        } catch (e) { /* skip unreadable */ }
+      }
+    }
+    await Mono.boot("screen", { source, assets, noAutoFit: true, externalInput: true });
     updateStatus(true);
     logToConsole("Running.", "log-info");
     document.getElementById("screen-body").focus();

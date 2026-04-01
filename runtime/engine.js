@@ -413,9 +413,10 @@ var Mono = (() => {
 
     // loadImage(path) — load image, quantize to current palette, return ID
     const gameBase = opts.game ? opts.game.replace(/[^/]*$/, "") : "";
+    const assets = opts.assets || {};  // { "file.png": blobURL } from editor
     lua.global.set("loadImage", (path) => {
       const id = imageIdCounter++;
-      const url = path.startsWith("http") || path.startsWith("/") ? path : gameBase + path;
+      const url = assets[path] || (path.startsWith("http") || path.startsWith("/") ? path : gameBase + path);
       pendingLoads.push(loadImageAsync(url, id, palette));
       return id;
     });
