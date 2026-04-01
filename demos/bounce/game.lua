@@ -57,7 +57,7 @@ local function on_solid_floor(cx)
   return false
 end
 
-function _init()
+function _start()
   FLOOR_Y = H - 1 - br
   bx = W / 2
   by = FLOOR_Y

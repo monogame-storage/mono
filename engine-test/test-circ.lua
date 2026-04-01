@@ -10,7 +10,7 @@ function _draw()
   circ(120, 72, 10, 1)
 end
 
-function _init()
+function _start()
   cls(0)
   -- test circf: center should be filled
   circf(80, 72, 10, 1)

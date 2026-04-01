@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Mono — Playground</title>
+<title>Mono — Editor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Oswald:wght@600&display=swap" rel="stylesheet">
 <style>
@@ -20,62 +20,157 @@
     -webkit-user-select: none;
   }
 
-  /* Toolbar */
-  #toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 0 12px;
-    background: #111;
-    height: 44px;
-    flex-shrink: 0;
-  }
-  #back-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: #2d2d2d;
-    border: none;
-    border-radius: 5px;
-    color: #777;
-    padding: 0 10px;
-    height: 28px;
-    font-family: inherit;
-    font-size: 10px;
-    cursor: pointer;
-    text-decoration: none;
-  }
-  #back-btn:hover { background: #3d3d3d; color: #e8e8e8; }
-  .toolbar-sep {
-    width: 1px;
-    height: 20px;
-    background: #3d3d3d;
-  }
-  .toolbar-title {
-    font-family: 'Oswald', sans-serif;
-    font-size: 15px;
-    font-weight: 600;
-    color: #777;
-    letter-spacing: 1px;
-  }
-
-  /* Workspace */
+  /* ── Workspace (no toolbar — activity bar IS the chrome) ── */
   #workspace {
     display: flex;
     flex: 1;
     min-height: 0;
+    gap: 0;
+    background: #1a1a1a;
+  }
+
+  /* ── Activity Bar ── */
+  #activity-bar {
+    width: 44px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 0;
+    background: #111;
+  }
+  .ab-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: #777;
+    font-size: 18px;
+    cursor: pointer;
+  }
+  .ab-btn:hover { background: #2d2d2d; color: #e8e8e8; }
+  .ab-btn.active { background: #2d2d2d; color: #e8e8e8; }
+  .ab-spacer { flex: 1; }
+
+  /* ── Explorer Sidebar ── */
+  #explorer {
+    width: 200px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+    border-right: 1px solid #1a1a1a;
+  }
+  #explorer-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
+    flex-shrink: 0;
+  }
+  #explorer-head span {
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: #777;
+  }
+  #explorer-head .spacer { flex: 1; }
+  #explorer-head button {
+    background: none;
+    border: none;
+    color: #777;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #explorer-head button:hover { color: #e8e8e8; }
+
+  #file-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .tree-section {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #e8e8e8;
+    cursor: pointer;
+  }
+  .tree-section .icon { color: #777; font-size: 10px; }
+  .tree-file {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 12px 0 28px;
+    font-size: 11px;
+    color: #777;
+    cursor: pointer;
+  }
+  .tree-file:hover { background: #2d2d2d; color: #e8e8e8; }
+  .tree-file.active { background: #2d2d2d; color: #e8e8e8; }
+  .tree-file .dot { width: 8px; height: 8px; display: inline-block; }
+  .file-icon { font-size: 10px; }
+  .file-icon.lua { color: #ff6b35; }
+  .file-icon.default { color: #777; }
+
+  /* ── Main Area (center) ── */
+  #main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     gap: 1px;
     background: #1a1a1a;
   }
 
-  /* Left Column */
-  #left-col {
-    flex: 1;
+  /* Code tab bar */
+  #code-tabs {
     display: flex;
-    flex-direction: column;
-    gap: 1px;
-    min-width: 0;
+    align-items: flex-end;
+    background: #2d2d2d;
+    height: 32px;
+    flex-shrink: 0;
   }
+  .code-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 14px;
+    height: 28px;
+    font-size: 10px;
+    color: #777;
+    background: #2d2d2d;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+  }
+  .code-tab.active {
+    height: 30px;
+    color: #e8e8e8;
+    font-weight: 600;
+    background: #212121;
+  }
+  .code-tab .file-icon { font-size: 10px; }
+  .code-tab .close-x {
+    font-size: 8px;
+    color: #555;
+    margin-left: 4px;
+    cursor: pointer;
+  }
+  .code-tab .close-x:hover { color: #e8e8e8; }
 
   /* Code Editor */
   #code-panel {
@@ -195,7 +290,7 @@
   }
   #btn-generate:hover { background: #ff8555; }
 
-  /* Right Column */
+  /* ── Right Column ── */
   #right-col {
     width: 360px;
     flex-shrink: 0;
@@ -545,18 +640,64 @@
 </head>
 <body>
 
-<!-- Toolbar -->
-<div id="toolbar">
-  <a id="back-btn" href="/">&#8592;</a>
-  <div class="toolbar-sep"></div>
-  <span class="toolbar-title">PLAYGROUND</span>
-</div>
-
 <!-- Workspace -->
 <div id="workspace">
-  <!-- Left Column -->
-  <div id="left-col">
-    <!-- Code Editor (no tabs) -->
+  <!-- Activity Bar -->
+  <div id="activity-bar">
+    <button class="ab-btn active" id="ab-files" title="Explorer">&#128193;</button>
+    <button class="ab-btn" id="ab-search" title="Search">&#128269;</button>
+    <button class="ab-btn" id="ab-examples" title="Examples">&#128214;</button>
+    <div class="ab-spacer"></div>
+    <button class="ab-btn" id="ab-settings" title="Settings">&#9881;</button>
+  </div>
+
+  <!-- Explorer -->
+  <div id="explorer">
+    <div id="explorer-head">
+      <span>EXPLORER</span>
+      <div class="spacer"></div>
+      <button title="New file">+</button>
+    </div>
+    <div id="file-tree">
+      <div class="tree-section">
+        <span class="icon">&#9660;</span>
+        my-game
+      </div>
+      <div class="tree-file active" data-file="main.lua">
+        <span class="file-icon lua">&#9632;</span>
+        main.lua
+      </div>
+      <div class="tree-file" data-file="player.lua">
+        <span class="file-icon default">&#9632;</span>
+        player.lua
+      </div>
+      <div class="tree-file" data-file="enemy.lua">
+        <span class="file-icon default">&#9632;</span>
+        enemy.lua
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Area -->
+  <div id="main-area">
+    <!-- Code Tabs -->
+    <div id="code-tabs">
+      <button class="code-tab active" data-file="main.lua">
+        <span class="file-icon lua">&#9632;</span>
+        main.lua
+        <span class="close-x">&#10005;</span>
+      </button>
+      <button class="code-tab" data-file="player.lua">
+        <span class="file-icon default">&#9632;</span>
+        player.lua
+      </button>
+      <button class="code-tab" data-file="ai_prompt">
+        <span class="file-icon" style="color:#ff6b35">&#10024;</span>
+        ai_prompt
+      </button>
+    </div>
+
+    <!-- Code Editor -->
     <div id="code-panel">
       <div id="editor-wrap"></div>
     </div>
@@ -677,12 +818,12 @@
   </div>
 </div>
 
-<script src="../runtime/engine.js?v=14"></script>
-<script src="../runtime/shader.js?v=14"></script>
-<script src="../runtime/shaders/tint.js?v=14"></script>
-<script src="../runtime/shaders/scanlines.js?v=14"></script>
-<script src="../runtime/shaders/lcd3d.js?v=14"></script>
-<script src="../runtime/shaders/crt.js?v=14"></script>
+<script src="../runtime/engine.js?v=1"></script>
+<script src="../runtime/shader.js?v=1"></script>
+<script src="../runtime/shaders/tint.js?v=1"></script>
+<script src="../runtime/shaders/scanlines.js?v=1"></script>
+<script src="../runtime/shaders/lcd3d.js?v=1"></script>
+<script src="../runtime/shaders/crt.js?v=1"></script>
 
 <script type="module">
 import {EditorView, basicSetup} from "https://esm.sh/codemirror@6.0.2?bundle-deps";
@@ -697,82 +838,153 @@ const darkTheme = EditorView.theme({
   ".cm-cursor": { borderLeftColor: "#fff" }
 }, {dark: true});
 
-const DEFAULT_CODE = `-- Mono Playground
--- 160x144, 16 grayscale, Lua 5.4
+// ── Virtual file system ──
+const files = {
+  "main.lua": `-- main.lua (entrypoint)
+local px, py = 80, 72
+local spd = 2
 
 function _init()
   mode(4)  -- 16 grayscale
 end
 
-local px, py = 80, 72
-local spd = 2
-local t = 0
-local trail = {}
-
 function _start()
   px = 80
   py = 72
-  trail = {}
 end
 
 function _update()
-  t = t + 1
-
-  -- arrow keys move the dot
   if btn("left") then px = px - spd end
   if btn("right") then px = px + spd end
   if btn("up") then py = py - spd end
   if btn("down") then py = py + spd end
 
-  -- wrap around screen
-  if px < 0 then px = 160 end
-  if px > 160 then px = 0 end
-  if py < 0 then py = 144 end
-  if py > 144 then py = 0 end
-
-  -- store trail
-  table.insert(trail, {x = px, y = py, age = 0})
-  if #trail > 40 then table.remove(trail, 1) end
-  for i = 1, #trail do
-    trail[i].age = trail[i].age + 1
-  end
+  if px < 4 then px = 4 end
+  if px > 156 then px = 156 end
+  if py < 4 then py = 4 end
+  if py > 140 then py = 140 end
 end
 
 function _draw()
   cls(0)
 
-  -- draw trail
-  for i = 1, #trail do
-    local p = trail[i]
-    local c = math.max(1, 8 - math.floor(p.age / 5))
-    circf(p.x, p.y, 3, c)
-  end
-
-  -- draw player
-  circf(px, py, 5, 15)
-  circ(px, py, 5, 10)
-
-  -- bouncing bg circles
-  for i = 1, 3 do
-    local bx = 80 + math.sin(t * 0.02 + i * 2) * 60
-    local by = 72 + math.cos(t * 0.03 + i) * 50
-    circ(bx, by, 10 + i * 5, 3)
-  end
+  -- player
+  circf(px, py, 4, 15)
+  circ(px, py, 4, 10)
 
   -- HUD
-  text("ARROWS TO MOVE", 30, 2, 10)
-  text("x:" .. math.floor(px) .. " y:" .. math.floor(py), 4, 136, 7)
+  text("MY GAME", 55, 2, 10)
+  text("x:" .. px .. " y:" .. py, 4, 136, 7)
 end
-`;
+`,
+  "player.lua": `-- player.lua
+local M = {}
 
-// Editor
+local px, py = 80, 72
+local spd = 2
+
+function M.init(x, y)
+  px = x or 80
+  py = y or 72
+end
+
+function M.update()
+  if btn("left") then px = px - spd end
+  if btn("right") then px = px + spd end
+  if btn("up") then py = py - spd end
+  if btn("down") then py = py + spd end
+
+  -- clamp to screen
+  if px < 4 then px = 4 end
+  if px > 156 then px = 156 end
+  if py < 4 then py = 4 end
+  if py > 140 then py = 140 end
+end
+
+function M.draw()
+  circf(px, py, 4, 15)
+  circ(px, py, 4, 10)
+end
+
+return M
+`,
+  "enemy.lua": `-- enemy.lua
+local M = {}
+
+local enemies = {}
+
+function M.spawn(x, y)
+  table.insert(enemies, {x = x, y = y, hp = 3})
+end
+
+function M.update()
+  for i = #enemies, 1, -1 do
+    local e = enemies[i]
+    e.y = e.y + 0.5
+    if e.y > 150 then
+      table.remove(enemies, i)
+    end
+  end
+end
+
+function M.draw()
+  for i = 1, #enemies do
+    local e = enemies[i]
+    rectf(e.x - 4, e.y - 4, 8, 8, 8)
+    rect(e.x - 4, e.y - 4, 8, 8, 12)
+  end
+end
+
+return M
+`
+};
+
+let currentFile = "main.lua";
+
+// ── Editor ──
 const editor = new EditorView({
-  doc: DEFAULT_CODE,
+  doc: files[currentFile],
   extensions: [basicSetup, darkTheme],
   parent: document.getElementById("editor-wrap")
 });
 
-// Console log
+// Save current editor content back to virtual FS
+function saveCurrentFile() {
+  files[currentFile] = editor.state.doc.toString();
+}
+
+// Switch to a file
+function switchFile(name) {
+  if (name === currentFile || !files[name]) return;
+  saveCurrentFile();
+  currentFile = name;
+  editor.dispatch({
+    changes: { from: 0, to: editor.state.doc.length, insert: files[name] }
+  });
+  updateActiveStates();
+}
+
+// Update visual active states for tabs & tree
+function updateActiveStates() {
+  document.querySelectorAll(".code-tab").forEach(t => {
+    t.classList.toggle("active", t.dataset.file === currentFile);
+  });
+  document.querySelectorAll(".tree-file").forEach(t => {
+    t.classList.toggle("active", t.dataset.file === currentFile);
+  });
+}
+
+// Tab clicks
+document.querySelectorAll(".code-tab").forEach(tab => {
+  tab.addEventListener("click", () => switchFile(tab.dataset.file));
+});
+
+// Tree file clicks
+document.querySelectorAll(".tree-file").forEach(item => {
+  item.addEventListener("click", () => switchFile(item.dataset.file));
+});
+
+// ── Console log ──
 const logBody = document.getElementById("log-body");
 
 function logToConsole(msg, cls = "") {
@@ -800,9 +1012,8 @@ console.error = (...args) => {
   _origErr.apply(console, args);
 };
 
-// Engine controls
+// ── Engine controls ──
 let running = false;
-let frameCounter = 0;
 let fpsInterval = null;
 
 function updateStatus(isRunning) {
@@ -824,10 +1035,12 @@ function updateFrame() {
 
 async function start() {
   if (running) Mono.stop();
+  saveCurrentFile();
   logBody.innerHTML = "";
   logToConsole("Booting...", "log-info");
 
-  const source = editor.state.doc.toString();
+  // Concatenate all files: require() not supported yet, so inline all
+  const source = files["main.lua"];
   try {
     await Mono.boot("screen", { source, noAutoFit: true, externalInput: true });
     updateStatus(true);
@@ -875,7 +1088,7 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Screen widget: keyboard → engine
+// ── Screen widget: keyboard → engine ──
 const screenBody = document.getElementById("screen-body");
 screenBody.addEventListener("keydown", (e) => {
   if (!running || !Mono.setKey) return;
@@ -896,10 +1109,7 @@ screenBody.addEventListener("keyup", (e) => {
   }
 });
 
-// Auto-focus screen on start
-const _origStart = start;
-
-// Gamepad buttons → engine
+// ── Gamepad buttons → engine ──
 document.querySelectorAll("[data-key]").forEach(btn => {
   const key = btn.dataset.key;
   const getName = () => (Mono.keyMap && Mono.keyMap[key]) || key;
@@ -923,7 +1133,7 @@ document.querySelectorAll("[data-key]").forEach(btn => {
   btn.addEventListener("touchcancel", up);
 });
 
-// Shader toggle
+// ── Shader toggle ──
 let shaderOn = true;
 document.getElementById("shader-toggle").addEventListener("click", () => {
   shaderOn = !shaderOn;
@@ -937,7 +1147,7 @@ document.getElementById("shader-toggle").addEventListener("click", () => {
   }
 });
 
-// Accelerometer
+// ── Accelerometer ──
 if (window.DeviceMotionEvent) {
   window.addEventListener("devicemotion", (e) => {
     const a = e.accelerationIncludingGravity;
@@ -947,7 +1157,6 @@ if (window.DeviceMotionEvent) {
     document.getElementById("accel-z").textContent = "z: " + (a.z || 0).toFixed(2);
     document.getElementById("accel-status").textContent = "tilt: enabled";
 
-    // Move tilt dot
     const dot = document.getElementById("tilt-dot");
     const nx = Math.max(-1, Math.min(1, (a.x || 0) / 9.8));
     const ny = Math.max(-1, Math.min(1, (a.y || 0) / 9.8));

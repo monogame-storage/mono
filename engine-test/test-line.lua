@@ -12,7 +12,7 @@ function _draw()
   line(0, 143, 0, 0, 1)
 end
 
-function _init()
+function _start()
   cls(0)
   line(0, 0, 10, 0, 1)
   -- check horizontal line

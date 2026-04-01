@@ -5,7 +5,7 @@ function _draw()
   pix(80, 72, 1)
 end
 
-function _init()
+function _start()
   -- draw once to test gpix
   cls(0)
   pix(80, 72, 1)

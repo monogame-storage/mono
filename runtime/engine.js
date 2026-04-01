@@ -312,6 +312,13 @@ var Mono = (() => {
     lua.global.set("vdump", vdump);
     lua.global.set("print", (...args) => console.log("[Lua]", ...args));
 
+    // mode(bits) — set color depth (1=2 colors, 2=4 colors, 4=16 colors)
+    lua.global.set("mode", (bits) => {
+      if (bits !== 1 && bits !== 2 && bits !== 4) throw new Error('mode() invalid: ' + bits + '. Valid: 1, 2, 4');
+      palette = buildPalette(bits);
+      lua.global.set("COLORS", palette.length);
+    });
+
     // Lua wrappers (avoid Wasmoon false→nil issue)
     await lua.doString(`
 function btn(k)
@@ -362,14 +369,19 @@ end
       return;
     }
 
-    // Call _init if defined
+    // Call _init (system config: mode, etc.) then _start (game init)
     const initFn = lua.global.get("_init");
     if (initFn) {
       try { initFn(); } catch (e) { showError("_init: " + (e.message || e)); return; }
     }
 
-    // Expose internals for plugins
+    // Expose internals for plugins (after _init so palette may have changed)
     API._internal = { canvas, ctx, buf32, colorBuf, palette, imgData, W, H };
+
+    const startFn = lua.global.get("_start");
+    if (startFn) {
+      try { startFn(); } catch (e) { showError("_start: " + (e.message || e)); return; }
+    }
 
     // Game loop
     const updateFn = lua.global.get("_update");
