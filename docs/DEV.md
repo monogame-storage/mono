@@ -393,7 +393,44 @@ end
 
 ---
 
-## 7. Input
+## 7. Images
+
+Load external images (PNG, JPG, WebP, BMP, GIF, SVG) and draw them. Images are auto-quantized to the current grayscale palette. Transparent pixels (alpha < 128) are skipped.
+
+```lua
+local id = loadImage("bg.png")     -- load image, returns integer ID
+                                    -- call in _start(), loaded before game loop begins
+
+drawImage(id, x, y)                -- draw full image at (x, y), camera-affected
+drawImageRegion(id, sx, sy, sw, sh, dx, dy)  -- draw sub-region of image
+                                    -- sx,sy,sw,sh = source rect
+                                    -- dx,dy = screen destination, camera-affected
+```
+
+- `loadImage` returns an ID synchronously; the actual fetch happens async and completes before the game loop starts
+- Path is relative to the game folder (e.g., `"world01.png"`) or absolute (`"/assets/bg.png"`)
+- All browser-supported image formats work (PNG, JPG, WebP, BMP, GIF, SVG)
+- Images are quantized using luminance: `0.299R + 0.587G + 0.114B` → nearest palette gray
+
+Example (Gals Panic style reveal):
+
+```lua
+local bg
+
+function _start()
+  bg = loadImage("world01.png")
+end
+
+function _draw()
+  cls(0)
+  -- reveal a 40x40 region of the background at screen position (10, 10)
+  drawImageRegion(bg, 10, 10, 40, 40, 10, 10)
+end
+```
+
+---
+
+## 8. Input
 
 ### Button State
 
@@ -423,7 +460,7 @@ Korean keyboard layout (ㅈㄴㅁㅇ / ㅋㅌ) is also mapped for convenience.
 
 ---
 
-## 8. Audio
+## 9. Audio
 
 ### Sound Effects
 
@@ -472,7 +509,7 @@ bgm_vol(vol)         -- set BGM volume (0.0 to 1.0)
 
 ---
 
-## 9. Tilemap
+## 10. Tilemap
 
 ### Set and Get Tiles
 
@@ -509,7 +546,7 @@ map(0, 0, 20, 15, 0, 0)
 
 ---
 
-## 10. ECS (Entity Component System)
+## 11. ECS (Entity Component System)
 
 ### Spawning Entities
 
@@ -621,7 +658,7 @@ Each frame, the engine runs (in order):
 
 ---
 
-## 11. Tween
+## 12. Tween
 
 ```lua
 tween(entityId, property, toValue, frames, easing)
@@ -650,7 +687,7 @@ Easing functions:
 
 ---
 
-## 12. Scene Management
+## 13. Scene Management
 
 ```lua
 go("play")              -- transition to scene; calls <scene>_init(), resets camera, clears ECS, stops BGM
@@ -666,7 +703,7 @@ When `go()` is called:
 
 ---
 
-## 13. Math and Utility
+## 14. Math and Utility
 
 ```lua
 rnd(n)      -- random float from 0 (inclusive) to n (exclusive)
@@ -682,7 +719,7 @@ overlap(x1, y1, w1, h1, x2, y2, w2, h2)   -- AABB overlap check, returns boolean
 
 ---
 
-## 14. Debug Overlays
+## 15. Debug Overlays
 
 Press number keys during gameplay to toggle overlays:
 
@@ -703,7 +740,7 @@ These are automatically registered by the ECS for entities with hitboxes. Call t
 
 ---
 
-## 15. Pause
+## 16. Pause
 
 - Press **Select** (Space) during the `play` scene to toggle pause
 - While paused, `<scene>_update()` is skipped; draw still runs
@@ -712,7 +749,7 @@ These are automatically registered by the ECS for entities with hitboxes. Call t
 
 ---
 
-## 16. Portal Integration
+## 17. Portal Integration
 
 The engine communicates with a parent iframe via `postMessage` for demo recording/playback:
 
@@ -732,7 +769,7 @@ Demo data is saved to `localStorage` under the key `mono_demo_<gameId>` where `g
 
 ---
 
-## 17. Memory (RAM)
+## 18. Memory (RAM)
 
 The engine provides 4096 bytes of RAM accessible from Lua:
 
@@ -746,7 +783,7 @@ peek16(addr)            -- read 16-bit value
 
 ---
 
-## 18. Examples
+## 19. Examples
 
 ### Minimal Shooter
 

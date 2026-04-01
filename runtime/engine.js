@@ -24,6 +24,14 @@ var Mono = (() => {
   // --- Pixel buffer (color indices, not ABGR) ---
   let colorBuf = null;  // Uint8Array[W*H] storing color indices
 
+  // --- Camera ---
+  let camX = 0, camY = 0;
+
+  // --- Image storage ---
+  let images = [];         // { w, h, data: Uint8Array(w*h) } palette indices, 255=transparent
+  let imageIdCounter = 0;
+  let pendingLoads = [];
+
   // --- Font (4x7 bitmap) ---
   const FONT_W = 4, FONT_H = 7;
   const FONT = {};
@@ -83,6 +91,85 @@ var Mono = (() => {
       colorBuf[idx] = c;
     }
   }
+
+  // --- Image quantization & drawing ---
+  function quantizeRGBA(rgba, w, h, pal) {
+    const out = new Uint8Array(w * h);
+    const palGray = [];
+    for (let i = 0; i < pal.length; i++) palGray[i] = pal[i] & 0xFF;
+    const n = pal.length;
+    for (let i = 0; i < w * h; i++) {
+      const ri = i * 4;
+      if (rgba[ri + 3] < 128) { out[i] = 255; continue; } // transparent
+      const lum = Math.round(0.299 * rgba[ri] + 0.587 * rgba[ri + 1] + 0.114 * rgba[ri + 2]);
+      let best = 0, bestD = 999;
+      for (let j = 0; j < n; j++) {
+        const d = Math.abs(lum - palGray[j]);
+        if (d < bestD) { bestD = d; best = j; }
+      }
+      out[i] = best;
+    }
+    return out;
+  }
+
+  async function loadImageAsync(path, id, pal) {
+    const resp = await fetch(path);
+    if (!resp.ok) throw new Error("loadImage: " + path + " (" + resp.status + ")");
+    const blob = await resp.blob();
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas");
+    c.width = bmp.width; c.height = bmp.height;
+    const cx = c.getContext("2d");
+    cx.drawImage(bmp, 0, 0);
+    const rgba = cx.getImageData(0, 0, bmp.width, bmp.height).data;
+    images[id] = { w: bmp.width, h: bmp.height, data: quantizeRGBA(rgba, bmp.width, bmp.height, pal) };
+  }
+
+  function drawImageFn(id, x, y) {
+    const img = images[id];
+    if (!img) return;
+    x = Math.floor(x) - camX; y = Math.floor(y) - camY;
+    for (let py = 0; py < img.h; py++) {
+      const sy = y + py;
+      if (sy < 0 || sy >= H) continue;
+      for (let px = 0; px < img.w; px++) {
+        const sx = x + px;
+        if (sx < 0 || sx >= W) continue;
+        const c = img.data[py * img.w + px];
+        if (c === 255) continue;
+        const idx = sy * W + sx;
+        colorBuf[idx] = c;
+        buf32[idx] = palette[c];
+      }
+    }
+  }
+
+  function drawImageRegionFn(id, sx, sy, sw, sh, dx, dy) {
+    const img = images[id];
+    if (!img) return;
+    dx = Math.floor(dx) - camX; dy = Math.floor(dy) - camY;
+    sx = Math.floor(sx); sy = Math.floor(sy);
+    sw = Math.floor(sw); sh = Math.floor(sh);
+    if (sx < 0) { sw += sx; dx -= sx; sx = 0; }
+    if (sy < 0) { sh += sy; dy -= sy; sy = 0; }
+    if (sx + sw > img.w) sw = img.w - sx;
+    if (sy + sh > img.h) sh = img.h - sy;
+    for (let py = 0; py < sh; py++) {
+      const screenY = dy + py;
+      if (screenY < 0 || screenY >= H) continue;
+      for (let px = 0; px < sw; px++) {
+        const screenX = dx + px;
+        if (screenX < 0 || screenX >= W) continue;
+        const c = img.data[(sy + py) * img.w + (sx + px)];
+        if (c === 255) continue;
+        const idx = screenY * W + screenX;
+        colorBuf[idx] = c;
+        buf32[idx] = palette[c];
+      }
+    }
+  }
+
+  function cam(x, y) { camX = x || 0; camY = y || 0; }
 
   function getPix(x, y) {
     x = Math.floor(x); y = Math.floor(y);
@@ -229,6 +316,8 @@ var Mono = (() => {
     // Stop previous run if any
     if (_loopId) { clearInterval(_loopId); _loopId = null; }
     if (_lua) { _lua.global.close(); _lua = null; }
+    images = []; imageIdCounter = 0; pendingLoads = [];
+    camX = 0; camY = 0;
 
     // Clear previous error overlay
     if (canvas && canvas.parentElement) {
@@ -299,6 +388,9 @@ var Mono = (() => {
     lua.global.set("circ", circ);
     lua.global.set("circf", circf);
     lua.global.set("text", drawText);
+    lua.global.set("cam", cam);
+    lua.global.set("drawImage", drawImageFn);
+    lua.global.set("drawImageRegion", drawImageRegionFn);
     const validKeys = {"up":1,"down":1,"left":1,"right":1,"a":1,"b":1,"start":1,"select":1};
     lua.global.set("_btn", (k) => {
       if (typeof k !== "string" || !validKeys[k]) throw new Error('btn() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
@@ -317,6 +409,15 @@ var Mono = (() => {
       if (bits !== 1 && bits !== 2 && bits !== 4) throw new Error('mode() invalid: ' + bits + '. Valid: 1, 2, 4');
       palette = buildPalette(bits);
       lua.global.set("COLORS", palette.length);
+    });
+
+    // loadImage(path) — load image, quantize to current palette, return ID
+    const gameBase = opts.game ? opts.game.replace(/[^/]*$/, "") : "";
+    lua.global.set("loadImage", (path) => {
+      const id = imageIdCounter++;
+      const url = path.startsWith("http") || path.startsWith("/") ? path : gameBase + path;
+      pendingLoads.push(loadImageAsync(url, id, palette));
+      return id;
     });
 
     // Lua wrappers (avoid Wasmoon false→nil issue)
@@ -383,6 +484,12 @@ end
       try { startFn(); } catch (e) { showError("_start: " + (e.message || e)); return; }
     }
 
+    // Wait for all deferred image loads (loadImage calls from _start)
+    if (pendingLoads.length > 0) {
+      try { await Promise.all(pendingLoads); } catch (e) { showError("Image load: " + (e.message || e)); return; }
+      pendingLoads = [];
+    }
+
     // Game loop
     const updateFn = lua.global.get("_update");
     const drawFn = lua.global.get("_draw");
@@ -415,6 +522,8 @@ end
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;
     frame = 0;
+    images = []; imageIdCounter = 0; pendingLoads = [];
+    camX = 0; camY = 0;
   };
 
   // Expose input for external control (playground gamepad)
