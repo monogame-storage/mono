@@ -220,9 +220,21 @@ var Mono = (() => {
 
   // --- Boot ---
   const API = {};
+  let _loopId = null;
+  let _lua = null;
 
   API.boot = async (canvasId, opts) => {
-    if (!opts || !opts.game) return;
+    if (!opts || (!opts.game && !opts.source)) return;
+
+    // Stop previous run if any
+    if (_loopId) { clearInterval(_loopId); _loopId = null; }
+    if (_lua) { _lua.global.close(); _lua = null; }
+
+    // Clear previous error overlay
+    if (canvas && canvas.parentElement) {
+      const ov = canvas.parentElement.querySelector(".mono-error-overlay");
+      if (ov) ov.style.display = "none";
+    }
 
     const bits = opts.colors || 1;
     if (bits !== 1 && bits !== 2 && bits !== 4) throw new Error("colors must be 1, 2, or 4");
@@ -238,36 +250,41 @@ var Mono = (() => {
     buf32 = new Uint32Array(imgData.data.buffer);
     colorBuf = new Uint8Array(W * H);
 
-    // Fit canvas to window
-    function fitCanvas() {
-      const maxW = window.innerWidth - 40;
-      const maxH = window.innerHeight - 60;
-      const s = Math.min(maxW / W, maxH / H);
-      canvas.style.width = (W * s) + "px";
-      canvas.style.height = (H * s) + "px";
+    // Fit canvas to window (skip if opts.noAutoFit)
+    if (!opts.noAutoFit) {
+      function fitCanvas() {
+        const maxW = window.innerWidth - 40;
+        const maxH = window.innerHeight - 60;
+        const s = Math.min(maxW / W, maxH / H);
+        canvas.style.width = (W * s) + "px";
+        canvas.style.height = (H * s) + "px";
+      }
+      fitCanvas();
+      window.addEventListener("resize", fitCanvas);
     }
-    fitCanvas();
-    window.addEventListener("resize", fitCanvas);
 
-    // Input handling
-    document.addEventListener("keydown", e => {
-      if (e.key === "1") { debugMode = !debugMode; return; }
-      if (e.key === " ") { paused = !paused; e.preventDefault(); return; }
-      const k = keyMap[e.key];
-      if (k) { keys[k] = true; e.preventDefault(); }
-    });
-    document.addEventListener("keyup", e => {
-      const k = keyMap[e.key];
-      if (k) { keys[k] = false; e.preventDefault(); }
-    });
+    // Input handling (skip if external controller manages input)
+    if (!opts.externalInput) {
+      document.addEventListener("keydown", e => {
+        if (e.key === "1") { debugMode = !debugMode; return; }
+        if (e.key === " ") { paused = !paused; e.preventDefault(); return; }
+        const k = keyMap[e.key];
+        if (k) { keys[k] = true; e.preventDefault(); }
+      });
+      document.addEventListener("keyup", e => {
+        const k = keyMap[e.key];
+        if (k) { keys[k] = false; e.preventDefault(); }
+      });
+    }
 
-    // Fetch game source
-    const gameSrc = await fetch(opts.game).then(r => r.text());
+    // Get game source (fetch URL or use inline source)
+    const gameSrc = opts.source || await fetch(opts.game).then(r => r.text());
 
     // Load Wasmoon
     const { LuaFactory } = await import("https://cdn.jsdelivr.net/npm/wasmoon@1.16.0/+esm");
     const factory = new LuaFactory();
     const lua = await factory.createEngine();
+    _lua = lua;
 
     // Expose globals to Lua
     lua.global.set("SCREEN_W", W);
@@ -282,8 +299,15 @@ var Mono = (() => {
     lua.global.set("circ", circ);
     lua.global.set("circf", circf);
     lua.global.set("text", drawText);
-    lua.global.set("_btn", (k) => keys[k] ? 1 : 0);
-    lua.global.set("_btnp", (k) => (keys[k] && !keysPrev[k]) ? 1 : 0);
+    const validKeys = {"up":1,"down":1,"left":1,"right":1,"a":1,"b":1,"start":1,"select":1};
+    lua.global.set("_btn", (k) => {
+      if (typeof k !== "string" || !validKeys[k]) throw new Error('btn() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
+      return keys[k] ? 1 : 0;
+    });
+    lua.global.set("_btnp", (k) => {
+      if (typeof k !== "string" || !validKeys[k]) throw new Error('btnp() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
+      return (keys[k] && !keysPrev[k]) ? 1 : 0;
+    });
     lua.global.set("vrow", vrow);
     lua.global.set("vdump", vdump);
     lua.global.set("print", (...args) => console.log("[Lua]", ...args));
@@ -298,17 +322,50 @@ function btnp(k)
 end
     `);
 
+    // Error overlay — HTML layer, not constrained by engine
+    function showError(msg) {
+      console.error("Mono:", msg);
+      const parent = canvas.parentElement;
+      let overlay = parent.querySelector(".mono-error-overlay");
+      if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.className = "mono-error-overlay";
+        Object.assign(overlay.style, {
+          position: "absolute", inset: "0",
+          background: "rgba(0,0,0,0.55)",
+          color: "#ff6b6b", padding: "16px",
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: "12px", lineHeight: "1.6",
+          overflow: "auto", zIndex: "100",
+          whiteSpace: "pre-wrap", wordBreak: "break-word"
+        });
+        if (getComputedStyle(parent).position === "static") parent.style.position = "relative";
+        parent.appendChild(overlay);
+      }
+      const clean = String(msg).replace(/^.*Error:\s*/, "");
+      overlay.innerHTML = '<span style="color:#ff4444;font-size:14px;font-weight:bold">! ERROR</span>\n\n' + clean.replace(/</g, "&lt;");
+      overlay.style.display = "block";
+    }
+    function clearError() {
+      const overlay = canvas.parentElement.querySelector(".mono-error-overlay");
+      if (overlay) overlay.style.display = "none";
+    }
+    API._showError = showError;
+    API._clearError = clearError;
+    clearError();
+
     // Run game script
     try {
       await lua.doString(gameSrc);
     } catch (e) {
-      console.error("Mono: Lua error:", e);
+      showError(e.message || e);
+      return;
     }
 
     // Call _init if defined
     const initFn = lua.global.get("_init");
     if (initFn) {
-      try { initFn(); } catch (e) { console.error("Mono: _init error:", e); }
+      try { initFn(); } catch (e) { showError("_init: " + (e.message || e)); return; }
     }
 
     // Expose internals for plugins
@@ -317,9 +374,11 @@ end
     // Game loop
     const updateFn = lua.global.get("_update");
     const drawFn = lua.global.get("_draw");
-    setInterval(() => {
-      if (!paused && updateFn) try { updateFn(); } catch (e) { console.error("Mono: _update error:", e); }
-      if (drawFn) try { drawFn(); } catch (e) { console.error("Mono: _draw error:", e); }
+    function stopWithError(msg) { showError(msg); clearInterval(_loopId); _loopId = null; }
+    API._showError = (msg) => { stopWithError(msg); };
+    _loopId = setInterval(() => {
+      if (!paused && updateFn) try { updateFn(); } catch (e) { stopWithError("_update: " + (e.message || e)); return; }
+      if (drawFn) try { drawFn(); } catch (e) { stopWithError("_draw: " + (e.message || e)); return; }
       if (paused) {
         const maxC = palette.length - 1;
         const label = "PAUSED";
@@ -338,6 +397,17 @@ end
       inputUpdate();
     }, FRAME_MS);
   };
+
+  API.stop = () => {
+    if (_loopId) { clearInterval(_loopId); _loopId = null; }
+    if (_lua) { _lua.global.close(); _lua = null; }
+    paused = false;
+    frame = 0;
+  };
+
+  // Expose input for external control (playground gamepad)
+  API.setKey = (name, pressed) => { keys[name] = pressed; };
+  API.keyMap = keyMap;
 
   API.vrow = vrow;
   API.vdump = vdump;

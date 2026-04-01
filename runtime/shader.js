@@ -138,12 +138,14 @@ void main() {
 
     glCanvas = document.createElement("canvas");
     glCanvas.style.cssText = canvas.style.cssText;
+    glCanvas.className = canvas.className;
     canvas.parentNode.insertBefore(glCanvas, canvas.nextSibling);
     canvas.style.display = "none";
 
     function syncSize() {
-      const dw = parseInt(canvas.style.width) || W;
-      const dh = parseInt(canvas.style.height) || H;
+      const hasInlineSize = canvas.style.width && canvas.style.height;
+      const dw = hasInlineSize ? parseInt(canvas.style.width) : (glCanvas.offsetWidth || W);
+      const dh = hasInlineSize ? parseInt(canvas.style.height) : (glCanvas.offsetHeight || H);
       const dpr = window.devicePixelRatio || 1;
       const rw = Math.round(dw * dpr);
       const rh = Math.round(dh * dpr);
@@ -157,8 +159,10 @@ void main() {
           resizeFboTextures(rw, rh);
         }
       }
-      glCanvas.style.width = dw + "px";
-      glCanvas.style.height = dh + "px";
+      if (hasInlineSize) {
+        glCanvas.style.width = dw + "px";
+        glCanvas.style.height = dh + "px";
+      }
     }
     syncSize();
     new MutationObserver(syncSize).observe(canvas, { attributes: true, attributeFilter: ["style"] });
