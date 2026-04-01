@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mono — Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Oswald:wght@600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a1a;
+    color: #e8e8e8;
+    font-family: 'JetBrains Mono', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Toolbar */
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    background: #111;
+    height: 44px;
+    flex-shrink: 0;
+  }
+  #back-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: #2d2d2d;
+    border: none;
+    border-radius: 5px;
+    color: #777;
+    padding: 0 10px;
+    height: 28px;
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  #back-btn:hover { background: #3d3d3d; color: #e8e8e8; }
+  .toolbar-sep {
+    width: 1px;
+    height: 20px;
+    background: #3d3d3d;
+  }
+  .toolbar-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: #777;
+    letter-spacing: 1px;
+  }
+
+  /* Workspace */
+  #workspace {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    gap: 1px;
+    background: #1a1a1a;
+  }
+
+  /* Left Column */
+  #left-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  /* Code Editor */
+  #code-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+    min-height: 0;
+  }
+  #editor-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: #1e1e1e;
+  }
+  .cm-editor { height: 100%; font-size: 13px; }
+  .cm-editor .cm-scroller {
+    overflow: auto;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* AI Prompt */
+  #ai-panel {
+    height: 200px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+  }
+  #ai-tabs {
+    display: flex;
+    align-items: flex-end;
+    background: #2d2d2d;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .ai-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 12px;
+    height: 30px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #ff6b35;
+    background: #212121;
+    border-radius: 4px 4px 0 0;
+  }
+  .ai-model-tag {
+    margin-left: auto;
+    background: #1a1a1a;
+    color: #777;
+    font-size: 8px;
+    font-weight: 600;
+    padding: 0 6px;
+    height: 22px;
+    line-height: 22px;
+    border-radius: 3px;
+    margin-right: 8px;
+  }
+  #ai-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    min-height: 0;
+  }
+  #prompt-box {
+    flex: 1;
+    background: #1e1e1e;
+    border: none;
+    border-radius: 6px;
+    color: #e8e8e8;
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    resize: none;
+    outline: none;
+  }
+  #prompt-box::placeholder { color: #3d3d3d; font-size: 9px; }
+  #ai-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .context-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #2d2d2d;
+    padding: 0 7px;
+    height: 22px;
+    border-radius: 4px;
+    font-size: 9px;
+    color: #e8e8e8;
+  }
+  .context-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-teal { background: #00d4aa; }
+  .dot-orange { background: #ff6b35; }
+  #ai-actions .spacer { flex: 1; }
+  #btn-generate {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: #ff6b35;
+    border: none;
+    border-radius: 6px;
+    color: #0d0d0d;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 14px;
+    height: 28px;
+    cursor: pointer;
+  }
+  #btn-generate:hover { background: #ff8555; }
+
+  /* Right Column */
+  #right-col {
+    width: 360px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: #1a1a1a;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Panel tabs common */
+  .panel-tabs {
+    display: flex;
+    align-items: flex-end;
+    background: #2d2d2d;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .panel-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 12px;
+    height: 30px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    background: #212121;
+    border-radius: 4px 4px 0 0;
+  }
+  .panel-tab-inactive {
+    height: 28px;
+    color: #777;
+    font-weight: 400;
+    background: #2d2d2d;
+  }
+
+  /* Engine */
+  #engine-panel {
+    height: 96px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+  }
+  #engine-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 14px;
+  }
+  #engine-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .en-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    padding: 0 14px;
+    height: 30px;
+    cursor: pointer;
+  }
+  .en-btn:hover { filter: brightness(1.2); }
+  #btn-start { background: #4a8a4a; }
+  #btn-stop { background: #8a4a4a; }
+  #btn-pause, #btn-step { background: #2d2d2d; }
+  .en-sep { width: 1px; height: 20px; background: #3d3d3d; }
+  #engine-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background: #777;
+  }
+  .status-dot.running { background: #00d4aa; }
+  #status-text { color: #777; }
+  #status-text.running { color: #00d4aa; }
+  .status-sep { width: 1px; height: 12px; background: #3d3d3d; }
+  #status-fps, #status-frame { color: #777; }
+
+  /* Console Screen */
+  #screen-panel {
+    flex: 1;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+  }
+  #screen-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0a0a0a;
+    gap: 4px;
+    padding: 8px;
+    outline: none;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #screen-body:focus {
+    box-shadow: inset 0 0 0 1px #00d4aa44;
+  }
+  canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    aspect-ratio: 320 / 288;
+    object-fit: contain;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    border: 1px solid #3d3d3d;
+    background: #000;
+  }
+  #screen-label {
+    font-size: 8px;
+    color: #3d3d3d;
+  }
+
+  /* Console Gamepad */
+  #gamepad-panel {
+    height: 150px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+  }
+  #gamepad-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 24px;
+  }
+
+  /* D-pad */
+  .dpad {
+    width: 110px;
+    height: 110px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .dpad-btn {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    background: #2d2d2d;
+    border: none;
+    border-radius: 4px;
+    color: #999;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dpad-btn:active, .dpad-btn.pressed { background: #555; color: #fff; }
+  .dpad-up    { left: 37px; top: 0; }
+  .dpad-down  { left: 37px; top: 74px; }
+  .dpad-left  { left: 0; top: 37px; }
+  .dpad-right { left: 74px; top: 37px; }
+  .dpad-center {
+    position: absolute;
+    left: 37px; top: 37px;
+    width: 36px; height: 36px;
+    background: #2d2d2d;
+  }
+
+  /* Meta buttons */
+  .meta-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .meta-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2d2d2d;
+    border: none;
+    border-radius: 8px;
+    color: #777;
+    font-family: inherit;
+    font-size: 7px;
+    font-weight: 600;
+    width: 50px;
+    height: 16px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .meta-btn:active, .meta-btn.pressed { background: #555; color: #fff; }
+
+  /* AB buttons */
+  .ab-area {
+    width: 110px;
+    height: 90px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .ab-btn {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #e05555;
+    border: none;
+    color: #fff;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ab-btn:active, .ab-btn.pressed { background: #ff7070; }
+  .btn-b { left: 0; top: 40px; }
+  .btn-a { left: 60px; top: 10px; }
+
+  /* Console Accel */
+  #accel-panel {
+    height: 120px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+  }
+  #accel-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 8px 16px;
+  }
+  .tilt-viz {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #2d2d2d;
+    border: 1px solid #3d3d3d;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .tilt-cross-h, .tilt-cross-v {
+    position: absolute;
+    background: #3d3d3d;
+  }
+  .tilt-cross-h { width: 100%; height: 1px; top: 50%; }
+  .tilt-cross-v { height: 100%; width: 1px; left: 50%; }
+  .tilt-dot {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ff6b35;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .accel-data {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+  }
+  .accel-data .label { font-size: 9px; color: #00d4aa; margin-top: 4px; }
+
+  /* Console Log */
+  #log-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #212121;
+    min-height: 60px;
+    overflow: hidden;
+    resize: both;
+  }
+  #log-body {
+    flex: 1;
+    overflow: auto;
+    padding: 8px 12px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #aaa;
+  }
+  #log-body .log-line { white-space: pre-wrap; word-break: break-all; }
+  #log-body .log-error { color: #e66; }
+  #log-body .log-info { color: #777; }
+  .log-tabs-extra {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    margin-right: 8px;
+  }
+  .log-clear {
+    background: none;
+    border: none;
+    color: #777;
+    font-family: inherit;
+    font-size: 9px;
+    cursor: pointer;
+  }
+  .log-clear:hover { color: #e8e8e8; }
+</style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <a id="back-btn" href="/">&#8592;</a>
+  <div class="toolbar-sep"></div>
+  <span class="toolbar-title">PLAYGROUND</span>
+</div>
+
+<!-- Workspace -->
+<div id="workspace">
+  <!-- Left Column -->
+  <div id="left-col">
+    <!-- Code Editor (no tabs) -->
+    <div id="code-panel">
+      <div id="editor-wrap"></div>
+    </div>
+
+    <!-- AI Prompt -->
+    <div id="ai-panel">
+      <div id="ai-tabs">
+        <div class="ai-tab">&#10024; ai_prompt</div>
+        <div style="flex:1"></div>
+        <div class="ai-model-tag">claude-sonnet-4-6</div>
+      </div>
+      <div id="ai-body">
+        <textarea id="prompt-box" placeholder="// describe your game in natural language"></textarea>
+        <div id="ai-actions">
+          <div class="context-chip"><span class="dot dot-teal"></span> API.md</div>
+          <div class="context-chip"><span class="dot dot-orange"></span> AI-PITFALLS.md</div>
+          <div class="spacer"></div>
+          <button id="btn-generate">&#10024; Generate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column -->
+  <div id="right-col">
+    <!-- Engine -->
+    <div id="engine-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab">&#9881; engine</div>
+      </div>
+      <div id="engine-body">
+        <div id="engine-btns">
+          <button class="en-btn" id="btn-start">&#9654; Start</button>
+          <button class="en-btn" id="btn-stop">&#9632; Stop</button>
+          <div class="en-sep"></div>
+          <button class="en-btn" id="btn-pause">&#10074;&#10074; Pause</button>
+          <button class="en-btn" id="btn-step">&#9654;&#10074; Step</button>
+        </div>
+        <div id="engine-status">
+          <div class="status-dot" id="status-dot"></div>
+          <span id="status-text">stopped</span>
+          <div class="status-sep"></div>
+          <span id="status-fps">-- fps</span>
+          <div class="status-sep"></div>
+          <span id="status-frame">frame: 0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console Screen -->
+    <div id="screen-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab">&#9635; console.screen</div>
+      </div>
+      <div id="screen-body" tabindex="0">
+        <canvas id="screen"></canvas>
+        <span id="screen-label">160x144 // 2x</span>
+      </div>
+    </div>
+
+    <!-- Console Gamepad -->
+    <div id="gamepad-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab">&#127918; console.gamepad</div>
+      </div>
+      <div id="gamepad-body">
+        <div class="dpad">
+          <button class="dpad-btn dpad-up" data-key="ArrowUp">&#8743;</button>
+          <button class="dpad-btn dpad-down" data-key="ArrowDown">&#8744;</button>
+          <button class="dpad-btn dpad-left" data-key="ArrowLeft">&#60;</button>
+          <button class="dpad-btn dpad-right" data-key="ArrowRight">&#62;</button>
+          <div class="dpad-center"></div>
+        </div>
+        <div class="meta-btns">
+          <button class="meta-btn" data-key=" ">SEL</button>
+          <button class="meta-btn" data-key="Enter">START</button>
+        </div>
+        <div class="ab-area">
+          <button class="ab-btn btn-b" data-key="x">B</button>
+          <button class="ab-btn btn-a" data-key="z">A</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console Accel -->
+    <div id="accel-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab">&#128241; console.accel</div>
+      </div>
+      <div id="accel-body">
+        <div class="tilt-viz">
+          <div class="tilt-cross-h"></div>
+          <div class="tilt-cross-v"></div>
+          <div class="tilt-dot" id="tilt-dot"></div>
+        </div>
+        <div class="accel-data">
+          <span id="accel-x">x:  0.00</span>
+          <span id="accel-y">y:  0.00</span>
+          <span id="accel-z">z:  0.00</span>
+          <span class="label" id="accel-status">tilt: disabled</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console Log -->
+    <div id="log-panel">
+      <div class="panel-tabs">
+        <div class="panel-tab">&#10095;_ console.log</div>
+        <div class="log-tabs-extra">
+          <button class="log-clear" id="btn-clear">clear</button>
+        </div>
+      </div>
+      <div id="log-body"></div>
+    </div>
+  </div>
+</div>
+
+<script src="../runtime/engine.js?v=14"></script>
+<script src="../runtime/shader.js?v=14"></script>
+<script src="../runtime/shaders/tint.js?v=14"></script>
+<script src="../runtime/shaders/scanlines.js?v=14"></script>
+<script src="../runtime/shaders/lcd3d.js?v=14"></script>
+<script src="../runtime/shaders/crt.js?v=14"></script>
+
+<script type="module">
+import {EditorView, basicSetup} from "https://esm.sh/codemirror@6.0.2?bundle-deps";
+
+const darkTheme = EditorView.theme({
+  "&": { backgroundColor: "#1e1e1e", color: "#d4d4d4" },
+  ".cm-content": { caretColor: "#fff" },
+  ".cm-gutters": { backgroundColor: "#1e1e1e", color: "#555", borderRight: "1px solid #333" },
+  ".cm-activeLineGutter": { backgroundColor: "#2a2a2a" },
+  ".cm-activeLine": { backgroundColor: "#ffffff08" },
+  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": { backgroundColor: "#264f78" },
+  ".cm-cursor": { borderLeftColor: "#fff" }
+}, {dark: true});
+
+const DEFAULT_CODE = `-- Mono Playground
+-- 160x144, 16 grayscale, Lua 5.4
+
+local px, py = 80, 72
+local spd = 2
+local t = 0
+local trail = {}
+
+function _update()
+  t = t + 1
+
+  -- arrow keys move the dot
+  if btn("left") then px = px - spd end
+  if btn("right") then px = px + spd end
+  if btn("up") then py = py - spd end
+  if btn("down") then py = py + spd end
+
+  -- wrap around screen
+  if px < 0 then px = 160 end
+  if px > 160 then px = 0 end
+  if py < 0 then py = 144 end
+  if py > 144 then py = 0 end
+
+  -- store trail
+  table.insert(trail, {x = px, y = py, age = 0})
+  if #trail > 40 then table.remove(trail, 1) end
+  for i = 1, #trail do
+    trail[i].age = trail[i].age + 1
+  end
+end
+
+function _draw()
+  cls(0)
+
+  -- draw trail
+  for i = 1, #trail do
+    local p = trail[i]
+    local c = math.max(1, 8 - math.floor(p.age / 5))
+    circf(p.x, p.y, 3, c)
+  end
+
+  -- draw player
+  circf(px, py, 5, 15)
+  circ(px, py, 5, 10)
+
+  -- bouncing bg circles
+  for i = 1, 3 do
+    local bx = 80 + math.sin(t * 0.02 + i * 2) * 60
+    local by = 72 + math.cos(t * 0.03 + i) * 50
+    circ(bx, by, 10 + i * 5, 3)
+  end
+
+  -- HUD
+  text("ARROWS TO MOVE", 30, 2, 10)
+  text("x:" .. math.floor(px) .. " y:" .. math.floor(py), 4, 136, 7)
+end
+`;
+
+// Editor
+const editor = new EditorView({
+  doc: DEFAULT_CODE,
+  extensions: [basicSetup, darkTheme],
+  parent: document.getElementById("editor-wrap")
+});
+
+// Console log
+const logBody = document.getElementById("log-body");
+
+function logToConsole(msg, cls = "") {
+  const el = document.createElement("div");
+  el.className = "log-line " + cls;
+  el.textContent = msg;
+  logBody.appendChild(el);
+  logBody.scrollTop = logBody.scrollHeight;
+}
+
+document.getElementById("btn-clear").addEventListener("click", () => {
+  logBody.innerHTML = "";
+});
+
+// Hook console for Lua output
+const _origLog = console.log;
+const _origErr = console.error;
+console.log = (...args) => {
+  const msg = args.join(" ");
+  if (msg.startsWith("[Lua]")) logToConsole(msg.replace("[Lua] ", ""));
+  _origLog.apply(console, args);
+};
+console.error = (...args) => {
+  logToConsole(args.join(" "), "log-error");
+  _origErr.apply(console, args);
+};
+
+// Engine controls
+let running = false;
+let frameCounter = 0;
+let fpsInterval = null;
+
+function updateStatus(isRunning) {
+  running = isRunning;
+  const dot = document.getElementById("status-dot");
+  const text = document.getElementById("status-text");
+  dot.className = "status-dot" + (isRunning ? " running" : "");
+  text.className = isRunning ? "running" : "";
+  text.textContent = isRunning ? "running" : "stopped";
+  document.getElementById("status-fps").textContent = isRunning ? "30 fps" : "-- fps";
+}
+
+function updateFrame() {
+  if (running) {
+    const f = Mono._getFrame();
+    document.getElementById("status-frame").textContent = "frame: " + f;
+  }
+}
+
+async function start() {
+  if (running) Mono.stop();
+  logBody.innerHTML = "";
+  logToConsole("Booting...", "log-info");
+
+  const source = editor.state.doc.toString();
+  try {
+    await Mono.boot("screen", { source, colors: 4, noAutoFit: true, externalInput: true });
+    updateStatus(true);
+    logToConsole("Running.", "log-info");
+    document.getElementById("screen-body").focus();
+
+    // Default shader chain
+    Mono.shader.enable("tint");
+    Mono.shader.enable("scanlines");
+    Mono.shader.enable("lcd3d");
+    Mono.shader.enable("crt");
+    Mono.shader.order(["tint", "scanlines", "lcd3d", "crt"]);
+
+    if (fpsInterval) clearInterval(fpsInterval);
+    fpsInterval = setInterval(updateFrame, 200);
+  } catch (e) {
+    logToConsole("Boot error: " + e.message, "log-error");
+    updateStatus(false);
+  }
+}
+
+function stop() {
+  if (running) {
+    Mono.stop();
+    updateStatus(false);
+    if (fpsInterval) { clearInterval(fpsInterval); fpsInterval = null; }
+    logToConsole("Stopped.", "log-info");
+  }
+}
+
+document.getElementById("btn-start").addEventListener("click", start);
+document.getElementById("btn-stop").addEventListener("click", stop);
+document.getElementById("btn-pause").addEventListener("click", () => {
+  if (running) {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent("keyup", { key: " ", bubbles: true }));
+  }
+});
+
+// Cmd/Ctrl+Enter to run (global)
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    start();
+  }
+});
+
+// Screen widget: keyboard → engine
+const screenBody = document.getElementById("screen-body");
+screenBody.addEventListener("keydown", (e) => {
+  if (!running || !Mono.setKey) return;
+  const k = Mono.keyMap ? Mono.keyMap[e.key] : null;
+  if (k) {
+    Mono.setKey(k, true);
+    e.preventDefault();
+  } else if (e.key.length === 1) {
+    console.warn('[Mono] Valid keys: arrows, z(A), x(B), Enter(Start), Space(Select)');
+  }
+});
+screenBody.addEventListener("keyup", (e) => {
+  if (!running || !Mono.setKey) return;
+  const k = Mono.keyMap ? Mono.keyMap[e.key] : null;
+  if (k) {
+    Mono.setKey(k, false);
+    e.preventDefault();
+  }
+});
+
+// Auto-focus screen on start
+const _origStart = start;
+
+// Gamepad buttons → engine
+document.querySelectorAll("[data-key]").forEach(btn => {
+  const key = btn.dataset.key;
+  const getName = () => (Mono.keyMap && Mono.keyMap[key]) || key;
+
+  function down(e) {
+    e.preventDefault();
+    if (Mono.setKey) Mono.setKey(getName(), true);
+    btn.classList.add("pressed");
+  }
+  function up(e) {
+    if (e) e.preventDefault();
+    if (Mono.setKey) Mono.setKey(getName(), false);
+    btn.classList.remove("pressed");
+  }
+
+  btn.addEventListener("mousedown", down);
+  btn.addEventListener("mouseup", up);
+  btn.addEventListener("mouseleave", up);
+  btn.addEventListener("touchstart", down);
+  btn.addEventListener("touchend", up);
+  btn.addEventListener("touchcancel", up);
+});
+
+// Accelerometer
+if (window.DeviceMotionEvent) {
+  window.addEventListener("devicemotion", (e) => {
+    const a = e.accelerationIncludingGravity;
+    if (!a) return;
+    document.getElementById("accel-x").textContent = "x: " + (a.x || 0).toFixed(2);
+    document.getElementById("accel-y").textContent = "y: " + (a.y || 0).toFixed(2);
+    document.getElementById("accel-z").textContent = "z: " + (a.z || 0).toFixed(2);
+    document.getElementById("accel-status").textContent = "tilt: enabled";
+
+    // Move tilt dot
+    const dot = document.getElementById("tilt-dot");
+    const nx = Math.max(-1, Math.min(1, (a.x || 0) / 9.8));
+    const ny = Math.max(-1, Math.min(1, (a.y || 0) / 9.8));
+    dot.style.left = (50 + nx * 40) + "%";
+    dot.style.top = (50 - ny * 40) + "%";
+  });
+}
+</script>
+</body>
+</html>
