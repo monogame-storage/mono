@@ -167,6 +167,16 @@ end
 
 **원리**: 게임 내부 변수를 안 읽고 순수하게 화면(VRAM)만 보고 조작 → 어떤 게임이든 범용 적용 가능.
 
+### 제한사항
+
+`mono-test.js`는 engine.js의 그래픽 프리미티브만 구현합니다. 다음 API는 미지원:
+- ECS: `spawn()`, `kill()`, `pollCollision()`, `defVisual()`
+- 스프라이트: `defSprite()`, `spr()`
+- 타일맵: `mget()`, `mset()`, `map()`
+- 사운드: `sfx()`, `bgm()`
+
+이들 API를 사용하는 게임은 브라우저(Preview Tools)로 검증해야 합니다.
+
 ## 방법 2: Preview Tools (브라우저 기반)
 
 Claude Preview MCP를 통해 실제 브라우저에서 게임을 실행하고 확인.

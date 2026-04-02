@@ -55,6 +55,7 @@ function _update()
        player.y < ob.y + ob.h and player.y + player.h > ob.y then
       game_over = true
       print("GAME OVER: " .. score)
+      break
     end
   end
 

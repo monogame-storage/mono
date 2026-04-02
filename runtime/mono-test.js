@@ -58,8 +58,6 @@ Options:
   process.exit(0);
 }
 
-const luaFile = args[0] === "--source" ? null : args[0];
-const inlineSource = getOpt("source", null);
 function getOpt(name, defaultVal) {
   const idx = args.indexOf("--" + name);
   if (idx === -1) return defaultVal;
@@ -67,6 +65,16 @@ function getOpt(name, defaultVal) {
   return true;
 }
 const hasFlag = (name) => args.includes("--" + name);
+
+const inlineSource = getOpt("source", null);
+// First non-flag argument is the lua file (skip if --source is used)
+const luaFile = (() => {
+  if (inlineSource) return null;
+  for (const a of args) {
+    if (!a.startsWith("--")) return a;
+  }
+  return null;
+})();
 
 const frameCount = parseInt(getOpt("frames", "0")) || 0;
 const colorBits = parseInt(getOpt("colors", "1")) || 1;
@@ -534,6 +542,10 @@ end
 
   if (botEnabled) {
     // Load bot script: --bot bot.lua (external file) or --bot (built-in tracker)
+    if (typeof botArg === "string" && !botArg.endsWith(".lua")) {
+      console.error(`Bot file must end with .lua: ${botArg}`);
+      process.exit(1);
+    }
     if (typeof botArg === "string" && botArg.endsWith(".lua")) {
       const botPath = path.resolve(botArg);
       if (!fs.existsSync(botPath)) {
