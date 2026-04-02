@@ -1137,6 +1137,11 @@ node mono-test.js main.lua --frames 10000 --until "WINNER" --quiet --runs 10
 
 # Reproducible test with fixed seed
 node mono-test.js main.lua --frames 1000 --seed 42 --console --quiet
+
+# Auto-play with VRAM bot (reads screen, controls P2)
+node mono-test.js main.lua --frames 10000 --until "WINNER" --bot --quiet
+# Custom bot script
+node mono-test.js main.lua --frames 10000 --until "WINNER" --bot bot.lua --quiet
 \`\`\`
 `;
 }

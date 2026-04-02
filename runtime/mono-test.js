@@ -527,51 +527,87 @@ end
   const updateFn = lua.global.get("_update");
   const drawFn = lua.global.get("_draw");
 
-  // --- VRAM bot: scan screen to find ball, auto-control P2 ---
-  const botEnabled = hasFlag("bot");
-  const botScanXMin = Math.floor(W * 0.3);  // scan right 70% of screen
-  const botScanXMax = W - 10;               // exclude paddle area
+  // --- Bot: Lua-scriptable auto-player ---
+  const botArg = getOpt("bot", null);
+  const botEnabled = botArg !== null;
+  let botFn = null;
 
-  function botScanBall() {
-    // Find brightest pixel cluster in scan area (= ball)
-    let bestY = -1, bestCount = 0;
-    for (let y = 4; y < H - 4; y++) {
-      let count = 0;
-      for (let x = botScanXMin; x < botScanXMax; x++) {
-        if (colorBuf[y * W + x] >= 12) count++;  // bright pixels
+  if (botEnabled) {
+    // Load bot script: --bot bot.lua (external file) or --bot (built-in tracker)
+    if (typeof botArg === "string" && botArg.endsWith(".lua")) {
+      const botPath = path.resolve(botArg);
+      if (!fs.existsSync(botPath)) {
+        console.error(`Bot file not found: ${botPath}`);
+        process.exit(1);
       }
-      if (count > bestCount) {
-        bestCount = count;
-        bestY = y;
+      const botSrc = fs.readFileSync(botPath, "utf8");
+      try { await lua.doString(botSrc); } catch (e) {
+        console.error("Bot script error:", e.message || e);
+        process.exit(1);
       }
+    } else {
+      // Built-in default bot: scan VRAM for brightest cluster, track it
+      await lua.doString(`
+function _bot()
+  -- find ball: brightest pixel cluster in middle 70% of screen
+  local best_y = -1
+  local best_count = 0
+  for y = 4, SCREEN_H - 5 do
+    local count = 0
+    for x = math.floor(SCREEN_W * 0.3), SCREEN_W - 11 do
+      if gpix(x, y) >= 12 then count = count + 1 end
+    end
+    if count > best_count then
+      best_count = count
+      best_y = y
+    end
+  end
+  -- find paddle: rightmost bright vertical bar
+  local pad_sum = 0
+  local pad_count = 0
+  for y = 0, SCREEN_H - 1 do
+    for x = SCREEN_W - 12, SCREEN_W - 3 do
+      if gpix(x, y) >= 12 then pad_sum = pad_sum + y; pad_count = pad_count + 1 end
+    end
+  end
+  local pad_y = pad_count > 0 and (pad_sum / pad_count) or (SCREEN_H / 2)
+  if best_y >= 0 then
+    if best_y < pad_y - 4 then return "up" end
+    if best_y > pad_y + 4 then return "down" end
+  end
+  return false
+end
+`);
     }
-    return bestY;
-  }
-
-  function botFindPaddle() {
-    // Find P2 paddle center (rightmost bright vertical bar)
-    let sumY = 0, count = 0;
-    for (let y = 0; y < H; y++) {
-      // scan rightmost ~12 pixels for paddle
-      for (let x = W - 12; x < W - 2; x++) {
-        if (colorBuf[y * W + x] >= 12) { sumY += y; count++; }
-      }
+    botFn = lua.global.get("_bot");
+    if (!botFn) {
+      console.error("Bot error: _bot() function not defined");
+      process.exit(1);
     }
-    return count > 0 ? sumY / count : H / 2;
   }
 
   for (let f = 1; f <= frameCount; f++) {
     applyInput(f);
 
-    // Bot: inject P2 input based on previous frame's VRAM
-    if (botEnabled && f > 1) {
-      const ballY = botScanBall();
-      const paddleY = botFindPaddle();
-      keys["up"] = false;
-      keys["down"] = false;
-      if (ballY >= 0) {
-        if (ballY < paddleY - 4) keys["up"] = true;
-        else if (ballY > paddleY + 4) keys["down"] = true;
+    // Bot: call _bot() after draw, inject result as input for next frame
+    if (botFn && f > 1) {
+      try {
+        const action = botFn();
+        keys["up"] = false;
+        keys["down"] = false;
+        keys["left"] = false;
+        keys["right"] = false;
+        keys["a"] = false;
+        keys["b"] = false;
+        if (typeof action === "string") {
+          // Single key or comma-separated: "up" or "up,a"
+          for (const k of action.split(",")) {
+            const key = k.trim();
+            if (key && validKeys[key]) keys[key] = true;
+          }
+        }
+      } catch (e) {
+        if (!quiet) console.error(`_bot error (frame ${f}):`, e.message || e);
       }
     }
 
