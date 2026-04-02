@@ -527,8 +527,54 @@ end
   const updateFn = lua.global.get("_update");
   const drawFn = lua.global.get("_draw");
 
+  // --- VRAM bot: scan screen to find ball, auto-control P2 ---
+  const botEnabled = hasFlag("bot");
+  const botScanXMin = Math.floor(W * 0.3);  // scan right 70% of screen
+  const botScanXMax = W - 10;               // exclude paddle area
+
+  function botScanBall() {
+    // Find brightest pixel cluster in scan area (= ball)
+    let bestY = -1, bestCount = 0;
+    for (let y = 4; y < H - 4; y++) {
+      let count = 0;
+      for (let x = botScanXMin; x < botScanXMax; x++) {
+        if (colorBuf[y * W + x] >= 12) count++;  // bright pixels
+      }
+      if (count > bestCount) {
+        bestCount = count;
+        bestY = y;
+      }
+    }
+    return bestY;
+  }
+
+  function botFindPaddle() {
+    // Find P2 paddle center (rightmost bright vertical bar)
+    let sumY = 0, count = 0;
+    for (let y = 0; y < H; y++) {
+      // scan rightmost ~12 pixels for paddle
+      for (let x = W - 12; x < W - 2; x++) {
+        if (colorBuf[y * W + x] >= 12) { sumY += y; count++; }
+      }
+    }
+    return count > 0 ? sumY / count : H / 2;
+  }
+
   for (let f = 1; f <= frameCount; f++) {
     applyInput(f);
+
+    // Bot: inject P2 input based on previous frame's VRAM
+    if (botEnabled && f > 1) {
+      const ballY = botScanBall();
+      const paddleY = botFindPaddle();
+      keys["up"] = false;
+      keys["down"] = false;
+      if (ballY >= 0) {
+        if (ballY < paddleY - 4) keys["up"] = true;
+        else if (ballY > paddleY + 4) keys["down"] = true;
+      }
+    }
+
     if (updateFn) {
       try { updateFn(); }
       catch (e) { console.error(`_update error (frame ${f}):`, e.message || e); hasError = true; break; }
