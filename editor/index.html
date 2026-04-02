@@ -1639,7 +1639,7 @@ function updateFrame() {
 async function start() {
   if (running) Mono.stop();
   saveCurrentFile();
-  logBody.innerHTML = "";
+  document.getElementById("log-body").innerHTML = "";
   logToConsole("Booting...", "log-info");
 
   // Save current and read main.lua
