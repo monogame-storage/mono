@@ -1001,6 +1001,24 @@ end
     } catch (e) { /* skip if permission denied */ }
   }
 
+  // Download mono-test.js from engine server if it doesn't exist
+  if (!files["mono-test.js"]) {
+    try {
+      const baseUrl = window.location.origin;
+      const resp = await fetch(baseUrl + "/runtime/mono-test.js");
+      if (resp.ok) {
+        const content = await resp.text();
+        const handle = await dirHandle.getFileHandle("mono-test.js", { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+        files["mono-test.js"] = { content, handle, modified: false };
+        renderFileTree();
+        logToConsole("Downloaded mono-test.js from engine server", "log-info");
+      }
+    } catch (e) { /* skip if fetch or permission fails */ }
+  }
+
   // Auto-open main.lua if exists
   const mainFile = Object.keys(files).find(f => f === "main.lua") ||
                    Object.keys(files).find(f => f.endsWith(".lua")) ||
@@ -1084,13 +1102,8 @@ The developer will review proposals and prioritize implementation.
 ## Headless Verification (mono-test.js)
 LLM can run and verify Lua code without a browser using \`mono-test.js\`.
 
-**Setup** (once per project):
-\`\`\`bash
-# Download mono-test.js into your project
-curl -o mono-test.js ${baseUrl}/runtime/mono-test.js
-# Install dependencies
-npm install wasmoon@1.16.0 pngjs@7
-\`\`\`
+**Setup**: \`mono-test.js\` is auto-downloaded when you open a folder in the editor.
+Dependencies: \`npm install wasmoon@1.16.0 pngjs@7\`
 
 **Usage**:
 \`\`\`bash
