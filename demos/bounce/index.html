@@ -120,7 +120,7 @@
     justify-content: center;
     -webkit-tap-highlight-color: transparent;
   }
-  .dpad-btn:active, .dpad-btn.pressed { background: #666; color: #fff; }
+  .dpad-btn.pressed { background: #666; color: #fff; }
   .dpad-up    { left: 43px; top: 0; }
   .dpad-down  { left: 43px; top: 86px; }
   .dpad-left  { left: 0; top: 43px; }
@@ -167,7 +167,7 @@
     <canvas id="screen"></canvas>
   </div>
 
-  <div id="gamepad">
+  <div id="gamepad" data-gamepad-mode="event">
     <!-- SELECT / START -->
     <div id="meta-row">
       <button class="meta-btn" data-key=" ">SELECT</button>
@@ -176,7 +176,7 @@
 
     <!-- D-pad + AB -->
     <div id="buttons-row">
-      <div id="dpad">
+      <div id="dpad" class="dpad">
         <button class="dpad-btn dpad-up" data-key="ArrowUp">∧</button>
         <button class="dpad-btn dpad-down" data-key="ArrowDown">∨</button>
         <button class="dpad-btn dpad-left" data-key="ArrowLeft">＜</button>
@@ -198,6 +198,7 @@
 <script src="../../runtime/shaders/scanlines.js"></script>
 <script src="../../runtime/shaders/lcd3d.js"></script>
 <script src="../../runtime/shaders/crt.js"></script>
+<script src="../../runtime/gamepad.js"></script>
 <script>
   Mono.boot("screen", { game: "game.lua", colors: 1 }).then(() => {
     Mono.shader.enable("tint");
@@ -207,19 +208,5 @@
     Mono.shader.order(["tint", "scanlines", "lcd3d", "crt"]);
   }).catch(e => console.error("Boot failed:", e));
 
-  // Gamepad: touch/mouse → keyboard events
-  function fireKey(key, type) {
-    document.dispatchEvent(new KeyboardEvent(type, { key: key, bubbles: true }));
-  }
-
-  document.querySelectorAll("[data-key]").forEach(btn => {
-    const key = btn.dataset.key;
-    btn.addEventListener("mousedown", e => { e.preventDefault(); fireKey(key, "keydown"); btn.classList.add("pressed"); });
-    btn.addEventListener("mouseup", e => { fireKey(key, "keyup"); btn.classList.remove("pressed"); });
-    btn.addEventListener("mouseleave", e => { fireKey(key, "keyup"); btn.classList.remove("pressed"); });
-    btn.addEventListener("touchstart", e => { e.preventDefault(); fireKey(key, "keydown"); btn.classList.add("pressed"); });
-    btn.addEventListener("touchend", e => { e.preventDefault(); fireKey(key, "keyup"); btn.classList.remove("pressed"); });
-    btn.addEventListener("touchcancel", e => { fireKey(key, "keyup"); btn.classList.remove("pressed"); });
-  });
 </script>
 </body></html>

@@ -589,7 +589,7 @@
     justify-content: center;
     -webkit-tap-highlight-color: transparent;
   }
-  .dpad-btn:active, .dpad-btn.pressed { background: #555; color: #fff; }
+  .dpad-btn.pressed { background: #555; color: #fff; }
   .dpad-up    { left: 37px; top: 0; }
   .dpad-down  { left: 37px; top: 74px; }
   .dpad-left  { left: 0; top: 37px; }
@@ -911,6 +911,10 @@
 <script src="../runtime/shaders/scanlines.js?v=1"></script>
 <script src="../runtime/shaders/lcd3d.js?v=1"></script>
 <script src="../runtime/shaders/crt.js?v=1"></script>
+<script src="../runtime/console-log.js"></script>
+<script src="../runtime/console-screen.js"></script>
+<script src="../runtime/console-accel.js"></script>
+<script src="../runtime/gamepad.js"></script>
 
 <script type="module">
 import {EditorView, basicSetup} from "https://esm.sh/codemirror@6.0.2?bundle-deps";
@@ -1611,42 +1615,6 @@ explorer.addEventListener("paste", async (e) => {
   if (collected.length) renderFileTree();
 });
 
-// ── Console log ──
-const logBody = document.getElementById("log-body");
-
-function logToConsole(msg, cls = "") {
-  const el = document.createElement("div");
-  el.className = "log-line " + cls;
-  el.textContent = msg;
-  logBody.appendChild(el);
-  logBody.scrollTop = logBody.scrollHeight;
-}
-
-document.getElementById("btn-clear").addEventListener("click", () => {
-  logBody.innerHTML = "";
-});
-document.getElementById("btn-copy-log").addEventListener("click", () => {
-  const text = [...logBody.querySelectorAll(".log-line")].map(el => el.textContent).join("\n");
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById("btn-copy-log");
-    btn.textContent = "copied!";
-    setTimeout(() => btn.textContent = "copy", 1500);
-  });
-});
-
-// Hook console for Lua output
-const _origLog = console.log;
-const _origErr = console.error;
-console.log = (...args) => {
-  const msg = args.join(" ");
-  if (msg.startsWith("[Lua]")) logToConsole(msg.replace("[Lua] ", ""));
-  _origLog.apply(console, args);
-};
-console.error = (...args) => {
-  logToConsole(args.join(" "), "log-error");
-  _origErr.apply(console, args);
-};
-
 // ── Engine controls ──
 let running = false;
 let fpsInterval = null;
@@ -1762,61 +1730,6 @@ screenBody.addEventListener("keyup", (e) => {
   }
 });
 
-// ── Gamepad buttons → engine ──
-document.querySelectorAll("[data-key]").forEach(btn => {
-  const key = btn.dataset.key;
-  const getName = () => (Mono.keyMap && Mono.keyMap[key]) || key;
-
-  function down(e) {
-    e.preventDefault();
-    if (Mono.setKey) Mono.setKey(getName(), true);
-    btn.classList.add("pressed");
-  }
-  function up(e) {
-    if (e) e.preventDefault();
-    if (Mono.setKey) Mono.setKey(getName(), false);
-    btn.classList.remove("pressed");
-  }
-
-  btn.addEventListener("mousedown", down);
-  btn.addEventListener("mouseup", up);
-  btn.addEventListener("mouseleave", up);
-  btn.addEventListener("touchstart", down);
-  btn.addEventListener("touchend", up);
-  btn.addEventListener("touchcancel", up);
-});
-
-// ── Shader toggle ──
-let shaderOn = true;
-document.getElementById("shader-toggle").addEventListener("click", () => {
-  shaderOn = !shaderOn;
-  const btn = document.getElementById("shader-toggle");
-  btn.classList.toggle("active", shaderOn);
-  if (Mono.shader) {
-    ["tint", "scanlines", "lcd3d", "crt"].forEach(s => {
-      if (shaderOn) Mono.shader.enable(s);
-      else Mono.shader.disable(s);
-    });
-  }
-});
-
-// ── Accelerometer ──
-if (window.DeviceMotionEvent) {
-  window.addEventListener("devicemotion", (e) => {
-    const a = e.accelerationIncludingGravity;
-    if (!a) return;
-    document.getElementById("accel-x").textContent = "x: " + (a.x || 0).toFixed(2);
-    document.getElementById("accel-y").textContent = "y: " + (a.y || 0).toFixed(2);
-    document.getElementById("accel-z").textContent = "z: " + (a.z || 0).toFixed(2);
-    document.getElementById("accel-status").textContent = "tilt: enabled";
-
-    const dot = document.getElementById("tilt-dot");
-    const nx = Math.max(-1, Math.min(1, (a.x || 0) / 9.8));
-    const ny = Math.max(-1, Math.min(1, (a.y || 0) / 9.8));
-    dot.style.left = (50 + nx * 40) + "%";
-    dot.style.top = (50 - ny * 40) + "%";
-  });
-}
 </script>
 </body>
 </html>
