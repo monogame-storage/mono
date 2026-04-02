@@ -4,12 +4,14 @@
  * Chain order: tint → lcd3d → crt (configurable)
  *
  * JS API:
- *   Mono.shader.enable("lcd3d", { opacity: 1.0 })
- *   Mono.shader.disable("lcd3d")
- *   Mono.shader.param("lcd3d", "opacity", 0.5)
- *   Mono.shader.tint([0.6, 0.9, 0.3])   // shortcut: enable tint
- *   Mono.shader.tint(null)               // shortcut: disable tint
- *   Mono.shader.order(["tint","lcd3d","crt"])  // set chain order
+ *   Mono.shader.enable("lcd3d")                     // register + enable
+ *   Mono.shader.enable("lcd3d", { depth: 0.5 })    // register + enable + params
+ *   Mono.shader.disable("lcd3d")                   // disable
+ *   Mono.shader.param("lcd3d", "depth", 0.5)
+ *   Mono.shader.tint([0.6, 0.9, 0.3])
+ *   Mono.shader.tint(null)
+ *   Mono.shader.order(["tint","lcd3d","crt"])
+ *   Mono.shader.preset()                          // standard set
  *   Mono.shader.register(name, glsl, defaults)
  *   Mono.shader.list()
  *   Mono.shader.current()
@@ -285,9 +287,6 @@ void main() {
     if (chain.indexOf(name) === -1) chain.push(name);
   };
 
-  // Keep for backwards compat
-  shader.registerEffect = shader.register;
-
   shader.enable = function (name, userParams) {
     if (!REGISTRY[name]) throw new Error("Unknown shader: " + name);
     initGL();
@@ -315,13 +314,15 @@ void main() {
       shader.disable("tint");
       return;
     }
-    initGL();
     shader.enable("tint", { tint: color });
   };
 
-  /** Convenience: enable a preset (backwards compat with old shader.use) */
-  shader.use = function (name, userParams) {
-    shader.enable(name, userParams);
+
+  /** Standard shader preset: tint (amber) → lcd */
+  shader.preset = function () {
+    shader.enable("tint", { tint: [1.0, 0.75, 0.3] });
+    shader.enable("lcd", { bg_color: [0, 0, 0], bg_color2: [0.19, 0.19, 0.19] });
+    shader.order(["tint", "lcd"]);
   };
 
   /** Disable all */

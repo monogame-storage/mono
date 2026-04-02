@@ -29,4 +29,4 @@ void main() {
     vec3 bg = mix(u_bg_color, u_bg_color2, clamp(t, 0.0, 1.0));
     gl_FragColor = vec4(bg, 1.0);
   }
-}`, { thickness: 0.20, pixel_size: 1.0, bg_color: [0, 0, 0], bg_color2: [0, 0, 0], bg_dir: 0.0 });
+}`, { thickness: 0.20, pixel_size: 1.0, bg_color: [0, 0, 0], bg_color2: [0.19, 0.19, 0.19], bg_dir: 0.0});

@@ -6,6 +6,7 @@
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="stylesheet" href="../../runtime/mono.css">
 <style>
+  body { height: auto; overflow: auto; }
   #controls {
     max-width: 640px;
     margin: 12px auto 0;
@@ -273,12 +274,14 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
   }
 
   // --- Add shader row ---
-  function addShaderRow(name) {
+  function addShaderRow(name, enabled) {
+    if (enabled === undefined) enabled = true;
     if (uiChain.indexOf(name) !== -1) return; // already in chain
 
     uiChain.push(name);
     syncChain();
     Mono.shader.enable(name);
+    if (!enabled) Mono.shader.disable(name);
 
     const row = document.createElement("div");
     row.className = "shader-row";
@@ -311,8 +314,9 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
     });
 
     const toggleBtn = document.createElement("button");
-    toggleBtn.className = "btn-toggle on";
-    toggleBtn.textContent = "on";
+    toggleBtn.className = enabled ? "btn-toggle on" : "btn-toggle off";
+    toggleBtn.textContent = enabled ? "on" : "off";
+    if (!enabled) row.classList.add("disabled");
     toggleBtn.addEventListener("click", () => {
       const isOn = toggleBtn.classList.contains("on");
       if (isOn) {
@@ -400,9 +404,10 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
   applyScale();
 
   addShaderRow("tint");
-  addShaderRow("scanlines");
-  addShaderRow("lcd3d");
-  addShaderRow("crt");
+  addShaderRow("scanlines", false);
+  addShaderRow("lcd");
+  addShaderRow("lcd3d", false);
+  addShaderRow("crt", false);
 
   updateInfo();
   window.addEventListener("resize", updateInfo);
