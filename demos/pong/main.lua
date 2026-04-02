@@ -25,12 +25,14 @@ local function reset_ball(dir)
   }
 end
 
+local center_ob  -- circle obstacle in the center
+
 local function init_obstacles()
   obstacles = {
     { x = 76, y = 30, w = 8, h = 4 },
     { x = 76, y = 110, w = 8, h = 4 },
-    { x = 76, y = 68, w = 8, h = 8 },
   }
+  center_ob = { cx = 80, cy = 72, r = 8 }
 end
 
 function _init()
@@ -129,9 +131,8 @@ function _update()
   if ball_rect_collide(ball.x, ball.y, BS, p1.x, p1.y, PW, PH) then
     ball.x = p1.x + PW + BS
     ball.dx = SPEED
-    -- angle based on hit position
     local hit = (ball.y - (p1.y + PH / 2)) / (PH / 2)
-    ball.dy = hit * 2.5
+    ball.dy = hit * 3.0
   end
 
   -- paddle collision (right)
@@ -139,16 +140,14 @@ function _update()
     ball.x = p2.x - BS
     ball.dx = -SPEED
     local hit = (ball.y - (p2.y + PH / 2)) / (PH / 2)
-    ball.dy = hit * 2.5
+    ball.dy = hit * 3.0
   end
 
-  -- obstacle collision
+  -- rect obstacle collision
   for _, ob in ipairs(obstacles) do
     if ball_rect_collide(ball.x, ball.y, BS, ob.x, ob.y, ob.w, ob.h) then
-      -- determine bounce direction
       local prev_x = ball.x - ball.dx
       local prev_y = ball.y - ball.dy
-      -- simple: if coming from left/right, flip dx; else flip dy
       local from_side = (prev_x < ob.x or prev_x > ob.x + ob.w)
       if from_side then
         ball.dx = -ball.dx
@@ -159,6 +158,24 @@ function _update()
       end
       break
     end
+  end
+
+  -- center circle obstacle collision (reflects based on contact angle)
+  local cdx = ball.x - center_ob.cx
+  local cdy = ball.y - center_ob.cy
+  local dist = math.sqrt(cdx * cdx + cdy * cdy)
+  local min_dist = BS + center_ob.r
+  if dist < min_dist and dist > 0 then
+    -- normalize
+    local nx = cdx / dist
+    local ny = cdy / dist
+    -- reflect: v' = v - 2(v·n)n
+    local dot = ball.dx * nx + ball.dy * ny
+    ball.dx = ball.dx - 2 * dot * nx
+    ball.dy = ball.dy - 2 * dot * ny
+    -- push out
+    ball.x = center_ob.cx + nx * min_dist
+    ball.y = center_ob.cy + ny * min_dist
   end
 
   -- scoring
@@ -190,11 +207,15 @@ function _draw()
     rectf(79, y, 2, 3, 3)
   end
 
-  -- obstacles
+  -- rect obstacles
   for _, ob in ipairs(obstacles) do
     rectf(ob.x, ob.y, ob.w, ob.h, 7)
     rect(ob.x, ob.y, ob.w, ob.h, 10)
   end
+
+  -- center circle obstacle
+  circf(center_ob.cx, center_ob.cy, center_ob.r, 7)
+  circ(center_ob.cx, center_ob.cy, center_ob.r, 10)
 
   -- paddles
   rectf(p1.x, p1.y, PW, PH, 12)
