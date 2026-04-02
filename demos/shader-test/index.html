@@ -124,13 +124,20 @@
   </div>
 </div>
 <div id="info"></div>
-<script src="../../runtime/engine.js"></script>
-<script src="../../runtime/shader.js"></script>
-<script src="../../runtime/shaders/tint.js"></script>
-<script src="../../runtime/shaders/scanlines.js"></script>
-<script src="../../runtime/shaders/lcd.js"></script>
-<script src="../../runtime/shaders/lcd3d.js"></script>
-<script src="../../runtime/shaders/crt.js"></script>
+<script>
+  // Cache-bust all runtime scripts
+  const scripts = [
+    "../../runtime/engine.js",
+    "../../runtime/shader.js",
+    "../../runtime/shaders/tint.js",
+    "../../runtime/shaders/scanlines.js",
+    "../../runtime/shaders/lcd.js",
+    "../../runtime/shaders/lcd3d.js",
+    "../../runtime/shaders/crt.js",
+  ];
+  const v = Date.now();
+  document.write(scripts.map(s => `<script src="${s}?v=${v}"><\/script>`).join("\n"));
+</script>
 <script>
 Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
   const W = 160, H = 144;
