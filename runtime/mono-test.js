@@ -24,6 +24,9 @@
  *   --ascii-full     Print full-resolution ASCII art (160x144)
  *   --png FILE       Save screen as PNG image
  *   --region X,Y,W,H Crop vdump/ascii to region (e.g., "0,0,40,20")
+ *   --until "TEXT"   Stop when Lua prints matching text (e.g., "WINS")
+ *   --runs N         Run N times, report stats (use with --until)
+ *   --seed N         Set math.randomseed for reproducible runs
  */
 
 const fs = require("fs");
@@ -48,7 +51,10 @@ Options:
   --ascii          Print ASCII art (downscaled 4:1)
   --ascii-full     Print full ASCII art (160x144)
   --png FILE       Save screen as PNG
-  --region X,Y,W,H Crop output to region`);
+  --region X,Y,W,H Crop output to region
+  --until "TEXT"   Stop when Lua prints matching text
+  --runs N         Run N times, report stats (with --until)
+  --seed N         Set random seed for reproducibility`);
   process.exit(0);
 }
 
@@ -76,6 +82,10 @@ const doAscii = hasFlag("ascii");
 const doAsciiFull = hasFlag("ascii-full");
 const pngFile = getOpt("png", null);
 const regionArg = getOpt("region", null);
+const untilText = getOpt("until", null);
+const totalRuns = parseInt(getOpt("runs", "1")) || 1;
+const seedArg = getOpt("seed", null);
+let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
 const W = 160, H = 144;
@@ -402,10 +412,17 @@ async function main() {
 
 
   // print — capture output
+  let untilTriggered = false;
+  let untilFrame = 0;
+  let untilMatch = "";
   lua.global.set("print", (...a) => {
     const line = a.map(x => String(x)).join("\t");
     luaOutput.push(line);
     if (showConsole) console.log("[Lua]", line);
+    if (untilText && !untilTriggered && line.includes(untilText)) {
+      untilTriggered = true;
+      untilMatch = line;
+    }
   });
 
   // mode(bits)
@@ -461,6 +478,13 @@ end
   // --- Execute game ---
   let hasError = false;
 
+  // Set random seed
+  if (seedArg !== null) {
+    await lua.doString(`math.randomseed(${parseInt(seedArg)})`);
+  } else if (typeof runSeed !== "undefined" && runSeed) {
+    await lua.doString(`math.randomseed(${runSeed})`);
+  }
+
   // Run main script
   try {
     await lua.doString(gameSrc);
@@ -514,6 +538,11 @@ end
       catch (e) { console.error(`_draw error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
     inputUpdate();
+    if (untilTriggered) {
+      untilFrame = f;
+      if (!quiet) console.log(`--until matched at frame ${f}: "${untilMatch}"`);
+      break;
+    }
     if (!quiet && (f <= 5 || f === frameCount || f % 10 === 0)) {
       console.log(`Frame ${f}: OK`);
     }
@@ -676,16 +705,82 @@ end
     }
   }
 
+  // --until summary
+  if (untilText) {
+    if (untilTriggered) {
+      const secs = (untilFrame / 30).toFixed(1);
+      console.log(`\n--until "${untilText}" matched at frame ${untilFrame} (${secs}s game time)`);
+      console.log(`  "${untilMatch}"`);
+    } else {
+      console.log(`\n--until "${untilText}" NOT matched in ${frameCount} frames`);
+    }
+  }
+
   // Summary
   if (!quiet) {
     console.log(`\n${hasError ? "FAILED" : "OK"} (${frameCount} frames, ${luaOutput.length} log lines)`);
   }
 
   lua.global.close();
-  process.exit(hasError ? 1 : 0);
+
+  // Return result for multi-run mode
+  return { hasError, untilTriggered, untilFrame, untilMatch, luaOutput };
 }
 
-main().catch(e => {
-  console.error("Fatal:", e.message || e);
-  process.exit(1);
-});
+// --- Multi-run mode ---
+if (totalRuns > 1) {
+  (async () => {
+    const results = [];
+    const matchCounts = {};
+    let totalFrames = 0;
+    let minFrame = Infinity, maxFrame = 0;
+
+    for (let r = 1; r <= totalRuns; r++) {
+      // Reset state for each run
+      colorBuf = new Uint8Array(W * H);
+      buf32 = new Uint32Array(W * H);
+      palette = buildPalette(colorBits);
+      camX = 0; camY = 0;
+      images = []; imageIdCounter = 0;
+      for (const k in keys) keys[k] = false;
+      for (const k in keysPrev) keysPrev[k] = false;
+      // Auto-seed each run differently (unless --seed is explicit)
+      if (seedArg === null) {
+        runSeed = r * 7919 + 42;  // deterministic but different per run
+      }
+
+      const result = await main();
+      results.push(result);
+
+      if (result.untilTriggered) {
+        totalFrames += result.untilFrame;
+        if (result.untilFrame < minFrame) minFrame = result.untilFrame;
+        if (result.untilFrame > maxFrame) maxFrame = result.untilFrame;
+        // Count unique match texts
+        matchCounts[result.untilMatch] = (matchCounts[result.untilMatch] || 0) + 1;
+      }
+    }
+
+    // Stats
+    const matched = results.filter(r => r.untilTriggered).length;
+    console.log(`\n=== ${totalRuns} RUNS COMPLETE ===`);
+    console.log(`Matched: ${matched}/${totalRuns}`);
+    if (matched > 0) {
+      const avgFrame = (totalFrames / matched).toFixed(0);
+      console.log(`Frames to match: min=${minFrame}, avg=${avgFrame}, max=${maxFrame}`);
+      console.log(`Game time: min=${(minFrame/30).toFixed(1)}s, avg=${(totalFrames/matched/30).toFixed(1)}s, max=${(maxFrame/30).toFixed(1)}s`);
+      console.log(`Results:`);
+      for (const [text, count] of Object.entries(matchCounts)) {
+        const pct = ((count / matched) * 100).toFixed(0);
+        console.log(`  "${text}": ${count}/${matched} (${pct}%)`);
+      }
+    }
+
+    process.exit(results.some(r => r.hasError) ? 1 : 0);
+  })().catch(e => { console.error("Fatal:", e); process.exit(1); });
+} else {
+  main().then(r => process.exit(r.hasError ? 1 : 0)).catch(e => {
+    console.error("Fatal:", e.message || e);
+    process.exit(1);
+  });
+}

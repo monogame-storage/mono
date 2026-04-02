@@ -40,6 +40,9 @@ npm run verify -- game.lua --frames 5 --ascii
 | `--input "F:K"` | 입력 주입 | 인터랙션 테스트 |
 | `--quiet` | 프레임 로그 억제 | 출력 간소화 |
 | `--console` | Lua print() 출력 | 디버그 |
+| `--until "TEXT"` | 텍스트 매칭 시 자동 중단 | 게임 종료 감지 |
+| `--runs N` | N회 반복 실행 + 통계 | 밸런스 테스트 |
+| `--seed N` | 랜덤 시드 고정 | 재현 가능한 테스트 |
 
 ### LLM 자동 루프 패턴
 
@@ -80,6 +83,33 @@ node runtime/mono-test.js game.lua --frames 5 --snapshot expected.txt
 node runtime/mono-test.js game.lua --frames 5 --diff expected.txt
 # → DIFF: MATCH ✓  또는  DIFF: MISMATCH ✗
 ```
+
+### Fast-Forward Testing
+
+게임 시간을 빨리감기하여 결과를 즉시 확인. 실제 5분짜리 게임을 1초에 시뮬레이션.
+
+```bash
+# 게임 종료 조건 감지 (예: "WINNER" 출력 시 자동 중단)
+node runtime/mono-test.js game.lua --frames 10000 --until "WINNER" --quiet --console
+# → --until "WINNER" matched at frame 297 (9.9s game time)
+
+# 밸런스 테스트: 10판 돌려서 승률 확인
+node runtime/mono-test.js game.lua --frames 10000 --until "WINNER" --quiet --runs 10
+# → Results:
+#   "WINNER: CPU 9-0": 7/10 (70%)
+#   "WINNER: P2 9-5": 3/10 (30%)
+
+# 재현 가능한 테스트: 특정 시드로 고정
+node runtime/mono-test.js game.lua --frames 1000 --seed 42 --console --quiet
+
+# 스트레스 테스트: 10000프레임 에러 없이 완주하는지
+node runtime/mono-test.js game.lua --frames 10000 --quiet
+```
+
+**활용 예시:**
+- AI 난이도 조정 → `--runs 10`으로 승률 확인 → 파라미터 조정 반복
+- 경계값 버그 탐색 → 대량 프레임 돌려서 crash 여부 확인
+- 게임 종료 로직 검증 → `--until`로 종료 조건 도달 확인
 
 ## 방법 2: Preview Tools (브라우저 기반)
 

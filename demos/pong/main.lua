@@ -18,10 +18,13 @@ local paused
 local winner
 
 local function reset_ball(dir)
+  -- always give vertical angle to avoid flat horizontal rallies
+  local angle = math.random(1, 2) == 1 and 1.5 or -1.5
+  angle = angle + (math.random() - 0.5) * 0.8
   ball = {
     x = 80, y = 72,
     dx = SPEED * dir,
-    dy = (math.random(0, 2) - 1) * 1.2  -- -1.2, 0, or 1.2
+    dy = angle
   }
 end
 
@@ -181,18 +184,22 @@ function _update()
   -- scoring
   if ball.x < 0 then
     score2 = score2 + 1
+    print("SCORE " .. score1 .. "-" .. score2)
     serve_dir = -1
     if score2 >= MAX_SCORE then
       winner = "P2"
+      print("WINNER: P2 " .. score1 .. "-" .. score2)
     else
       reset_ball(serve_dir)
     end
   end
   if ball.x > SCREEN_W then
     score1 = score1 + 1
+    print("SCORE " .. score1 .. "-" .. score2)
     serve_dir = 1
     if score1 >= MAX_SCORE then
       winner = "CPU"
+      print("WINNER: CPU " .. score1 .. "-" .. score2)
     else
       reset_ball(serve_dir)
     end

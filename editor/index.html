@@ -1126,6 +1126,18 @@ node mono-test.js main.lua --frames 5 --png screen.png
 \`\`\`
 
 **Workflow**: Edit code → run mono-test.js → check ASCII/PNG → fix → repeat (1-2s per cycle).
+
+**Fast-forward testing**: Run thousands of frames in ~1 second to verify game outcomes:
+\`\`\`bash
+# Stop when game prints "WINNER"
+node mono-test.js main.lua --frames 10000 --until "WINNER" --quiet --console
+
+# Run 10 games, report win rate stats
+node mono-test.js main.lua --frames 10000 --until "WINNER" --quiet --runs 10
+
+# Reproducible test with fixed seed
+node mono-test.js main.lua --frames 1000 --seed 42 --console --quiet
+\`\`\`
 `;
 }
 
