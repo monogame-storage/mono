@@ -399,11 +399,7 @@ async function main() {
   lua.global.set("vrow", vrow);
   lua.global.set("vdump", vdump);
 
-  // rnd(n) — random integer [0, n-1] or float [0,1) if no arg
-  lua.global.set("rnd", (n) => {
-    if (n === undefined || n === null) return Math.random();
-    return Math.floor(Math.random() * n);
-  });
+
 
   // print — capture output
   lua.global.set("print", (...a) => {

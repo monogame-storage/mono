@@ -241,4 +241,19 @@ end
 
 ---
 
+## rnd() does not exist in engine
+**Symptom:** `attempt to call a nil value (global 'rnd')` at runtime
+**Cause:** AI assumes `rnd()` is a built-in like PICO-8. Mono engine does not provide `rnd()`.
+**Note:** `mono-test.js` has a `rnd()` stub, so code may pass headless tests but fail in browser.
+**Fix:** Use Lua standard `math.random()`.
+```lua
+-- BAD
+local dir = rnd(3)
+
+-- GOOD
+local dir = math.random(0, 2)
+```
+
+---
+
 *Add new entries as bugs are discovered. Format: Symptom → Cause → Fix with code examples.*
