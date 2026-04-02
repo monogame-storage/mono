@@ -800,7 +800,7 @@ function updateFrame() {
 
 async function start() {
   if (running) Mono.stop();
-  logBody.innerHTML = "";
+  document.getElementById("log-body").innerHTML = "";
   logToConsole("Booting...", "log-info");
 
   const source = editor.state.doc.toString();
