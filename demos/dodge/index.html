@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mono — Dodge</title>
+  <link rel="stylesheet" href="../../runtime/mono.css">
+</head>
+<body>
+  <a href="/" style="color:#888;font-size:12px">← back</a>
+  <canvas id="screen"></canvas>
+  <script src="../../runtime/engine.js"></script>
+  <script>
+    Mono.boot("screen", { game: "main.lua", colors: 4 })
+      .catch(e => console.error(e));
+  </script>
+</body>
+</html>

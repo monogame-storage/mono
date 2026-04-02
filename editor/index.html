@@ -967,6 +967,58 @@ async function openFolder() {
 
   renderFileTree();
 
+  // Create main.lua with hello world if it doesn't exist
+  if (!files["main.lua"]) {
+    try {
+      const handle = await dirHandle.getFileHandle("main.lua", { create: true });
+      const writable = await handle.createWritable();
+      const hello = `-- My Mono Game
+-- 160x144, Lua 5.4
+
+function _init()
+  mode(1) -- 1=2 colors, 2=4 colors, 4=16 colors
+end
+
+function _start()
+  -- initialize game state here
+end
+
+function _update()
+  -- game logic (called every frame at 30fps)
+end
+
+function _draw()
+  cls(0)
+  text("HELLO MONO!", 44, 66, 1)
+  rect(0, 0, SCREEN_W, SCREEN_H, 1)
+end
+`;
+      await writable.write(hello);
+      await writable.close();
+      files["main.lua"] = { content: hello, handle, modified: false };
+      renderFileTree();
+      logToConsole("Created main.lua with hello world template", "log-info");
+    } catch (e) { /* skip if permission denied */ }
+  }
+
+  // Download mono-test.js from engine server if it doesn't exist
+  if (!files["mono-test.js"]) {
+    try {
+      const baseUrl = window.location.origin;
+      const resp = await fetch(baseUrl + "/runtime/mono-test.js");
+      if (resp.ok) {
+        const content = await resp.text();
+        const handle = await dirHandle.getFileHandle("mono-test.js", { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+        files["mono-test.js"] = { content, handle, modified: false };
+        renderFileTree();
+        logToConsole("Downloaded mono-test.js from engine server", "log-info");
+      }
+    } catch (e) { /* skip if fetch or permission fails */ }
+  }
+
   // Auto-open main.lua if exists
   const mainFile = Object.keys(files).find(f => f === "main.lua") ||
                    Object.keys(files).find(f => f.endsWith(".lua")) ||
@@ -1003,6 +1055,9 @@ This is a [Mono](https://github.com/ssk-play/mono) fantasy console game.
 - Frame rate: 30 FPS
 - Input: 8 buttons (up, down, left, right, a, b, start, select)
 
+## Entry Point
+- **\`main.lua\`** is the required entry file. The editor runs this file on Start.
+
 ## Lifecycle
 \`\`\`
 _init()    -- system config: call mode() here
@@ -1014,6 +1069,7 @@ _draw()    -- called every frame (rendering)
 ## Documentation
 - API Reference: ${baseUrl}/docs/DEV.md
 - Common AI Mistakes: ${baseUrl}/docs/AI-PITFALLS.md
+- Headless Testing: ${baseUrl}/docs/LLM-VERIFICATION.md
 - Source: https://github.com/ssk-play/mono
 
 ## Key Rules
@@ -1042,6 +1098,51 @@ Currently no workaround — cannot load external images from Lua.
 \`\`\`
 
 The developer will review proposals and prioritize implementation.
+
+## Headless Verification (mono-test.js)
+LLM can run and verify Lua code without a browser using \`mono-test.js\`.
+
+**Setup**: \`mono-test.js\` is auto-downloaded when you open a folder in the editor.
+Dependencies: \`npm install wasmoon@1.16.0 pngjs@7\`
+
+**Usage**:
+\`\`\`bash
+# Run a game file and check visually
+node mono-test.js main.lua --frames 5 --ascii
+
+# Test inline code (no file needed)
+node mono-test.js --source 'cls(0) rectf(10,10,20,20,1) print(gpix(15,15))' --ascii --console
+
+# Pixel-level assertion
+node mono-test.js --source 'cls(0) pix(80,72,1) print(gpix(80,72))' --console --quiet
+# → prints "1" if correct
+
+# Save and compare snapshots (regression test)
+node mono-test.js main.lua --frames 5 --snapshot expected.txt
+node mono-test.js main.lua --frames 5 --diff expected.txt
+
+# Export PNG for visual check
+node mono-test.js main.lua --frames 5 --png screen.png
+\`\`\`
+
+**Workflow**: Edit code → run mono-test.js → check ASCII/PNG → fix → repeat (1-2s per cycle).
+
+**Fast-forward testing**: Run thousands of frames in ~1 second to verify game outcomes:
+\`\`\`bash
+# Stop when game prints "WINNER"
+node mono-test.js main.lua --frames 10000 --until "WINNER" --quiet --console
+
+# Run 10 games, report win rate stats
+node mono-test.js main.lua --frames 10000 --until "WINNER" --quiet --runs 10
+
+# Reproducible test with fixed seed
+node mono-test.js main.lua --frames 1000 --seed 42 --console --quiet
+
+# Auto-play with VRAM bot (reads screen, controls P2)
+node mono-test.js main.lua --frames 10000 --until "WINNER" --bot --quiet
+# Custom bot script
+node mono-test.js main.lua --frames 10000 --until "WINNER" --bot bot.lua --quiet
+\`\`\`
 `;
 }
 
