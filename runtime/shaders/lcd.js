@@ -21,7 +21,7 @@ void main() {
   float half_t = u_thickness * 0.5;
   bool inPixel = edge.x >= half_t && edge.x <= (1.0 - half_t)
               && edge.y >= half_t && edge.y <= (1.0 - half_t);
-  if (inPixel) {
+  if (inPixel && (color.r + color.g + color.b) > 0.0) {
     gl_FragColor = color;
   } else {
     float angle = u_bg_dir * 6.28318;

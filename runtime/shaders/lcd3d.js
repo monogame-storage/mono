@@ -22,7 +22,8 @@ void main() {
   float half_t = u_thickness * 0.5;
   bool inPixel = edge.x >= half_t && edge.x <= (1.0 - half_t)
               && edge.y >= half_t && edge.y <= (1.0 - half_t);
-  if (!inPixel) {
+  bool isZero = (color.r + color.g + color.b) <= 0.0;
+  if (!inPixel || isZero) {
     float angle = u_bg_dir * 6.28318;
     float t = dot(v_uv - 0.5, vec2(sin(angle), cos(angle))) + 0.5;
     vec3 bg = mix(u_bg_color, u_bg_color2, clamp(t, 0.0, 1.0));
