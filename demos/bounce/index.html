@@ -196,16 +196,13 @@
 <script src="../../runtime/shader.js"></script>
 <script src="../../runtime/shaders/tint.js"></script>
 <script src="../../runtime/shaders/scanlines.js"></script>
+<script src="../../runtime/shaders/lcd.js"></script>
 <script src="../../runtime/shaders/lcd3d.js"></script>
 <script src="../../runtime/shaders/crt.js"></script>
 <script src="../../runtime/gamepad.js"></script>
 <script>
   Mono.boot("screen", { game: "game.lua", colors: 1 }).then(() => {
-    Mono.shader.enable("tint");
-    Mono.shader.enable("scanlines");
-    Mono.shader.enable("lcd3d");
-    Mono.shader.enable("crt");
-    Mono.shader.order(["tint", "scanlines", "lcd3d", "crt"]);
+    Mono.shader.preset();
   }).catch(e => console.error("Boot failed:", e));
 
 </script>

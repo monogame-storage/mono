@@ -905,12 +905,13 @@
   <div class="ctx-item danger" id="ctx-delete">&#128465; Delete</div>
 </div>
 
-<script src="../runtime/engine.js?v=1"></script>
-<script src="../runtime/shader.js?v=1"></script>
-<script src="../runtime/shaders/tint.js?v=1"></script>
-<script src="../runtime/shaders/scanlines.js?v=1"></script>
-<script src="../runtime/shaders/lcd3d.js?v=1"></script>
-<script src="../runtime/shaders/crt.js?v=1"></script>
+<script src="../runtime/engine.js?v=2"></script>
+<script src="../runtime/shader.js?v=2"></script>
+<script src="../runtime/shaders/tint.js?v=2"></script>
+<script src="../runtime/shaders/scanlines.js?v=2"></script>
+<script src="../runtime/shaders/lcd.js?v=2"></script>
+<script src="../runtime/shaders/lcd3d.js?v=2"></script>
+<script src="../runtime/shaders/crt.js?v=2"></script>
 <script src="../runtime/console-log.js"></script>
 <script src="../runtime/console-screen.js"></script>
 <script src="../runtime/console-accel.js"></script>
@@ -1769,12 +1770,7 @@ async function start() {
     logToConsole("Running.", "log-info");
     document.getElementById("screen-body").focus();
 
-    // Default shader chain
-    Mono.shader.enable("tint");
-    Mono.shader.enable("scanlines");
-    Mono.shader.enable("lcd3d");
-    Mono.shader.enable("crt");
-    Mono.shader.order(["tint", "scanlines", "lcd3d", "crt"]);
+    Mono.shader.preset();
 
     if (fpsInterval) clearInterval(fpsInterval);
     fpsInterval = setInterval(updateFrame, 200);

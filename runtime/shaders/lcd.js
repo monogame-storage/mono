@@ -21,7 +21,7 @@ void main() {
   float half_t = u_thickness * 0.5;
   bool inPixel = edge.x >= half_t && edge.x <= (1.0 - half_t)
               && edge.y >= half_t && edge.y <= (1.0 - half_t);
-  if (inPixel) {
+  if (inPixel && (color.r + color.g + color.b) > 0.0) {
     gl_FragColor = color;
   } else {
     float angle = u_bg_dir * 6.28318;
@@ -29,4 +29,4 @@ void main() {
     vec3 bg = mix(u_bg_color, u_bg_color2, clamp(t, 0.0, 1.0));
     gl_FragColor = vec4(bg, 1.0);
   }
-}`, { thickness: 0.20, pixel_size: 1.0, bg_color: [0, 0, 0], bg_color2: [0, 0, 0], bg_dir: 0.0 });
+}`, { thickness: 0.20, pixel_size: 1.0, bg_color: [0, 0, 0], bg_color2: [0.19, 0.19, 0.19], bg_dir: 0.0});
