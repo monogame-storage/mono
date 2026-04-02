@@ -7,7 +7,9 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node runtime/mono-test.js engine-test/suite.lua --suite --console",
+    "test:bounce": "node runtime/mono-test.js demos/bounce/game.lua --frames 30 --ascii --quiet",
+    "verify": "node runtime/mono-test.js"
   },
   "repository": {
     "type": "git",
@@ -22,6 +24,8 @@
   },
   "homepage": "https://github.com/ssk-play/mono#readme",
   "dependencies": {
-    "luau-web": "^1.4.0"
+    "luau-web": "^1.4.0",
+    "pngjs": "^7.0.0",
+    "wasmoon": "^1.16.0"
   }
 }
