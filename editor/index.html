@@ -1047,26 +1047,32 @@ The developer will review proposals and prioritize implementation.
 ## Headless Verification (mono-test.js)
 LLM can run and verify Lua code without a browser using \`mono-test.js\`.
 
+**Setup** (once per project):
+\`\`\`bash
+# Download mono-test.js into your project
+curl -o mono-test.js ${baseUrl}/runtime/mono-test.js
+# Install dependencies
+npm install wasmoon@1.16.0 pngjs@7
+\`\`\`
+
+**Usage**:
 \`\`\`bash
 # Run a game file and check visually
-node runtime/mono-test.js game.lua --frames 5 --ascii
+node mono-test.js game.lua --frames 5 --ascii
 
 # Test inline code (no file needed)
-node runtime/mono-test.js --source 'cls(0) rectf(10,10,20,20,1) print(gpix(15,15))' --ascii --console
+node mono-test.js --source 'cls(0) rectf(10,10,20,20,1) print(gpix(15,15))' --ascii --console
 
 # Pixel-level assertion
-node runtime/mono-test.js --source 'cls(0) pix(80,72,1) print(gpix(80,72))' --console --quiet
+node mono-test.js --source 'cls(0) pix(80,72,1) print(gpix(80,72))' --console --quiet
 # → prints "1" if correct
 
-# Run engine test suite
-npm test
-
 # Save and compare snapshots (regression test)
-node runtime/mono-test.js game.lua --frames 5 --snapshot expected.txt
-node runtime/mono-test.js game.lua --frames 5 --diff expected.txt
+node mono-test.js game.lua --frames 5 --snapshot expected.txt
+node mono-test.js game.lua --frames 5 --diff expected.txt
 
 # Export PNG for visual check
-node runtime/mono-test.js game.lua --frames 5 --png screen.png
+node mono-test.js game.lua --frames 5 --png screen.png
 \`\`\`
 
 **Workflow**: Edit code → run mono-test.js → check ASCII/PNG → fix → repeat (1-2s per cycle).
