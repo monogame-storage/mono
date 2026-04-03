@@ -1002,23 +1002,29 @@ end
     } catch (e) { /* skip if permission denied */ }
   }
 
-  // Download mono-test.js from engine server if it doesn't exist
-  if (!files["mono-test.js"]) {
-    try {
-      const baseUrl = window.location.origin;
-      const resp = await fetch(baseUrl + "/editor/templates/mono-test.js");
-      if (resp.ok) {
-        const content = await resp.text();
-        const handle = await dirHandle.getFileHandle("mono-test.js", { create: true });
-        const writable = await handle.createWritable();
-        await writable.write(content);
-        await writable.close();
-        files["mono-test.js"] = { content, handle, modified: false };
-        renderFileTree();
-        logToConsole("Downloaded mono-test.js from engine server", "log-info");
-      }
-    } catch (e) { /* skip if fetch or permission fails */ }
-  }
+  // Deploy mono-test.js to .mono/ and shell wrappers to root
+  try {
+    const monoDir = await dirHandle.getDirectoryHandle(".mono", { create: true });
+    const baseUrl = window.location.origin;
+    const resp = await fetch(baseUrl + "/editor/templates/mono-test.js");
+    if (resp.ok) {
+      const content = await resp.text();
+      const h = await monoDir.getFileHandle("mono-test.js", { create: true });
+      const w = await h.createWritable(); await w.write(content); await w.close();
+
+      // Shell wrapper (unix)
+      const sh = '#!/bin/sh\nnode "$(dirname "$0")/.mono/mono-test.js" "$@"\n';
+      const shH = await dirHandle.getFileHandle("mono-test", { create: true });
+      const shW = await shH.createWritable(); await shW.write(sh); await shW.close();
+
+      // Shell wrapper (windows)
+      const cmd = '@node "%~dp0.mono\\mono-test.js" %*\r\n';
+      const cmdH = await dirHandle.getFileHandle("mono-test.cmd", { create: true });
+      const cmdW = await cmdH.createWritable(); await cmdW.write(cmd); await cmdW.close();
+
+      logToConsole("Deployed .mono/mono-test.js + wrappers", "log-info");
+    }
+  } catch (e) { /* skip if fetch or permission fails */ }
 
   // Auto-open main.lua if exists
   const mainFile = Object.keys(files).find(f => f === "main.lua") ||
