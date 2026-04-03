@@ -19,7 +19,6 @@
     user-select: none;
     -webkit-user-select: none;
   }
-
   #back-btn {
     align-self: flex-start;
     color: #777;
@@ -31,7 +30,6 @@
     margin-bottom: 8px;
   }
   #back-btn:hover { color: #e8e8e8; background: #3a3a3a; }
-
   #console {
     background: #2a2a2a;
     border-radius: 16px;
@@ -39,7 +37,6 @@
     flex-direction: column;
     max-height: 100vh;
   }
-
   #frame {
     background: #111;
     border: 3px solid #333;
@@ -54,144 +51,11 @@
     image-rendering: pixelated;
     image-rendering: crisp-edges;
   }
-
-  /* Gamepad */
   #gamepad {
     padding: 24px 32px 48px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
     border-top: 2px solid #3a3a3a;
     margin-top: 12px;
   }
-
-  #meta-row {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-  }
-  .meta-btn {
-    background: #444;
-    border: none;
-    border-radius: 8px;
-    color: #777;
-    font-size: 7px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    padding: 6px 16px;
-    height: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .meta-btn:active, .meta-btn.pressed { background: #666; color: #fff; }
-
-  #buttons-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .dpad {
-    width: 130px;
-    height: 130px;
-    position: relative;
-  }
-  .dpad-btn {
-    position: absolute;
-    width: 44px;
-    height: 44px;
-    background: #444;
-    border: none;
-    border-radius: 4px;
-    color: #999;
-    font-size: 18px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .dpad-btn.pressed { background: #666; color: #fff; }
-  .dpad-up    { left: 43px; top: 0; }
-  .dpad-down  { left: 43px; top: 86px; }
-  .dpad-left  { left: 0; top: 43px; }
-  .dpad-right { left: 86px; top: 43px; }
-  .dpad-center {
-    position: absolute;
-    left: 43px; top: 43px;
-    width: 44px; height: 44px;
-    background: #444;
-  }
-
-  #ab-area {
-    width: 130px;
-    height: 100px;
-    position: relative;
-  }
-  .ab-btn {
-    position: absolute;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: #f07070;
-    border: none;
-    color: #fff;
-    font-size: 20px;
-    font-weight: 800;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .ab-btn:active, .ab-btn.pressed { background: #ff9090; }
-  .btn-b { left: 0; top: 44px; }
-  .btn-a { left: 74px; top: 14px; }
-
-  /* Screen footer */
-  #screen-footer {
-    display: flex;
-    align-items: center;
-    width: 320px;
-    padding: 2px 4px;
-  }
-  #screen-label {
-    font-size: 8px;
-    color: #3d3d3d;
-  }
-  #shader-toggle {
-    margin-left: auto;
-    background: none;
-    border: 1px solid #3d3d3d;
-    border-radius: 3px;
-    color: #3d3d3d;
-    font-size: 7px;
-    padding: 1px 5px;
-    cursor: pointer;
-  }
-  #shader-toggle:hover { color: #aaa; border-color: #aaa; }
-  #shader-toggle.active { color: #00d4aa; border-color: #00d4aa; }
-
-  /* Console log */
-  #log-panel {
-    width: 336px;
-    max-height: 80px;
-    overflow: auto;
-    padding: 4px 8px;
-    font-size: 9px;
-    line-height: 1.4;
-    color: #777;
-    border-top: 1px solid #333;
-    margin-top: 4px;
-  }
-  #log-panel:empty { display: none; }
-  .log-line { white-space: pre-wrap; word-break: break-all; }
-  .log-error { color: #e66; }
-
-  /* Error */
   #error {
     display: none;
     color: #f66;
@@ -203,37 +67,16 @@
 </head>
 <body>
 
-<a href="/demos/" id="back-btn">← back</a>
+<a href="/demos/" id="back-btn">&larr; back</a>
 <div id="console">
   <div id="frame">
     <canvas id="screen"></canvas>
-    <div id="screen-footer">
-      <span id="screen-label">160x144</span>
-      <button id="shader-toggle" class="active">SHADER</button>
-    </div>
+    <div id="screen-panel"></div>
   </div>
-
-  <div id="gamepad" data-gamepad-mode="event">
-    <div id="meta-row">
-      <button class="meta-btn" data-key=" ">SELECT</button>
-      <button class="meta-btn" data-key="Enter">START</button>
-    </div>
-    <div id="buttons-row">
-      <div class="dpad">
-        <button class="dpad-btn dpad-up" data-key="ArrowUp">∧</button>
-        <button class="dpad-btn dpad-down" data-key="ArrowDown">∨</button>
-        <button class="dpad-btn dpad-left" data-key="ArrowLeft">＜</button>
-        <button class="dpad-btn dpad-right" data-key="ArrowRight">＞</button>
-        <div class="dpad-center"></div>
-      </div>
-      <div id="ab-area">
-        <button class="ab-btn btn-b" data-key="x">B</button>
-        <button class="ab-btn btn-a" data-key="z">A</button>
-      </div>
-    </div>
-  </div>
+  <div id="gamepad" data-gamepad-mode="event"></div>
+  <div id="log-panel"></div>
+  <div id="accel-panel"></div>
 </div>
-<div id="log-body"></div>
 <div id="error"></div>
 
 <script src="/runtime/engine.js"></script>
@@ -248,7 +91,6 @@
 <script src="/runtime/console-log.js"></script>
 <script src="/runtime/console-accel.js"></script>
 <script>
-  // Game registry
   var GAMES = {
     bounce: { path: "/demos/bounce/main.lua", colors: 1 },
     dodge:  { path: "/demos/dodge/main.lua",  colors: 4 },
@@ -266,7 +108,7 @@
       : "No game specified. Use ?game=bounce";
     document.getElementById("console").style.display = "none";
   } else {
-    document.title = "Mono — " + gameName.charAt(0).toUpperCase() + gameName.slice(1);
+    document.title = "Mono \u2014 " + gameName.charAt(0).toUpperCase() + gameName.slice(1);
     Mono.boot("screen", { game: entry.path, colors: entry.colors }).then(function() {
       if (Mono.shader && Mono.shader.preset) Mono.shader.preset();
     }).catch(function(e) {

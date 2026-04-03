@@ -1,52 +1,85 @@
 /**
- * Mono Gamepad — shared virtual gamepad input module.
+ * Mono Console Gamepad — self-contained virtual gamepad module.
  *
- * D-pad: anchor-based analog input.
- *   Touch/click sets anchor point, drag distance determines axis values.
- *   Works outside D-pad bounds (document-level tracking).
- * Other buttons: standard press/release per button.
+ * Usage: <div id="gamepad" data-gamepad-mode="event"></div>
+ * The module generates all DOM + CSS inside the container.
  *
- * Modes:
- *   "setKey" — calls Mono.setKey(name, bool)  (playground, editor)
- *   "event"  — dispatches KeyboardEvent         (standalone demos)
- *
- * Axis: always calls Mono.setAxis(x, y) if available.
+ * D-pad: anchor-based analog input (works outside bounds).
+ * Modes: "event" (KeyboardEvent) | "setKey" (Mono.setKey)
+ * Axis: calls Mono.setAxis(x, y) if available.
  */
 (() => {
   "use strict";
 
-  const DRAG_RANGE = 40;  // px for full axis = 1.0
+  const DRAG_RANGE = 40;
   const DEADZONE_PX = 6;
 
-  function init() {
-    const dpads = document.querySelectorAll(".dpad");
-    dpads.forEach(setupDpad);
+  // --- Inject CSS ---
+  const style = document.createElement("style");
+  style.textContent = `
+    .mono-gp { display:flex; flex-direction:column; gap:20px; }
+    .mono-gp-meta { display:flex; justify-content:center; gap:50px; align-items:center; }
+    .mono-gp-meta button {
+      background:#444; border:none; border-radius:8px; color:#777;
+      font:700 7px/16px monospace; letter-spacing:0.5px; padding:0 16px;
+      cursor:pointer; -webkit-tap-highlight-color:transparent;
+    }
+    .mono-gp-meta button:active, .mono-gp-meta button.pressed { background:#666; color:#fff; }
+    .mono-gp-row { display:flex; justify-content:space-between; align-items:center; }
+    .mono-dpad {
+      width:130px; height:130px; position:relative; flex-shrink:0;
+    }
+    .mono-dpad-btn {
+      position:absolute; width:44px; height:44px; background:#444; border:none;
+      border-radius:4px; color:#999; font-size:18px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .mono-dpad-btn.pressed { background:#666; color:#fff; }
+    .mono-dpad-up    { left:43px; top:0; }
+    .mono-dpad-down  { left:43px; top:86px; }
+    .mono-dpad-left  { left:0; top:43px; }
+    .mono-dpad-right { left:86px; top:43px; }
+    .mono-dpad-center { position:absolute; left:43px; top:43px; width:44px; height:44px; background:#444; }
+    .mono-ab { width:130px; height:100px; position:relative; flex-shrink:0; }
+    .mono-ab-btn {
+      position:absolute; width:56px; height:56px; border-radius:50%;
+      background:#f07070; border:none; color:#fff; font:800 20px monospace;
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .mono-ab-btn:active, .mono-ab-btn.pressed { background:#ff9090; }
+    .mono-ab .btn-b { left:0; top:44px; }
+    .mono-ab .btn-a { left:74px; top:14px; }
+  `;
+  document.head.appendChild(style);
 
-    // Non-dpad [data-key] buttons
-    document.querySelectorAll("[data-key]:not(.dpad-btn)").forEach(btn => {
-      const key = btn.dataset.key;
-      const mode = detectMode(btn);
-
-      function down(e) {
-        e.preventDefault();
-        press(mode, key, true);
-        btn.classList.add("pressed");
-      }
-      function up(e) {
-        if (e) e.preventDefault();
-        press(mode, key, false);
-        btn.classList.remove("pressed");
-      }
-
-      btn.addEventListener("mousedown", down);
-      btn.addEventListener("mouseup", up);
-      btn.addEventListener("mouseleave", up);
-      btn.addEventListener("touchstart", down);
-      btn.addEventListener("touchend", up);
-      btn.addEventListener("touchcancel", up);
-    });
+  // --- Build DOM ---
+  function buildUI(container) {
+    container.innerHTML = `
+      <div class="mono-gp">
+        <div class="mono-gp-meta">
+          <button data-key=" ">SELECT</button>
+          <button data-key="Enter">START</button>
+        </div>
+        <div class="mono-gp-row">
+          <div class="mono-dpad dpad">
+            <button class="mono-dpad-btn mono-dpad-up dpad-up" data-key="ArrowUp">\u25B2</button>
+            <button class="mono-dpad-btn mono-dpad-down dpad-down" data-key="ArrowDown">\u25BC</button>
+            <button class="mono-dpad-btn mono-dpad-left dpad-left" data-key="ArrowLeft">\u25C0</button>
+            <button class="mono-dpad-btn mono-dpad-right dpad-right" data-key="ArrowRight">\u25B6</button>
+            <div class="mono-dpad-center"></div>
+          </div>
+          <div class="mono-ab">
+            <button class="mono-ab-btn btn-b" data-key="x">B</button>
+            <button class="mono-ab-btn btn-a" data-key="z">A</button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
+  // --- Input logic ---
   function detectMode(el) {
     let node = el;
     while (node) {
@@ -64,31 +97,20 @@
     if (mode === "event") {
       document.dispatchEvent(new KeyboardEvent(down ? "keydown" : "keyup", { key, bubbles: true }));
     } else {
-      if (typeof Mono !== "undefined" && Mono.setKey) {
-        Mono.setKey(getKeyName(key), down);
-      }
+      if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(getKeyName(key), down);
     }
   }
 
-  // --- D-pad button classes ---
-
-  const KEY_MAP = {
-    up:    "ArrowUp",
-    down:  "ArrowDown",
-    left:  "ArrowLeft",
-    right: "ArrowRight",
-  };
-
+  // --- D-pad ---
+  const KEY_MAP = { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight" };
   const BTN_CLASS = {
-    ArrowUp:    ".dpad-up",
-    ArrowDown:  ".dpad-down",
-    ArrowLeft:  ".dpad-left",
-    ArrowRight: ".dpad-right",
+    ArrowUp: ".dpad-up", ArrowDown: ".dpad-down",
+    ArrowLeft: ".dpad-left", ArrowRight: ".dpad-right"
   };
 
   function setupDpad(dpad) {
     const mode = detectMode(dpad);
-    let anchor = null;       // {x, y} touch start point
+    let anchor = null;
     let activeKeys = new Set();
     let mouseDown = false;
 
@@ -96,39 +118,31 @@
 
     function updateFromDelta(dx, dy) {
       const dist = Math.sqrt(dx * dx + dy * dy);
-
-      // Axis values (float -1..1)
       let ax = 0, ay = 0;
       if (dist > DEADZONE_PX) {
         ax = clamp(dx / DRAG_RANGE, -1, 1);
         ay = clamp(dy / DRAG_RANGE, -1, 1);
       }
+      if (typeof Mono !== "undefined" && Mono.setAxis) Mono.setAxis(ax, ay);
 
-      // Send axis to engine
-      if (typeof Mono !== "undefined" && Mono.setAxis) {
-        Mono.setAxis(ax, ay);
-      }
-
-      // Derive digital directions from axis
       const newKeys = new Set();
-      if (ay < -0.3) newKeys.add(KEY_MAP.up);
-      if (ay >  0.3) newKeys.add(KEY_MAP.down);
-      if (ax < -0.3) newKeys.add(KEY_MAP.left);
-      if (ax >  0.3) newKeys.add(KEY_MAP.right);
+      if (ay < -0.2) newKeys.add(KEY_MAP.up);
+      if (ay >  0.2) newKeys.add(KEY_MAP.down);
+      if (ax < -0.2) newKeys.add(KEY_MAP.left);
+      if (ax >  0.2) newKeys.add(KEY_MAP.right);
 
-      // Release old, press new
       for (const key of activeKeys) {
         if (!newKeys.has(key)) {
           press(mode, key, false);
-          const btn = dpad.querySelector(BTN_CLASS[key]);
-          if (btn) btn.classList.remove("pressed");
+          const b = dpad.querySelector(BTN_CLASS[key]);
+          if (b) b.classList.remove("pressed");
         }
       }
       for (const key of newKeys) {
         if (!activeKeys.has(key)) {
           press(mode, key, true);
-          const btn = dpad.querySelector(BTN_CLASS[key]);
-          if (btn) btn.classList.add("pressed");
+          const b = dpad.querySelector(BTN_CLASS[key]);
+          if (b) b.classList.add("pressed");
         }
       }
       activeKeys = newKeys;
@@ -137,52 +151,57 @@
     function releaseAll() {
       for (const key of activeKeys) {
         press(mode, key, false);
-        const btn = dpad.querySelector(BTN_CLASS[key]);
-        if (btn) btn.classList.remove("pressed");
+        const b = dpad.querySelector(BTN_CLASS[key]);
+        if (b) b.classList.remove("pressed");
       }
       activeKeys = new Set();
       anchor = null;
       if (typeof Mono !== "undefined" && Mono.clearAxis) Mono.clearAxis();
     }
 
-    // --- Touch ---
-    dpad.addEventListener("touchstart", (e) => {
-      e.preventDefault();
-      const t = e.touches[0];
-      anchor = { x: t.clientX, y: t.clientY };
-    });
-    document.addEventListener("touchmove", (e) => {
-      if (!anchor) return;
-      const t = e.touches[0];
-      updateFromDelta(t.clientX - anchor.x, t.clientY - anchor.y);
-    });
-    document.addEventListener("touchend", (e) => {
-      if (!anchor) return;
-      e.preventDefault();
-      releaseAll();
-    });
-    document.addEventListener("touchcancel", () => {
-      if (anchor) releaseAll();
-    });
+    function startInput(clientX, clientY) {
+      // Anchor = dpad center (so initial touch position gives immediate direction)
+      const rect = dpad.getBoundingClientRect();
+      anchor = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      updateFromDelta(clientX - anchor.x, clientY - anchor.y);
+    }
 
-    // --- Mouse ---
-    dpad.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      mouseDown = true;
-      anchor = { x: e.clientX, y: e.clientY };
-    });
-    document.addEventListener("mousemove", (e) => {
-      if (!mouseDown || !anchor) return;
-      updateFromDelta(e.clientX - anchor.x, e.clientY - anchor.y);
-    });
-    document.addEventListener("mouseup", () => {
-      if (!mouseDown) return;
-      mouseDown = false;
-      releaseAll();
+    dpad.addEventListener("touchstart", (e) => { e.preventDefault(); startInput(e.touches[0].clientX, e.touches[0].clientY); });
+    document.addEventListener("touchmove", (e) => { if (anchor) updateFromDelta(e.touches[0].clientX - anchor.x, e.touches[0].clientY - anchor.y); });
+    document.addEventListener("touchend", (e) => { if (anchor) { e.preventDefault(); releaseAll(); } });
+    document.addEventListener("touchcancel", () => { if (anchor) releaseAll(); });
+
+    dpad.addEventListener("mousedown", (e) => { e.preventDefault(); mouseDown = true; startInput(e.clientX, e.clientY); });
+    document.addEventListener("mousemove", (e) => { if (mouseDown && anchor) updateFromDelta(e.clientX - anchor.x, e.clientY - anchor.y); });
+    document.addEventListener("mouseup", () => { if (mouseDown) { mouseDown = false; releaseAll(); } });
+  }
+
+  // --- Button setup ---
+  function setupButtons(container) {
+    container.querySelectorAll("[data-key]:not(.mono-dpad-btn)").forEach(btn => {
+      const key = btn.dataset.key;
+      const mode = detectMode(btn);
+      function down(e) { e.preventDefault(); press(mode, key, true); btn.classList.add("pressed"); }
+      function up(e) { if (e) e.preventDefault(); press(mode, key, false); btn.classList.remove("pressed"); }
+      btn.addEventListener("mousedown", down);
+      btn.addEventListener("mouseup", up);
+      btn.addEventListener("mouseleave", up);
+      btn.addEventListener("touchstart", down);
+      btn.addEventListener("touchend", up);
+      btn.addEventListener("touchcancel", up);
     });
   }
 
-  // Auto-init
+  // --- Init ---
+  function init() {
+    const containers = document.querySelectorAll("#gamepad, [data-mono-gamepad]");
+    containers.forEach(container => {
+      buildUI(container);
+      container.querySelectorAll(".dpad").forEach(setupDpad);
+      setupButtons(container);
+    });
+  }
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
