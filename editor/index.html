@@ -1006,7 +1006,7 @@ end
   if (!files["mono-test.js"]) {
     try {
       const baseUrl = window.location.origin;
-      const resp = await fetch(baseUrl + "/runtime/mono-test.js");
+      const resp = await fetch(baseUrl + "/editor/templates/mono-test.js");
       if (resp.ok) {
         const content = await resp.text();
         const handle = await dirHandle.getFileHandle("mono-test.js", { create: true });
@@ -1043,7 +1043,7 @@ end
 const MONO_VERSION = "0.1.0";
 
 async function monoContext() {
-  const res = await fetch("CONTEXT.md");
+  const res = await fetch("templates/CONTEXT.md");
   const tpl = await res.text();
   return tpl
     .replace(/\{\{VERSION\}\}/g, MONO_VERSION)
