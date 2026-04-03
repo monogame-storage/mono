@@ -290,10 +290,31 @@ var Mono = (() => {
   const keys = {};
   const keysPrev = {};
 
+  // --- Axis (analog) ---
+  let axisX = 0, axisY = 0;
+  let axisSource = "none"; // "keyboard" | "gamepad" | "none"
+
   function btn(k) { return keys[k] ? true : false; }
   function btnp(k) { return (keys[k] && !keysPrev[k]) ? true : false; }
 
   function inputUpdate() {
+    // Keyboard → axis (digital: -1/0/+1)
+    if (axisSource !== "gamepad") {
+      axisX = 0; axisY = 0;
+      if (keys["left"])  axisX = -1;
+      if (keys["right"]) axisX =  1;
+      if (keys["up"])    axisY = -1;
+      if (keys["down"])  axisY =  1;
+    }
+
+    // Axis → btn derivation (gamepad analog → digital)
+    if (axisSource === "gamepad") {
+      keys["left"]  = axisX < -0.5;
+      keys["right"] = axisX >  0.5;
+      keys["up"]    = axisY < -0.5;
+      keys["down"]  = axisY >  0.5;
+    }
+
     for (const k in keys) keysPrev[k] = keys[k];
   }
 
@@ -400,6 +421,8 @@ var Mono = (() => {
       if (typeof k !== "string" || !validKeys[k]) throw new Error('btnp() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
       return (keys[k] && !keysPrev[k]) ? 1 : 0;
     });
+    lua.global.set("axis_x", () => axisX);
+    lua.global.set("axis_y", () => axisY);
     lua.global.set("vrow", vrow);
     lua.global.set("vdump", vdump);
     lua.global.set("print", (...args) => console.log("[Lua]", ...args));
@@ -533,6 +556,8 @@ end
 
   API.vrow = vrow;
   API.vdump = vdump;
+  API.setAxis = (x, y) => { axisX = x; axisY = y; axisSource = "gamepad"; };
+  API.clearAxis = () => { axisX = 0; axisY = 0; axisSource = "none"; };
 
   // Plugin hooks
   API._internal = null;  // set during boot

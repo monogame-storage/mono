@@ -1,23 +1,22 @@
 /**
  * Mono Gamepad — shared virtual gamepad input module.
  *
- * D-pad: supports 8-way input (cardinals + diagonals) via touch/mouse drag.
- *   Uses angle from dpad center to determine direction(s).
+ * D-pad: anchor-based analog input.
+ *   Touch/click sets anchor point, drag distance determines axis values.
+ *   Works outside D-pad bounds (document-level tracking).
  * Other buttons: standard press/release per button.
  *
  * Modes:
  *   "setKey" — calls Mono.setKey(name, bool)  (playground, editor)
  *   "event"  — dispatches KeyboardEvent         (standalone demos)
  *
- * Usage:
- *   <script src="runtime/gamepad.js"></script>
- *   Automatically initializes on DOMContentLoaded.
- *   Set data-gamepad-mode="event" on .dpad parent to use event mode.
+ * Axis: always calls Mono.setAxis(x, y) if available.
  */
 (() => {
   "use strict";
 
-  const DEADZONE = 0.18; // fraction of dpad radius
+  const DRAG_RANGE = 40;  // px for full axis = 1.0
+  const DEADZONE_PX = 6;
 
   function init() {
     const dpads = document.querySelectorAll(".dpad");
@@ -49,7 +48,6 @@
   }
 
   function detectMode(el) {
-    // Walk up to find data-gamepad-mode, default to "setKey"
     let node = el;
     while (node) {
       if (node.dataset && node.dataset.gamepadMode) return node.dataset.gamepadMode;
@@ -72,7 +70,7 @@
     }
   }
 
-  // --- D-pad with 8-way support ---
+  // --- D-pad button classes ---
 
   const KEY_MAP = {
     up:    "ArrowUp",
@@ -90,41 +88,35 @@
 
   function setupDpad(dpad) {
     const mode = detectMode(dpad);
-    let activeKeys = new Set(); // currently pressed direction keys
+    let anchor = null;       // {x, y} touch start point
+    let activeKeys = new Set();
     let mouseDown = false;
 
-    function getDirections(clientX, clientY) {
-      const rect = dpad.getBoundingClientRect();
-      // Outside dpad bounds → release all
-      if (clientX < rect.left || clientX > rect.right ||
-          clientY < rect.top || clientY > rect.bottom) return [];
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const radius = Math.min(rect.width, rect.height) / 2;
-
-      const dx = (clientX - cx) / radius;
-      const dy = (clientY - cy) / radius;
+    function updateFromDelta(dx, dy) {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist < DEADZONE) return [];
+      // Axis values (float -1..1)
+      let ax = 0, ay = 0;
+      if (dist > DEADZONE_PX) {
+        ax = clamp(dx / DRAG_RANGE, -1, 1);
+        ay = clamp(dy / DRAG_RANGE, -1, 1);
+      }
 
-      const dirs = [];
-      // Use thresholds for 8-way: if component > 0.38 of the unit vector, activate
-      const threshold = 0.38;
-      if (dy < -threshold) dirs.push(KEY_MAP.up);
-      if (dy > threshold)  dirs.push(KEY_MAP.down);
-      if (dx < -threshold) dirs.push(KEY_MAP.left);
-      if (dx > threshold)  dirs.push(KEY_MAP.right);
+      // Send axis to engine
+      if (typeof Mono !== "undefined" && Mono.setAxis) {
+        Mono.setAxis(ax, ay);
+      }
 
-      return dirs;
-    }
+      // Derive digital directions from axis
+      const newKeys = new Set();
+      if (ay < -0.3) newKeys.add(KEY_MAP.up);
+      if (ay >  0.3) newKeys.add(KEY_MAP.down);
+      if (ax < -0.3) newKeys.add(KEY_MAP.left);
+      if (ax >  0.3) newKeys.add(KEY_MAP.right);
 
-    function updateDpad(clientX, clientY) {
-      const dirs = getDirections(clientX, clientY);
-      const newKeys = new Set(dirs);
-
-      // Release keys no longer active
+      // Release old, press new
       for (const key of activeKeys) {
         if (!newKeys.has(key)) {
           press(mode, key, false);
@@ -132,7 +124,6 @@
           if (btn) btn.classList.remove("pressed");
         }
       }
-      // Press newly active keys
       for (const key of newKeys) {
         if (!activeKeys.has(key)) {
           press(mode, key, true);
@@ -140,7 +131,6 @@
           if (btn) btn.classList.add("pressed");
         }
       }
-
       activeKeys = newKeys;
     }
 
@@ -151,29 +141,39 @@
         if (btn) btn.classList.remove("pressed");
       }
       activeKeys = new Set();
+      anchor = null;
+      if (typeof Mono !== "undefined" && Mono.clearAxis) Mono.clearAxis();
     }
 
-    // Touch
+    // --- Touch ---
     dpad.addEventListener("touchstart", (e) => {
       e.preventDefault();
-      updateDpad(e.touches[0].clientX, e.touches[0].clientY);
+      const t = e.touches[0];
+      anchor = { x: t.clientX, y: t.clientY };
     });
-    dpad.addEventListener("touchmove", (e) => {
+    document.addEventListener("touchmove", (e) => {
+      if (!anchor) return;
+      const t = e.touches[0];
+      updateFromDelta(t.clientX - anchor.x, t.clientY - anchor.y);
+    });
+    document.addEventListener("touchend", (e) => {
+      if (!anchor) return;
       e.preventDefault();
-      updateDpad(e.touches[0].clientX, e.touches[0].clientY);
+      releaseAll();
     });
-    dpad.addEventListener("touchend", (e) => { e.preventDefault(); releaseAll(); });
-    dpad.addEventListener("touchcancel", (e) => { e.preventDefault(); releaseAll(); });
+    document.addEventListener("touchcancel", () => {
+      if (anchor) releaseAll();
+    });
 
-    // Mouse
+    // --- Mouse ---
     dpad.addEventListener("mousedown", (e) => {
       e.preventDefault();
       mouseDown = true;
-      updateDpad(e.clientX, e.clientY);
+      anchor = { x: e.clientX, y: e.clientY };
     });
     document.addEventListener("mousemove", (e) => {
-      if (!mouseDown) return;
-      updateDpad(e.clientX, e.clientY);
+      if (!mouseDown || !anchor) return;
+      updateFromDelta(e.clientX - anchor.x, e.clientY - anchor.y);
     });
     document.addEventListener("mouseup", () => {
       if (!mouseDown) return;
