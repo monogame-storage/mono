@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Mono — Bounce</title>
+<title>Mono — Play</title>
 <link rel="icon" href="/favicon.png" type="image/png">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -14,7 +14,7 @@
     align-items: center;
     justify-content: center;
     height: 100vh;
-    font-family: 'DM Sans', sans-serif;
+    font-family: monospace;
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
@@ -23,7 +23,6 @@
   #back-btn {
     align-self: flex-start;
     color: #777;
-    font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     text-decoration: none;
     background: #2a2a2a;
@@ -33,7 +32,6 @@
   }
   #back-btn:hover { color: #e8e8e8; background: #3a3a3a; }
 
-  /* Console shell */
   #console {
     background: #2a2a2a;
     border-radius: 16px;
@@ -42,7 +40,6 @@
     max-height: 100vh;
   }
 
-  /* Screen bezel */
   #frame {
     background: #111;
     border: 3px solid #333;
@@ -68,7 +65,6 @@
     margin-top: 12px;
   }
 
-  /* SELECT / START row */
   #meta-row {
     display: flex;
     justify-content: space-around;
@@ -92,15 +88,13 @@
   }
   .meta-btn:active, .meta-btn.pressed { background: #666; color: #fff; }
 
-  /* Buttons row: D-pad left, AB right */
   #buttons-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
 
-  /* D-pad */
-  #dpad {
+  .dpad {
     width: 130px;
     height: 130px;
     position: relative;
@@ -132,7 +126,6 @@
     background: #444;
   }
 
-  /* AB buttons */
   #ab-area {
     width: 130px;
     height: 100px;
@@ -157,33 +150,82 @@
   .ab-btn:active, .ab-btn.pressed { background: #ff9090; }
   .btn-b { left: 0; top: 44px; }
   .btn-a { left: 74px; top: 14px; }
+
+  /* Screen footer */
+  #screen-footer {
+    display: flex;
+    align-items: center;
+    width: 320px;
+    padding: 2px 4px;
+  }
+  #screen-label {
+    font-size: 8px;
+    color: #3d3d3d;
+  }
+  #shader-toggle {
+    margin-left: auto;
+    background: none;
+    border: 1px solid #3d3d3d;
+    border-radius: 3px;
+    color: #3d3d3d;
+    font-size: 7px;
+    padding: 1px 5px;
+    cursor: pointer;
+  }
+  #shader-toggle:hover { color: #aaa; border-color: #aaa; }
+  #shader-toggle.active { color: #00d4aa; border-color: #00d4aa; }
+
+  /* Console log */
+  #log-panel {
+    width: 336px;
+    max-height: 80px;
+    overflow: auto;
+    padding: 4px 8px;
+    font-size: 9px;
+    line-height: 1.4;
+    color: #777;
+    border-top: 1px solid #333;
+    margin-top: 4px;
+  }
+  #log-panel:empty { display: none; }
+  .log-line { white-space: pre-wrap; word-break: break-all; }
+  .log-error { color: #e66; }
+
+  /* Error */
+  #error {
+    display: none;
+    color: #f66;
+    font-size: 13px;
+    padding: 20px;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
 
-<a href="/" id="back-btn">← back</a>
+<a href="/demos/" id="back-btn">← back</a>
 <div id="console">
   <div id="frame">
     <canvas id="screen"></canvas>
+    <div id="screen-footer">
+      <span id="screen-label">160x144</span>
+      <button id="shader-toggle" class="active">SHADER</button>
+    </div>
   </div>
 
   <div id="gamepad" data-gamepad-mode="event">
-    <!-- SELECT / START -->
     <div id="meta-row">
       <button class="meta-btn" data-key=" ">SELECT</button>
       <button class="meta-btn" data-key="Enter">START</button>
     </div>
-
-    <!-- D-pad + AB -->
     <div id="buttons-row">
-      <div id="dpad" class="dpad">
+      <div class="dpad">
         <button class="dpad-btn dpad-up" data-key="ArrowUp">∧</button>
         <button class="dpad-btn dpad-down" data-key="ArrowDown">∨</button>
         <button class="dpad-btn dpad-left" data-key="ArrowLeft">＜</button>
         <button class="dpad-btn dpad-right" data-key="ArrowRight">＞</button>
         <div class="dpad-center"></div>
       </div>
-
       <div id="ab-area">
         <button class="ab-btn btn-b" data-key="x">B</button>
         <button class="ab-btn btn-a" data-key="z">A</button>
@@ -191,19 +233,47 @@
     </div>
   </div>
 </div>
+<div id="log-body"></div>
+<div id="error"></div>
 
-<script src="../../runtime/engine.js"></script>
-<script src="../../runtime/shader.js"></script>
-<script src="../../runtime/shaders/tint.js"></script>
-<script src="../../runtime/shaders/scanlines.js"></script>
-<script src="../../runtime/shaders/lcd.js"></script>
-<script src="../../runtime/shaders/lcd3d.js"></script>
-<script src="../../runtime/shaders/crt.js"></script>
-<script src="../../runtime/console-gamepad.js"></script>
+<script src="/runtime/engine.js"></script>
+<script src="/runtime/shader.js"></script>
+<script src="/runtime/shaders/tint.js"></script>
+<script src="/runtime/shaders/scanlines.js"></script>
+<script src="/runtime/shaders/lcd.js"></script>
+<script src="/runtime/shaders/lcd3d.js"></script>
+<script src="/runtime/shaders/crt.js"></script>
+<script src="/runtime/console-gamepad.js"></script>
+<script src="/runtime/console-screen.js"></script>
+<script src="/runtime/console-log.js"></script>
+<script src="/runtime/console-accel.js"></script>
 <script>
-  Mono.boot("screen", { game: "main.lua", colors: 1 }).then(() => {
-    Mono.shader.preset();
-  }).catch(e => console.error("Boot failed:", e));
+  // Game registry
+  var GAMES = {
+    bounce: { path: "/demos/bounce/main.lua", colors: 1 },
+    dodge:  { path: "/demos/dodge/main.lua",  colors: 4 },
+    pong:   { path: "/demos/pong/main.lua",   colors: 4 }
+  };
 
+  var params = new URLSearchParams(location.search);
+  var gameName = params.get("game");
+  var entry = gameName && GAMES[gameName];
+
+  if (!entry) {
+    document.getElementById("error").style.display = "block";
+    document.getElementById("error").textContent = gameName
+      ? 'Unknown game: "' + gameName + '". Available: ' + Object.keys(GAMES).join(", ")
+      : "No game specified. Use ?game=bounce";
+    document.getElementById("console").style.display = "none";
+  } else {
+    document.title = "Mono — " + gameName.charAt(0).toUpperCase() + gameName.slice(1);
+    Mono.boot("screen", { game: entry.path, colors: entry.colors }).then(function() {
+      if (Mono.shader && Mono.shader.preset) Mono.shader.preset();
+    }).catch(function(e) {
+      console.error("Boot failed:", e);
+      document.getElementById("error").style.display = "block";
+      document.getElementById("error").textContent = "Boot failed: " + e.message;
+    });
+  }
 </script>
 </body></html>
