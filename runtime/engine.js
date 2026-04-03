@@ -185,8 +185,8 @@ var Mono = (() => {
   }
 
   function line(x0, y0, x1, y1, c) {
-    x0 = Math.floor(x0); y0 = Math.floor(y0);
-    x1 = Math.floor(x1); y1 = Math.floor(y1);
+    x0 = Math.floor(x0) - camX; y0 = Math.floor(y0) - camY;
+    x1 = Math.floor(x1) - camX; y1 = Math.floor(y1) - camY;
     let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
     let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
     let err = dx - dy;
@@ -200,7 +200,7 @@ var Mono = (() => {
   }
 
   function rect(x, y, w, h, c) {
-    x = Math.floor(x); y = Math.floor(y);
+    x = Math.floor(x) - camX; y = Math.floor(y) - camY;
     w = Math.floor(w); h = Math.floor(h);
     for (let i = 0; i < w; i++) { setPix(x + i, y, c); setPix(x + i, y + h - 1, c); }
     for (let i = 0; i < h; i++) { setPix(x, y + i, c); setPix(x + w - 1, y + i, c); }
@@ -208,7 +208,7 @@ var Mono = (() => {
   }
 
   function rectf(x, y, w, h, c) {
-    x = Math.floor(x); y = Math.floor(y);
+    x = Math.floor(x) - camX; y = Math.floor(y) - camY;
     w = Math.floor(w); h = Math.floor(h);
     for (let py = y; py < y + h; py++)
       for (let px = x; px < x + w; px++)
@@ -217,7 +217,7 @@ var Mono = (() => {
   }
 
   function circ(cx, cy, r, c) {
-    cx = Math.floor(cx); cy = Math.floor(cy); r = Math.floor(r);
+    cx = Math.floor(cx) - camX; cy = Math.floor(cy) - camY; r = Math.floor(r);
     let x = r, y = 0, d = 1 - r;
     while (x >= y) {
       setPix(cx + x, cy + y, c); setPix(cx - x, cy + y, c);
@@ -232,7 +232,7 @@ var Mono = (() => {
   }
 
   function circf(cx, cy, r, c) {
-    cx = Math.floor(cx); cy = Math.floor(cy); r = Math.floor(r);
+    cx = Math.floor(cx) - camX; cy = Math.floor(cy) - camY; r = Math.floor(r);
     let x = r, y = 0, d = 1 - r;
     while (x >= y) {
       for (let i = cx - x; i <= cx + x; i++) { setPix(i, cy + y, c); setPix(i, cy - y, c); }
@@ -401,7 +401,7 @@ var Mono = (() => {
     lua.global.set("SCREEN_H", H);
     lua.global.set("COLORS", palette.length);
     lua.global.set("cls", cls);
-    lua.global.set("pix", setPix);
+    lua.global.set("pix", (x, y, c) => setPix(Math.floor(x) - camX, Math.floor(y) - camY, c));
     lua.global.set("gpix", getPix);
     lua.global.set("line", line);
     lua.global.set("rect", rect);
@@ -412,6 +412,8 @@ var Mono = (() => {
     lua.global.set("cam", cam);
     lua.global.set("drawImage", drawImageFn);
     lua.global.set("drawImageRegion", drawImageRegionFn);
+    lua.global.set("imageWidth", (id) => { const img = images[id]; return img ? img.w : 0; });
+    lua.global.set("imageHeight", (id) => { const img = images[id]; return img ? img.h : 0; });
     const validKeys = {"up":1,"down":1,"left":1,"right":1,"a":1,"b":1,"start":1,"select":1};
     lua.global.set("_btn", (k) => {
       if (typeof k !== "string" || !validKeys[k]) throw new Error('btn() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
@@ -512,6 +514,12 @@ end
     if (pendingLoads.length > 0) {
       try { await Promise.all(pendingLoads); } catch (e) { showError("Image load: " + (e.message || e)); return; }
       pendingLoads = [];
+    }
+
+    // Call _ready after all images loaded (safe to query imageWidth/imageHeight)
+    const readyFn = lua.global.get("_ready");
+    if (readyFn) {
+      try { readyFn(); } catch (e) { showError("_ready: " + (e.message || e)); return; }
     }
 
     // Game loop
