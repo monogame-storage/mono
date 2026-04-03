@@ -404,31 +404,52 @@
     overflow: hidden;
   }
 
-  /* Panel tabs common */
-  .panel-tabs {
-    display: flex;
-    align-items: flex-end;
-    background: #2d2d2d;
-    height: 32px;
-    flex-shrink: 0;
-  }
-  .panel-tab {
+  /* Console header */
+  #console-header {
     display: flex;
     align-items: center;
-    gap: 5px;
+    height: 32px;
     padding: 0 12px;
-    height: 30px;
-    font-size: 10px;
-    font-weight: 600;
-    color: #fff;
-    background: #212121;
-    border-radius: 4px 4px 0 0;
-  }
-  .panel-tab-inactive {
-    height: 28px;
-    color: #777;
-    font-weight: 400;
     background: #2d2d2d;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .console-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+  }
+  #right-col.collapsed > *:not(#console-header) { display: none !important; }
+  #right-col.collapsed { width: 32px !important; }
+  #right-col.collapsed #console-header {
+    writing-mode: vertical-rl;
+    height: 100%;
+    padding: 12px 0;
+    justify-content: flex-start;
+  }
+  #right-col.collapsed .panel-collapse-icon { transform: rotate(-90deg); }
+
+  /* Section headers (per-panel) */
+  .section-header {
+    display: flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    background: #1a1a1a;
+    flex-shrink: 0;
+    cursor: pointer;
+    gap: 6px;
+  }
+  .section-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: #888;
+  }
+  .section-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
   }
 
   /* console panels — shared */
@@ -437,20 +458,19 @@
     flex-direction: column;
     background: #212121;
   }
-  .console-panel .panel-tabs { cursor: pointer; }
   .panel-collapse-icon {
     margin-left: auto;
-    margin-right: 8px;
     font-size: 8px;
     color: #555;
     transition: transform 0.15s;
   }
+  .section-actions + .panel-collapse-icon { margin-left: 0; }
   .collapsed .panel-collapse-icon { transform: rotate(-90deg); }
-  .collapsed > *:not(.panel-tabs) { display: none !important; }
-  .collapsed {
-    height: 32px !important;
-    min-height: 32px !important;
-    flex: 0 0 32px !important;
+  .console-panel.collapsed > *:not(.section-header) { display: none !important; }
+  .console-panel.collapsed {
+    height: 24px !important;
+    min-height: 24px !important;
+    flex: 0 0 24px !important;
   }
 
   /* console.engine */
@@ -733,12 +753,6 @@
   #log-body .log-line { white-space: pre-wrap; word-break: break-all; }
   #log-body .log-error { color: #e66; }
   #log-body .log-info { color: #777; }
-  .log-tabs-extra {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    margin-right: 8px;
-  }
   .log-clear {
     background: none;
     border: none;
@@ -809,12 +823,16 @@
     </div>
   </div>
 
-  <!-- Right Column -->
+  <!-- Right Column: Console -->
   <div id="right-col">
+    <div id="console-header">
+      <span class="console-title">&#9654; console</span>
+      <span class="panel-collapse-icon" id="console-collapse-icon">&#9660;</span>
+    </div>
     <!-- console.engine -->
     <div id="engine-panel" class="console-panel">
-      <div class="panel-tabs">
-        <div class="panel-tab">&#9881; console.engine</div>
+      <div class="section-header">
+        <span class="section-label">&#9881; engine</span>
         <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="engine-body">
@@ -838,8 +856,8 @@
 
     <!-- console.screen -->
     <div id="screen-panel" class="console-panel">
-      <div class="panel-tabs">
-        <div class="panel-tab">&#9635; console.screen</div>
+      <div class="section-header">
+        <span class="section-label">&#9635; screen</span>
         <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="screen-body" tabindex="0">
@@ -852,9 +870,10 @@
     </div>
 
     <!-- console.gamepad -->
+    <!-- console.gamepad -->
     <div id="gamepad-panel" class="console-panel">
-      <div class="panel-tabs">
-        <div class="panel-tab">&#127918; console.gamepad</div>
+      <div class="section-header">
+        <span class="section-label">&#127918; gamepad</span>
         <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="gamepad-body">
@@ -878,8 +897,8 @@
 
     <!-- console.accel -->
     <div id="accel-panel" class="console-panel">
-      <div class="panel-tabs">
-        <div class="panel-tab">&#128241; console.accel</div>
+      <div class="section-header">
+        <span class="section-label">&#128241; accel</span>
         <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="accel-body">
@@ -899,13 +918,13 @@
 
     <!-- console.log -->
     <div id="log-panel" class="console-panel">
-      <div class="panel-tabs">
-        <div class="panel-tab">&#10095;_ console.log</div>
-        <div class="log-tabs-extra">
+      <div class="section-header">
+        <span class="section-label">&#10095;_ log</span>
+        <div class="section-actions">
           <button class="log-clear" id="btn-copy-log">copy</button>
           <button class="log-clear" id="btn-clear">clear</button>
-          <span class="panel-collapse-icon">&#9660;</span>
         </div>
+        <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="log-body"></div>
     </div>
@@ -924,10 +943,7 @@
 <script src="../runtime/shaders/lcd.js?v=2"></script>
 <script src="../runtime/shaders/lcd3d.js?v=2"></script>
 <script src="../runtime/shaders/crt.js?v=2"></script>
-<script src="../runtime/console-log.js"></script>
 <script src="../runtime/console-screen.js"></script>
-<script src="../runtime/console-accel.js"></script>
-<script src="../runtime/console-gamepad.js"></script>
 
 <script type="module">
 import {EditorView, basicSetup} from "https://esm.sh/codemirror@6.0.2?bundle-deps";
@@ -1529,16 +1545,23 @@ async function deleteFile(name) {
 }
 
 // ── Panel collapse/expand ──
-document.querySelectorAll('#right-col .console-panel .panel-tabs').forEach(tabs => {
-  tabs.addEventListener('click', (e) => {
-    if (e.target.closest('button')) return;
-    tabs.closest('.console-panel').classList.toggle('collapsed');
-    savePanelStates();
-  });
+// Console-level collapse (entire right column)
+document.getElementById('console-header').addEventListener('click', () => {
+  document.getElementById('right-col').classList.toggle('collapsed');
+  savePanelStates();
+});
+
+// Section-level collapse (event delegation for dynamic modules)
+document.getElementById('right-col').addEventListener('click', (e) => {
+  const hdr = e.target.closest('.section-header');
+  if (!hdr) return;
+  if (e.target.closest('button')) return;
+  hdr.closest('.console-panel').classList.toggle('collapsed');
+  savePanelStates();
 });
 
 function savePanelStates() {
-  const state = {};
+  const state = { 'right-col': document.getElementById('right-col').classList.contains('collapsed') };
   document.querySelectorAll('#right-col .console-panel').forEach(el => {
     state[el.id] = el.classList.contains('collapsed');
   });
