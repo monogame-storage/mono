@@ -431,13 +431,32 @@
     background: #2d2d2d;
   }
 
-  /* Engine */
-  #engine-panel {
-    height: 96px;
-    flex-shrink: 0;
+  /* console panels — shared */
+  .console-panel {
     display: flex;
     flex-direction: column;
     background: #212121;
+  }
+  .console-panel .panel-tabs { cursor: pointer; }
+  .panel-collapse-icon {
+    margin-left: auto;
+    margin-right: 8px;
+    font-size: 8px;
+    color: #555;
+    transition: transform 0.15s;
+  }
+  .collapsed .panel-collapse-icon { transform: rotate(-90deg); }
+  .collapsed > *:not(.panel-tabs) { display: none !important; }
+  .collapsed {
+    height: 32px !important;
+    min-height: 32px !important;
+    flex: 0 0 32px !important;
+  }
+
+  /* console.engine */
+  #engine-panel {
+    height: 96px;
+    flex-shrink: 0;
   }
   #engine-body {
     flex: 1;
@@ -489,13 +508,10 @@
   .status-sep { width: 1px; height: 12px; background: #3d3d3d; }
   #status-fps, #status-frame { color: #777; }
 
-  /* Console Screen */
+  /* console.screen */
   #screen-panel {
     flex: 1;
     min-height: 120px;
-    display: flex;
-    flex-direction: column;
-    background: #212121;
   }
   #screen-body {
     flex: 1;
@@ -551,13 +567,10 @@
   #shader-toggle:hover { color: #aaa; border-color: #aaa; }
   #shader-toggle.active { color: #00d4aa; border-color: #00d4aa; }
 
-  /* Console Gamepad */
+  /* console.gamepad */
   #gamepad-panel {
     height: 150px;
     flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    background: #212121;
   }
   #gamepad-body {
     flex: 1;
@@ -653,13 +666,10 @@
   .btn-b { left: 0; top: 40px; }
   .btn-a { left: 60px; top: 10px; }
 
-  /* Console Accel */
+  /* console.accel */
   #accel-panel {
     height: 120px;
     flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    background: #212121;
   }
   #accel-body {
     flex: 1;
@@ -702,12 +712,9 @@
   }
   .accel-data .label { font-size: 9px; color: #00d4aa; margin-top: 4px; }
 
-  /* Console Log */
+  /* console.log */
   #log-panel {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #212121;
     min-height: 60px;
     overflow: hidden;
     resize: both;
@@ -804,10 +811,11 @@
 
   <!-- Right Column -->
   <div id="right-col">
-    <!-- Engine -->
-    <div id="engine-panel">
+    <!-- console.engine -->
+    <div id="engine-panel" class="console-panel">
       <div class="panel-tabs">
-        <div class="panel-tab">&#9881; engine</div>
+        <div class="panel-tab">&#9881; console.engine</div>
+        <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="engine-body">
         <div id="engine-btns">
@@ -828,10 +836,11 @@
       </div>
     </div>
 
-    <!-- Console Screen -->
-    <div id="screen-panel">
+    <!-- console.screen -->
+    <div id="screen-panel" class="console-panel">
       <div class="panel-tabs">
         <div class="panel-tab">&#9635; console.screen</div>
+        <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="screen-body" tabindex="0">
         <canvas id="screen"></canvas>
@@ -842,10 +851,11 @@
       </div>
     </div>
 
-    <!-- Console Gamepad -->
-    <div id="gamepad-panel">
+    <!-- console.gamepad -->
+    <div id="gamepad-panel" class="console-panel">
       <div class="panel-tabs">
         <div class="panel-tab">&#127918; console.gamepad</div>
+        <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="gamepad-body">
         <div class="dpad">
@@ -866,10 +876,11 @@
       </div>
     </div>
 
-    <!-- Console Accel -->
-    <div id="accel-panel">
+    <!-- console.accel -->
+    <div id="accel-panel" class="console-panel">
       <div class="panel-tabs">
         <div class="panel-tab">&#128241; console.accel</div>
+        <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="accel-body">
         <div class="tilt-viz">
@@ -886,13 +897,14 @@
       </div>
     </div>
 
-    <!-- Console Log -->
-    <div id="log-panel">
+    <!-- console.log -->
+    <div id="log-panel" class="console-panel">
       <div class="panel-tabs">
         <div class="panel-tab">&#10095;_ console.log</div>
         <div class="log-tabs-extra">
           <button class="log-clear" id="btn-copy-log">copy</button>
           <button class="log-clear" id="btn-clear">clear</button>
+          <span class="panel-collapse-icon">&#9660;</span>
         </div>
       </div>
       <div id="log-body"></div>
@@ -1515,6 +1527,33 @@ async function deleteFile(name) {
     logToConsole("Delete error: " + e.message, "log-error");
   }
 }
+
+// ── Panel collapse/expand ──
+document.querySelectorAll('#right-col .console-panel .panel-tabs').forEach(tabs => {
+  tabs.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    tabs.closest('.console-panel').classList.toggle('collapsed');
+    savePanelStates();
+  });
+});
+
+function savePanelStates() {
+  const state = {};
+  document.querySelectorAll('#right-col .console-panel').forEach(el => {
+    state[el.id] = el.classList.contains('collapsed');
+  });
+  localStorage.setItem('mono-panel-states', JSON.stringify(state));
+}
+
+(function restorePanelStates() {
+  try {
+    const state = JSON.parse(localStorage.getItem('mono-panel-states'));
+    if (!state) return;
+    Object.entries(state).forEach(([id, collapsed]) => {
+      if (collapsed) document.getElementById(id)?.classList.add('collapsed');
+    });
+  } catch (e) {}
+})();
 
 // ── Context menu ──
 const ctxMenu = document.getElementById("ctx-menu");
