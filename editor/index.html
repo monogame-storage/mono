@@ -1124,7 +1124,7 @@ end
   try {
     const monoDir = await dirHandle.getDirectoryHandle(".mono", { create: true });
     const baseUrl = window.location.origin;
-    const resp = await fetch(baseUrl + "/editor/templates/mono-test.js");
+    const resp = await fetch(baseUrl + "/editor/templates/mono/mono-test.js");
     if (resp.ok) {
       const content = await resp.text();
       const h = await monoDir.getFileHandle("mono-test.js", { create: true });
@@ -1155,6 +1155,9 @@ end
   // Auto-generate .mono/CONTEXT.md
   await ensureMonoContext(dirHandle);
 
+  // Ensure .gitignore exists
+  await ensureGitignore(dirHandle);
+
   // Start watching PROPOSALS.md for implemented APIs
   startProposalsWatch(dirHandle);
 
@@ -1167,7 +1170,7 @@ end
 const MONO_VERSION = "0.1.0";
 
 async function monoContext() {
-  const res = await fetch("templates/CONTEXT.md");
+  const res = await fetch("templates/mono/CONTEXT.md");
   const tpl = await res.text();
   return tpl
     .replace(/\{\{VERSION\}\}/g, MONO_VERSION)
@@ -1185,6 +1188,27 @@ async function ensureMonoContext(rootHandle) {
     await writable.write(await monoContext());
     await writable.close();
     logToConsole("Created .mono/CONTEXT.md", "log-info");
+  } catch (e) {
+    // silently skip if permissions fail
+  }
+}
+
+async function ensureGitignore(rootHandle) {
+  try {
+    // Check if .gitignore already exists
+    await rootHandle.getFileHandle(".gitignore", { create: false });
+    return; // already exists, don't overwrite
+  } catch (e) {
+    // doesn't exist — create it
+  }
+  try {
+    const res = await fetch("templates/root/gitignore");
+    const content = await res.text();
+    const handle = await rootHandle.getFileHandle(".gitignore", { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(content);
+    await writable.close();
+    logToConsole("Created .gitignore", "log-info");
   } catch (e) {
     // silently skip if permissions fail
   }
