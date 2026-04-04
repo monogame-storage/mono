@@ -419,6 +419,32 @@ async function main() {
   lua.global.set("vrow", vrow);
   lua.global.set("vdump", vdump);
 
+  // frame counter
+  let frameNum = 0;
+  lua.global.set("frame", () => frameNum);
+
+  // Scene system
+  let currentScene = null;
+  let scenePending = null;
+  const loadedSceneFiles = {};
+
+  async function activateScene(name) {
+    if (!loadedSceneFiles[name]) {
+      const scenePath = path.resolve(gameDir, name + ".lua");
+      if (fs.existsSync(scenePath)) {
+        const src = fs.readFileSync(scenePath, "utf8");
+        await lua.doString(src);
+      }
+      loadedSceneFiles[name] = true;
+    }
+    currentScene = name;
+    const initFn = lua.global.get(name + "_init");
+    if (initFn) initFn();
+  }
+
+  lua.global.set("go", (name) => { scenePending = name; });
+  lua.global.set("scene_name", () => currentScene || false);
+
 
 
   // print — capture output
@@ -545,9 +571,13 @@ end
     }
   }
 
+  // Process boot-time go() (e.g. go("title") in _ready)
+  if (scenePending) {
+    await activateScene(scenePending);
+    scenePending = null;
+  }
+
   // Run frames
-  const updateFn = lua.global.get("_update");
-  const drawFn = lua.global.get("_draw");
 
   // --- Bot: Lua-scriptable auto-player ---
   const botArg = getOpt("bot", null);
@@ -637,14 +667,26 @@ end
       }
     }
 
-    if (updateFn) {
-      try { updateFn(); }
-      catch (e) { console.error(`_update error (frame ${f}):`, e.message || e); hasError = true; break; }
+    // Process pending scene transition
+    if (scenePending) {
+      await activateScene(scenePending);
+      scenePending = null;
     }
-    if (drawFn) {
-      try { drawFn(); }
-      catch (e) { console.error(`_draw error (frame ${f}):`, e.message || e); hasError = true; break; }
+
+    const updateKey = currentScene ? currentScene + "_update" : "_update";
+    const drawKey = currentScene ? currentScene + "_draw" : "_draw";
+
+    const uf = lua.global.get(updateKey);
+    if (uf) {
+      try { uf(); }
+      catch (e) { console.error(`${updateKey} error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
+    const df = lua.global.get(drawKey);
+    if (df) {
+      try { df(); }
+      catch (e) { console.error(`${drawKey} error (frame ${f}):`, e.message || e); hasError = true; break; }
+    }
+    frameNum = f;
     inputUpdate();
     if (untilTriggered) {
       untilFrame = f;

@@ -1865,7 +1865,15 @@ async function start() {
         } catch (e) { /* skip unreadable */ }
       }
     }
-    await Mono.boot("screen", { source, assets, noAutoFit: true, externalInput: true });
+    const readFile = async (name) => {
+      const f = files[name];
+      if (!f) return null;
+      try {
+        const file = await f.handle.getFile();
+        return await file.text();
+      } catch { return null; }
+    };
+    await Mono.boot("screen", { source, assets, readFile, noAutoFit: true, externalInput: true });
     updateStatus(true);
     logToConsole("Running.", "log-info");
     document.getElementById("screen-body").focus();
