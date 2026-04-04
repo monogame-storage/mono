@@ -1,7 +1,3 @@
-# Mono shell wrappers (auto-generated)
-mono-test
-mono-test.bat
-
 # Node
 node_modules/
 
