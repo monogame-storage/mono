@@ -1016,11 +1016,15 @@ function fileIconHTML(name) {
 }
 
 // ── Open folder ──
-async function openFolder() {
-  try {
-    dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
-  } catch (e) {
-    return; // user cancelled
+async function openFolder(droppedHandle) {
+  if (droppedHandle) {
+    dirHandle = droppedHandle;
+  } else {
+    try {
+      dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+    } catch (e) {
+      return; // user cancelled
+    }
   }
 
   // Clear state
@@ -1795,14 +1799,32 @@ explorer.addEventListener("drop", async (e) => {
   explorer.style.outline = "";
   explorer.style.outlineOffset = "";
 
+  // Check for folder drop — open as project
+  const items = [...e.dataTransfer.items];
+  for (const item of items) {
+    if (item.kind === "file" && typeof item.getAsFileSystemHandle === "function") {
+      const handle = await item.getAsFileSystemHandle();
+      if (handle.kind === "directory") {
+        // Request read-write permission
+        const perm = await handle.requestPermission({ mode: "readwrite" });
+        if (perm === "granted") {
+          await openFolder(handle);
+        } else {
+          logToConsole("Permission denied for dropped folder.", "log-error");
+        }
+        return;
+      }
+    }
+  }
+
+  // File drop — import into current project
   if (!dirHandle) {
     logToConsole("Open a folder first.", "log-error");
     return;
   }
 
-  // Collect all files first — DataTransferItemList is live and invalidates during async
   const collected = [];
-  for (const item of e.dataTransfer.items) {
+  for (const item of items) {
     if (item.kind === "file") {
       const file = item.getAsFile();
       if (file) collected.push(file);
