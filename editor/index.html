@@ -1448,7 +1448,7 @@ function renderFileTree() {
 
   function fileRowHTML(f, displayName, active, mod, extraStyle) {
     const style = extraStyle ? ` style="${extraStyle}"` : '';
-    return `<div class="tree-file${active}" data-file="${f}"${style}>${fileIconHTML(f)} ${displayName} ${mod}<button class="file-delete" data-del="${f}" title="Delete">&#10005;</button></div>`;
+    return `<div class="tree-file${active}" data-file="${f}" draggable="true"${style}>${fileIconHTML(f)} ${displayName} ${mod}<button class="file-delete" data-del="${f}" title="Delete">&#10005;</button></div>`;
   }
 
   // Root files
@@ -1475,11 +1475,15 @@ function renderFileTree() {
 
   tree.innerHTML = html;
 
-  // Rebind clicks
+  // Rebind clicks + drag
   tree.querySelectorAll(".tree-file").forEach(el => {
     el.addEventListener("click", (e) => {
       if (e.target.closest(".file-delete")) return;
       openFile(el.dataset.file);
+    });
+    el.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/x-mono-file", el.dataset.file);
+      e.dataTransfer.effectAllowed = "move";
     });
   });
   // Delete buttons
@@ -1489,12 +1493,12 @@ function renderFileTree() {
       deleteFile(btn.dataset.del);
     });
   });
-  // Folder drop targets
+  // Folder drop targets (internal move + external import)
   tree.querySelectorAll(".tree-folder[data-folder]").forEach(el => {
     el.addEventListener("dragover", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      e.dataTransfer.dropEffect = "copy";
+      e.dataTransfer.dropEffect = e.dataTransfer.types.includes("text/x-mono-file") ? "move" : "copy";
       el.style.background = "#00d4aa22";
     });
     el.addEventListener("dragleave", () => { el.style.background = ""; });
@@ -1504,6 +1508,11 @@ function renderFileTree() {
       el.style.background = "";
       if (!dirHandle) return;
       const folder = el.dataset.folder;
+      const monoFile = e.dataTransfer.getData("text/x-mono-file");
+      if (monoFile) {
+        await moveFile(monoFile, folder);
+        return;
+      }
       const collected = [];
       for (const item of e.dataTransfer.items) {
         if (item.kind === "file") {
@@ -1515,6 +1524,25 @@ function renderFileTree() {
       if (collected.length) renderFileTree();
     });
   });
+  // Root section drop target (move file to root)
+  const rootSection = tree.querySelector(".tree-section");
+  if (rootSection) {
+    rootSection.addEventListener("dragover", (e) => {
+      if (!e.dataTransfer.types.includes("text/x-mono-file")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "move";
+      rootSection.style.background = "#00d4aa22";
+    });
+    rootSection.addEventListener("dragleave", () => { rootSection.style.background = ""; });
+    rootSection.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      rootSection.style.background = "";
+      const monoFile = e.dataTransfer.getData("text/x-mono-file");
+      if (monoFile) await moveFile(monoFile, "");
+    });
+  }
 }
 
 // ── Tab management ──
@@ -1680,6 +1708,42 @@ async function createNewFile() {
 }
 
 // ── Delete file ──
+async function moveFile(oldPath, targetFolder) {
+  if (!dirHandle || !files[oldPath]) return;
+  const fileName = oldPath.split("/").pop();
+  const newPath = targetFolder ? targetFolder + "/" + fileName : fileName;
+  if (oldPath === newPath) return;
+  if (files[newPath]) { logToConsole("Already exists: " + newPath, "log-error"); return; }
+  try {
+    const oldFile = await files[oldPath].handle.getFile();
+    const content = await oldFile.arrayBuffer();
+    let targetDir = dirHandle;
+    if (targetFolder) targetDir = await dirHandle.getDirectoryHandle(targetFolder, { create: true });
+    const newHandle = await targetDir.getFileHandle(fileName, { create: true });
+    const writable = await newHandle.createWritable();
+    await writable.write(content);
+    await writable.close();
+    const newFile = await newHandle.getFile();
+    files[newPath] = { content: files[oldPath].content, handle: newHandle, modified: files[oldPath].modified, lastModified: newFile.lastModified };
+    // Delete old
+    const oldSlash = oldPath.lastIndexOf("/");
+    if (oldSlash >= 0) {
+      const oldParent = await dirHandle.getDirectoryHandle(oldPath.substring(0, oldSlash));
+      await oldParent.removeEntry(fileName);
+    } else {
+      await dirHandle.removeEntry(fileName);
+    }
+    delete files[oldPath];
+    // Update tabs
+    const tabIdx = openTabs.indexOf(oldPath);
+    if (tabIdx >= 0) openTabs[tabIdx] = newPath;
+    if (currentFile === oldPath) currentFile = newPath;
+    renderFileTree();
+    renderTabs();
+    logToConsole(`Moved: ${oldPath} → ${newPath}`, "log-info");
+  } catch (e) { logToConsole("Move error: " + e.message, "log-error"); }
+}
+
 async function deleteFile(name) {
   if (!dirHandle || !files[name]) return;
   if (!confirm("Delete \"" + name + "\"?")) return;
