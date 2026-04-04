@@ -327,6 +327,11 @@ var Mono = (() => {
   }
   let flushFn = flush;
 
+  // --- Scene system ---
+  let currentScene = null;
+  let scenePending = null;
+  let loadedSceneFiles = {};
+
   // --- Boot ---
   const API = {};
   let _loopId = null;
@@ -428,6 +433,7 @@ var Mono = (() => {
     lua.global.set("axis_y", () => axisY);
     lua.global.set("vrow", vrow);
     lua.global.set("vdump", vdump);
+    lua.global.set("frame", () => frame);
     lua.global.set("print", (...args) => console.log("[Lua]", ...args));
 
     // mode(bits) — set color depth (1=2 colors, 2=4 colors, 4=16 colors)
@@ -456,6 +462,37 @@ function btnp(k)
   return _btnp(k) == 1
 end
     `);
+
+    // --- Scene system ---
+    currentScene = null;
+    scenePending = null;
+    loadedSceneFiles = {};
+
+    const readFile = opts.readFile || (async (name) => {
+      const url = gameBase + name;
+      try { const r = await fetch(url); return r.ok ? await r.text() : null; }
+      catch { return null; }
+    });
+
+    async function activateScene(name) {
+      if (!loadedSceneFiles[name]) {
+        const src = await readFile(name + ".lua");
+        if (src !== null) {
+          try { await lua.doString(src); }
+          catch (e) { showError(name + ".lua: " + (e.message || e)); return; }
+        }
+        loadedSceneFiles[name] = true;
+      }
+      currentScene = name;
+      const initFn = lua.global.get(name + "_init");
+      if (initFn) {
+        try { initFn(); }
+        catch (e) { showError(name + "_init: " + (e.message || e)); }
+      }
+    }
+
+    lua.global.set("go", (name) => { scenePending = name; });
+    lua.global.set("scene_name", () => currentScene || false);
 
     // Error overlay — HTML layer, not constrained by engine
     function showError(msg) {
@@ -523,18 +560,40 @@ end
       try { readyFn(); } catch (e) { showError("_ready: " + (e.message || e)); return; }
     }
 
-    // Game loop
-    const updateFn = lua.global.get("_update");
-    const drawFn = lua.global.get("_draw");
-    function stopWithError(msg) { showError(msg); clearInterval(_loopId); _loopId = null; }
+    // Process boot-time go() (e.g. go("title") in _ready)
+    if (scenePending) {
+      const name = scenePending;
+      scenePending = null;
+      await activateScene(name);
+    }
+
+    // Game loop (async setTimeout chain for scene loading support)
+    function stopWithError(msg) { showError(msg); clearTimeout(_loopId); _loopId = null; }
     API._showError = (msg) => { stopWithError(msg); };
-    _loopId = setInterval(() => {
-      if (!paused && updateFn) try { updateFn(); } catch (e) { stopWithError("_update: " + (e.message || e)); return; }
-      if (drawFn) try { drawFn(); } catch (e) { stopWithError("_draw: " + (e.message || e)); return; }
+
+    async function tick() {
+      // Process pending scene transition
+      if (scenePending) {
+        const name = scenePending;
+        scenePending = null;
+        await activateScene(name);
+      }
+
+      const updateKey = currentScene ? currentScene + "_update" : "_update";
+      const drawKey = currentScene ? currentScene + "_draw" : "_draw";
+
+      if (!paused) {
+        const uf = lua.global.get(updateKey);
+        if (uf) try { uf(); } catch (e) { stopWithError(updateKey + ": " + (e.message || e)); return; }
+      }
+      {
+        const df = lua.global.get(drawKey);
+        if (df) try { df(); } catch (e) { stopWithError(drawKey + ": " + (e.message || e)); return; }
+      }
       if (paused) {
         const maxC = palette.length - 1;
         const label = "PAUSED";
-        const tw = label.length * (FONT_W + 1) - 1;  // text width
+        const tw = label.length * (FONT_W + 1) - 1;
         const pad = 6;
         const pw = tw + pad * 2, ph = FONT_H + pad * 2;
         const px = Math.floor((W - pw) / 2), py = Math.floor((H - ph) / 2);
@@ -547,16 +606,19 @@ end
       frame++;
       flushFn();
       inputUpdate();
-    }, FRAME_MS);
+      _loopId = setTimeout(tick, FRAME_MS);
+    }
+    _loopId = setTimeout(tick, FRAME_MS);
   };
 
   API.stop = () => {
-    if (_loopId) { clearInterval(_loopId); _loopId = null; }
+    if (_loopId) { clearTimeout(_loopId); _loopId = null; }
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;
     frame = 0;
     images = []; imageIdCounter = 0; pendingLoads = [];
     camX = 0; camY = 0;
+    currentScene = null; scenePending = null; loadedSceneFiles = {};
   };
 
   // Expose input for external control (playground gamepad)
