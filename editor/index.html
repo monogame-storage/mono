@@ -532,6 +532,8 @@
   #screen-panel {
     flex: 1;
     min-height: 120px;
+    container-type: size;
+    container-name: screen-panel;
   }
   #screen-body {
     flex: 1;
@@ -562,6 +564,7 @@
     border: 1px solid #3d3d3d;
     background: #000;
   }
+  /* Default: footer as row at bottom */
   #screen-footer {
     display: flex;
     align-items: center;
@@ -586,6 +589,34 @@
   }
   #shader-toggle:hover { color: #aaa; border-color: #aaa; }
   #shader-toggle.active { color: #00d4aa; border-color: #00d4aa; }
+  /* Short panel: move controls to right column to save vertical space */
+  @container screen-panel (max-height: 280px) {
+    #screen-body {
+      flex-direction: row;
+      gap: 0;
+    }
+    canvas {
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: none;
+    }
+    #screen-footer {
+      flex-direction: column;
+      width: auto;
+      flex-shrink: 0;
+      justify-content: end;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 4px;
+    }
+    #shader-toggle {
+      margin-left: 0;
+    }
+    #screen-label {
+      writing-mode: vertical-lr;
+      text-orientation: mixed;
+    }
+  }
 
   /* console.gamepad */
   #gamepad-panel {
@@ -977,7 +1008,7 @@
 <script src="../runtime/shaders/lcd.js?v=2"></script>
 <script src="../runtime/shaders/lcd3d.js?v=2"></script>
 <script src="../runtime/shaders/crt.js?v=2"></script>
-<script src="../runtime/console-screen.js"></script>
+
 
 <script type="module">
 const logToConsole = window.logToConsole;
@@ -1845,6 +1876,15 @@ screenBody.addEventListener("keyup", (e) => {
   if (k) {
     Mono.setKey(k, false);
     e.preventDefault();
+  }
+});
+
+// ── Shader toggle ──
+document.getElementById("shader-toggle").addEventListener("click", () => {
+  const btn = document.getElementById("shader-toggle");
+  const on = btn.classList.toggle("active");
+  if (typeof Mono !== "undefined" && Mono.shader) {
+    if (on) Mono.shader.preset(); else Mono.shader.off();
   }
 });
 
