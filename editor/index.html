@@ -978,7 +978,7 @@
   window.logToConsole = logToConsole;
 })();
 </script>
-<script src="../runtime/engine.js?v=2"></script>
+<!-- engine.js loaded dynamically from .mono/ on folder open -->
 <script src="../runtime/shader.js?v=2"></script>
 <script src="../runtime/shaders/tint.js?v=2"></script>
 <script src="../runtime/shaders/scanlines.js?v=2"></script>
@@ -1135,6 +1135,33 @@ end
       }
     } else {
       logToConsole(`Keeping engine v${existingVersion} (latest: ${MONO_VERSION})`, "log-info");
+    }
+
+    // Load engine.js from .mono/ (version-locked local copy)
+    try {
+      const engineHandle = await monoDir.getFileHandle("engine.js", { create: false });
+      const engineFile = await engineHandle.getFile();
+      const engineSrc = await engineFile.text();
+      const blob = new Blob([engineSrc], { type: "text/javascript" });
+      const url = URL.createObjectURL(blob);
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = url;
+        s.onload = () => { URL.revokeObjectURL(url); resolve(); };
+        s.onerror = () => { URL.revokeObjectURL(url); reject(new Error("engine.js load failed")); };
+        document.head.appendChild(s);
+      });
+      logToConsole(`Engine loaded from .mono/engine.js`, "log-info");
+    } catch (e) {
+      // Fallback: load from server
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "../runtime/engine.js?v=" + Date.now();
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      logToConsole("Engine loaded from server (no local copy)", "log-info");
     }
   } catch (e) { /* skip if fetch or permission fails */ }
 
@@ -1818,6 +1845,10 @@ function updateFrame() {
 }
 
 async function start() {
+  if (typeof Mono === "undefined") {
+    logToConsole("Engine not loaded. Open a folder first.", "log-error");
+    return;
+  }
   if (running) Mono.stop();
   saveCurrentFile();
   document.getElementById("log-body").innerHTML = "";
