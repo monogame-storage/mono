@@ -978,13 +978,7 @@
   window.logToConsole = logToConsole;
 })();
 </script>
-<!-- engine.js loaded dynamically from .mono/ on folder open -->
-<script src="../runtime/shader.js?v=2"></script>
-<script src="../runtime/shaders/tint.js?v=2"></script>
-<script src="../runtime/shaders/scanlines.js?v=2"></script>
-<script src="../runtime/shaders/lcd.js?v=2"></script>
-<script src="../runtime/shaders/lcd3d.js?v=2"></script>
-<script src="../runtime/shaders/crt.js?v=2"></script>
+<!-- engine.js + shaders loaded dynamically from .mono/ on folder open -->
 <script src="../runtime/console-screen.js?v=2"></script>
 
 <script type="module">
@@ -1162,6 +1156,25 @@ end
         document.head.appendChild(s);
       });
       logToConsole("Engine loaded from server (no local copy)", "log-info");
+    }
+
+    // Load shaders (depend on Mono global from engine.js)
+    const shaderScripts = [
+      "../runtime/shader.js",
+      "../runtime/shaders/tint.js",
+      "../runtime/shaders/scanlines.js",
+      "../runtime/shaders/lcd.js",
+      "../runtime/shaders/lcd3d.js",
+      "../runtime/shaders/crt.js"
+    ];
+    for (const src of shaderScripts) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src + "?v=" + Date.now();
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
     }
   } catch (e) { /* skip if fetch or permission fails */ }
 
