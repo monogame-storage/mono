@@ -576,8 +576,21 @@
     font-size: 8px;
     color: #3d3d3d;
   }
-  #shader-toggle {
+  #scale-select {
     margin-left: auto;
+    background: none;
+    border: 1px solid #3d3d3d;
+    border-radius: 3px;
+    color: #3d3d3d;
+    font-family: inherit;
+    font-size: 7px;
+    padding: 1px 2px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  #scale-select:hover { color: #aaa; border-color: #aaa; }
+  #shader-toggle {
     background: none;
     border: 1px solid #3d3d3d;
     border-radius: 3px;
@@ -608,6 +621,9 @@
       align-items: center;
       gap: 4px;
       padding: 4px 4px;
+    }
+    #scale-select {
+      margin-left: 0;
     }
     #shader-toggle {
       margin-left: 0;
@@ -895,6 +911,13 @@
         <canvas id="screen"></canvas>
         <div id="screen-footer">
           <span id="screen-label">160x144 // 2x</span>
+          <select id="scale-select">
+            <option value="fit">fit</option>
+            <option value="1">1x</option>
+            <option value="2" selected>2x</option>
+            <option value="3">3x</option>
+            <option value="4">4x</option>
+          </select>
           <button id="shader-toggle" class="active">SHADER</button>
         </div>
       </div>
@@ -1876,6 +1899,26 @@ screenBody.addEventListener("keyup", (e) => {
   if (k) {
     Mono.setKey(k, false);
     e.preventDefault();
+  }
+});
+
+// ── Scale select ──
+document.getElementById("scale-select").addEventListener("change", (e) => {
+  const canvas = document.getElementById("screen");
+  const glCanvas = canvas.nextElementSibling; // shader's WebGL canvas
+  const label = document.getElementById("screen-label");
+  const val = e.target.value;
+  const W = 160, H = 144;
+
+  if (val === "fit") {
+    // Remove inline size, let CSS flex handle it
+    [canvas, glCanvas].forEach(c => { if (c) { c.style.width = ""; c.style.height = ""; }});
+    label.textContent = `${W}x${H} // fit`;
+  } else {
+    const s = parseInt(val);
+    const w = W * s, h = H * s;
+    [canvas, glCanvas].forEach(c => { if (c) { c.style.width = w + "px"; c.style.height = h + "px"; }});
+    label.textContent = `${W}x${H} // ${s}x`;
   }
 });
 
