@@ -1888,7 +1888,7 @@ async function start() {
     logToConsole("Running.", "log-info");
     document.getElementById("screen-body").focus();
 
-    Mono.shader.preset();
+    if (Mono.shader && Mono.shader.preset) Mono.shader.preset();
 
     if (fpsInterval) clearInterval(fpsInterval);
     fpsInterval = setInterval(updateFrame, 200);
