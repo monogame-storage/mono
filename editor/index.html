@@ -1065,7 +1065,8 @@ end
 `;
       await writable.write(hello);
       await writable.close();
-      files["main.lua"] = { content: hello, handle, modified: false };
+      const createdFile = await handle.getFile();
+      files["main.lua"] = { content: hello, handle, modified: false, lastModified: createdFile.lastModified };
       renderFileTree();
       logToConsole("Created main.lua with hello world template", "log-info");
     } catch (e) { /* skip if permission denied */ }
