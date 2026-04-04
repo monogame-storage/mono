@@ -404,40 +404,79 @@
     overflow: hidden;
   }
 
-  /* Panel tabs common */
-  .panel-tabs {
-    display: flex;
-    align-items: flex-end;
-    background: #2d2d2d;
-    height: 32px;
-    flex-shrink: 0;
-  }
-  .panel-tab {
+  /* Console header */
+  #console-header {
     display: flex;
     align-items: center;
-    gap: 5px;
+    height: 32px;
     padding: 0 12px;
-    height: 30px;
-    font-size: 10px;
-    font-weight: 600;
-    color: #fff;
-    background: #212121;
-    border-radius: 4px 4px 0 0;
-  }
-  .panel-tab-inactive {
-    height: 28px;
-    color: #777;
-    font-weight: 400;
     background: #2d2d2d;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .console-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+  }
+  #right-col.collapsed > *:not(#console-header) { display: none !important; }
+  #right-col.collapsed { width: 32px !important; }
+  #right-col.collapsed #console-header {
+    writing-mode: vertical-rl;
+    height: 100%;
+    padding: 12px 0;
+    justify-content: flex-start;
+  }
+  #right-col.collapsed .panel-collapse-icon { transform: rotate(-90deg); }
+
+  /* Section headers (per-panel) */
+  .section-header {
+    display: flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    background: #1a1a1a;
+    flex-shrink: 0;
+    cursor: pointer;
+    gap: 6px;
+  }
+  .section-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: #888;
+  }
+  .section-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
   }
 
-  /* Engine */
-  #engine-panel {
-    height: 96px;
-    flex-shrink: 0;
+  /* console panels — shared */
+  .console-panel {
     display: flex;
     flex-direction: column;
     background: #212121;
+  }
+  .panel-collapse-icon {
+    margin-left: auto;
+    font-size: 8px;
+    color: #555;
+    transition: transform 0.15s;
+  }
+  .section-actions + .panel-collapse-icon { margin-left: 0; }
+  .collapsed .panel-collapse-icon { transform: rotate(-90deg); }
+  .console-panel.collapsed > *:not(.section-header) { display: none !important; }
+  .console-panel.collapsed {
+    height: 24px !important;
+    min-height: 24px !important;
+    flex: 0 0 24px !important;
+  }
+
+  /* console.engine */
+  #engine-panel {
+    height: 96px;
+    flex-shrink: 0;
   }
   #engine-body {
     flex: 1;
@@ -489,13 +528,12 @@
   .status-sep { width: 1px; height: 12px; background: #3d3d3d; }
   #status-fps, #status-frame { color: #777; }
 
-  /* Console Screen */
+  /* console.screen */
   #screen-panel {
     flex: 1;
     min-height: 120px;
-    display: flex;
-    flex-direction: column;
-    background: #212121;
+    container-type: size;
+    container-name: screen-panel;
   }
   #screen-body {
     flex: 1;
@@ -526,6 +564,7 @@
     border: 1px solid #3d3d3d;
     background: #000;
   }
+  /* Default: footer as row at bottom */
   #screen-footer {
     display: flex;
     align-items: center;
@@ -537,8 +576,21 @@
     font-size: 8px;
     color: #3d3d3d;
   }
-  #shader-toggle {
+  #scale-select {
     margin-left: auto;
+    background: none;
+    border: 1px solid #3d3d3d;
+    border-radius: 3px;
+    color: #3d3d3d;
+    font-family: inherit;
+    font-size: 7px;
+    padding: 1px 2px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  #scale-select:hover { color: #aaa; border-color: #aaa; }
+  #shader-toggle {
     background: none;
     border: 1px solid #3d3d3d;
     border-radius: 3px;
@@ -550,14 +602,43 @@
   }
   #shader-toggle:hover { color: #aaa; border-color: #aaa; }
   #shader-toggle.active { color: #00d4aa; border-color: #00d4aa; }
+  /* Short panel: move controls to right column to save vertical space */
+  @container screen-panel (max-height: 280px) {
+    #screen-body {
+      flex-direction: row;
+      gap: 0;
+    }
+    canvas {
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: none;
+    }
+    #screen-footer {
+      flex-direction: column;
+      width: auto;
+      flex-shrink: 0;
+      justify-content: end;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 2px;
+      overflow: hidden;
+    }
+    #scale-select {
+      margin-left: 0;
+    }
+    #shader-toggle {
+      margin-left: 0;
+    }
+    #screen-label {
+      writing-mode: vertical-lr;
+      text-orientation: mixed;
+    }
+  }
 
-  /* Console Gamepad */
+  /* console.gamepad */
   #gamepad-panel {
     height: 150px;
     flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    background: #212121;
   }
   #gamepad-body {
     flex: 1;
@@ -653,13 +734,10 @@
   .btn-b { left: 0; top: 40px; }
   .btn-a { left: 60px; top: 10px; }
 
-  /* Console Accel */
+  /* console.accel */
   #accel-panel {
     height: 120px;
     flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    background: #212121;
   }
   #accel-body {
     flex: 1;
@@ -702,15 +780,12 @@
   }
   .accel-data .label { font-size: 9px; color: #00d4aa; margin-top: 4px; }
 
-  /* Console Log */
+  /* console.log */
   #log-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #212121;
-    min-height: 60px;
+    flex: 0 0 auto;
+    max-height: 120px;
+    min-height: 24px;
     overflow: hidden;
-    resize: both;
   }
   #log-body {
     flex: 1;
@@ -726,12 +801,6 @@
   #log-body .log-line { white-space: pre-wrap; word-break: break-all; }
   #log-body .log-error { color: #e66; }
   #log-body .log-info { color: #777; }
-  .log-tabs-extra {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    margin-right: 8px;
-  }
   .log-clear {
     background: none;
     border: none;
@@ -802,12 +871,17 @@
     </div>
   </div>
 
-  <!-- Right Column -->
+  <!-- Right Column: Console -->
   <div id="right-col">
-    <!-- Engine -->
-    <div id="engine-panel">
-      <div class="panel-tabs">
-        <div class="panel-tab">&#9881; engine</div>
+    <div id="console-header">
+      <span class="console-title">&#9654; console</span>
+      <span class="panel-collapse-icon" id="console-collapse-icon">&#9660;</span>
+    </div>
+    <!-- console.engine -->
+    <div id="engine-panel" class="console-panel">
+      <div class="section-header">
+        <span class="section-label">&#9881; engine</span>
+        <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="engine-body">
         <div id="engine-btns">
@@ -828,24 +902,34 @@
       </div>
     </div>
 
-    <!-- Console Screen -->
-    <div id="screen-panel">
-      <div class="panel-tabs">
-        <div class="panel-tab">&#9635; console.screen</div>
+    <!-- console.screen -->
+    <div id="screen-panel" class="console-panel">
+      <div class="section-header">
+        <span class="section-label">&#9635; screen</span>
+        <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="screen-body" tabindex="0">
         <canvas id="screen"></canvas>
         <div id="screen-footer">
-          <span id="screen-label">160x144 // 2x</span>
+          <span id="screen-label">160x144 // fit</span>
+          <select id="scale-select">
+            <option value="fit" selected>fit</option>
+            <option value="1">1x</option>
+            <option value="2">2x</option>
+            <option value="3">3x</option>
+            <option value="4">4x</option>
+          </select>
           <button id="shader-toggle" class="active">SHADER</button>
         </div>
       </div>
     </div>
 
-    <!-- Console Gamepad -->
-    <div id="gamepad-panel">
-      <div class="panel-tabs">
-        <div class="panel-tab">&#127918; console.gamepad</div>
+    <!-- console.gamepad -->
+    <!-- console.gamepad -->
+    <div id="gamepad-panel" class="console-panel">
+      <div class="section-header">
+        <span class="section-label">&#127918; gamepad</span>
+        <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="gamepad-body">
         <div class="dpad">
@@ -866,10 +950,11 @@
       </div>
     </div>
 
-    <!-- Console Accel -->
-    <div id="accel-panel">
-      <div class="panel-tabs">
-        <div class="panel-tab">&#128241; console.accel</div>
+    <!-- console.accel -->
+    <div id="accel-panel" class="console-panel">
+      <div class="section-header">
+        <span class="section-label">&#128241; accel</span>
+        <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="accel-body">
         <div class="tilt-viz">
@@ -886,14 +971,15 @@
       </div>
     </div>
 
-    <!-- Console Log -->
-    <div id="log-panel">
-      <div class="panel-tabs">
-        <div class="panel-tab">&#10095;_ console.log</div>
-        <div class="log-tabs-extra">
+    <!-- console.log -->
+    <div id="log-panel" class="console-panel">
+      <div class="section-header">
+        <span class="section-label">&#10095;_ log</span>
+        <div class="section-actions">
           <button class="log-clear" id="btn-copy-log">copy</button>
           <button class="log-clear" id="btn-clear">clear</button>
         </div>
+        <span class="panel-collapse-icon">&#9660;</span>
       </div>
       <div id="log-body"></div>
     </div>
@@ -905,6 +991,40 @@
   <div class="ctx-item danger" id="ctx-delete">&#128465; Delete</div>
 </div>
 
+<script>
+// ── Console log (inline, replaces console-log.js for editor) ──
+(function() {
+  const logBody = document.getElementById("log-body");
+  function logToConsole(msg, cls) {
+    const el = document.createElement("div");
+    el.className = "log-line" + (cls ? " " + cls : "");
+    el.textContent = msg;
+    logBody.appendChild(el);
+    logBody.scrollTop = logBody.scrollHeight;
+  }
+  document.getElementById("btn-clear").addEventListener("click", () => { logBody.innerHTML = ""; });
+  document.getElementById("btn-copy-log").addEventListener("click", () => {
+    const text = [...logBody.querySelectorAll(".log-line")].map(el => el.textContent).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById("btn-copy-log");
+      btn.textContent = "copied!";
+      setTimeout(() => btn.textContent = "copy", 1500);
+    });
+  });
+  const _origLog = console.log;
+  const _origErr = console.error;
+  console.log = (...args) => {
+    const msg = args.join(" ");
+    if (msg.startsWith("[Lua]")) logToConsole(msg.replace("[Lua] ", ""));
+    _origLog.apply(console, args);
+  };
+  console.error = (...args) => {
+    logToConsole(args.join(" "), "log-error");
+    _origErr.apply(console, args);
+  };
+  window.logToConsole = logToConsole;
+})();
+</script>
 <script src="../runtime/engine.js?v=2"></script>
 <script src="../runtime/shader.js?v=2"></script>
 <script src="../runtime/shaders/tint.js?v=2"></script>
@@ -912,12 +1032,10 @@
 <script src="../runtime/shaders/lcd.js?v=2"></script>
 <script src="../runtime/shaders/lcd3d.js?v=2"></script>
 <script src="../runtime/shaders/crt.js?v=2"></script>
-<script src="../runtime/console-log.js"></script>
-<script src="../runtime/console-screen.js"></script>
-<script src="../runtime/console-accel.js"></script>
-<script src="../runtime/console-gamepad.js"></script>
+
 
 <script type="module">
+const logToConsole = window.logToConsole;
 import {EditorView, basicSetup} from "https://esm.sh/codemirror@6.0.2?bundle-deps";
 
 const darkTheme = EditorView.theme({
@@ -1002,23 +1120,29 @@ end
     } catch (e) { /* skip if permission denied */ }
   }
 
-  // Download mono-test.js from engine server if it doesn't exist
-  if (!files["mono-test.js"]) {
-    try {
-      const baseUrl = window.location.origin;
-      const resp = await fetch(baseUrl + "/runtime/mono-test.js");
-      if (resp.ok) {
-        const content = await resp.text();
-        const handle = await dirHandle.getFileHandle("mono-test.js", { create: true });
-        const writable = await handle.createWritable();
-        await writable.write(content);
-        await writable.close();
-        files["mono-test.js"] = { content, handle, modified: false };
-        renderFileTree();
-        logToConsole("Downloaded mono-test.js from engine server", "log-info");
-      }
-    } catch (e) { /* skip if fetch or permission fails */ }
-  }
+  // Deploy mono-test.js to .mono/ and shell wrappers to root
+  try {
+    const monoDir = await dirHandle.getDirectoryHandle(".mono", { create: true });
+    const baseUrl = window.location.origin;
+    const resp = await fetch(baseUrl + "/editor/templates/mono/mono-test.js?v=" + Date.now());
+    if (resp.ok) {
+      const content = await resp.text();
+      const h = await monoDir.getFileHandle("mono-test.js", { create: true });
+      const w = await h.createWritable(); await w.write(content); await w.close();
+
+      // Shell wrapper (unix)
+      const sh = '#!/bin/sh\nnode "$(dirname "$0")/.mono/mono-test.js" "$@"\n';
+      const shH = await dirHandle.getFileHandle("mono-test", { create: true });
+      const shW = await shH.createWritable(); await shW.write(sh); await shW.close();
+
+      // Shell wrapper (windows)
+      const cmd = '@node "%~dp0.mono\\mono-test.js" %*\r\n';
+      const cmdH = await dirHandle.getFileHandle("mono-test.cmd", { create: true });
+      const cmdW = await cmdH.createWritable(); await cmdW.write(cmd); await cmdW.close();
+
+      logToConsole("Deployed .mono/mono-test.js + wrappers", "log-info");
+    }
+  } catch (e) { /* skip if fetch or permission fails */ }
 
   // Auto-open main.lua if exists
   const mainFile = Object.keys(files).find(f => f === "main.lua") ||
@@ -1031,6 +1155,9 @@ end
   // Auto-generate .mono/CONTEXT.md
   await ensureMonoContext(dirHandle);
 
+  // Ensure .gitignore exists
+  await ensureGitignore(dirHandle);
+
   // Start watching PROPOSALS.md for implemented APIs
   startProposalsWatch(dirHandle);
 
@@ -1042,109 +1169,12 @@ end
 
 const MONO_VERSION = "0.1.0";
 
-function monoContext() {
-  const baseUrl = window.location.origin;
-  return `# Mono Game Project (engine v${MONO_VERSION})
-
-This is a [Mono](https://github.com/ssk-play/mono) fantasy console game.
-
-## Constraints
-- Resolution: 160x144
-- Colors: 16 grayscale (4-bit), configurable via \`mode()\`
-- Sprites: 16x16
-- Language: Lua 5.4 (via Wasmoon)
-- Frame rate: 30 FPS
-- Input: 8 buttons (up, down, left, right, a, b, start, select)
-
-## Entry Point
-- **\`main.lua\`** is the required entry file. The editor runs this file on Start.
-
-## Lifecycle
-\`\`\`
-_init()    -- system config: call mode() here
-_start()   -- game init: sprites, variables, go("title")
-_update()  -- called every frame (game logic)
-_draw()    -- called every frame (rendering)
-\`\`\`
-
-## Documentation
-- API Reference: ${baseUrl}/docs/DEV.md
-- Common AI Mistakes: ${baseUrl}/docs/AI-PITFALLS.md
-- Headless Testing: ${baseUrl}/docs/LLM-VERIFICATION.md
-- Source: https://github.com/ssk-play/mono
-
-## Key Rules
-- Lua 5.4, NOT Luau — no type annotations
-- \`local function\` must be defined BEFORE it's called
-- Never return \`null\` from JS — use \`false\`
-- \`pollCollision()\` returns \`false\` when empty, not \`nil\`
-- Never use \`rnd()\` in \`_draw()\` — generate once in init, store in table
-- Camera affects shapes/sprites but NOT \`text()\`
-- Diagonal movement must be normalized (0.7071 factor)
-
-## Status
-This engine is under active development. Not all APIs listed in the docs may be implemented yet,
-and some game patterns may require APIs that don't exist yet.
-
-If you need a feature that isn't available, write a proposal to \`.mono/PROPOSALS.md\` with:
-- **What**: the API name and signature you'd want
-- **Why**: what game feature requires it
-- **Workaround**: how you're handling it now (if at all)
-
-Example:
-\`\`\`
-## loadImage(path) → imageId
-Need to load PNG as background for Gals Panic style reveal.
-Currently no workaround — cannot load external images from Lua.
-\`\`\`
-
-The developer will review proposals and prioritize implementation.
-
-## Headless Verification (mono-test.js)
-LLM can run and verify Lua code without a browser using \`mono-test.js\`.
-
-**Setup**: \`mono-test.js\` is auto-downloaded when you open a folder in the editor.
-Dependencies: \`npm install wasmoon@1.16.0 pngjs@7\`
-
-**Usage**:
-\`\`\`bash
-# Run a game file and check visually
-node mono-test.js main.lua --frames 5 --ascii
-
-# Test inline code (no file needed)
-node mono-test.js --source 'cls(0) rectf(10,10,20,20,1) print(gpix(15,15))' --ascii --console
-
-# Pixel-level assertion
-node mono-test.js --source 'cls(0) pix(80,72,1) print(gpix(80,72))' --console --quiet
-# → prints "1" if correct
-
-# Save and compare snapshots (regression test)
-node mono-test.js main.lua --frames 5 --snapshot expected.txt
-node mono-test.js main.lua --frames 5 --diff expected.txt
-
-# Export PNG for visual check
-node mono-test.js main.lua --frames 5 --png screen.png
-\`\`\`
-
-**Workflow**: Edit code → run mono-test.js → check ASCII/PNG → fix → repeat (1-2s per cycle).
-
-**Fast-forward testing**: Run thousands of frames in ~1 second to verify game outcomes:
-\`\`\`bash
-# Stop when game prints "WINNER"
-node mono-test.js main.lua --frames 10000 --until "WINNER" --quiet --console
-
-# Run 10 games, report win rate stats
-node mono-test.js main.lua --frames 10000 --until "WINNER" --quiet --runs 10
-
-# Reproducible test with fixed seed
-node mono-test.js main.lua --frames 1000 --seed 42 --console --quiet
-
-# Auto-play with VRAM bot (reads screen, controls P2)
-node mono-test.js main.lua --frames 10000 --until "WINNER" --bot --quiet
-# Custom bot script
-node mono-test.js main.lua --frames 10000 --until "WINNER" --bot bot.lua --quiet
-\`\`\`
-`;
+async function monoContext() {
+  const res = await fetch("templates/mono/CONTEXT.md?v=" + Date.now());
+  const tpl = await res.text();
+  return tpl
+    .replace(/\{\{VERSION\}\}/g, MONO_VERSION)
+    .replace(/\{\{BASE_URL\}\}/g, window.location.origin);
 }
 
 async function ensureMonoContext(rootHandle) {
@@ -1155,9 +1185,30 @@ async function ensureMonoContext(rootHandle) {
     // Always overwrite with latest engine context
     const handle = await monoDir.getFileHandle("CONTEXT.md", { create: true });
     const writable = await handle.createWritable();
-    await writable.write(monoContext());
+    await writable.write(await monoContext());
     await writable.close();
     logToConsole("Created .mono/CONTEXT.md", "log-info");
+  } catch (e) {
+    // silently skip if permissions fail
+  }
+}
+
+async function ensureGitignore(rootHandle) {
+  try {
+    // Check if .gitignore already exists
+    await rootHandle.getFileHandle(".gitignore", { create: false });
+    return; // already exists, don't overwrite
+  } catch (e) {
+    // doesn't exist — create it
+  }
+  try {
+    const res = await fetch("templates/root/gitignore?v=" + Date.now());
+    const content = await res.text();
+    const handle = await rootHandle.getFileHandle(".gitignore", { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(content);
+    await writable.close();
+    logToConsole("Created .gitignore", "log-info");
   } catch (e) {
     // silently skip if permissions fail
   }
@@ -1279,9 +1330,24 @@ async function scanDirectory(handle, prefix, out) {
   }
 }
 
+async function checkCurrentFileChanged() {
+  if (!currentFile || !files[currentFile] || !isTextFile(currentFile)) return;
+  const changed = await hasFileChangedOnDisk(currentFile);
+  if (changed) {
+    const content = await readFileContent(currentFile, true);
+    editor.dispatch({
+      changes: { from: 0, to: editor.state.doc.length, insert: content }
+    });
+    logToConsole(currentFile + " reloaded (changed on disk)", "log-info");
+  }
+}
+
 function startFileTreeRefresh() {
   if (fileTreeRefreshTimer) clearInterval(fileTreeRefreshTimer);
-  fileTreeRefreshTimer = setInterval(refreshFileTree, 5000);
+  fileTreeRefreshTimer = setInterval(() => {
+    refreshFileTree();
+    checkCurrentFileChanged();
+  }, 1000);
 }
 
 function stopFileTreeRefresh() {
@@ -1592,6 +1658,40 @@ async function deleteFile(name) {
   }
 }
 
+// ── Panel collapse/expand ──
+// Console-level collapse (entire right column)
+document.getElementById('console-header').addEventListener('click', () => {
+  document.getElementById('right-col').classList.toggle('collapsed');
+  savePanelStates();
+});
+
+// Section-level collapse (event delegation for dynamic modules)
+document.getElementById('right-col').addEventListener('click', (e) => {
+  const hdr = e.target.closest('.section-header');
+  if (!hdr) return;
+  if (e.target.closest('button')) return;
+  hdr.closest('.console-panel').classList.toggle('collapsed');
+  savePanelStates();
+});
+
+function savePanelStates() {
+  const state = { 'right-col': document.getElementById('right-col').classList.contains('collapsed') };
+  document.querySelectorAll('#right-col .console-panel').forEach(el => {
+    state[el.id] = el.classList.contains('collapsed');
+  });
+  localStorage.setItem('mono-panel-states', JSON.stringify(state));
+}
+
+(function restorePanelStates() {
+  try {
+    const state = JSON.parse(localStorage.getItem('mono-panel-states'));
+    if (!state) return;
+    Object.entries(state).forEach(([id, collapsed]) => {
+      if (collapsed) document.getElementById(id)?.classList.add('collapsed');
+    });
+  } catch (e) {}
+})();
+
 // ── Context menu ──
 const ctxMenu = document.getElementById("ctx-menu");
 let ctxTarget = null;
@@ -1765,7 +1865,15 @@ async function start() {
         } catch (e) { /* skip unreadable */ }
       }
     }
-    await Mono.boot("screen", { source, assets, noAutoFit: true, externalInput: true });
+    const readFile = async (name) => {
+      const f = files[name];
+      if (!f) return null;
+      try {
+        const file = await f.handle.getFile();
+        return await file.text();
+      } catch { return null; }
+    };
+    await Mono.boot("screen", { source, assets, readFile, noAutoFit: true, externalInput: true });
     updateStatus(true);
     logToConsole("Running.", "log-info");
     document.getElementById("screen-body").focus();
@@ -1824,6 +1932,35 @@ screenBody.addEventListener("keyup", (e) => {
   if (k) {
     Mono.setKey(k, false);
     e.preventDefault();
+  }
+});
+
+// ── Scale select ──
+document.getElementById("scale-select").addEventListener("change", (e) => {
+  const canvas = document.getElementById("screen");
+  const glCanvas = canvas.nextElementSibling; // shader's WebGL canvas
+  const label = document.getElementById("screen-label");
+  const val = e.target.value;
+  const W = 160, H = 144;
+
+  if (val === "fit") {
+    // Remove inline size, let CSS flex handle it
+    [canvas, glCanvas].forEach(c => { if (c) { c.style.width = ""; c.style.height = ""; }});
+    label.textContent = `${W}x${H} // fit`;
+  } else {
+    const s = parseInt(val);
+    const w = W * s, h = H * s;
+    [canvas, glCanvas].forEach(c => { if (c) { c.style.width = w + "px"; c.style.height = h + "px"; }});
+    label.textContent = `${W}x${H} // ${s}x`;
+  }
+});
+
+// ── Shader toggle ──
+document.getElementById("shader-toggle").addEventListener("click", () => {
+  const btn = document.getElementById("shader-toggle");
+  const on = btn.classList.toggle("active");
+  if (typeof Mono !== "undefined" && Mono.shader) {
+    if (on) Mono.shader.preset(); else Mono.shader.off();
   }
 });
 

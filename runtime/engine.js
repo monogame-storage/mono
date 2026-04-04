@@ -185,8 +185,8 @@ var Mono = (() => {
   }
 
   function line(x0, y0, x1, y1, c) {
-    x0 = Math.floor(x0); y0 = Math.floor(y0);
-    x1 = Math.floor(x1); y1 = Math.floor(y1);
+    x0 = Math.floor(x0) - camX; y0 = Math.floor(y0) - camY;
+    x1 = Math.floor(x1) - camX; y1 = Math.floor(y1) - camY;
     let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
     let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
     let err = dx - dy;
@@ -200,7 +200,7 @@ var Mono = (() => {
   }
 
   function rect(x, y, w, h, c) {
-    x = Math.floor(x); y = Math.floor(y);
+    x = Math.floor(x) - camX; y = Math.floor(y) - camY;
     w = Math.floor(w); h = Math.floor(h);
     for (let i = 0; i < w; i++) { setPix(x + i, y, c); setPix(x + i, y + h - 1, c); }
     for (let i = 0; i < h; i++) { setPix(x, y + i, c); setPix(x + w - 1, y + i, c); }
@@ -208,7 +208,7 @@ var Mono = (() => {
   }
 
   function rectf(x, y, w, h, c) {
-    x = Math.floor(x); y = Math.floor(y);
+    x = Math.floor(x) - camX; y = Math.floor(y) - camY;
     w = Math.floor(w); h = Math.floor(h);
     for (let py = y; py < y + h; py++)
       for (let px = x; px < x + w; px++)
@@ -217,7 +217,7 @@ var Mono = (() => {
   }
 
   function circ(cx, cy, r, c) {
-    cx = Math.floor(cx); cy = Math.floor(cy); r = Math.floor(r);
+    cx = Math.floor(cx) - camX; cy = Math.floor(cy) - camY; r = Math.floor(r);
     let x = r, y = 0, d = 1 - r;
     while (x >= y) {
       setPix(cx + x, cy + y, c); setPix(cx - x, cy + y, c);
@@ -232,7 +232,7 @@ var Mono = (() => {
   }
 
   function circf(cx, cy, r, c) {
-    cx = Math.floor(cx); cy = Math.floor(cy); r = Math.floor(r);
+    cx = Math.floor(cx) - camX; cy = Math.floor(cy) - camY; r = Math.floor(r);
     let x = r, y = 0, d = 1 - r;
     while (x >= y) {
       for (let i = cx - x; i <= cx + x; i++) { setPix(i, cy + y, c); setPix(i, cy - y, c); }
@@ -284,7 +284,8 @@ var Mono = (() => {
   const keyMap = {
     "ArrowUp": "up", "ArrowDown": "down", "ArrowLeft": "left", "ArrowRight": "right",
     "w": "up", "s": "down", "a": "left", "d": "right",
-    "z": "a", "Z": "a", "x": "b", "X": "b",
+    "ㅈ": "up", "ㄴ": "down", "ㅁ": "left", "ㅇ": "right",
+    "z": "a", "Z": "a", "ㅋ": "a", "x": "b", "X": "b", "ㅌ": "b",
     "Enter": "start", " ": "select"
   };
   const keys = {};
@@ -325,6 +326,11 @@ var Mono = (() => {
     ctx.putImageData(imgData, 0, 0);
   }
   let flushFn = flush;
+
+  // --- Scene system ---
+  let currentScene = null;
+  let scenePending = null;
+  let loadedSceneFiles = {};
 
   // --- Boot ---
   const API = {};
@@ -401,7 +407,7 @@ var Mono = (() => {
     lua.global.set("SCREEN_H", H);
     lua.global.set("COLORS", palette.length);
     lua.global.set("cls", cls);
-    lua.global.set("pix", setPix);
+    lua.global.set("pix", (x, y, c) => setPix(Math.floor(x) - camX, Math.floor(y) - camY, c));
     lua.global.set("gpix", getPix);
     lua.global.set("line", line);
     lua.global.set("rect", rect);
@@ -410,8 +416,12 @@ var Mono = (() => {
     lua.global.set("circf", circf);
     lua.global.set("text", drawText);
     lua.global.set("cam", cam);
+    lua.global.set("_cam_get_x", () => camX);
+    lua.global.set("_cam_get_y", () => camY);
     lua.global.set("drawImage", drawImageFn);
     lua.global.set("drawImageRegion", drawImageRegionFn);
+    lua.global.set("imageWidth", (id) => { const img = images[id]; return img ? img.w : 0; });
+    lua.global.set("imageHeight", (id) => { const img = images[id]; return img ? img.h : 0; });
     const validKeys = {"up":1,"down":1,"left":1,"right":1,"a":1,"b":1,"start":1,"select":1};
     lua.global.set("_btn", (k) => {
       if (typeof k !== "string" || !validKeys[k]) throw new Error('btn() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
@@ -425,6 +435,7 @@ var Mono = (() => {
     lua.global.set("axis_y", () => axisY);
     lua.global.set("vrow", vrow);
     lua.global.set("vdump", vdump);
+    lua.global.set("frame", () => frame);
     lua.global.set("print", (...args) => console.log("[Lua]", ...args));
 
     // mode(bits) — set color depth (1=2 colors, 2=4 colors, 4=16 colors)
@@ -452,7 +463,62 @@ end
 function btnp(k)
   return _btnp(k) == 1
 end
+function cam_get()
+  return _cam_get_x(), _cam_get_y()
+end
     `);
+
+    // --- Scene system ---
+    currentScene = null;
+    scenePending = null;
+    loadedSceneFiles = {};
+
+    const readFile = opts.readFile || (async (name) => {
+      const url = gameBase + name;
+      try { const r = await fetch(url); return r.ok ? await r.text() : null; }
+      catch { return null; }
+    });
+
+    let sceneObj = null; // state pattern: table returned by scene file
+
+    async function activateScene(name) {
+      if (!loadedSceneFiles[name]) {
+        const src = await readFile(name + ".lua");
+        if (src !== null) {
+          let result;
+          try { result = await lua.doString(src); }
+          catch (e) { showError(name + ".lua: " + (e.message || e)); return; }
+          // State pattern: if scene file returns a table, use it
+          if (result && typeof result === "object") {
+            loadedSceneFiles[name] = result;
+          } else {
+            loadedSceneFiles[name] = true;
+          }
+        } else {
+          loadedSceneFiles[name] = true;
+        }
+      }
+      currentScene = name;
+      const cached = loadedSceneFiles[name];
+      if (cached && typeof cached === "object") {
+        sceneObj = cached;
+        if (sceneObj.init) {
+          try { sceneObj.init(); }
+          catch (e) { showError(name + ".init: " + (e.message || e)); }
+        }
+      } else {
+        sceneObj = null;
+        const basename = name.includes("/") ? name.split("/").pop() : name;
+        const initFn = lua.global.get(basename + "_init");
+        if (initFn) {
+          try { initFn(); }
+          catch (e) { showError(basename + "_init: " + (e.message || e)); }
+        }
+      }
+    }
+
+    lua.global.set("go", (name) => { scenePending = name; });
+    lua.global.set("scene_name", () => currentScene || false);
 
     // Error overlay — HTML layer, not constrained by engine
     function showError(msg) {
@@ -514,18 +580,43 @@ end
       pendingLoads = [];
     }
 
-    // Game loop
-    const updateFn = lua.global.get("_update");
-    const drawFn = lua.global.get("_draw");
-    function stopWithError(msg) { showError(msg); clearInterval(_loopId); _loopId = null; }
+    // Call _ready after all images loaded (safe to query imageWidth/imageHeight)
+    const readyFn = lua.global.get("_ready");
+    if (readyFn) {
+      try { readyFn(); } catch (e) { showError("_ready: " + (e.message || e)); return; }
+    }
+
+    // Process boot-time go() (e.g. go("title") in _ready)
+    if (scenePending) {
+      const name = scenePending;
+      scenePending = null;
+      await activateScene(name);
+    }
+
+    // Game loop (async setTimeout chain for scene loading support)
+    function stopWithError(msg) { showError(msg); clearTimeout(_loopId); _loopId = null; }
     API._showError = (msg) => { stopWithError(msg); };
-    _loopId = setInterval(() => {
-      if (!paused && updateFn) try { updateFn(); } catch (e) { stopWithError("_update: " + (e.message || e)); return; }
-      if (drawFn) try { drawFn(); } catch (e) { stopWithError("_draw: " + (e.message || e)); return; }
+
+    async function tick() {
+      // Process pending scene transition
+      if (scenePending) {
+        const name = scenePending;
+        scenePending = null;
+        await activateScene(name);
+      }
+
+      if (!paused) {
+        const uf = sceneObj ? sceneObj.update : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_update" : "_update");
+        if (uf) try { uf(); } catch (e) { stopWithError((currentScene || "") + " update: " + (e.message || e)); return; }
+      }
+      {
+        const df = sceneObj ? sceneObj.draw : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_draw" : "_draw");
+        if (df) try { df(); } catch (e) { stopWithError((currentScene || "") + " draw: " + (e.message || e)); return; }
+      }
       if (paused) {
         const maxC = palette.length - 1;
         const label = "PAUSED";
-        const tw = label.length * (FONT_W + 1) - 1;  // text width
+        const tw = label.length * (FONT_W + 1) - 1;
         const pad = 6;
         const pw = tw + pad * 2, ph = FONT_H + pad * 2;
         const px = Math.floor((W - pw) / 2), py = Math.floor((H - ph) / 2);
@@ -538,16 +629,19 @@ end
       frame++;
       flushFn();
       inputUpdate();
-    }, FRAME_MS);
+      _loopId = setTimeout(tick, FRAME_MS);
+    }
+    _loopId = setTimeout(tick, FRAME_MS);
   };
 
   API.stop = () => {
-    if (_loopId) { clearInterval(_loopId); _loopId = null; }
+    if (_loopId) { clearTimeout(_loopId); _loopId = null; }
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;
     frame = 0;
     images = []; imageIdCounter = 0; pendingLoads = [];
     camX = 0; camY = 0;
+    currentScene = null; scenePending = null; loadedSceneFiles = {};
   };
 
   // Expose input for external control (playground gamepad)

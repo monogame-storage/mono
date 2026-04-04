@@ -172,6 +172,7 @@ void main() {
 
     gl = glCanvas.getContext("webgl", { alpha: false, antialias: false });
     if (!gl) throw new Error("WebGL not available");
+    gl.getExtension("OES_standard_derivatives");
 
     quadBuf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);

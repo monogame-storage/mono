@@ -152,19 +152,17 @@ Both are optional. If your game uses scenes, `_start()` is a good place to call 
 
 ### Scenes
 
-The engine recognizes five scene names:
-
-- `title` -- shown on boot
-- `play` -- main gameplay
-- `clear` -- level clear
-- `gameover` -- game over
-- `win` -- victory
-
-### Convention
-
-For each scene, define up to three functions:
+Scene names are arbitrary strings. Use any name you want:
 
 ```lua
+go("title")           -- loads title.lua
+go("scenes/play")     -- loads scenes/play.lua (folder structure supported)
+```
+
+### Convention A: Global Functions (simple)
+
+```lua
+-- title.lua
 function title_init()    -- called once when entering the scene
 end
 
@@ -175,7 +173,42 @@ function title_draw()    -- called every frame (rendering)
 end
 ```
 
-Replace `title` with `play`, `clear`, `gameover`, or `win` for other scenes. The engine auto-detects which functions exist.
+With folder paths like `go("scenes/play")`, the engine uses the basename (`play`) to find `play_init`, `play_update`, `play_draw`.
+
+### Convention B: State Pattern (recommended)
+
+Scene files return a table with `init`, `update`, `draw` methods:
+
+```lua
+-- scenes/play.lua
+local scene = {}
+
+function scene.init()
+  -- called once when entering
+end
+
+function scene.update()
+  -- called every frame
+end
+
+function scene.draw()
+  -- called every frame
+end
+
+return scene
+```
+
+The state pattern avoids global function name collisions and enables clean folder organization:
+```
+main.lua
+scenes/
+  title.lua
+  play.lua
+  clear.lua
+  gameover.lua
+```
+
+Both conventions are auto-detected. If a scene file returns a table, the state pattern is used; otherwise the engine looks for global `<basename>_init/update/draw` functions.
 
 ### Game Loop Order
 
@@ -690,16 +723,17 @@ Easing functions:
 ## 13. Scene Management
 
 ```lua
-go("play")              -- transition to scene; calls <scene>_init(), resets camera, clears ECS, stops BGM
-scene_name()            -- returns current scene name as string (e.g. "title", "play")
+go("play")              -- transition to scene (loads play.lua if not yet loaded)
+go("scenes/play")       -- folder paths supported (loads scenes/play.lua)
+scene_name()            -- returns current scene name as string (e.g. "title", "scenes/play")
 ```
 
 When `go()` is called:
-1. BGM stops
-2. Pause is cleared
-3. Camera resets to (0, 0)
-4. All ECS entities, collision handlers, and tweens are cleared
-5. The scene's `_init()` function is called (if it exists)
+1. The scene file (`<name>.lua`) is loaded if not already loaded
+2. If the file returns a table (state pattern), `table.init()` is called
+3. Otherwise, `<basename>_init()` is called (global function convention)
+
+Scene files are loaded once and cached. Subsequent `go()` calls to the same scene skip loading and just call `init()` again.
 
 ---
 

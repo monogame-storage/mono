@@ -190,8 +190,8 @@ function cls(c) {
 }
 
 function line(x0, y0, x1, y1, c) {
-  x0 = Math.floor(x0); y0 = Math.floor(y0);
-  x1 = Math.floor(x1); y1 = Math.floor(y1);
+  x0 = Math.floor(x0) - camX; y0 = Math.floor(y0) - camY;
+  x1 = Math.floor(x1) - camX; y1 = Math.floor(y1) - camY;
   let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
   let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
   let err = dx - dy;
@@ -205,7 +205,7 @@ function line(x0, y0, x1, y1, c) {
 }
 
 function rect(x, y, w, h, c) {
-  x = Math.floor(x); y = Math.floor(y);
+  x = Math.floor(x) - camX; y = Math.floor(y) - camY;
   w = Math.floor(w); h = Math.floor(h);
   for (let i = 0; i < w; i++) { setPix(x + i, y, c); setPix(x + i, y + h - 1, c); }
   for (let i = 0; i < h; i++) { setPix(x, y + i, c); setPix(x + w - 1, y + i, c); }
@@ -213,7 +213,7 @@ function rect(x, y, w, h, c) {
 }
 
 function rectf(x, y, w, h, c) {
-  x = Math.floor(x); y = Math.floor(y);
+  x = Math.floor(x) - camX; y = Math.floor(y) - camY;
   w = Math.floor(w); h = Math.floor(h);
   for (let py = y; py < y + h; py++)
     for (let px = x; px < x + w; px++)
@@ -222,7 +222,7 @@ function rectf(x, y, w, h, c) {
 }
 
 function circ(cx, cy, r, c) {
-  cx = Math.floor(cx); cy = Math.floor(cy); r = Math.floor(r);
+  cx = Math.floor(cx) - camX; cy = Math.floor(cy) - camY; r = Math.floor(r);
   let x = r, y = 0, d = 1 - r;
   while (x >= y) {
     setPix(cx + x, cy + y, c); setPix(cx - x, cy + y, c);
@@ -236,7 +236,7 @@ function circ(cx, cy, r, c) {
 }
 
 function circf(cx, cy, r, c) {
-  cx = Math.floor(cx); cy = Math.floor(cy); r = Math.floor(r);
+  cx = Math.floor(cx) - camX; cy = Math.floor(cy) - camY; r = Math.floor(r);
   let x = r, y = 0, d = 1 - r;
   while (x >= y) {
     for (let i = cx - x; i <= cx + x; i++) { setPix(i, cy + y, c); setPix(i, cy - y, c); }
@@ -403,7 +403,7 @@ async function main() {
   lua.global.set("SCREEN_H", H);
   lua.global.set("COLORS", palette.length);
   lua.global.set("cls", cls);
-  lua.global.set("pix", setPix);
+  lua.global.set("pix", (x, y, c) => setPix(Math.floor(x) - camX, Math.floor(y) - camY, c));
   lua.global.set("gpix", getPix);
   lua.global.set("line", line);
   lua.global.set("rect", rect);
@@ -412,10 +412,56 @@ async function main() {
   lua.global.set("circf", circf);
   lua.global.set("text", drawText);
   lua.global.set("cam", camFn);
+  lua.global.set("_cam_get_x", () => camX);
+  lua.global.set("_cam_get_y", () => camY);
   lua.global.set("drawImage", drawImageFn);
   lua.global.set("drawImageRegion", drawImageRegionFn);
+  lua.global.set("imageWidth", (id) => { const img = images[id]; return img ? img.w : 0; });
+  lua.global.set("imageHeight", (id) => { const img = images[id]; return img ? img.h : 0; });
   lua.global.set("vrow", vrow);
   lua.global.set("vdump", vdump);
+
+  // frame counter
+  let frameNum = 0;
+  lua.global.set("frame", () => frameNum);
+
+  // Scene system
+  let currentScene = null;
+  let scenePending = null;
+  const loadedSceneFiles = {};
+
+  let sceneObj = null; // state pattern: table returned by scene file
+
+  async function activateScene(name) {
+    if (!loadedSceneFiles[name]) {
+      const scenePath = path.resolve(gameDir, name + ".lua");
+      if (fs.existsSync(scenePath)) {
+        const src = fs.readFileSync(scenePath, "utf8");
+        const result = await lua.doString(src);
+        if (result && typeof result === "object") {
+          loadedSceneFiles[name] = result;
+        } else {
+          loadedSceneFiles[name] = true;
+        }
+      } else {
+        loadedSceneFiles[name] = true;
+      }
+    }
+    currentScene = name;
+    const cached = loadedSceneFiles[name];
+    if (cached && typeof cached === "object") {
+      sceneObj = cached;
+      if (sceneObj.init) sceneObj.init();
+    } else {
+      sceneObj = null;
+      const basename = name.includes("/") ? name.split("/").pop() : name;
+      const initFn = lua.global.get(basename + "_init");
+      if (initFn) initFn();
+    }
+  }
+
+  lua.global.set("go", (name) => { scenePending = name; });
+  lua.global.set("scene_name", () => currentScene || false);
 
 
 
@@ -481,6 +527,9 @@ end
 function btnp(k)
   return _btnp(k) == 1
 end
+function cam_get()
+  return _cam_get_x(), _cam_get_y()
+end
   `);
 
   // --- Execute game ---
@@ -531,9 +580,25 @@ end
     pendingLoads = [];
   }
 
+  // Call _ready (after images loaded)
+  const readyFn = lua.global.get("_ready");
+  if (readyFn) {
+    try {
+      readyFn();
+      if (!quiet) console.log("_ready OK");
+    } catch (e) {
+      console.error("_ready error:", e.message || e);
+      process.exit(1);
+    }
+  }
+
+  // Process boot-time go() (e.g. go("title") in _ready)
+  if (scenePending) {
+    await activateScene(scenePending);
+    scenePending = null;
+  }
+
   // Run frames
-  const updateFn = lua.global.get("_update");
-  const drawFn = lua.global.get("_draw");
 
   // --- Bot: Lua-scriptable auto-player ---
   const botArg = getOpt("bot", null);
@@ -623,14 +688,24 @@ end
       }
     }
 
-    if (updateFn) {
-      try { updateFn(); }
-      catch (e) { console.error(`_update error (frame ${f}):`, e.message || e); hasError = true; break; }
+    // Process pending scene transition
+    if (scenePending) {
+      await activateScene(scenePending);
+      scenePending = null;
     }
-    if (drawFn) {
-      try { drawFn(); }
-      catch (e) { console.error(`_draw error (frame ${f}):`, e.message || e); hasError = true; break; }
+
+    const basename = currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) : null;
+    const uf = sceneObj ? sceneObj.update : lua.global.get(basename ? basename + "_update" : "_update");
+    if (uf) {
+      try { uf(); }
+      catch (e) { console.error(`${currentScene || ""} update error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
+    const df = sceneObj ? sceneObj.draw : lua.global.get(basename ? basename + "_draw" : "_draw");
+    if (df) {
+      try { df(); }
+      catch (e) { console.error(`${currentScene || ""} draw error (frame ${f}):`, e.message || e); hasError = true; break; }
+    }
+    frameNum = f;
     inputUpdate();
     if (untilTriggered) {
       untilFrame = f;
