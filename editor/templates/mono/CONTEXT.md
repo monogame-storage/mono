@@ -22,6 +22,26 @@ _update()  -- called every frame (game logic)
 _draw()    -- called every frame (rendering)
 ```
 
+## Scenes (State Pattern)
+Use `go()` to transition between scenes. Scene files return a table:
+```lua
+-- scenes/play.lua
+local scene = {}
+function scene.init() end
+function scene.update() end
+function scene.draw() end
+return scene
+```
+```lua
+-- main.lua
+function _ready() go("scenes/title") end
+```
+- `go("scenes/play")` — loads `scenes/play.lua`, calls `scene.init()`
+- `scene_name()` — returns current scene name (e.g. `"scenes/play"`)
+- `frame()` — current frame number (starts at 0)
+- `cam_get()` — returns camera x, y (`local cx, cy = cam_get()`)
+- Folder structure is free: `scenes/`, `src/`, or flat — any path works
+
 ## Globals
 - `COLORS` — number of palette colors (e.g. 16 in mode 4). Use `COLORS - 1` for max color index.
 
