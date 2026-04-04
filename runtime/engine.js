@@ -416,6 +416,8 @@ var Mono = (() => {
     lua.global.set("circf", circf);
     lua.global.set("text", drawText);
     lua.global.set("cam", cam);
+    lua.global.set("_cam_get_x", () => camX);
+    lua.global.set("_cam_get_y", () => camY);
     lua.global.set("drawImage", drawImageFn);
     lua.global.set("drawImageRegion", drawImageRegionFn);
     lua.global.set("imageWidth", (id) => { const img = images[id]; return img ? img.w : 0; });
@@ -461,6 +463,9 @@ end
 function btnp(k)
   return _btnp(k) == 1
 end
+function cam_get()
+  return _cam_get_x(), _cam_get_y()
+end
     `);
 
     // --- Scene system ---
@@ -474,20 +479,41 @@ end
       catch { return null; }
     });
 
+    let sceneObj = null; // state pattern: table returned by scene file
+
     async function activateScene(name) {
       if (!loadedSceneFiles[name]) {
         const src = await readFile(name + ".lua");
         if (src !== null) {
-          try { await lua.doString(src); }
+          let result;
+          try { result = await lua.doString(src); }
           catch (e) { showError(name + ".lua: " + (e.message || e)); return; }
+          // State pattern: if scene file returns a table, use it
+          if (result && typeof result === "object") {
+            loadedSceneFiles[name] = result;
+          } else {
+            loadedSceneFiles[name] = true;
+          }
+        } else {
+          loadedSceneFiles[name] = true;
         }
-        loadedSceneFiles[name] = true;
       }
       currentScene = name;
-      const initFn = lua.global.get(name + "_init");
-      if (initFn) {
-        try { initFn(); }
-        catch (e) { showError(name + "_init: " + (e.message || e)); }
+      const cached = loadedSceneFiles[name];
+      if (cached && typeof cached === "object") {
+        sceneObj = cached;
+        if (sceneObj.init) {
+          try { sceneObj.init(); }
+          catch (e) { showError(name + ".init: " + (e.message || e)); }
+        }
+      } else {
+        sceneObj = null;
+        const basename = name.includes("/") ? name.split("/").pop() : name;
+        const initFn = lua.global.get(basename + "_init");
+        if (initFn) {
+          try { initFn(); }
+          catch (e) { showError(basename + "_init: " + (e.message || e)); }
+        }
       }
     }
 
@@ -579,16 +605,13 @@ end
         await activateScene(name);
       }
 
-      const updateKey = currentScene ? currentScene + "_update" : "_update";
-      const drawKey = currentScene ? currentScene + "_draw" : "_draw";
-
       if (!paused) {
-        const uf = lua.global.get(updateKey);
-        if (uf) try { uf(); } catch (e) { stopWithError(updateKey + ": " + (e.message || e)); return; }
+        const uf = sceneObj ? sceneObj.update : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_update" : "_update");
+        if (uf) try { uf(); } catch (e) { stopWithError((currentScene || "") + " update: " + (e.message || e)); return; }
       }
       {
-        const df = lua.global.get(drawKey);
-        if (df) try { df(); } catch (e) { stopWithError(drawKey + ": " + (e.message || e)); return; }
+        const df = sceneObj ? sceneObj.draw : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_draw" : "_draw");
+        if (df) try { df(); } catch (e) { stopWithError((currentScene || "") + " draw: " + (e.message || e)); return; }
       }
       if (paused) {
         const maxC = palette.length - 1;

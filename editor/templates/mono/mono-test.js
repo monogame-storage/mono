@@ -412,6 +412,8 @@ async function main() {
   lua.global.set("circf", circf);
   lua.global.set("text", drawText);
   lua.global.set("cam", camFn);
+  lua.global.set("_cam_get_x", () => camX);
+  lua.global.set("_cam_get_y", () => camY);
   lua.global.set("drawImage", drawImageFn);
   lua.global.set("drawImageRegion", drawImageRegionFn);
   lua.global.set("imageWidth", (id) => { const img = images[id]; return img ? img.w : 0; });
@@ -428,18 +430,34 @@ async function main() {
   let scenePending = null;
   const loadedSceneFiles = {};
 
+  let sceneObj = null; // state pattern: table returned by scene file
+
   async function activateScene(name) {
     if (!loadedSceneFiles[name]) {
       const scenePath = path.resolve(gameDir, name + ".lua");
       if (fs.existsSync(scenePath)) {
         const src = fs.readFileSync(scenePath, "utf8");
-        await lua.doString(src);
+        const result = await lua.doString(src);
+        if (result && typeof result === "object") {
+          loadedSceneFiles[name] = result;
+        } else {
+          loadedSceneFiles[name] = true;
+        }
+      } else {
+        loadedSceneFiles[name] = true;
       }
-      loadedSceneFiles[name] = true;
     }
     currentScene = name;
-    const initFn = lua.global.get(name + "_init");
-    if (initFn) initFn();
+    const cached = loadedSceneFiles[name];
+    if (cached && typeof cached === "object") {
+      sceneObj = cached;
+      if (sceneObj.init) sceneObj.init();
+    } else {
+      sceneObj = null;
+      const basename = name.includes("/") ? name.split("/").pop() : name;
+      const initFn = lua.global.get(basename + "_init");
+      if (initFn) initFn();
+    }
   }
 
   lua.global.set("go", (name) => { scenePending = name; });
@@ -508,6 +526,9 @@ function btn(k)
 end
 function btnp(k)
   return _btnp(k) == 1
+end
+function cam_get()
+  return _cam_get_x(), _cam_get_y()
 end
   `);
 
@@ -673,18 +694,16 @@ end
       scenePending = null;
     }
 
-    const updateKey = currentScene ? currentScene + "_update" : "_update";
-    const drawKey = currentScene ? currentScene + "_draw" : "_draw";
-
-    const uf = lua.global.get(updateKey);
+    const basename = currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) : null;
+    const uf = sceneObj ? sceneObj.update : lua.global.get(basename ? basename + "_update" : "_update");
     if (uf) {
       try { uf(); }
-      catch (e) { console.error(`${updateKey} error (frame ${f}):`, e.message || e); hasError = true; break; }
+      catch (e) { console.error(`${currentScene || ""} update error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
-    const df = lua.global.get(drawKey);
+    const df = sceneObj ? sceneObj.draw : lua.global.get(basename ? basename + "_draw" : "_draw");
     if (df) {
       try { df(); }
-      catch (e) { console.error(`${drawKey} error (frame ${f}):`, e.message || e); hasError = true; break; }
+      catch (e) { console.error(`${currentScene || ""} draw error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
     frameNum = f;
     inputUpdate();

@@ -1,12 +1,12 @@
 -- Scene Test: main.lua
--- Tests go(), scene_name(), frame(), and auto-loading scene files
+-- Tests go() with state pattern + folder structure (scenes/)
 
 function _init()
   mode(4)
 end
 
 function _ready()
-  go("title")
+  go("scenes/title")
 end
 
 -- Fallback (should not run if scenes work)

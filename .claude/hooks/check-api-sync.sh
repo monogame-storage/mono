@@ -24,7 +24,7 @@ ENGINE_APIS=$(grep -oE 'lua\.global\.set\("[^"]+"' "$ENGINE" | sed 's/lua\.globa
 TEST_APIS=$(grep -oE 'lua\.global\.set\("[^"]+"' "$TEST" | sed 's/lua\.global\.set("//;s/"//' | sort -u)
 
 # APIs that should be in both (game-facing APIs only, exclude internal helpers)
-GAME_APIS="btn btnp cls text rectf recirc circ circf line spr cam rnd frame go scene_name print palt"
+GAME_APIS="btn btnp cls text rectf rect circ circf line cam _cam_get_x _cam_get_y rnd frame go scene_name print palt"
 
 MISSING=""
 for api in $GAME_APIS; do

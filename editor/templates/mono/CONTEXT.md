@@ -44,7 +44,7 @@ _draw()    -- called every frame (rendering)
 This engine is under active development. Not all APIs listed in the docs may be implemented yet,
 and some game patterns may require APIs that don't exist yet.
 
-If you need a feature that isn't available, write a proposal to `.mono/PROPOSALS.md` with:
+If you need a feature that isn't available, write a proposal to `PROPOSALS.md` (project root) with:
 - **What**: the API name and signature you'd want
 - **Why**: what game feature requires it
 - **Workaround**: how you're handling it now (if at all)
