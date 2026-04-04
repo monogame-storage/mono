@@ -64,19 +64,23 @@ function _ready() go("scenes/title") end
 This engine is under active development. Not all APIs listed in the docs may be implemented yet,
 and some game patterns may require APIs that don't exist yet.
 
-If you need a feature that isn't available, write a proposal to `PROPOSALS.md` (project root) with:
-- **What**: the API name and signature you'd want
-- **Why**: what game feature requires it
-- **Workaround**: how you're handling it now (if at all)
+If you find a bug or need a feature that isn't available, file a GitHub issue:
 
-Example:
-```
-## loadImage(path) → imageId
-Need to load PNG as background for Gals Panic style reveal.
-Currently no workaround — cannot load external images from Lua.
+```bash
+gh issue create --repo ssk-play/mono \
+  --label "bug" \
+  --title "frame() not available in mono-test.js" \
+  --body "DEV.md documents frame() but mono-test.js doesn't register it."
+
+gh issue create --repo ssk-play/mono \
+  --label "proposal" \
+  --title "go() with auto file loading" \
+  --body "What: go('play') loads play.lua automatically.
+Why: scene-per-file structure for maintainability.
+Workaround: manual state variable for scene management."
 ```
 
-The developer will review proposals and prioritize implementation.
+Use labels: `bug`, `proposal`. The developer will review and prioritize.
 
 ## Headless Verification (mono-test.js)
 LLM can run and verify Lua code without a browser using `mono-test.js`.

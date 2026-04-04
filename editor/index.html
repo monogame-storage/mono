@@ -978,13 +978,7 @@
   window.logToConsole = logToConsole;
 })();
 </script>
-<script src="../runtime/engine.js?v=2"></script>
-<script src="../runtime/shader.js?v=2"></script>
-<script src="../runtime/shaders/tint.js?v=2"></script>
-<script src="../runtime/shaders/scanlines.js?v=2"></script>
-<script src="../runtime/shaders/lcd.js?v=2"></script>
-<script src="../runtime/shaders/lcd3d.js?v=2"></script>
-<script src="../runtime/shaders/crt.js?v=2"></script>
+<!-- engine.js + shaders loaded dynamically from .mono/ on folder open -->
 <script src="../runtime/console-screen.js?v=2"></script>
 
 <script type="module">
@@ -1022,11 +1016,15 @@ function fileIconHTML(name) {
 }
 
 // ── Open folder ──
-async function openFolder() {
-  try {
-    dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
-  } catch (e) {
-    return; // user cancelled
+async function openFolder(droppedHandle) {
+  if (droppedHandle) {
+    dirHandle = droppedHandle;
+  } else {
+    try {
+      dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+    } catch (e) {
+      return; // user cancelled
+    }
   }
 
   // Clear state
@@ -1073,15 +1071,50 @@ end
     } catch (e) { /* skip if permission denied */ }
   }
 
-  // Deploy mono-test.js to .mono/ and shell wrappers to root
+  // Deploy engine + mono-test.js to .mono/ and shell wrappers to root
   try {
     const monoDir = await dirHandle.getDirectoryHandle(".mono", { create: true });
     const baseUrl = window.location.origin;
-    const resp = await fetch(baseUrl + "/editor/templates/mono/mono-test.js?v=" + Date.now());
-    if (resp.ok) {
-      const content = await resp.text();
-      const h = await monoDir.getFileHandle("mono-test.js", { create: true });
-      const w = await h.createWritable(); await w.write(content); await w.close();
+
+    // Check existing version
+    let existingVersion = null;
+    try {
+      const vf = await monoDir.getFileHandle("VERSION", { create: false });
+      existingVersion = (await (await vf.getFile()).text()).trim();
+    } catch { /* no VERSION file yet */ }
+
+    // Version mismatch — ask to update
+    let doUpdate = true;
+    if (existingVersion && existingVersion !== MONO_VERSION) {
+      doUpdate = confirm(
+        `Engine update available: ${existingVersion} → ${MONO_VERSION}\n\n` +
+        "Update .mono/ files? (engine.js, mono-test.js)\n" +
+        "Cancel to keep the current version."
+      );
+    }
+
+    if (doUpdate) {
+      // Deploy engine.js
+      const engineResp = await fetch(baseUrl + "/runtime/engine.js?v=" + Date.now());
+      if (engineResp.ok) {
+        const h = await monoDir.getFileHandle("engine.js", { create: true });
+        const w = await h.createWritable(); await w.write(await engineResp.text()); await w.close();
+      }
+
+      // Deploy mono-test.js
+      const testResp = await fetch(baseUrl + "/editor/templates/mono/mono-test.js?v=" + Date.now());
+      if (testResp.ok) {
+        const h = await monoDir.getFileHandle("mono-test.js", { create: true });
+        const w = await h.createWritable(); await w.write(await testResp.text()); await w.close();
+      }
+
+      // Deploy CONTEXT.md
+      const ctxH = await monoDir.getFileHandle("CONTEXT.md", { create: true });
+      const ctxW = await ctxH.createWritable(); await ctxW.write(await monoContext()); await ctxW.close();
+
+      // Write VERSION
+      const vh = await monoDir.getFileHandle("VERSION", { create: true });
+      const vw = await vh.createWritable(); await vw.write(MONO_VERSION); await vw.close();
 
       // Shell wrapper (unix)
       const sh = '#!/bin/sh\nnode "$(dirname "$0")/.mono/mono-test.js" "$@"\n';
@@ -1093,7 +1126,59 @@ end
       const cmdH = await dirHandle.getFileHandle("mono-test.cmd", { create: true });
       const cmdW = await cmdH.createWritable(); await cmdW.write(cmd); await cmdW.close();
 
-      logToConsole("Deployed .mono/mono-test.js + wrappers", "log-info");
+      if (existingVersion && existingVersion !== MONO_VERSION) {
+        logToConsole(`Engine updated: ${existingVersion} → ${MONO_VERSION}`, "log-info");
+      } else {
+        logToConsole(`Deployed .mono/ (engine v${MONO_VERSION})`, "log-info");
+      }
+    } else {
+      logToConsole(`Keeping engine v${existingVersion} (latest: ${MONO_VERSION})`, "log-info");
+    }
+
+    // Load engine.js from .mono/ (version-locked local copy)
+    try {
+      const engineHandle = await monoDir.getFileHandle("engine.js", { create: false });
+      const engineFile = await engineHandle.getFile();
+      const engineSrc = await engineFile.text();
+      const blob = new Blob([engineSrc], { type: "text/javascript" });
+      const url = URL.createObjectURL(blob);
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = url;
+        s.onload = () => { URL.revokeObjectURL(url); resolve(); };
+        s.onerror = () => { URL.revokeObjectURL(url); reject(new Error("engine.js load failed")); };
+        document.head.appendChild(s);
+      });
+      logToConsole(`Engine loaded from .mono/engine.js`, "log-info");
+    } catch (e) {
+      // Fallback: load from server
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "../runtime/engine.js?v=" + Date.now();
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      logToConsole("Engine loaded from server (no local copy)", "log-info");
+    }
+
+    // Load shaders (depend on Mono global from engine.js)
+    const shaderScripts = [
+      "../runtime/shader.js",
+      "../runtime/shaders/tint.js",
+      "../runtime/shaders/scanlines.js",
+      "../runtime/shaders/lcd.js",
+      "../runtime/shaders/lcd3d.js",
+      "../runtime/shaders/crt.js"
+    ];
+    for (const src of shaderScripts) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src + "?v=" + Date.now();
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
     }
   } catch (e) { /* skip if fetch or permission fails */ }
 
@@ -1105,8 +1190,7 @@ end
     await openFile(mainFile);
   }
 
-  // Auto-generate .mono/CONTEXT.md
-  await ensureMonoContext(dirHandle);
+  // CONTEXT.md is updated together with engine (version-gated above)
 
   // Ensure .gitignore exists
   await ensureGitignore(dirHandle);
@@ -1120,7 +1204,7 @@ end
   logToConsole("Opened: " + dirHandle.name, "log-info");
 }
 
-const MONO_VERSION = "0.1.0";
+const MONO_VERSION = "0.1.1";
 
 async function monoContext() {
   const res = await fetch("templates/mono/CONTEXT.md?v=" + Date.now());
@@ -1130,21 +1214,7 @@ async function monoContext() {
     .replace(/\{\{BASE_URL\}\}/g, window.location.origin);
 }
 
-async function ensureMonoContext(rootHandle) {
-  try {
-    // Get or create .mono directory
-    const monoDir = await rootHandle.getDirectoryHandle(".mono", { create: true });
-
-    // Always overwrite with latest engine context
-    const handle = await monoDir.getFileHandle("CONTEXT.md", { create: true });
-    const writable = await handle.createWritable();
-    await writable.write(await monoContext());
-    await writable.close();
-    logToConsole("Created .mono/CONTEXT.md", "log-info");
-  } catch (e) {
-    // silently skip if permissions fail
-  }
-}
+// CONTEXT.md deployment moved into version-gated deploy block above
 
 async function ensureGitignore(rootHandle) {
   try {
@@ -1387,7 +1457,7 @@ function renderFileTree() {
 
   // Subfolders
   for (const [dir, items] of Object.entries(folders)) {
-    html += `<div class="tree-folder"><span class="icon">&#9660;</span> ${dir}</div>`;
+    html += `<div class="tree-folder" data-folder="${dir}"><span class="icon">&#9660;</span> ${dir}</div>`;
     for (const f of items) {
       const name = f.substring(dir.length + 1);
       const active = f === currentFile ? " active" : "";
@@ -1414,6 +1484,32 @@ function renderFileTree() {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       deleteFile(btn.dataset.del);
+    });
+  });
+  // Folder drop targets
+  tree.querySelectorAll(".tree-folder[data-folder]").forEach(el => {
+    el.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "copy";
+      el.style.background = "#00d4aa22";
+    });
+    el.addEventListener("dragleave", () => { el.style.background = ""; });
+    el.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      el.style.background = "";
+      if (!dirHandle) return;
+      const folder = el.dataset.folder;
+      const collected = [];
+      for (const item of e.dataTransfer.items) {
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file) collected.push(file);
+        }
+      }
+      for (const file of collected) await importFile(file, "Dropped", folder);
+      if (collected.length) renderFileTree();
     });
   });
 }
@@ -1703,11 +1799,16 @@ explorer.addEventListener("dragleave", (e) => {
   }
 });
 
-// Shared: import a File object into the project folder
-async function importFile(file, label) {
+// Shared: import a File object into the project folder (optional subdir)
+async function importFile(file, label, subdir) {
   const name = file.name;
+  const key = subdir ? subdir + "/" + name : name;
   try {
-    const handle = await dirHandle.getFileHandle(name, { create: true });
+    let targetDir = dirHandle;
+    if (subdir) {
+      targetDir = await dirHandle.getDirectoryHandle(subdir, { create: true });
+    }
+    const handle = await targetDir.getFileHandle(name, { create: true });
     const writable = await handle.createWritable();
     await writable.write(await file.arrayBuffer());
     await writable.close();
@@ -1717,8 +1818,8 @@ async function importFile(file, label) {
       content = await file.text();
     }
 
-    files[name] = { content, handle, modified: false };
-    logToConsole(label + ": " + name, "log-info");
+    files[key] = { content, handle, modified: false };
+    logToConsole(label + ": " + key, "log-info");
   } catch (err) {
     logToConsole(label + " error (" + name + "): " + err.message, "log-error");
   }
@@ -1729,14 +1830,32 @@ explorer.addEventListener("drop", async (e) => {
   explorer.style.outline = "";
   explorer.style.outlineOffset = "";
 
+  // Check for folder drop — open as project
+  const items = [...e.dataTransfer.items];
+  for (const item of items) {
+    if (item.kind === "file" && typeof item.getAsFileSystemHandle === "function") {
+      const handle = await item.getAsFileSystemHandle();
+      if (handle.kind === "directory") {
+        // Request read-write permission
+        const perm = await handle.requestPermission({ mode: "readwrite" });
+        if (perm === "granted") {
+          await openFolder(handle);
+        } else {
+          logToConsole("Permission denied for dropped folder.", "log-error");
+        }
+        return;
+      }
+    }
+  }
+
+  // File drop — import into current project
   if (!dirHandle) {
     logToConsole("Open a folder first.", "log-error");
     return;
   }
 
-  // Collect all files first — DataTransferItemList is live and invalidates during async
   const collected = [];
-  for (const item of e.dataTransfer.items) {
+  for (const item of items) {
     if (item.kind === "file") {
       const file = item.getAsFile();
       if (file) collected.push(file);
@@ -1792,6 +1911,10 @@ function updateFrame() {
 }
 
 async function start() {
+  if (typeof Mono === "undefined") {
+    logToConsole("Engine not loaded. Open a folder first.", "log-error");
+    return;
+  }
   if (running) Mono.stop();
   saveCurrentFile();
   document.getElementById("log-body").innerHTML = "";
@@ -1831,7 +1954,7 @@ async function start() {
     logToConsole("Running.", "log-info");
     document.getElementById("screen-body").focus();
 
-    Mono.shader.preset();
+    if (Mono.shader && Mono.shader.preset) Mono.shader.preset();
 
     if (fpsInterval) clearInterval(fpsInterval);
     fpsInterval = setInterval(updateFrame, 200);
