@@ -1457,7 +1457,7 @@ function renderFileTree() {
 
   // Subfolders
   for (const [dir, items] of Object.entries(folders)) {
-    html += `<div class="tree-folder"><span class="icon">&#9660;</span> ${dir}</div>`;
+    html += `<div class="tree-folder" data-folder="${dir}"><span class="icon">&#9660;</span> ${dir}</div>`;
     for (const f of items) {
       const name = f.substring(dir.length + 1);
       const active = f === currentFile ? " active" : "";
@@ -1484,6 +1484,32 @@ function renderFileTree() {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       deleteFile(btn.dataset.del);
+    });
+  });
+  // Folder drop targets
+  tree.querySelectorAll(".tree-folder[data-folder]").forEach(el => {
+    el.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "copy";
+      el.style.background = "#00d4aa22";
+    });
+    el.addEventListener("dragleave", () => { el.style.background = ""; });
+    el.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      el.style.background = "";
+      if (!dirHandle) return;
+      const folder = el.dataset.folder;
+      const collected = [];
+      for (const item of e.dataTransfer.items) {
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file) collected.push(file);
+        }
+      }
+      for (const file of collected) await importFile(file, "Dropped", folder);
+      if (collected.length) renderFileTree();
     });
   });
 }
@@ -1773,11 +1799,16 @@ explorer.addEventListener("dragleave", (e) => {
   }
 });
 
-// Shared: import a File object into the project folder
-async function importFile(file, label) {
+// Shared: import a File object into the project folder (optional subdir)
+async function importFile(file, label, subdir) {
   const name = file.name;
+  const key = subdir ? subdir + "/" + name : name;
   try {
-    const handle = await dirHandle.getFileHandle(name, { create: true });
+    let targetDir = dirHandle;
+    if (subdir) {
+      targetDir = await dirHandle.getDirectoryHandle(subdir, { create: true });
+    }
+    const handle = await targetDir.getFileHandle(name, { create: true });
     const writable = await handle.createWritable();
     await writable.write(await file.arrayBuffer());
     await writable.close();
@@ -1787,8 +1818,8 @@ async function importFile(file, label) {
       content = await file.text();
     }
 
-    files[name] = { content, handle, modified: false };
-    logToConsole(label + ": " + name, "log-info");
+    files[key] = { content, handle, modified: false };
+    logToConsole(label + ": " + key, "log-info");
   } catch (err) {
     logToConsole(label + " error (" + name + "): " + err.message, "log-error");
   }
