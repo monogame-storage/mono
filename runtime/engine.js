@@ -284,7 +284,8 @@ var Mono = (() => {
   const keyMap = {
     "ArrowUp": "up", "ArrowDown": "down", "ArrowLeft": "left", "ArrowRight": "right",
     "w": "up", "s": "down", "a": "left", "d": "right",
-    "z": "a", "Z": "a", "x": "b", "X": "b",
+    "ㅈ": "up", "ㄴ": "down", "ㅁ": "left", "ㅇ": "right",
+    "z": "a", "Z": "a", "ㅋ": "a", "x": "b", "X": "b", "ㅌ": "b",
     "Enter": "start", " ": "select"
   };
   const keys = {};
