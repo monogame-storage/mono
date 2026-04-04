@@ -1073,15 +1073,50 @@ end
     } catch (e) { /* skip if permission denied */ }
   }
 
-  // Deploy mono-test.js to .mono/ and shell wrappers to root
+  // Deploy engine + mono-test.js to .mono/ and shell wrappers to root
   try {
     const monoDir = await dirHandle.getDirectoryHandle(".mono", { create: true });
     const baseUrl = window.location.origin;
-    const resp = await fetch(baseUrl + "/editor/templates/mono/mono-test.js?v=" + Date.now());
-    if (resp.ok) {
-      const content = await resp.text();
-      const h = await monoDir.getFileHandle("mono-test.js", { create: true });
-      const w = await h.createWritable(); await w.write(content); await w.close();
+
+    // Check existing version
+    let existingVersion = null;
+    try {
+      const vf = await monoDir.getFileHandle("VERSION", { create: false });
+      existingVersion = (await (await vf.getFile()).text()).trim();
+    } catch { /* no VERSION file yet */ }
+
+    // Version mismatch — ask to update
+    let doUpdate = true;
+    if (existingVersion && existingVersion !== MONO_VERSION) {
+      doUpdate = confirm(
+        `Engine update available: ${existingVersion} → ${MONO_VERSION}\n\n` +
+        "Update .mono/ files? (engine.js, mono-test.js)\n" +
+        "Cancel to keep the current version."
+      );
+    }
+
+    if (doUpdate) {
+      // Deploy engine.js
+      const engineResp = await fetch(baseUrl + "/runtime/engine.js?v=" + Date.now());
+      if (engineResp.ok) {
+        const h = await monoDir.getFileHandle("engine.js", { create: true });
+        const w = await h.createWritable(); await w.write(await engineResp.text()); await w.close();
+      }
+
+      // Deploy mono-test.js
+      const testResp = await fetch(baseUrl + "/editor/templates/mono/mono-test.js?v=" + Date.now());
+      if (testResp.ok) {
+        const h = await monoDir.getFileHandle("mono-test.js", { create: true });
+        const w = await h.createWritable(); await w.write(await testResp.text()); await w.close();
+      }
+
+      // Deploy CONTEXT.md
+      const ctxH = await monoDir.getFileHandle("CONTEXT.md", { create: true });
+      const ctxW = await ctxH.createWritable(); await ctxW.write(await monoContext()); await ctxW.close();
+
+      // Write VERSION
+      const vh = await monoDir.getFileHandle("VERSION", { create: true });
+      const vw = await vh.createWritable(); await vw.write(MONO_VERSION); await vw.close();
 
       // Shell wrapper (unix)
       const sh = '#!/bin/sh\nnode "$(dirname "$0")/.mono/mono-test.js" "$@"\n';
@@ -1093,7 +1128,13 @@ end
       const cmdH = await dirHandle.getFileHandle("mono-test.cmd", { create: true });
       const cmdW = await cmdH.createWritable(); await cmdW.write(cmd); await cmdW.close();
 
-      logToConsole("Deployed .mono/mono-test.js + wrappers", "log-info");
+      if (existingVersion && existingVersion !== MONO_VERSION) {
+        logToConsole(`Engine updated: ${existingVersion} → ${MONO_VERSION}`, "log-info");
+      } else {
+        logToConsole(`Deployed .mono/ (engine v${MONO_VERSION})`, "log-info");
+      }
+    } else {
+      logToConsole(`Keeping engine v${existingVersion} (latest: ${MONO_VERSION})`, "log-info");
     }
   } catch (e) { /* skip if fetch or permission fails */ }
 
@@ -1105,8 +1146,7 @@ end
     await openFile(mainFile);
   }
 
-  // Auto-generate .mono/CONTEXT.md
-  await ensureMonoContext(dirHandle);
+  // CONTEXT.md is updated together with engine (version-gated above)
 
   // Ensure .gitignore exists
   await ensureGitignore(dirHandle);
@@ -1130,21 +1170,7 @@ async function monoContext() {
     .replace(/\{\{BASE_URL\}\}/g, window.location.origin);
 }
 
-async function ensureMonoContext(rootHandle) {
-  try {
-    // Get or create .mono directory
-    const monoDir = await rootHandle.getDirectoryHandle(".mono", { create: true });
-
-    // Always overwrite with latest engine context
-    const handle = await monoDir.getFileHandle("CONTEXT.md", { create: true });
-    const writable = await handle.createWritable();
-    await writable.write(await monoContext());
-    await writable.close();
-    logToConsole("Created .mono/CONTEXT.md", "log-info");
-  } catch (e) {
-    // silently skip if permissions fail
-  }
-}
+// CONTEXT.md deployment moved into version-gated deploy block above
 
 async function ensureGitignore(rootHandle) {
   try {
