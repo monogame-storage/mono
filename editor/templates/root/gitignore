@@ -1,0 +1,11 @@
+# Mono editor generated
+.mono/
+mono-test
+mono-test.bat
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

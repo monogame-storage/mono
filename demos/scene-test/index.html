@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mono — Scene Test</title>
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="stylesheet" href="../../runtime/mono.css">
+</head>
+<body>
+<a href="/demos/" style="color:#888;font-size:12px">← back</a>
+<div id="frame">
+  <canvas id="screen"></canvas>
+</div>
+<div id="info" style="text-align:center;font:11px monospace;color:#666;margin-top:8px">
+  Enter=Start, WASD=move, X=B
+</div>
+<script>
+  const v = Date.now();
+  document.write(`<script src="../../runtime/engine.js?v=${v}"><\/script>`);
+</script>
+<script>
+Mono.boot("screen", { game: "main.lua", colors: 4 }).then(() => {
+  console.log("Scene test booted");
+}).catch(e => console.error("Boot failed:", e));
+</script>
+</body></html>
