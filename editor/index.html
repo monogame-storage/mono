@@ -620,7 +620,8 @@
       justify-content: end;
       align-items: center;
       gap: 4px;
-      padding: 4px 4px;
+      padding: 4px 2px;
+      overflow: hidden;
     }
     #scale-select {
       margin-left: 0;
@@ -781,10 +782,10 @@
 
   /* console.log */
   #log-panel {
-    flex: 1;
-    min-height: 60px;
+    flex: 0 0 auto;
+    max-height: 120px;
+    min-height: 24px;
     overflow: hidden;
-    resize: both;
   }
   #log-body {
     flex: 1;
@@ -910,11 +911,11 @@
       <div id="screen-body" tabindex="0">
         <canvas id="screen"></canvas>
         <div id="screen-footer">
-          <span id="screen-label">160x144 // 2x</span>
+          <span id="screen-label">160x144 // fit</span>
           <select id="scale-select">
-            <option value="fit">fit</option>
+            <option value="fit" selected>fit</option>
             <option value="1">1x</option>
-            <option value="2" selected>2x</option>
+            <option value="2">2x</option>
             <option value="3">3x</option>
             <option value="4">4x</option>
           </select>
