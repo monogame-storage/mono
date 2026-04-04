@@ -27,7 +27,11 @@ void main() {
               * smoothstep(half_t - fw.x, half_t + fw.x, 1.0 - edge.x);
   float maskY = smoothstep(half_t - fw.y, half_t + fw.y, edge.y)
               * smoothstep(half_t - fw.y, half_t + fw.y, 1.0 - edge.y);
-  float mask = maskX * maskY;
+  // Fade grid at fractional scales to suppress beating patterns
+  float pxPerTexel = 1.0 / max(fw.x, fw.y);
+  float fractional = abs(fract(pxPerTexel + 0.5) - 0.5) * 2.0; // 1 at integer, 0 at x.5
+  float gridFade = mix(0.3, 1.0, fractional);
+  float mask = mix(1.0, maskX * maskY, gridFade);
 
   float angle = u_bg_dir * 6.28318;
   float t = dot(v_uv - 0.5, vec2(sin(angle), cos(angle))) + 0.5;

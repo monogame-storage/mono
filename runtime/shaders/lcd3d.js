@@ -28,7 +28,11 @@ void main() {
               * smoothstep(half_t - fw.x, half_t + fw.x, 1.0 - edge.x);
   float maskY = smoothstep(half_t - fw.y, half_t + fw.y, edge.y)
               * smoothstep(half_t - fw.y, half_t + fw.y, 1.0 - edge.y);
-  float mask = maskX * maskY;
+  // Fade grid at fractional scales to suppress beating patterns
+  float pxPerTexel = 1.0 / max(fw.x, fw.y);
+  float fractional = abs(fract(pxPerTexel + 0.5) - 0.5) * 2.0;
+  float gridFade = mix(0.3, 1.0, fractional);
+  float mask = mix(1.0, maskX * maskY, gridFade);
 
   float lum = color.r + color.g + color.b;
   float pixVis = mask * step(0.001, lum);
@@ -48,7 +52,7 @@ void main() {
                  * smoothstep(half_t - fw.x, half_t + fw.x, 1.0 - srcEdge.x);
   float srcMaskY = smoothstep(half_t - fw.y, half_t + fw.y, srcEdge.y)
                  * smoothstep(half_t - fw.y, half_t + fw.y, 1.0 - srcEdge.y);
-  float shadowMask = srcMaskX * srcMaskY * step(0.001, srcLum);
+  float shadowMask = mix(1.0, srcMaskX * srcMaskY, gridFade) * step(0.001, srcLum);
   bg *= 1.0 - shadowMask * u_depth * 0.5;
 
   gl_FragColor = vec4(mix(bg, color.rgb, pixVis), 1.0);
