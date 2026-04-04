@@ -564,44 +564,7 @@
     border: 1px solid #3d3d3d;
     background: #000;
   }
-  /* Default: footer as row at bottom */
-  #screen-footer {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    padding: 0 4px;
-    flex-shrink: 0;
-  }
-  #screen-label {
-    font-size: 8px;
-    color: #3d3d3d;
-  }
-  #scale-select {
-    margin-left: auto;
-    background: none;
-    border: 1px solid #3d3d3d;
-    border-radius: 3px;
-    color: #3d3d3d;
-    font-family: inherit;
-    font-size: 7px;
-    padding: 1px 2px;
-    cursor: pointer;
-    appearance: none;
-    -webkit-appearance: none;
-  }
-  #scale-select:hover { color: #aaa; border-color: #aaa; }
-  #shader-toggle {
-    background: none;
-    border: 1px solid #3d3d3d;
-    border-radius: 3px;
-    color: #3d3d3d;
-    font-family: inherit;
-    font-size: 7px;
-    padding: 1px 5px;
-    cursor: pointer;
-  }
-  #shader-toggle:hover { color: #aaa; border-color: #aaa; }
-  #shader-toggle.active { color: #00d4aa; border-color: #00d4aa; }
+  /* Footer controls provided by console-screen.js module */
   /* Short panel: move controls to right column to save vertical space */
   @container screen-panel (max-height: 280px) {
     #screen-body {
@@ -613,7 +576,7 @@
       min-width: 0;
       max-width: none;
     }
-    #screen-footer {
+    .mono-screen-footer {
       flex-direction: column;
       width: auto;
       flex-shrink: 0;
@@ -623,13 +586,13 @@
       padding: 4px 2px;
       overflow: hidden;
     }
-    #scale-select {
+    .mono-screen-select {
       margin-left: 0;
     }
-    #shader-toggle {
+    .mono-shader-toggle {
       margin-left: 0;
     }
-    #screen-label {
+    .mono-screen-label {
       writing-mode: vertical-lr;
       text-orientation: mixed;
     }
@@ -910,17 +873,7 @@
       </div>
       <div id="screen-body" tabindex="0">
         <canvas id="screen"></canvas>
-        <div id="screen-footer">
-          <span id="screen-label">160x144 // fit</span>
-          <select id="scale-select">
-            <option value="fit" selected>fit</option>
-            <option value="1">1x</option>
-            <option value="2">2x</option>
-            <option value="3">3x</option>
-            <option value="4">4x</option>
-          </select>
-          <button id="shader-toggle" class="active">SHADER</button>
-        </div>
+        <div id="screen-panel-footer"></div>
       </div>
     </div>
 
@@ -1032,7 +985,7 @@
 <script src="../runtime/shaders/lcd.js?v=2"></script>
 <script src="../runtime/shaders/lcd3d.js?v=2"></script>
 <script src="../runtime/shaders/crt.js?v=2"></script>
-
+<script src="../runtime/console-screen.js?v=2"></script>
 
 <script type="module">
 const logToConsole = window.logToConsole;
@@ -1935,34 +1888,7 @@ screenBody.addEventListener("keyup", (e) => {
   }
 });
 
-// ── Scale select ──
-document.getElementById("scale-select").addEventListener("change", (e) => {
-  const canvas = document.getElementById("screen");
-  const glCanvas = canvas.nextElementSibling; // shader's WebGL canvas
-  const label = document.getElementById("screen-label");
-  const val = e.target.value;
-  const W = 160, H = 144;
-
-  if (val === "fit") {
-    // Remove inline size, let CSS flex handle it
-    [canvas, glCanvas].forEach(c => { if (c) { c.style.width = ""; c.style.height = ""; }});
-    label.textContent = `${W}x${H} // fit`;
-  } else {
-    const s = parseInt(val);
-    const w = W * s, h = H * s;
-    [canvas, glCanvas].forEach(c => { if (c) { c.style.width = w + "px"; c.style.height = h + "px"; }});
-    label.textContent = `${W}x${H} // ${s}x`;
-  }
-});
-
-// ── Shader toggle ──
-document.getElementById("shader-toggle").addEventListener("click", () => {
-  const btn = document.getElementById("shader-toggle");
-  const on = btn.classList.toggle("active");
-  if (typeof Mono !== "undefined" && Mono.shader) {
-    if (on) Mono.shader.preset(); else Mono.shader.off();
-  }
-});
+// Scale select + shader toggle handled by console-screen.js module
 
 </script>
 </body>
