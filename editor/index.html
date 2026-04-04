@@ -1383,7 +1383,8 @@ async function readDirectory(handle, prefix) {
     if (entry.kind === "file") {
       // Skip hidden files and non-relevant files
       if (entry.name.startsWith(".")) continue;
-      files[path] = { content: null, handle: entry, modified: false };
+      const file = await entry.getFile();
+      files[path] = { content: null, handle: entry, modified: false, lastModified: file.lastModified };
     } else if (entry.kind === "directory") {
       if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
       await readDirectory(entry, path);
@@ -1920,16 +1921,26 @@ async function start() {
   document.getElementById("log-body").innerHTML = "";
   logToConsole("Booting...", "log-info");
 
-  // Save current and read main.lua
+  // Save current editor content
   if (currentFile && files[currentFile]) {
     files[currentFile].content = editor.state.doc.toString();
   }
-  const mainContent = files["main.lua"] ? files["main.lua"].content : null;
-  if (!mainContent) {
+  if (!files["main.lua"]) {
     logToConsole("No main.lua found in project.", "log-error");
     return;
   }
-  const source = mainContent;
+  // If main.lua is currently open in editor, use editor content.
+  // Otherwise read fresh from disk (external edits).
+  let source;
+  if (currentFile === "main.lua") {
+    source = editor.state.doc.toString();
+  } else {
+    source = await readFileContent("main.lua", true);
+    // Update editor if main.lua tab is open but not focused
+    if (files["main.lua"].content !== source) {
+      files["main.lua"].content = source;
+    }
+  }
   try {
     // Build blob URL map for local image assets
     const assets = {};
