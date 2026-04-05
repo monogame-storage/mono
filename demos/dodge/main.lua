@@ -1,5 +1,6 @@
 -- Dodge Game: avoid falling obstacles
 
+local scr = screen()
 local player = { x = 76, y = 130, w = 8, h = 6 }
 local obstacles = {}
 local score = 0
@@ -66,27 +67,27 @@ function _update()
 end
 
 function _draw()
-  cls(0)
+  cls(scr, 0)
 
   -- border
-  rect(0, 0, SCREEN_W, SCREEN_H, 3)
+  rect(scr, 0, 0, SCREEN_W, SCREEN_H, 3)
 
   -- obstacles
   for _, ob in ipairs(obstacles) do
-    rectf(ob.x, ob.y, ob.w, ob.h, 8)
+    rectf(scr, ob.x, ob.y, ob.w, ob.h, 8)
   end
 
   -- player
-  rectf(player.x, player.y, player.w, player.h, 15)
+  rectf(scr, player.x, player.y, player.w, player.h, 15)
 
   -- score
-  text("SCORE " .. score, 2, 2, 12)
+  text(scr, "SCORE " .. score, 2, 2, 12)
 
   -- game over
   if game_over then
-    rectf(30, 55, 100, 30, 0)
-    rect(30, 55, 100, 30, 15)
-    text("GAME OVER", 48, 62, 15)
-    text("SCORE: " .. score, 52, 74, 10)
+    rectf(scr, 30, 55, 100, 30, 0)
+    rect(scr, 30, 55, 100, 30, 15)
+    text(scr, "GAME OVER", 48, 62, 15)
+    text(scr, "SCORE: " .. score, 52, 74, 10)
   end
 end

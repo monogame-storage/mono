@@ -1,4 +1,5 @@
 -- scenes/play.lua (state pattern)
+local scr = screen()
 local scene = {}
 local px, py = 80, 72
 local timer = 0
@@ -24,12 +25,12 @@ function scene.update()
 end
 
 function scene.draw()
-  cls(2)
-  text("PLAYING", 55, 10, 15)
-  text("scene: " .. (scene_name() or "nil"), 35, 25, 10)
-  rectf(px - 4, py - 4, 8, 8, 15)
-  text("WASD=move B=back", 20, 125, 7)
-  text("auto-clear in " .. (300 - timer), 20, 135, 7)
+  cls(scr, 2)
+  text(scr, "PLAYING", 55, 10, 15)
+  text(scr, "scene: " .. (scene_name() or "nil"), 35, 25, 10)
+  rectf(scr, px - 4, py - 4, 8, 8, 15)
+  text(scr, "WASD=move B=back", 20, 125, 7)
+  text(scr, "auto-clear in " .. (300 - timer), 20, 135, 7)
 end
 
 return scene

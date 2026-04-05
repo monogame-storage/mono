@@ -109,11 +109,17 @@ function buildPalette(bits) {
 }
 
 let palette = buildPalette(colorBits);
-let colorBuf = new Uint8Array(W * H);
-let buf32 = new Uint32Array(W * H); // dummy, for compat
 let camX = 0, camY = 0;
 let debugMode = false;
 let debugShapes = [];
+
+// --- Surfaces ---
+let surfaces = [];
+const colorBuf = new Uint8Array(W * H);
+const buf32 = new Uint32Array(W * H);
+surfaces[0] = { w: W, h: H, buf32, colorBuf };
+
+function getSurf(id) { return surfaces[id]; }
 
 // Images
 let images = [];
@@ -166,37 +172,37 @@ for (const [ch, bits] of Object.entries(fontData)) {
   for (let i = 0; i < bits.length; i++) FONT[ch][i] = bits[i] === "1" ? 1 : 0;
 }
 
-// --- Drawing functions (match engine.js exactly) ---
-function setPix(x, y, c) {
+// --- Drawing functions (match engine.js — first arg is surface) ---
+function setPix(s, x, y, c) {
   x = Math.floor(x); y = Math.floor(y);
-  if (x >= 0 && x < W && y >= 0 && y < H) {
-    const idx = y * W + x;
-    buf32[idx] = palette[c] || palette[0];
-    colorBuf[idx] = c;
+  if (x >= 0 && x < s.w && y >= 0 && y < s.h) {
+    const idx = y * s.w + x;
+    s.buf32[idx] = palette[c] || palette[0];
+    s.colorBuf[idx] = c;
   }
 }
 
-function getPix(x, y) {
+function getPix(s, x, y) {
   x = Math.floor(x); y = Math.floor(y);
-  if (x >= 0 && x < W && y >= 0 && y < H) return colorBuf[y * W + x];
+  if (x >= 0 && x < s.w && y >= 0 && y < s.h) return s.colorBuf[y * s.w + x];
   return 0;
 }
 
-function cls(c) {
+function cls(s, c) {
   const col = palette[c] || palette[0];
-  buf32.fill(col);
-  colorBuf.fill(c || 0);
+  s.buf32.fill(col);
+  s.colorBuf.fill(c || 0);
   debugShapes = [];
 }
 
-function line(x0, y0, x1, y1, c) {
+function line(s, x0, y0, x1, y1, c) {
   x0 = Math.floor(x0) - camX; y0 = Math.floor(y0) - camY;
   x1 = Math.floor(x1) - camX; y1 = Math.floor(y1) - camY;
   let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
   let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
   let err = dx - dy;
   while (true) {
-    setPix(x0, y0, c);
+    setPix(s, x0, y0, c);
     if (x0 === x1 && y0 === y1) break;
     let e2 = 2 * err;
     if (e2 > -dy) { err -= dy; x0 += sx; }
@@ -204,50 +210,50 @@ function line(x0, y0, x1, y1, c) {
   }
 }
 
-function rect(x, y, w, h, c) {
+function rect(s, x, y, w, h, c) {
   x = Math.floor(x) - camX; y = Math.floor(y) - camY;
   w = Math.floor(w); h = Math.floor(h);
-  for (let i = 0; i < w; i++) { setPix(x + i, y, c); setPix(x + i, y + h - 1, c); }
-  for (let i = 0; i < h; i++) { setPix(x, y + i, c); setPix(x + w - 1, y + i, c); }
+  for (let i = 0; i < w; i++) { setPix(s, x + i, y, c); setPix(s, x + i, y + h - 1, c); }
+  for (let i = 0; i < h; i++) { setPix(s, x, y + i, c); setPix(s, x + w - 1, y + i, c); }
   if (debugMode) debugShapes.push({ x, y, w, h });
 }
 
-function rectf(x, y, w, h, c) {
+function rectf(s, x, y, w, h, c) {
   x = Math.floor(x) - camX; y = Math.floor(y) - camY;
   w = Math.floor(w); h = Math.floor(h);
   for (let py = y; py < y + h; py++)
     for (let px = x; px < x + w; px++)
-      setPix(px, py, c);
+      setPix(s, px, py, c);
   if (debugMode) debugShapes.push({ x, y, w, h });
 }
 
-function circ(cx, cy, r, c) {
+function circ(s, cx, cy, r, c) {
   cx = Math.floor(cx) - camX; cy = Math.floor(cy) - camY; r = Math.floor(r);
   let x = r, y = 0, d = 1 - r;
   while (x >= y) {
-    setPix(cx + x, cy + y, c); setPix(cx - x, cy + y, c);
-    setPix(cx + x, cy - y, c); setPix(cx - x, cy - y, c);
-    setPix(cx + y, cy + x, c); setPix(cx - y, cy + x, c);
-    setPix(cx + y, cy - x, c); setPix(cx - y, cy - x, c);
+    setPix(s, cx + x, cy + y, c); setPix(s, cx - x, cy + y, c);
+    setPix(s, cx + x, cy - y, c); setPix(s, cx - x, cy - y, c);
+    setPix(s, cx + y, cy + x, c); setPix(s, cx - y, cy + x, c);
+    setPix(s, cx + y, cy - x, c); setPix(s, cx - y, cy - x, c);
     y++;
     if (d < 0) { d += 2 * y + 1; }
     else { x--; d += 2 * (y - x) + 1; }
   }
 }
 
-function circf(cx, cy, r, c) {
+function circf(s, cx, cy, r, c) {
   cx = Math.floor(cx) - camX; cy = Math.floor(cy) - camY; r = Math.floor(r);
   let x = r, y = 0, d = 1 - r;
   while (x >= y) {
-    for (let i = cx - x; i <= cx + x; i++) { setPix(i, cy + y, c); setPix(i, cy - y, c); }
-    for (let i = cx - y; i <= cx + y; i++) { setPix(i, cy + x, c); setPix(i, cy - x, c); }
+    for (let i = cx - x; i <= cx + x; i++) { setPix(s, i, cy + y, c); setPix(s, i, cy - y, c); }
+    for (let i = cx - y; i <= cx + y; i++) { setPix(s, i, cy + x, c); setPix(s, i, cy - x, c); }
     y++;
     if (d < 0) { d += 2 * y + 1; }
     else { x--; d += 2 * (y - x) + 1; }
   }
 }
 
-function drawText(str, x, y, c) {
+function drawText(s, str, x, y, c) {
   str = String(str).toUpperCase();
   let cx = Math.floor(x);
   const cy = Math.floor(y);
@@ -256,7 +262,7 @@ function drawText(str, x, y, c) {
     if (glyph) {
       for (let py = 0; py < FONT_H; py++)
         for (let px = 0; px < FONT_W; px++)
-          if (glyph[py * FONT_W + px]) setPix(cx + px, cy + py, c);
+          if (glyph[py * FONT_W + px]) setPix(s, cx + px, cy + py, c);
     }
     cx += FONT_W + 1;
   }
@@ -264,12 +270,68 @@ function drawText(str, x, y, c) {
 
 function camFn(x, y) { camX = x || 0; camY = y || 0; }
 
+// --- Surface management ---
+function screenFn() { return 0; }
+
+function canvasFn(w, h) {
+  w = Math.floor(w); h = Math.floor(h);
+  if (w < 1 || h < 1 || w > 1024 || h > 1024) return false;
+  const cb = new Uint8Array(w * h);
+  const b32 = new Uint32Array(w * h);
+  const col = palette[0] || 0xFF000000;
+  b32.fill(col);
+  const id = surfaces.length;
+  surfaces.push({ w, h, buf32: b32, colorBuf: cb });
+  return id;
+}
+
+function canvasDel(id) {
+  if (id <= 0 || id >= surfaces.length) return;
+  surfaces[id] = null;
+}
+
+function canvasW(id) {
+  const s = surfaces[id]; return s ? s.w : 0;
+}
+
+function canvasH(id) {
+  const s = surfaces[id]; return s ? s.h : 0;
+}
+
+function blitFn(srcId, dstId, dx, dy, dw, dh, sx, sy, sw, sh) {
+  const src = getSurf(srcId), dst = getSurf(dstId);
+  if (!src || !dst) return;
+  sx = sx || 0; sy = sy || 0;
+  sw = sw || src.w; sh = sh || src.h;
+  dw = dw || sw; dh = dh || sh;
+  dx = Math.floor(dx) - camX; dy = Math.floor(dy) - camY;
+  for (let py = 0; py < dh; py++) {
+    const destY = dy + py;
+    if (destY < 0 || destY >= dst.h) continue;
+    const srcY = Math.floor(py * sh / dh) + sy;
+    if (srcY < 0 || srcY >= src.h) continue;
+    for (let px = 0; px < dw; px++) {
+      const destX = dx + px;
+      if (destX < 0 || destX >= dst.w) continue;
+      const srcX = Math.floor(px * sw / dw) + sx;
+      if (srcX < 0 || srcX >= src.w) continue;
+      const c = src.colorBuf[srcY * src.w + srcX];
+      if (c === 255) continue;
+      const idx = destY * dst.w + destX;
+      dst.colorBuf[idx] = c;
+      dst.buf32[idx] = palette[c];
+    }
+  }
+}
+
+// --- VRAM dump (always reads screen = surfaces[0]) ---
 function vrow(y) {
+  const scr = surfaces[0];
   y = Math.floor(y);
-  if (y < 0 || y >= H) return "";
+  if (!scr || y < 0 || y >= H) return "";
   let s = "";
   const off = y * W;
-  for (let x = 0; x < W; x++) s += colorBuf[off + x].toString(16);
+  for (let x = 0; x < W; x++) s += scr.colorBuf[off + x].toString(16);
   return s;
 }
 
@@ -299,26 +361,26 @@ function quantizeRGBA(rgba, w, h, pal) {
   return out;
 }
 
-function drawImageFn(id, x, y) {
+function drawImageFn(s, id, x, y) {
   const img = images[id];
   if (!img) return;
   x = Math.floor(x) - camX; y = Math.floor(y) - camY;
   for (let py = 0; py < img.h; py++) {
     const sy = y + py;
-    if (sy < 0 || sy >= H) continue;
+    if (sy < 0 || sy >= s.h) continue;
     for (let px = 0; px < img.w; px++) {
       const sx = x + px;
-      if (sx < 0 || sx >= W) continue;
+      if (sx < 0 || sx >= s.w) continue;
       const c = img.data[py * img.w + px];
       if (c === 255) continue;
-      const idx = sy * W + sx;
-      colorBuf[idx] = c;
-      buf32[idx] = palette[c];
+      const idx = sy * s.w + sx;
+      s.colorBuf[idx] = c;
+      s.buf32[idx] = palette[c];
     }
   }
 }
 
-function drawImageRegionFn(id, sx, sy, sw, sh, dx, dy) {
+function drawImageRegionFn(s, id, sx, sy, sw, sh, dx, dy) {
   const img = images[id];
   if (!img) return;
   dx = Math.floor(dx) - camX; dy = Math.floor(dy) - camY;
@@ -330,15 +392,15 @@ function drawImageRegionFn(id, sx, sy, sw, sh, dx, dy) {
   if (sy + sh > img.h) sh = img.h - sy;
   for (let py = 0; py < sh; py++) {
     const screenY = dy + py;
-    if (screenY < 0 || screenY >= H) continue;
+    if (screenY < 0 || screenY >= s.h) continue;
     for (let px = 0; px < sw; px++) {
       const screenX = dx + px;
-      if (screenX < 0 || screenX >= W) continue;
+      if (screenX < 0 || screenX >= s.w) continue;
       const c = img.data[(sy + py) * img.w + (sx + px)];
       if (c === 255) continue;
-      const idx = screenY * W + screenX;
-      colorBuf[idx] = c;
-      buf32[idx] = palette[c];
+      const idx = screenY * s.w + screenX;
+      s.colorBuf[idx] = c;
+      s.buf32[idx] = palette[c];
     }
   }
 }
@@ -402,20 +464,30 @@ async function main() {
   lua.global.set("SCREEN_W", W);
   lua.global.set("SCREEN_H", H);
   lua.global.set("COLORS", palette.length);
-  lua.global.set("cls", cls);
-  lua.global.set("pix", (x, y, c) => setPix(Math.floor(x) - camX, Math.floor(y) - camY, c));
-  lua.global.set("gpix", getPix);
-  lua.global.set("line", line);
-  lua.global.set("rect", rect);
-  lua.global.set("rectf", rectf);
-  lua.global.set("circ", circ);
-  lua.global.set("circf", circf);
-  lua.global.set("text", drawText);
+  // Drawing functions — first arg is surface id
+  lua.global.set("cls", (id, c) => { const s = getSurf(id); if (s) cls(s, c); });
+  lua.global.set("pix", (id, x, y, c) => { const s = getSurf(id); if (s) setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
+  lua.global.set("gpix", (id, x, y) => { const s = getSurf(id); return s ? getPix(s, x, y) : 0; });
+  lua.global.set("line", (id, x0, y0, x1, y1, c) => { const s = getSurf(id); if (s) line(s, x0, y0, x1, y1, c); });
+  lua.global.set("rect", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) rect(s, x, y, w, h, c); });
+  lua.global.set("rectf", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) rectf(s, x, y, w, h, c); });
+  lua.global.set("circ", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circ(s, cx, cy, r, c); });
+  lua.global.set("circf", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circf(s, cx, cy, r, c); });
+  lua.global.set("text", (id, str, x, y, c) => { const s = getSurf(id); if (s) drawText(s, str, x, y, c); });
   lua.global.set("cam", camFn);
   lua.global.set("_cam_get_x", () => camX);
   lua.global.set("_cam_get_y", () => camY);
-  lua.global.set("drawImage", drawImageFn);
-  lua.global.set("drawImageRegion", drawImageRegionFn);
+  lua.global.set("spr", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
+  lua.global.set("sspr", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = getSurf(id); if (s) drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
+  lua.global.set("drawImage", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
+  lua.global.set("drawImageRegion", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = getSurf(id); if (s) drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
+  // Surface management
+  lua.global.set("screen", screenFn);
+  lua.global.set("canvas", canvasFn);
+  lua.global.set("canvas_w", canvasW);
+  lua.global.set("canvas_h", canvasH);
+  lua.global.set("canvas_del", canvasDel);
+  lua.global.set("blit", blitFn);
   lua.global.set("imageWidth", (id) => { const img = images[id]; return img ? img.w : 0; });
   lua.global.set("imageHeight", (id) => { const img = images[id]; return img ? img.h : 0; });
   lua.global.set("vrow", vrow);
@@ -750,8 +822,9 @@ end
   }
 
   function getPixelInRegion(rx, ry) {
+    const scr = surfaces[0];
     const x = cropX + rx, y = cropY + ry;
-    if (x >= 0 && x < W && y >= 0 && y < H) return colorBuf[y * W + x];
+    if (x >= 0 && x < W && y >= 0 && y < H) return scr.colorBuf[y * W + x];
     return 0;
   }
 
@@ -929,9 +1002,10 @@ if (totalRuns > 1) {
 
     for (let r = 1; r <= totalRuns; r++) {
       // Reset state for each run
-      colorBuf = new Uint8Array(W * H);
-      buf32 = new Uint32Array(W * H);
       palette = buildPalette(colorBits);
+      const cb = new Uint8Array(W * H);
+      const b32 = new Uint32Array(W * H);
+      surfaces = [{ w: W, h: H, buf32: b32, colorBuf: cb }];
       camX = 0; camY = 0;
       images = []; imageIdCounter = 0;
       for (const k in keys) keys[k] = false;

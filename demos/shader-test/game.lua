@@ -2,6 +2,7 @@
 -- Visual content for testing shader effects
 -- Shader control is in the HTML UI, not in Lua
 
+local scr = screen()
 local W = SCREEN_W
 local H = SCREEN_H
 
@@ -33,24 +34,24 @@ function _update()
 end
 
 function _draw()
-  cls(0)
+  cls(scr, 0)
 
   -- boxes
   for i = 1, NUM_BOXES do
     local b = boxes[i]
-    rectf(math.floor(b.x), math.floor(b.y), b.w, b.h, b.c)
+    rectf(scr, math.floor(b.x), math.floor(b.y), b.w, b.h, b.c)
   end
 
   -- circles
-  circf(W / 2, H / 2, 20, 8)
-  circ(W / 2, H / 2, 25, 15)
+  circf(scr, W / 2, H / 2, 20, 8)
+  circ(scr, W / 2, H / 2, 25, 15)
 
   -- gradient bar
   local bw = math.floor(W / 16)
   for i = 0, 15 do
-    rectf(i * bw, H - 12, bw, 12, i)
+    rectf(scr, i * bw, H - 12, bw, 12, i)
   end
 
   -- title
-  text("SHADER TEST", 3, 3, 15)
+  text(scr, "SHADER TEST", 3, 3, 15)
 end
