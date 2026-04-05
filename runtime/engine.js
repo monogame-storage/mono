@@ -555,11 +555,12 @@ end
     // Preload modules for require() support (browser has no filesystem)
     if (opts.modules) {
       for (const [path, src] of Object.entries(opts.modules)) {
-        const modName = path.replace(/\.lua$/, "").replace(/\//g, ".");
+        const modName = path.replace(/\.lua$/, "").replace(/\//g, ".").replace(/"/g, "");
         lua.global.set("_tmp_mod_src", src);
-        await lua.doString(`package.preload["${modName}"] = load(_tmp_mod_src, "@${path}")`);
+        lua.global.set("_tmp_mod_name", modName);
+        await lua.doString(`package.preload[_tmp_mod_name] = load(_tmp_mod_src, "@" .. _tmp_mod_name .. ".lua")`);
       }
-      await lua.doString("_tmp_mod_src = nil");
+      await lua.doString("_tmp_mod_src = nil; _tmp_mod_name = nil");
     }
 
     // Run game script

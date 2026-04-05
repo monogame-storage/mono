@@ -543,7 +543,7 @@ end
   }
 
   // Set package.path for require() support
-  const absGameDir = path.resolve(gameDir).replace(/\\/g, "/");
+  const absGameDir = path.resolve(gameDir).replace(/\\/g, "/").replace(/"/g, '\\"');
   await lua.doString(`package.path = "${absGameDir}/?.lua;${absGameDir}/?/init.lua;" .. package.path`);
 
   // Run main script
