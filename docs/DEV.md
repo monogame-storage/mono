@@ -232,6 +232,8 @@ local f = frame()  -- returns the current frame number (starts at 0, increments 
 
 All drawing targets a **surface**. The screen is surface 0; you can create additional off-screen canvases for render-to-texture effects, zoom, minimaps, etc.
 
+The screen surface is **auto-flushed** at the end of each frame — no manual `flush()` or `present()` call is needed. Just draw to the screen in `_draw()` and the engine handles the rest.
+
 ### Surface Functions
 
 ```lua
