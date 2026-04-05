@@ -35,3 +35,4 @@ Mono is a constraint-driven fantasy game console (160x144, 16 grayscale colors, 
 - Commit messages: imperative, concise, with Co-Authored-By
 - Don't amend — always new commits
 - Push to `ssk-play/mono` on GitHub
+- PR that addresses a GitHub issue: always include `Closes #N` in PR body so merging auto-closes the issue

@@ -1,6 +1,7 @@
 -- Space Invaders (1-bit, 160x144)
 -- Original-style: 5 rows x 11 cols of aliens, shields, UFO
 
+local scr = screen()
 local W = SCREEN_W
 local H = SCREEN_H
 local t = 0
@@ -128,7 +129,7 @@ local function draw_spr(spr, sx, sy, c)
     local line_str = spr[row]
     for col = 1, #line_str do
       if line_str:sub(col, col) == "1" then
-        pix(sx + col - 1, sy + row - 1, c)
+        pix(scr, sx + col - 1, sy + row - 1, c)
       end
     end
   end
@@ -450,11 +451,11 @@ end
 -- ===== DRAW =====
 
 local function draw_play()
-  cls(0)
+  cls(scr, 0)
 
   -- Score
-  text("SCORE " .. pscore, 2, 2, 1)
-  text("HI " .. phiscore, W - 45, 2, 1)
+  text(scr, "SCORE " .. pscore, 2, 2, 1)
+  text(scr, "HI " .. phiscore, W - 45, 2, 1)
 
   -- Lives
   for i = 1, plives - 1 do
@@ -479,7 +480,7 @@ local function draw_play()
 
   -- Player bullet
   if pbullet then
-    rectf(math.floor(pbullet.x), math.floor(pbullet.y), 1, 4, 1)
+    rectf(scr, math.floor(pbullet.x), math.floor(pbullet.y), 1, 4, 1)
   end
 
   -- Alien bullets
@@ -488,10 +489,10 @@ local function draw_play()
     -- Zigzag bullet pattern
     local bx = math.floor(b.x)
     local by = math.floor(b.y)
-    pix(bx, by, 1)
-    pix(bx, by + 1, 1)
-    pix(bx + ((by % 4 < 2) and 1 or -1), by + 2, 1)
-    pix(bx, by + 3, 1)
+    pix(scr, bx, by, 1)
+    pix(scr, bx, by + 1, 1)
+    pix(scr, bx + ((by % 4 < 2) and 1 or -1), by + 2, 1)
+    pix(scr, bx, by + 3, 1)
   end
 
   -- Shields
@@ -501,7 +502,7 @@ local function draw_play()
     for row = 1, #shield_spr do
       for col = 1, #shield_spr[1] do
         if shield_hp[si][row][col] then
-          pix(sx + col - 1, sy + row - 1, 1)
+          pix(scr, sx + col - 1, sy + row - 1, 1)
         end
       end
     end
@@ -521,12 +522,12 @@ local function draw_play()
     for j = 1, 6 do
       local dx = math.random(-5, 5)
       local dy = math.random(-5, 5)
-      pix(ex + 4 + dx, ey + 4 + dy, 1)
+      pix(scr, ex + 4 + dx, ey + 4 + dy, 1)
     end
   end
 
   -- Ground line
-  line(0, H - 9, W - 1, H - 9, 1)
+  line(scr, 0, H - 9, W - 1, H - 9, 1)
 end
 
 -- ===== TITLE / GAME OVER =====
@@ -534,44 +535,44 @@ end
 local title_blink = 0
 
 local function draw_title()
-  cls(0)
+  cls(scr, 0)
   title_blink = title_blink + 1
 
-  text("SPACE INVADERS", 20, 20, 1)
+  text(scr, "SPACE INVADERS", 20, 20, 1)
 
   -- Show alien types with scores
   draw_spr(ufo_spr, 40, 45, 1)
-  text("= ?  PTS", 60, 47, 1)
+  text(scr, "= ?  PTS", 60, 47, 1)
   draw_spr(alien1[1], 44, 60, 1)
-  text("= 30 PTS", 60, 62, 1)
+  text(scr, "= 30 PTS", 60, 62, 1)
   draw_spr(alien2[1], 42, 75, 1)
-  text("= 20 PTS", 60, 77, 1)
+  text(scr, "= 20 PTS", 60, 77, 1)
   draw_spr(alien3[1], 41, 90, 1)
-  text("= 10 PTS", 60, 92, 1)
+  text(scr, "= 10 PTS", 60, 92, 1)
 
   if title_blink % 40 < 28 then
-    text("PRESS START", 30, 120, 1)
+    text(scr, "PRESS START", 30, 120, 1)
   end
 end
 
 local function draw_dead()
-  cls(0)
-  text("GAME OVER", 40, 50, 1)
-  text("SCORE " .. pscore, 40, 65, 1)
-  text("HI " .. phiscore, 40, 80, 1)
+  cls(scr, 0)
+  text(scr, "GAME OVER", 40, 50, 1)
+  text(scr, "SCORE " .. pscore, 40, 65, 1)
+  text(scr, "HI " .. phiscore, 40, 80, 1)
   title_blink = title_blink + 1
   if title_blink % 40 < 28 then
-    text("PRESS START", 30, 110, 1)
+    text(scr, "PRESS START", 30, 110, 1)
   end
 end
 
 local function draw_win()
-  cls(0)
-  text("YOU WIN!", 45, 50, 1)
-  text("SCORE " .. pscore, 40, 65, 1)
+  cls(scr, 0)
+  text(scr, "YOU WIN!", 45, 50, 1)
+  text(scr, "SCORE " .. pscore, 40, 65, 1)
   title_blink = title_blink + 1
   if title_blink % 40 < 28 then
-    text("PRESS START", 30, 110, 1)
+    text(scr, "PRESS START", 30, 110, 1)
   end
 end
 

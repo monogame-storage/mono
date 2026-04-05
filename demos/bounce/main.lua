@@ -3,6 +3,7 @@
 -- Player controls left/right movement
 -- Avoid holes in the floor!
 
+local scr = screen()
 local W = SCREEN_W
 local H = SCREEN_H
 
@@ -103,33 +104,33 @@ function _update()
 end
 
 function _draw()
-  cls(0)
+  cls(scr, 0)
 
   -- walls (top, left, right)
-  line(0, 0, W - 1, 0, 1)
-  line(0, 0, 0, H - 1, 1)
-  line(W - 1, 0, W - 1, H - 1, 1)
+  line(scr, 0, 0, W - 1, 0, 1)
+  line(scr, 0, 0, 0, H - 1, 1)
+  line(scr, W - 1, 0, W - 1, H - 1, 1)
 
   -- floor segments
   local fy = H - 1
   for i = 1, #floors do
     local f = floors[i]
-    line(f.x, fy, f.x + f.w, fy, 1)
+    line(scr, f.x, fy, f.x + f.w, fy, 1)
   end
 
   -- ball
-  circf(math.floor(bx), math.floor(by), br, 1)
+  circf(scr, math.floor(bx), math.floor(by), br, 1)
 
   -- score
-  text("TIME " .. math.floor(frames / 30), 3, 3, 1)
+  text(scr, "TIME " .. math.floor(frames / 30), 3, 3, 1)
 
   -- debug: world + pixel coords (top right)
   local wx = string.format("%.1f", bx / M)
   local wy = string.format("%.1f", by / M)
   local px = tostring(math.floor(bx))
   local py = tostring(math.floor(by))
-  text("W " .. wx .. "," .. wy, W - 75, 3, 1)
-  text("P " .. px .. "," .. py, W - 75, 12, 1)
-  text("S " .. string.format("%.2f", spd), W - 75, 21, 1)
-  text("J " .. string.format("%.1f", -BOUNCE_VY), W - 75, 30, 1)
+  text(scr, "W " .. wx .. "," .. wy, W - 75, 3, 1)
+  text(scr, "P " .. px .. "," .. py, W - 75, 12, 1)
+  text(scr, "S " .. string.format("%.2f", spd), W - 75, 21, 1)
+  text(scr, "J " .. string.format("%.1f", -BOUNCE_VY), W - 75, 30, 1)
 end

@@ -1,6 +1,8 @@
 -- Mono Pong
 -- 2P: left=W/S, right=Up/Down | 1P: left=auto, right=Up/Down
 
+local scr = screen()
+
 -- constants
 local PW = 4    -- paddle width
 local PH = 24   -- paddle height
@@ -207,45 +209,45 @@ function _update()
 end
 
 function _draw()
-  cls(0)
+  cls(scr, 0)
 
   -- center line (dashed)
   for y = 0, SCREEN_H - 1, 6 do
-    rectf(79, y, 2, 3, 3)
+    rectf(scr, 79, y, 2, 3, 3)
   end
 
   -- rect obstacles
   for _, ob in ipairs(obstacles) do
-    rectf(ob.x, ob.y, ob.w, ob.h, 7)
-    rect(ob.x, ob.y, ob.w, ob.h, 10)
+    rectf(scr, ob.x, ob.y, ob.w, ob.h, 7)
+    rect(scr, ob.x, ob.y, ob.w, ob.h, 10)
   end
 
   -- circle obstacles
   for _, ob in ipairs(circle_obs) do
-    circf(ob.cx, ob.cy, ob.r, 7)
-    circ(ob.cx, ob.cy, ob.r, 10)
+    circf(scr, ob.cx, ob.cy, ob.r, 7)
+    circ(scr, ob.cx, ob.cy, ob.r, 10)
   end
 
   -- paddles
-  rectf(p1.x, p1.y, PW, PH, 12)
-  rectf(p2.x, p2.y, PW, PH, 15)
+  rectf(scr, p1.x, p1.y, PW, PH, 12)
+  rectf(scr, p2.x, p2.y, PW, PH, 15)
 
   -- ball
-  circf(ball.x, ball.y, BS, 15)
+  circf(scr, ball.x, ball.y, BS, 15)
 
   -- score
-  text(tostring(score1), 60, 4, 8)
-  text(tostring(score2), 94, 4, 8)
+  text(scr, tostring(score1), 60, 4, 8)
+  text(scr, tostring(score2), 94, 4, 8)
 
   -- border
-  line(0, 0, SCREEN_W - 1, 0, 5)
-  line(0, SCREEN_H - 1, SCREEN_W - 1, SCREEN_H - 1, 5)
+  line(scr, 0, 0, SCREEN_W - 1, 0, 5)
+  line(scr, 0, SCREEN_H - 1, SCREEN_W - 1, SCREEN_H - 1, 5)
 
   -- winner screen
   if winner then
-    rectf(40, 55, 80, 30, 0)
-    rect(40, 55, 80, 30, 15)
-    text(winner .. " WINS!", 52, 63, 15)
-    text("PRESS START", 44, 75, 8)
+    rectf(scr, 40, 55, 80, 30, 0)
+    rect(scr, 40, 55, 80, 30, 15)
+    text(scr, winner .. " WINS!", 52, 63, 15)
+    text(scr, "PRESS START", 44, 75, 8)
   end
 end

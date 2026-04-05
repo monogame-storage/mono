@@ -59,9 +59,10 @@ function title_update()
 end
 
 function title_draw()
-  cls(0)
-  text("HELLO MONO", 120, 100, 3)
-  text("PRESS START", 115, 130, 2)
+  local scr = screen()
+  cls(scr, 0)
+  text(scr, "HELLO MONO", 120, 100, 3)
+  text(scr, "PRESS START", 115, 130, 2)
 end
 
 function play_init()
@@ -71,8 +72,9 @@ function play_update()
 end
 
 function play_draw()
-  cls(0)
-  text("PLAYING!", 130, 116, 3)
+  local scr = screen()
+  cls(scr, 0)
+  text(scr, "PLAYING!", 130, 116, 3)
 end
 ```
 
@@ -226,31 +228,87 @@ local f = frame()  -- returns the current frame number (starts at 0, increments 
 
 ---
 
-## 4. Graphics API
+## 4. Canvas Surface
 
-All drawing functions use integer color values from 0 to `COLORS - 1` (e.g., 0-1 in 1-bit mode, 0-15 in 4-bit mode).
+All drawing targets a **surface**. The screen is surface 0; you can create additional off-screen canvases for render-to-texture effects, zoom, minimaps, etc.
+
+The screen surface is **auto-flushed** at the end of each frame — no manual `flush()` or `present()` call is needed. Just draw to the screen in `_draw()` and the engine handles the rest.
+
+### Surface Functions
+
+```lua
+screen()              -- returns the screen surface id (always 0)
+canvas(w, h)          -- create a virtual canvas, returns surface id (max 1024x1024)
+canvas_w(id)          -- returns width of surface
+canvas_h(id)          -- returns height of surface
+canvas_del(id)        -- free a canvas (cannot delete screen)
+
+blit(src, dst, dx, dy [, dw, dh [, sx, sy, sw, sh]])
+  -- copy/scale between surfaces
+  -- src, dst: surface ids
+  -- dx, dy: destination position
+  -- dw, dh: destination size (optional; defaults to source size)
+  -- sx, sy, sw, sh: source sub-region (optional; defaults to full source)
+  -- Uses nearest-neighbor scaling. Color 255 = transparent.
+```
+
+### Basic Usage
+
+```lua
+local scr = screen()
+cls(scr, 0)
+rectf(scr, 10, 10, 50, 50, 3)
+text(scr, "HI", 10, 10, 1)
+```
+
+### Zoom / Render-to-Texture Example
+
+Draw the world at double resolution, then scale down to the screen:
+
+```lua
+local world = canvas(320, 288)
+local scr = screen()
+
+function _draw()
+  cls(world, 0)
+  cam(px - 160, py - 144)
+  rectf(world, 10, 10, 50, 50, 3)
+  spr(world, player_img, px, py)
+
+  cls(scr, 0)
+  cam(0, 0)
+  blit(world, scr, 0, 0, 160, 144)
+  text(scr, "HP: 100", 2, 2, 15)
+end
+```
+
+---
+
+## 5. Graphics API
+
+All drawing functions take a **surface id** as their first parameter. Use `screen()` to get the default screen surface. Color values are integers from 0 to `COLORS - 1` (e.g., 0-1 in 1-bit mode, 0-15 in 4-bit mode).
 
 ### Screen
 
 ```lua
-cls(color)               -- clear entire screen to color (default 0)
+cls(surface, color)               -- clear entire surface to color (default 0)
 ```
 
 ### Pixels
 
 ```lua
-pix(x, y, color)         -- set a single pixel (affected by camera)
-gpix(x, y)               -- get pixel color at screen coordinate (returns 0-3, or -1 if out of bounds)
+pix(surface, x, y, color)         -- set a single pixel (affected by camera)
+gpix(surface, x, y)               -- get pixel color at coordinate (returns color index, or -1 if out of bounds)
 ```
 
 ### Lines and Shapes
 
 ```lua
-line(x1, y1, x2, y2, color)    -- draw line between two points
-rect(x, y, w, h, color)        -- draw rectangle outline
-rectf(x, y, w, h, color)       -- draw filled rectangle
-circ(x, y, r, color)           -- draw circle outline (x,y = center)
-circf(x, y, r, color)          -- draw filled circle (x,y = center)
+line(surface, x1, y1, x2, y2, color)    -- draw line between two points
+rect(surface, x, y, w, h, color)        -- draw rectangle outline
+rectf(surface, x, y, w, h, color)       -- draw filled rectangle
+circ(surface, x, y, r, color)           -- draw circle outline (x,y = center)
+circf(surface, x, y, r, color)          -- draw filled circle (x,y = center)
 ```
 
 All shape functions are affected by camera offset.
@@ -258,21 +316,23 @@ All shape functions are affected by camera offset.
 ### Sprites
 
 ```lua
-spr(id, x, y)                      -- draw sprite (all pixels, including color 0)
-spr(id, x, y, flipX, flipY)        -- draw sprite with optional flip (boolean)
+spr(surface, id, x, y)                      -- draw sprite (all pixels, including color 0)
+spr(surface, id, x, y, flipX, flipY)        -- draw sprite with optional flip (boolean)
 
-sprT(id, x, y)                     -- draw sprite, skip color 0 pixels (transparent)
-sprT(id, x, y, flipX, flipY)       -- transparent sprite with flip
+sprT(surface, id, x, y)                     -- draw sprite, skip color 0 pixels (transparent)
+sprT(surface, id, x, y, flipX, flipY)       -- transparent sprite with flip
 
-sprRot(id, cx, cy, angle)          -- draw sprite rotated around center (radians)
-sprScale(id, cx, cy, scale)        -- draw sprite scaled from center, color 0 = transparent
-sprScale(id, cx, cy, scale, flipX, flipY)  -- scaled with flip
+sprRot(surface, id, cx, cy, angle)          -- draw sprite rotated around center (radians)
+sprScale(surface, id, cx, cy, scale)        -- draw sprite scaled from center, color 0 = transparent
+sprScale(surface, id, cx, cy, scale, flipX, flipY)  -- scaled with flip
+
+sspr(surface, id, sx, sy, sw, sh, dx, dy)  -- draw sub-region of sprite
 ```
 
 **Unified draw function (LOVE2D-style):**
 
 ```lua
-draw(id, x, y, rotation, scaleX, scaleY, originX, originY)
+draw(surface, id, x, y, rotation, scaleX, scaleY, originX, originY)
 ```
 
 - `rotation`: radians (default 0)
@@ -285,7 +345,7 @@ All sprite drawing functions are affected by camera.
 ### Text
 
 ```lua
-text(str, x, y, color)
+text(surface, str, x, y, color)
 ```
 
 - 4x7 pixel bitmap font, 5px character pitch (4px glyph + 1px gap)
@@ -295,7 +355,7 @@ text(str, x, y, color)
 
 ---
 
-## 5. Sprites
+## 6. Sprites
 
 ### defSprite
 
@@ -398,7 +458,7 @@ This works with names registered via the declarative `game` table or your own `d
 
 ---
 
-## 6. Camera
+## 7. Camera
 
 ```lua
 cam(x, y)          -- set camera position; all camera-affected drawing shifts by (-x, -y)
@@ -426,7 +486,7 @@ end
 
 ---
 
-## 7. Images
+## 8. Images
 
 Load external images (PNG, JPG, WebP, BMP, GIF, SVG) and draw them. Images are auto-quantized to the current grayscale palette. Transparent pixels (alpha < 128) are skipped.
 
@@ -455,7 +515,8 @@ function _start()
 end
 
 function _draw()
-  cls(0)
+  local scr = screen()
+  cls(scr, 0)
   -- reveal a 40x40 region of the background at screen position (10, 10)
   drawImageRegion(bg, 10, 10, 40, 40, 10, 10)
 end
@@ -463,7 +524,7 @@ end
 
 ---
 
-## 8. Input
+## 9. Input
 
 ### Button State
 
@@ -493,7 +554,7 @@ Korean keyboard layout (ㅈㄴㅁㅇ / ㅋㅌ) is also mapped for convenience.
 
 ---
 
-## 9. Audio
+## 10. Audio
 
 ### Sound Effects
 
@@ -542,7 +603,7 @@ bgm_vol(vol)         -- set BGM volume (0.0 to 1.0)
 
 ---
 
-## 10. Tilemap
+## 11. Tilemap
 
 ### Set and Get Tiles
 
@@ -579,7 +640,7 @@ map(0, 0, 20, 15, 0, 0)
 
 ---
 
-## 11. ECS (Entity Component System)
+## 12. ECS (Entity Component System)
 
 ### Spawning Entities
 
@@ -691,7 +752,7 @@ Each frame, the engine runs (in order):
 
 ---
 
-## 12. Tween
+## 13. Tween
 
 ```lua
 tween(entityId, property, toValue, frames, easing)
@@ -720,7 +781,7 @@ Easing functions:
 
 ---
 
-## 13. Scene Management
+## 14. Scene Management
 
 ```lua
 go("play")              -- transition to scene (loads play.lua if not yet loaded)
@@ -762,7 +823,7 @@ my-game/
 
 ---
 
-## 14. Math and Utility
+## 15. Math and Utility
 
 ```lua
 rnd(n)      -- random float from 0 (inclusive) to n (exclusive)
@@ -778,7 +839,7 @@ overlap(x1, y1, w1, h1, x2, y2, w2, h2)   -- AABB overlap check, returns boolean
 
 ---
 
-## 15. Debug Overlays
+## 16. Debug Overlays
 
 Press number keys during gameplay to toggle overlays:
 
@@ -799,7 +860,7 @@ These are automatically registered by the ECS for entities with hitboxes. Call t
 
 ---
 
-## 16. Pause
+## 17. Pause
 
 - Press **Select** (Space) during the `play` scene to toggle pause
 - While paused, `<scene>_update()` is skipped; draw still runs
@@ -808,7 +869,7 @@ These are automatically registered by the ECS for entities with hitboxes. Call t
 
 ---
 
-## 17. Portal Integration
+## 18. Portal Integration
 
 The engine communicates with a parent iframe via `postMessage` for demo recording/playback:
 
@@ -828,7 +889,7 @@ Demo data is saved to `localStorage` under the key `mono_demo_<gameId>` where `g
 
 ---
 
-## 18. Memory (RAM)
+## 19. Memory (RAM)
 
 The engine provides 4096 bytes of RAM accessible from Lua:
 
@@ -842,7 +903,7 @@ peek16(addr)            -- read 16-bit value
 
 ---
 
-## 19. Examples
+## 20. Examples
 
 ### Minimal Shooter
 
@@ -896,9 +957,10 @@ function title_update()
 end
 
 function title_draw()
-  cls(0)
-  text("SPACE SHOOTER", 110, 80, 3)
-  text("PRESS START", 118, 140, 2)
+  local scr = screen()
+  cls(scr, 0)
+  text(scr, "SPACE SHOOTER", 110, 80, 3)
+  text(scr, "PRESS START", 118, 140, 2)
 end
 
 function play_init()
@@ -950,9 +1012,10 @@ function play_update()
 end
 
 function play_draw()
-  cls(0)
-  sprT(1, flr(px), flr(py))
-  text("SCORE:" .. score, 4, 4, 3)
+  local scr = screen()
+  cls(scr, 0)
+  sprT(scr, 1, flr(px), flr(py))
+  text(scr, "SCORE:" .. score, 4, 4, 3)
 end
 ```
 
@@ -995,13 +1058,14 @@ function play_update()
 end
 
 function play_draw()
-  cls(0)
+  local scr = screen()
+  cls(scr, 0)
 
   -- Ground
-  rectf(0, 216, 320, 24, 1)
+  rectf(scr, 0, 216, 320, 24, 1)
 
   -- Player (simple rectangle)
-  rectf(flr(px), flr(py), 16, 16, 3)
+  rectf(scr, flr(px), flr(py), 16, 16, 3)
 end
 ```
 
@@ -1054,8 +1118,9 @@ defVisual("hero", [[
 ]])
 
 function play_draw()
-  cls(0)
-  sprT(sprite_id("hero"), 152, 112)
+  local scr = screen()
+  cls(scr, 0)
+  sprT(scr, sprite_id("hero"), 152, 112)
 end
 ```
 

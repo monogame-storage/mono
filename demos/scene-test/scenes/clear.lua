@@ -1,4 +1,5 @@
 -- scenes/clear.lua (state pattern)
+local scr = screen()
 local scene = {}
 local wait = 0
 
@@ -14,10 +15,10 @@ function scene.update()
 end
 
 function scene.draw()
-  cls(0)
-  text("STAGE CLEAR!", 35, 55, 15)
-  text("scene: " .. (scene_name() or "nil"), 35, 75, 10)
-  text("frame: " .. frame(), 35, 90, 10)
+  cls(scr, 0)
+  text(scr, "STAGE CLEAR!", 35, 55, 15)
+  text(scr, "scene: " .. (scene_name() or "nil"), 35, 75, 10)
+  text(scr, "frame: " .. frame(), 35, 90, 10)
 end
 
 return scene

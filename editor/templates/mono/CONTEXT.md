@@ -10,6 +10,47 @@ This is a [Mono](https://github.com/ssk-play/mono) fantasy console game.
 - Frame rate: 30 FPS
 - Input: 8 buttons (up, down, left, right, a, b, start, select)
 
+## Canvas Surface (Pygame-style)
+All drawing functions take a **surface id** as their first argument.
+
+```lua
+local scr = screen()       -- screen surface (always 0)
+local c = canvas(320, 288) -- virtual canvas (max 1024x1024)
+
+-- All drawing: first arg is surface
+cls(scr, 0)
+pix(scr, x, y, col)
+rectf(scr, x, y, w, h, col)
+text(scr, "HI", 10, 10, 1)
+spr(scr, id, x, y)
+
+-- Copy/scale between surfaces
+blit(src, dst, dx, dy)                         -- 1:1
+blit(src, dst, dx, dy, dw, dh)                 -- scale
+blit(src, dst, dx, dy, dw, dh, sx, sy, sw, sh) -- region + scale
+
+canvas_w(c)    -- width
+canvas_h(c)    -- height
+canvas_del(c)  -- free
+```
+
+### Zoom example
+```lua
+local world = canvas(320, 288)
+local scr = screen()
+
+function _draw()
+  cls(world, 0)
+  cam(px - 160, py - 144)
+  spr(world, player_img, px, py)
+
+  cls(scr, 0)
+  cam(0, 0)
+  blit(world, scr, 0, 0, 160, 144)  -- 2x downscale
+  text(scr, "HP: 100", 2, 2, 15)    -- HUD on screen
+end
+```
+
 ## Entry Point
 - **`main.lua`** is the required entry file. The editor runs this file on Start.
 
@@ -61,6 +102,7 @@ function _ready() go("scenes/title") end
 - Never use `rnd()` in `_draw()` — generate once in init, store in table
 - Camera affects shapes/sprites but NOT `text()`
 - Diagonal movement must be normalized (0.7071 factor)
+- **All drawing functions require a surface id as first argument** — use `local scr = screen()` at file scope
 
 ## Status
 This engine is under active development. Not all APIs listed in the docs may be implemented yet,

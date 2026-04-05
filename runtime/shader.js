@@ -273,8 +273,8 @@ void main() {
   }
 
   function shaderFlush() {
-    const { imgData, ctx, buf32 } = getInternal();
-    imgData.data.set(new Uint8Array(buf32.buffer));
+    const { imgData, ctx, surfaces } = getInternal();
+    imgData.data.set(new Uint8Array(surfaces[0].buf32.buffer));
     ctx.putImageData(imgData, 0, 0);
     renderGL();
   }
