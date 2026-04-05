@@ -64,9 +64,17 @@ function _ready() go("scenes/title") end
 This engine is under active development. Not all APIs listed in the docs may be implemented yet,
 and some game patterns may require APIs that don't exist yet.
 
-If you find a bug or need a feature that isn't available, file a GitHub issue:
+If you find a bug or need a feature that isn't available, file a GitHub issue.
+**Always check for duplicates first:**
 
 ```bash
+# 1. Search existing issues before creating
+gh issue list --repo ssk-play/mono --search "keyword" --state all
+
+# 2. If a similar issue exists, comment on it instead
+gh issue comment <number> --body "Additional context: ..."
+
+# 3. Only create a new issue if no match found
 gh issue create --repo ssk-play/mono \
   --label "bug" \
   --title "frame() not available in mono-test.js" \
