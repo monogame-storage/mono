@@ -210,6 +210,10 @@ void main() {
     if (u.u_tex != null) gl.uniform1i(u.u_tex, 0);
     if (u.u_resolution != null) gl.uniform2f(u.u_resolution, W, H);
     if (u.u_time != null) gl.uniform1f(u.u_time, Mono._getFrame() / 30.0);
+    if (u.u_colors != null) {
+      const { palette } = getInternal();
+      gl.uniform1f(u.u_colors, palette ? palette.length : 16.0);
+    }
     for (const [key, val] of Object.entries(params)) {
       const loc = u["u_" + key];
       if (loc == null) continue;
