@@ -1680,7 +1680,11 @@ function closeTab(name) {
 // ── Save file to local disk ──
 async function saveCurrentFile() {
   if (!currentFile || !files[currentFile]) return;
-  files[currentFile].content = editor.state.doc.toString();
+  if (!isTextFile(currentFile)) return;
+  const content = editor.state.doc.toString();
+  if (files[currentFile].content === content) return;
+  files[currentFile].content = content;
+  files[currentFile].modified = true;
 
   if (dirHandle && files[currentFile].handle) {
     try {
