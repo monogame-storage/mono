@@ -1206,7 +1206,7 @@ end
   logToConsole("Opened: " + dirHandle.name, "log-info");
 }
 
-const MONO_VERSION = "0.2.0";
+const MONO_VERSION = "0.2.4";
 document.title = `Mono Editor v${MONO_VERSION}`;
 
 async function monoContext() {
@@ -2040,7 +2040,17 @@ async function start() {
         return await file.text();
       } catch { return null; }
     };
-    await Mono.boot("screen", { source, assets, readFile, noAutoFit: true, externalInput: true });
+    // Build modules map for require() support
+    const modules = {};
+    for (const [p, f] of Object.entries(files)) {
+      if (p.endsWith(".lua") && p !== "main.lua") {
+        try {
+          const file = await f.handle.getFile();
+          modules[p] = await file.text();
+        } catch { /* skip unreadable */ }
+      }
+    }
+    await Mono.boot("screen", { source, assets, readFile, modules, noAutoFit: true, externalInput: true });
     updateStatus(true);
     logToConsole("Running.", "log-info");
     document.getElementById("screen-body").focus();

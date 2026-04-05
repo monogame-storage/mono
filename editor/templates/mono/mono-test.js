@@ -542,6 +542,29 @@ end
     await lua.doString(`math.randomseed(${runSeed})`);
   }
 
+  // Preload modules for require() support (Wasmoon io.open can't read real filesystem)
+  const gameDirAbs = path.resolve(gameDir);
+  function collectLuaFiles(dir, prefix) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const result = [];
+    for (const e of entries) {
+      if (e.name.startsWith(".")) continue;
+      const full = path.join(dir, e.name);
+      const rel = prefix ? prefix + "/" + e.name : e.name;
+      if (e.isDirectory()) result.push(...collectLuaFiles(full, rel));
+      else if (e.name.endsWith(".lua") && rel !== "main.lua") result.push(rel);
+    }
+    return result;
+  }
+  for (const f of collectLuaFiles(gameDirAbs, "")) {
+    const modName = f.replace(/\.lua$/, "").replace(/\//g, ".");
+    const src = fs.readFileSync(path.join(gameDirAbs, f), "utf8");
+    lua.global.set("_tmp_mod_src", src);
+    lua.global.set("_tmp_mod_name", modName);
+    await lua.doString(`package.preload[_tmp_mod_name] = load(_tmp_mod_src, "@" .. _tmp_mod_name .. ".lua")`);
+  }
+  await lua.doString("_tmp_mod_src = nil; _tmp_mod_name = nil");
+
   // Run main script
   try {
     await lua.doString(gameSrc);

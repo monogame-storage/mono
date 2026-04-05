@@ -40,7 +40,9 @@ function _ready() go("scenes/title") end
 - `scene_name()` — returns current scene name (e.g. `"scenes/play"`)
 - `frame()` — current frame number (starts at 0)
 - `cam_get()` — returns camera x, y (`local cx, cy = cam_get()`)
+- `require("config")` — load non-scene modules (config.lua, lib/utils.lua)
 - Folder structure is free: `scenes/`, `src/`, or flat — any path works
+- `require()` for data/utilities, `go()` for scene transitions
 
 ## Globals
 - `COLORS` — number of palette colors (e.g. 16 in mode 4). Use `COLORS - 1` for max color index.
@@ -64,9 +66,17 @@ function _ready() go("scenes/title") end
 This engine is under active development. Not all APIs listed in the docs may be implemented yet,
 and some game patterns may require APIs that don't exist yet.
 
-If you find a bug or need a feature that isn't available, file a GitHub issue:
+If you find a bug or need a feature that isn't available, file a GitHub issue.
+**Always check for duplicates first:**
 
 ```bash
+# 1. Search existing issues before creating
+gh issue list --repo ssk-play/mono --search "keyword" --state all
+
+# 2. If a similar issue exists, comment on it instead
+gh issue comment <number> --body "Additional context: ..."
+
+# 3. Only create a new issue if no match found
 gh issue create --repo ssk-play/mono \
   --label "bug" \
   --title "frame() not available in mono-test.js" \
