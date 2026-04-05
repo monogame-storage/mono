@@ -54,7 +54,8 @@
     width: 65px;
     flex-shrink: 0;
   }
-  .shader-params { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .shader-params { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .shader-params .param-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   #controls select, #controls input[type="range"], #controls input[type="color"] {
     font-family: monospace;
     font-size: 13px;
@@ -136,6 +137,7 @@
     "../../runtime/shaders/lcd.js",
     "../../runtime/shaders/lcd3d.js",
     "../../runtime/shaders/crt.js",
+    "../../runtime/shaders/invert_lcd.js",
   ];
   const v = Date.now();
   document.write(scripts.map(s => `<script src="${s}?v=${v}"><\/script>`).join("\n"));
@@ -237,40 +239,66 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
       return;
     }
 
+    // Group related params into rows
+    // Layout: sliders together, colors together, toggles+colors together
+    const groups = { sliders: [], colors: [], toggles: [] };
     for (const [key, val] of Object.entries(defaults)) {
-      if (Array.isArray(val) && val.length === 3) {
-        const lp = document.createElement("label");
-        lp.textContent = key.replace(/_/g, " ").slice(0, 5) + ":";
-        const picker = document.createElement("input");
-        picker.type = "color";
-        picker.value = rgbToHex(val);
-        picker.addEventListener("input", () => {
-          Mono.shader.param(name, key, hexToRgb(picker.value));
-        });
-        paramsDiv.appendChild(lp);
-        paramsDiv.appendChild(picker);
-      } else if (typeof val === "number") {
-        const lp = document.createElement("label");
-        lp.textContent = key.slice(0, 5) + ":";
-        const isLarge = val > 1;
-        const slider = document.createElement("input");
-        slider.type = "range";
-        slider.min = 0;
-        slider.max = 100;
-        slider.value = Math.round((isLarge ? val / 5 : val) * 100);
-        const span = document.createElement("span");
-        span.textContent = isLarge ? val.toFixed(0) : val.toFixed(2);
-        slider.addEventListener("input", () => {
-          const v = isLarge
-            ? Math.round((slider.value / 100) * 500)
-            : parseFloat((slider.value / 100).toFixed(2));
-          span.textContent = isLarge ? v : v.toFixed(2);
-          Mono.shader.param(name, key, v);
-        });
-        paramsDiv.appendChild(lp);
-        paramsDiv.appendChild(slider);
-        paramsDiv.appendChild(span);
-      }
+      if (key === "invert") groups.toggles.push([key, val]);
+      else if (Array.isArray(val) && val.length === 3) groups.colors.push([key, val]);
+      else if (typeof val === "number") groups.sliders.push([key, val]);
+    }
+
+    function makeSlider(name, key, val, container) {
+      const lp = document.createElement("label");
+      lp.textContent = key.slice(0, 5) + ":";
+      const isLarge = val > 1;
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = 0;
+      slider.max = 100;
+      slider.value = Math.round((isLarge ? val / 5 : val) * 100);
+      const span = document.createElement("span");
+      span.textContent = isLarge ? val.toFixed(0) : val.toFixed(2);
+      slider.addEventListener("input", () => {
+        const v = isLarge
+          ? Math.round((slider.value / 100) * 500)
+          : parseFloat((slider.value / 100).toFixed(2));
+        span.textContent = isLarge ? v : v.toFixed(2);
+        Mono.shader.param(name, key, v);
+      });
+      container.appendChild(lp);
+      container.appendChild(slider);
+      container.appendChild(span);
+    }
+
+    function makeColor(name, key, val, container) {
+      const lp = document.createElement("label");
+      lp.textContent = key.replace(/_/g, " ").slice(0, 5) + ":";
+      const picker = document.createElement("input");
+      picker.type = "color";
+      picker.dataset.paramKey = key;
+      picker.value = rgbToHex(val);
+      picker.addEventListener("input", () => {
+        Mono.shader.param(name, key, hexToRgb(picker.value));
+      });
+      container.appendChild(lp);
+      container.appendChild(picker);
+    }
+
+    // Row 1: sliders (thickness, pixel_size, etc.)
+    if (groups.sliders.length) {
+      const row = document.createElement("div");
+      row.className = "param-row";
+      for (const [key, val] of groups.sliders) makeSlider(name, key, val, row);
+      paramsDiv.appendChild(row);
+    }
+
+    // Row 2: colors
+    if (groups.colors.length) {
+      const row = document.createElement("div");
+      row.className = "param-row";
+      for (const [key, val] of groups.colors) makeColor(name, key, val, row);
+      paramsDiv.appendChild(row);
     }
   }
 
@@ -404,9 +432,10 @@ Mono.boot("screen", { game: "game.lua", colors: 4 }).then(() => {
   scaleSel.value = "max";
   applyScale();
 
-  addShaderRow("tint");
+  addShaderRow("invert_lcd");
+  addShaderRow("tint", false);
   addShaderRow("scanlines", false);
-  addShaderRow("lcd");
+  addShaderRow("lcd", false);
   addShaderRow("lcd3d", false);
   addShaderRow("crt", false);
 
