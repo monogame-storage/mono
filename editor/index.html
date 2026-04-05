@@ -1000,6 +1000,7 @@ let dirHandle = null;        // FileSystemDirectoryHandle
 const files = {};            // { "main.lua": { content, handle, modified } }
 let currentFile = null;
 const openTabs = [];         // ordered tab names
+const collapsedFolders = new Set();
 
 // ── Editor ──
 const editor = new EditorView({
@@ -1460,13 +1461,17 @@ function renderFileTree() {
 
   // Subfolders
   for (const [dir, items] of Object.entries(folders)) {
-    html += `<div class="tree-folder" data-folder="${dir}"><span class="icon">&#9660;</span> ${dir}</div>`;
+    const collapsed = collapsedFolders.has(dir);
+    const arrow = collapsed ? "&#9654;" : "&#9660;";
+    html += `<div class="tree-folder" data-folder="${dir}"><span class="icon">${arrow}</span> ${dir}</div>`;
+    html += `<div class="tree-folder-children" data-parent="${dir}" style="${collapsed ? 'display:none' : ''}">`;
     for (const f of items) {
       const name = f.substring(dir.length + 1);
       const active = f === currentFile ? " active" : "";
       const mod = files[f].modified ? '<span class="file-modified"></span>' : '';
       html += fileRowHTML(f, name, active, mod, 'padding-left:40px');
     }
+    html += `</div>`;
   }
 
   if (!dirHandle) {
@@ -1493,8 +1498,17 @@ function renderFileTree() {
       deleteFile(btn.dataset.del);
     });
   });
-  // Folder drop targets (internal move + external import)
+  // Folder toggle + drop targets (internal move + external import)
   tree.querySelectorAll(".tree-folder[data-folder]").forEach(el => {
+    el.addEventListener("click", () => {
+      const dir = el.dataset.folder;
+      if (collapsedFolders.has(dir)) collapsedFolders.delete(dir);
+      else collapsedFolders.add(dir);
+      const children = tree.querySelector(`.tree-folder-children[data-parent="${dir}"]`);
+      if (children) children.style.display = collapsedFolders.has(dir) ? "none" : "";
+      el.querySelector(".icon").innerHTML = collapsedFolders.has(dir) ? "&#9654;" : "&#9660;";
+    });
+    el.style.cursor = "pointer";
     el.addEventListener("dragover", (e) => {
       e.preventDefault();
       e.stopPropagation();
