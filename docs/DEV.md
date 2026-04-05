@@ -735,6 +735,31 @@ When `go()` is called:
 
 Scene files are loaded once and cached. Subsequent `go()` calls to the same scene skip loading and just call `init()` again.
 
+### require() — Module Loading
+
+Use standard Lua `require()` for non-scene files (config, utilities, libraries):
+
+```lua
+local config = require("config")       -- loads config.lua
+local utils = require("lib.utils")     -- loads lib/utils.lua
+```
+
+- `require()` is for **data/utility modules** — config tables, helper functions, constants
+- `go()` is for **scene transitions** — triggers lifecycle (init/update/draw)
+- Modules are loaded once and cached in `package.loaded` (standard Lua behavior)
+- Use dot notation for subfolders: `require("lib.utils")` → `lib/utils.lua`
+
+```
+my-game/
+  main.lua
+  config.lua              -- require("config")
+  lib/
+    utils.lua             -- require("lib.utils")
+  scenes/
+    title.lua             -- go("scenes/title")
+    play.lua              -- go("scenes/play")
+```
+
 ---
 
 ## 14. Math and Utility

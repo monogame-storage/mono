@@ -542,6 +542,10 @@ end
     await lua.doString(`math.randomseed(${runSeed})`);
   }
 
+  // Set package.path for require() support
+  const absGameDir = path.resolve(gameDir).replace(/\\/g, "/");
+  await lua.doString(`package.path = "${absGameDir}/?.lua;${absGameDir}/?/init.lua;" .. package.path`);
+
   // Run main script
   try {
     await lua.doString(gameSrc);

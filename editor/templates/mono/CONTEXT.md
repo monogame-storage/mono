@@ -40,7 +40,9 @@ function _ready() go("scenes/title") end
 - `scene_name()` — returns current scene name (e.g. `"scenes/play"`)
 - `frame()` — current frame number (starts at 0)
 - `cam_get()` — returns camera x, y (`local cx, cy = cam_get()`)
+- `require("config")` — load non-scene modules (config.lua, lib/utils.lua)
 - Folder structure is free: `scenes/`, `src/`, or flat — any path works
+- `require()` for data/utilities, `go()` for scene transitions
 
 ## Globals
 - `COLORS` — number of palette colors (e.g. 16 in mode 4). Use `COLORS - 1` for max color index.

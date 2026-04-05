@@ -552,6 +552,16 @@ end
     API._clearError = clearError;
     clearError();
 
+    // Preload modules for require() support (browser has no filesystem)
+    if (opts.modules) {
+      for (const [path, src] of Object.entries(opts.modules)) {
+        const modName = path.replace(/\.lua$/, "").replace(/\//g, ".");
+        lua.global.set("_tmp_mod_src", src);
+        await lua.doString(`package.preload["${modName}"] = load(_tmp_mod_src, "@${path}")`);
+      }
+      await lua.doString("_tmp_mod_src = nil");
+    }
+
     // Run game script
     try {
       await lua.doString(gameSrc);
