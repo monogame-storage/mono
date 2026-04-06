@@ -41,8 +41,10 @@ Adjust the paths to `engine.js` and `mono.css` relative to your project folder.
 ### Minimal game.lua (Hello World)
 
 ```lua
+local scr = screen()
+
 function _init()
-  mode(4)  -- 16 grayscale
+  mode(1)  -- 1=2 colors, 2=4 colors, 4=16 colors
 end
 
 function _start()
@@ -59,10 +61,9 @@ function title_update()
 end
 
 function title_draw()
-  local scr = screen()
   cls(scr, 0)
-  text(scr, "HELLO MONO", 120, 100, 3)
-  text(scr, "PRESS START", 115, 130, 2)
+  text(scr, "HELLO MONO", SCREEN_W/2, SCREEN_H/2 - 10, 1, ALIGN_CENTER)
+  text(scr, "PRESS START", SCREEN_W/2, SCREEN_H/2 + 10, 1, ALIGN_CENTER)
 end
 
 function play_init()
@@ -72,9 +73,8 @@ function play_update()
 end
 
 function play_draw()
-  local scr = screen()
   cls(scr, 0)
-  text(scr, "PLAYING!", 130, 116, 3)
+  text(scr, "PLAYING!", SCREEN_W/2, SCREEN_H/2, 1, ALIGN_CENTER)
 end
 ```
 
@@ -104,7 +104,6 @@ Open `http://localhost:8000` in a browser.
 | Frame rate      | 30 FPS                                          |
 | Input           | 8 buttons: up, down, left, right, a, b, start, select |
 | Language        | Lua 5.4 via Wasmoon                             |
-| Audio           | 2 channels, square wave                         |
 
 ### Graphics Mode
 
@@ -121,6 +120,19 @@ mode(bits)   -- set color depth: 1 = 2 colors, 2 = 4 colors, 4 = 16 colors
 Call `mode()` inside `_init()` before any drawing. It rebuilds the palette and updates the `COLORS` global.
 
 Default is 1-bit (2 colors) if `mode()` is never called.
+
+### Global Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `SCREEN_W` | 160 | Screen width in pixels |
+| `SCREEN_H` | 144 | Screen height in pixels |
+| `COLORS` | 2/4/16 | Number of colors in current mode |
+| `ALIGN_LEFT` | 0 | Text align: left (default) |
+| `ALIGN_HCENTER` | 1 | Text align: horizontal center |
+| `ALIGN_RIGHT` | 2 | Text align: right edge |
+| `ALIGN_VCENTER` | 4 | Text align: vertical center |
+| `ALIGN_CENTER` | 5 | Text align: both horizontal + vertical center |
 
 ---
 
@@ -217,8 +229,8 @@ Both conventions are auto-detected. If a scene file returns a table, the state p
 Each frame runs in this order:
 
 1. **Input** -- button states updated
-2. **Update** -- `<scene>_update()` called, then ECS physics/collision/lifetime processed
-3. **Draw** -- camera shake applied, `<scene>_draw()` called, then ECS entities rendered
+2. **Update** -- `<scene>_update()` called
+3. **Draw** -- `<scene>_draw()` called
 
 ### Frame Counter
 
@@ -313,34 +325,14 @@ circf(surface, x, y, r, color)          -- draw filled circle (x,y = center)
 
 All shape functions are affected by camera offset.
 
-### Sprites
+### Sprites (Image-based)
 
 ```lua
-spr(surface, id, x, y)                      -- draw sprite (all pixels, including color 0)
-spr(surface, id, x, y, flipX, flipY)        -- draw sprite with optional flip (boolean)
-
-sprT(surface, id, x, y)                     -- draw sprite, skip color 0 pixels (transparent)
-sprT(surface, id, x, y, flipX, flipY)       -- transparent sprite with flip
-
-sprRot(surface, id, cx, cy, angle)          -- draw sprite rotated around center (radians)
-sprScale(surface, id, cx, cy, scale)        -- draw sprite scaled from center, color 0 = transparent
-sprScale(surface, id, cx, cy, scale, flipX, flipY)  -- scaled with flip
-
-sspr(surface, id, sx, sy, sw, sh, dx, dy)  -- draw sub-region of sprite
+spr(surface, id, x, y)                     -- draw sprite/image at (x, y), camera-affected
+sspr(surface, id, sx, sy, sw, sh, dx, dy)  -- draw sub-region of sprite/image
 ```
 
-**Unified draw function (LOVE2D-style):**
-
-```lua
-draw(surface, id, x, y, rotation, scaleX, scaleY, originX, originY)
-```
-
-- `rotation`: radians (default 0)
-- `scaleX`, `scaleY`: scale factors (default 1)
-- `originX`, `originY`: origin offset in sprite-local pixels (default 0,0 = top-left; use 8,8 for center of a 16x16 sprite)
-- Color 0 pixels are transparent
-
-All sprite drawing functions are affected by camera.
+Sprites are loaded via `loadImage()`. See section 6 for details.
 
 ### Text
 
@@ -362,106 +354,25 @@ text(surface, str, x, y, color [, align])
 
 ---
 
-## 6. Sprites
+## 6. Images
 
-### defSprite
-
-```lua
-defSprite(id, data)
-```
-
-- `id`: integer sprite ID (you choose)
-- `data`: a 256-character string where each character is `"0"`, `"1"`, `"2"`, or `"3"` representing the color of each pixel, row by row, left to right, top to bottom
+Load external images (PNG, JPG, WebP, BMP, GIF, SVG) and draw them. Images are auto-quantized to the current grayscale palette. Transparent pixels (alpha < 128) are skipped.
 
 ```lua
-defSprite(1,
-  "0000000330000000" ..
-  "0000003333000000" ..
-  "0000333333330000" ..
-  "0003333333333000" ..
-  "0033333223333300" ..
-  "0333333223333330" ..
-  "3333332002333333" ..
-  "0333320000233330" ..
-  "0033320000233300" ..
-  "0003320000233000" ..
-  "0000320000230000" ..
-  "0000020000200000" ..
-  "0000002002000000" ..
-  "0000000220000000" ..
-  "0000000000000000" ..
-  "0000000000000000"
-)
+local id = loadImage("bg.png")     -- load image, returns integer ID
+                                    -- call in _start(), loaded before game loop begins
+
+spr(surface, id, x, y)             -- draw full image at (x, y), camera-affected
+sspr(surface, id, sx, sy, sw, sh, dx, dy)  -- draw sub-region of image
+
+imageWidth(id)                      -- returns image width in pixels
+imageHeight(id)                     -- returns image height in pixels
 ```
 
-`defSprite` also accepts multiline visual format strings (with newlines).
-
-### defVisual (Lua helper)
-
-A convenience pattern used in demos. Define it in your game:
-
-```lua
-local _sprNames = {}
-local _sprNext = 1
-
-local function defVisual(name, art)
-  local data = ""
-  for line in art:gmatch("[^\n]+") do
-    local trimmed = line:match("^%s*(.-)%s*$")
-    if #trimmed == 16 then
-      for i = 1, 16 do
-        local ch = trimmed:sub(i, i)
-        if ch == "." or ch == "0" then data = data .. "0"
-        else data = data .. ch end
-      end
-    end
-  end
-  if #data == 256 then
-    defSprite(_sprNext, data)
-    _sprNames[name] = _sprNext
-    _sprNext = _sprNext + 1
-  end
-end
-
--- Override sprite_id to use local names
-local _orig_sprite_id = sprite_id
-sprite_id = function(name)
-  return _sprNames[name] or 0
-end
-```
-
-### Visual Sprite Format
-
-Use `.` for color 0 (background/transparent) and `1`, `2`, `3` for the other colors:
-
-```lua
-defVisual("ship", [[
-.......33.......
-......3333......
-.....333333.....
-....33333333....
-...3333333333...
-..333332233333..
-.33333322333333.
-3333332..2333333
-.33332....23333.
-..3332....2333..
-...332....233...
-....32....23....
-.....2....2.....
-......2..2......
-.......22.......
-................
-]])
-```
-
-### sprite_id
-
-```lua
-local id = sprite_id("ship")   -- returns the numeric ID registered for "ship", or 0
-```
-
-This works with names registered via the declarative `game` table or your own `defVisual` helper.
+- `loadImage` returns an ID synchronously; the actual fetch happens async and completes before the game loop starts
+- Path is relative to the game folder (e.g., `"world01.png"`) or absolute (`"/assets/bg.png"`)
+- All browser-supported image formats work (PNG, JPG, WebP, BMP, GIF, SVG)
+- Images are quantized using luminance: `0.299R + 0.587G + 0.114B` → nearest palette gray
 
 ---
 
@@ -470,13 +381,12 @@ This works with names registered via the declarative `game` table or your own `d
 ```lua
 cam(x, y)          -- set camera position; all camera-affected drawing shifts by (-x, -y)
 cam_reset()         -- reset camera to (0, 0) and clear shake
+cam_shake(amount)   -- start screen shake; decays by 0.9x per frame, stops below 0.5
 
 local cx, cy = cam_get()   -- returns current camera x, y as two values
-
-cam_shake(amount)   -- start screen shake; decays by 0.9x per frame, stops below 0.5
 ```
 
-**What is affected by camera:** `pix`, `line`, `rect`, `rectf`, `circ`, `circf`, `spr`, `sprT`, `sprRot`, `sprScale`, `draw`, `map`
+**What is affected by camera:** `pix`, `line`, `rect`, `rectf`, `circ`, `circf`, `spr`, `sspr`
 
 **What is NOT affected by camera:** `text`
 
@@ -485,83 +395,24 @@ Typical usage (follow a player):
 ```lua
 function play_update()
   -- move player...
-  local cx = playerX - 160  -- center horizontally
-  local cy = playerY - 120  -- center vertically
-  cam(cx, cy)
-end
-```
-
----
-
-## 8. Images
-
-Load external images (PNG, JPG, WebP, BMP, GIF, SVG) and draw them. Images are auto-quantized to the current grayscale palette. Transparent pixels (alpha < 128) are skipped.
-
-```lua
-local id = loadImage("bg.png")     -- load image, returns integer ID
-                                    -- call in _start(), loaded before game loop begins
-
-drawImage(id, x, y)                -- draw full image at (x, y), camera-affected
-drawImageRegion(id, sx, sy, sw, sh, dx, dy)  -- draw sub-region of image
-                                    -- sx,sy,sw,sh = source rect
-                                    -- dx,dy = screen destination, camera-affected
-```
-
-- `loadImage` returns an ID synchronously; the actual fetch happens async and completes before the game loop starts
-- Path is relative to the game folder (e.g., `"world01.png"`) or absolute (`"/assets/bg.png"`)
-- All browser-supported image formats work (PNG, JPG, WebP, BMP, GIF, SVG)
-- Images are quantized using luminance: `0.299R + 0.587G + 0.114B` → nearest palette gray
-
-Example (Gals Panic style reveal):
-
-```lua
-local bg
-
-function _start()
-  bg = loadImage("world01.png")
+  cam(playerX - SCREEN_W/2, playerY - SCREEN_H/2)
 end
 
-function _draw()
+function play_draw()
   local scr = screen()
   cls(scr, 0)
-  -- reveal a 40x40 region of the background at screen position (10, 10)
-  drawImageRegion(bg, 10, 10, 40, 40, 10, 10)
+  -- world drawing (camera-affected)
+  rectf(scr, playerX, playerY, 16, 16, 3)
+
+  -- HUD (reset camera first)
+  cam(0, 0)
+  text(scr, "HP: 100", 2, 2, 15)
 end
 ```
 
 ---
 
-## 9. Input
-
-### Button State
-
-```lua
-btn(key)     -- returns true while the button is held down
-btnp(key)    -- returns true only on the first frame the button is pressed
-```
-
-### Valid Keys
-
-`"up"`, `"down"`, `"left"`, `"right"`, `"a"`, `"b"`, `"start"`, `"select"`
-
-### Keyboard Mapping
-
-| Button   | Primary Keys             | Alt Keys (WASD) | Alt Keys (P;'L) |
-|----------|--------------------------|------------------|------------------|
-| up       | Arrow Up                 | W                | P                |
-| down     | Arrow Down               | S                | ;                |
-| left     | Arrow Left               | A                | L                |
-| right    | Arrow Right              | D                | '                |
-| a        | Z                        |                  |                  |
-| b        | X                        |                  |                  |
-| start    | Enter                    |                  |                  |
-| select   | Space                    |                  |                  |
-
-Korean keyboard layout (ㅈㄴㅁㅇ / ㅋㅌ) is also mapped for convenience.
-
----
-
-## 10. Audio
+## 8. Audio
 
 ### Sound Effects
 
@@ -580,215 +431,46 @@ sfx_stop(channel)    -- stop a specific channel
 sfx_stop()           -- stop all channels
 ```
 
-### Background Music
+---
+
+## 9. Input
+
+### Button State
 
 ```lua
-bgm(tracks, bpm, loop)
+btn(key)     -- returns true while the button is held down
+btnp(key)    -- returns true only on the first frame the button is pressed
 ```
 
-- `tracks`: a Lua table of 1 or 2 strings (one per channel)
-- `bpm`: beats per minute (default 120)
-- `loop`: boolean (default true)
+### Valid Keys
 
-Track format: space-separated tokens where each token is:
-- A note name like `"C4"`, `"A#5"` -- plays the note
-- `"-"` -- sustain (hold previous note)
-- `"."` -- silence (note off)
-- `"|"` -- ignored (visual bar separator)
+`"up"`, `"down"`, `"left"`, `"right"`, `"a"`, `"b"`, `"start"`, `"select"`
+
+### Analog Stick
 
 ```lua
-bgm({
-  "E4 . G4 . A4 . G4 . E4 . D4 . E4 .",
-  "C3 - - - E3 - - - A2 - - - E3 - - -",
-}, 180, true)
+axis_x()     -- returns analog X axis value (-1.0 to 1.0)
+axis_y()     -- returns analog Y axis value (-1.0 to 1.0)
 ```
 
-```lua
-bgm_stop()           -- stop background music
-bgm_vol(vol)         -- set BGM volume (0.0 to 1.0)
-```
+### Keyboard Mapping
+
+| Button   | Primary Keys             | Alt Keys (WASD) | Alt Keys (P;'L) |
+|----------|--------------------------|------------------|------------------|
+| up       | Arrow Up                 | W                | P                |
+| down     | Arrow Down               | S                | ;                |
+| left     | Arrow Left               | A                | L                |
+| right    | Arrow Right              | D                | '                |
+| a        | Z                        |                  |                  |
+| b        | X                        |                  |                  |
+| start    | Enter                    |                  |                  |
+| select   | Space                    |                  |                  |
+
+Korean keyboard layout (ㅈㄴㅁㅇ / ㅋㅌ) is also mapped for convenience.
 
 ---
 
-## 11. Tilemap
-
-### Set and Get Tiles
-
-```lua
-mset(cx, cy, spriteId)   -- set tile at cell (cx, cy) to a sprite ID
-mget(cx, cy)              -- get sprite ID at cell (cx, cy), returns 0 if empty
-```
-
-Cell coordinates are in tile units (not pixels).
-
-### Draw Tilemap Region
-
-```lua
-map(mx, my, mw, mh, sx, sy)
-```
-
-- `mx`, `my`: starting cell coordinates in the tilemap
-- `mw`, `mh`: number of cells to draw (width, height)
-- `sx`, `sy`: screen pixel position for the top-left corner
-
-Draws using `spr()` (not `sprT`), so color 0 pixels are drawn. Affected by camera.
-
-```lua
--- Fill a 20x15 tilemap
-for y = 0, 14 do
-  for x = 0, 19 do
-    mset(x, y, floorTileId)
-  end
-end
-
--- Draw the visible portion
-map(0, 0, 20, 15, 0, 0)
-```
-
----
-
-## 12. ECS (Entity Component System)
-
-### Spawning Entities
-
-```lua
-local e = spawn({
-  group = "bullet",                -- string tag for grouping
-  pos = { x = 100, y = 50 },      -- position
-  vel = { x = 0, y = -5 },        -- velocity (auto-applied each frame)
-  sprite = spriteId,               -- sprite to draw (uses sprT, so color 0 = transparent)
-  hitbox = { r = 5 },             -- circle hitbox (radius)
-  -- OR --
-  hitbox = { w = 12, h = 14, ox = -6, oy = -7 },  -- rect hitbox (ox/oy = offset from pos)
-  gravity = 0.1,                   -- added to vel.y each frame
-  lifetime = 30,                   -- auto-kill after N frames
-  offscreen = true,                -- auto-kill when far off screen
-  anchor_x = 0.5,                 -- sprite anchor (0=left, 0.5=center, 1=right)
-  anchor_y = 0.5,                 -- sprite anchor (0=top, 0.5=center, 1=bottom)
-  flipX = true,                   -- flip sprite horizontally
-  flipY = false,                  -- flip sprite vertically
-  z = 10,                         -- z-order (higher = drawn on top)
-})
-```
-
-`spawn` returns the entity table. The entity has an `_id` field you can use for `kill()` and `tween()`.
-
-Custom properties are passed through and accessible in `each()` callbacks:
-
-```lua
-spawn({
-  group = "enemy",
-  pos = { x = 100, y = 0 },
-  sprite = enemyId,
-  hp = 3,            -- custom property
-  scoreValue = 100,  -- custom property
-})
-```
-
-### Entity Lifecycle
-
-```lua
-kill(entity)           -- remove a specific entity (pass the entity table or its _id)
-killAll("bullets")     -- remove all entities in group
-killAll()              -- remove ALL entities
-```
-
-### Iterating Entities
-
-```lua
-each("enemy", function(e)
-  -- e.pos.x, e.pos.y, e.vel.x, e.vel.y, e.sprite, etc.
-  e.pos.x = e.pos.x + 1
-end)
-
-local n = ecount("enemy")   -- count alive entities in group
-ecount()                     -- count all alive entities
-```
-
-### Collisions (Poll Mode)
-
-Register a collision pair with a string tag. When two entities collide, **both are auto-killed** and the collision is queued:
-
-```lua
-onCollide("bullet", "enemy", "bullet_enemy")
-
--- In update:
-while true do
-  local hit = pollCollision()
-  if not hit then break end
-  if hit.tag == "bullet_enemy" then
-    -- hit.ax, hit.ay = position of entity from groupA
-    -- hit.bx, hit.by = position of entity from groupB
-    -- hit.aId, hit.bId = entity IDs
-    spawnExplosion(hit.bx, hit.by)
-    score = score + 100
-  end
-end
-```
-
-### Collisions (Callback Mode)
-
-Register with a function instead of a string. Entities are **NOT auto-killed** -- you decide what happens:
-
-```lua
-onCollide("pacman", "ghost", function(pac, ghost)
-  -- pac and ghost are entity tables
-  -- handle collision manually
-  kill(ghost)
-end)
-```
-
-### Clear Collisions
-
-```lua
-clearCollisions()   -- remove all collision handlers and queued events
-```
-
-Note: `clearCollisions()` is automatically called when changing scenes via `go()`.
-
-### ECS Update Order
-
-Each frame, the engine runs (in order):
-1. Remove dead entities
-2. Kill offscreen entities (if `offscreen = true`)
-3. Apply velocity: `pos += vel`
-4. Apply gravity: `vel.y += gravity`
-5. Decrement lifetime; kill if <= 0
-6. Advance animations
-7. Detect collisions
-
----
-
-## 13. Tween
-
-```lua
-tween(entityId, property, toValue, frames, easing)
-```
-
-- `entityId`: the `_id` field of a spawned entity
-- `property`: dot-separated path like `"pos.x"`, `"pos.y"`
-- `toValue`: target value
-- `frames`: duration in frames
-- `easing`: `"linear"` (default), `"in"`, `"out"`, `"inout"`
-
-```lua
-local e = spawn({ group = "ui", pos = { x = -50, y = 120 }, sprite = logoId })
-tween(e._id, "pos.x", 160, 30, "out")  -- slide in from left over 1 second
-```
-
-```lua
-tween_clear()   -- remove all active tweens
-```
-
-Easing functions:
-- `"linear"` -- constant speed
-- `"in"` -- quadratic ease in (slow start)
-- `"out"` -- quadratic ease out (slow end)
-- `"inout"` -- quadratic ease in-out
-
----
-
-## 14. Scene Management
+## 10. Scene Management
 
 ```lua
 go("play")              -- transition to scene (loads play.lua if not yet loaded)
@@ -817,36 +499,11 @@ local utils = require("lib.utils")     -- loads lib/utils.lua
 - Modules are loaded once and cached in `package.loaded` (standard Lua behavior)
 - Use dot notation for subfolders: `require("lib.utils")` → `lib/utils.lua`
 
-```
-my-game/
-  main.lua
-  config.lua              -- require("config")
-  lib/
-    utils.lua             -- require("lib.utils")
-  scenes/
-    title.lua             -- go("scenes/title")
-    play.lua              -- go("scenes/play")
-```
-
 ---
 
-## 15. Math and Utility
+## 11. Debug
 
-```lua
-rnd(n)      -- random float from 0 (inclusive) to n (exclusive)
-flr(x)      -- floor (same as math.floor)
-abs(x)      -- absolute value
-
-seed(n)     -- set the PRNG seed (deterministic for replays)
-
-overlap(x1, y1, w1, h1, x2, y2, w2, h2)   -- AABB overlap check, returns boolean
-```
-
-`rnd()` uses a Lehmer PRNG (Park-Miller). For integer random: `flr(rnd(6))` gives 0-5.
-
----
-
-## 16. Debug Overlays
+### Debug Overlays
 
 Press number keys during gameplay to toggle overlays:
 
@@ -856,18 +513,22 @@ Press number keys during gameplay to toggle overlays:
 | 2   | SPRITE             | Magenta | Sprite bounding boxes              |
 | 3   | FILL               | Cyan/Orange | rectf/circf fill areas          |
 
-### Manual Debug Shapes
+### Console Logging
 
 ```lua
-dbg(x, y, w, h)    -- register a debug rectangle (only visible when overlay 1 is on)
-dbgC(x, y, r)      -- register a debug circle
+print(...)    -- logs to browser console with "[Lua]" prefix
 ```
 
-These are automatically registered by the ECS for entities with hitboxes. Call them manually for custom collision areas.
+### Video Debug
+
+```lua
+vrow(y)       -- returns hex string of one scanline's color values
+vdump()       -- returns hex string of entire screen (used by mono-test.js)
+```
 
 ---
 
-## 17. Pause
+## 12. Pause
 
 - Press **Select** (Space) during the `play` scene to toggle pause
 - While paused, `<scene>_update()` is skipped; draw still runs
@@ -876,7 +537,7 @@ These are automatically registered by the ECS for entities with hitboxes. Call t
 
 ---
 
-## 18. Portal Integration
+## 13. Portal Integration
 
 The engine communicates with a parent iframe via `postMessage` for demo recording/playback:
 
@@ -896,167 +557,39 @@ Demo data is saved to `localStorage` under the key `mono_demo_<gameId>` where `g
 
 ---
 
-## 19. Memory (RAM)
+## 14. Examples
 
-The engine provides 4096 bytes of RAM accessible from Lua:
-
-```lua
-poke(addr, value)       -- write byte (0-255) at address (0-4095)
-peek(addr)              -- read byte at address
-
-poke16(addr, value)     -- write 16-bit value (little-endian)
-peek16(addr)            -- read 16-bit value
-```
-
----
-
-## 20. Examples
-
-### Minimal Shooter
+### Minimal Platformer
 
 ```lua
--- Sprites
-defSprite(1,
-  "0000000330000000" ..
-  "0000003333000000" ..
-  "0000333333330000" ..
-  "0003333333333000" ..
-  "0033333223333300" ..
-  "0333333223333330" ..
-  "3333332002333333" ..
-  "0333320000233330" ..
-  "0033320000233300" ..
-  "0003320000233000" ..
-  "0000320000230000" ..
-  "0000020000200000" ..
-  "0000002002000000" ..
-  "0000000220000000" ..
-  "0000000000000000" ..
-  "0000000000000000"
-)
-
-defSprite(2,
-  "0000000000000000" ..
-  "0000000000000000" ..
-  "0000000000000000" ..
-  "0000000000000000" ..
-  "0000000000000000" ..
-  "0000000330000000" ..
-  "0000003333000000" ..
-  "0000033333300000" ..
-  "0000003333000000" ..
-  "0000000330000000" ..
-  "0000000000000000" ..
-  "0000000000000000" ..
-  "0000000000000000" ..
-  "0000000000000000" ..
-  "0000000000000000" ..
-  "0000000000000000"
-)
-
-local px, py = 152, 200
-local score = 0
-
-function title_init() end
-
-function title_update()
-  if btnp("start") then go("play") end
-end
-
-function title_draw()
-  local scr = screen()
-  cls(scr, 0)
-  text(scr, "SPACE SHOOTER", 110, 80, 3)
-  text(scr, "PRESS START", 118, 140, 2)
-end
-
-function play_init()
-  px, py = 152, 200
-  score = 0
-  killAll()
-  onCollide("bullet", "enemy", "hit")
-end
-
-function play_update()
-  -- Move ship
-  if btn("left") and px > 0 then px = px - 3 end
-  if btn("right") and px < 304 then px = px + 3 end
-
-  -- Shoot
-  if btnp("a") and ecount("bullet") < 5 then
-    spawn({
-      group = "bullet",
-      pos = { x = px + 8, y = py - 4 },
-      vel = { x = 0, y = -6 },
-      sprite = 2,
-      hitbox = { r = 3 },
-      offscreen = true,
-      anchor_x = 0.5, anchor_y = 0.5,
-    })
-    note(0, "A5", 0.03)
-  end
-
-  -- Spawn enemies
-  if frame() % 40 == 0 then
-    spawn({
-      group = "enemy",
-      pos = { x = flr(rnd(288)) + 16, y = -16 },
-      vel = { x = 0, y = 1.5 },
-      sprite = 1,
-      hitbox = { r = 6 },
-      offscreen = true,
-      anchor_x = 0.5, anchor_y = 0.5,
-    })
-  end
-
-  -- Process collisions
-  while true do
-    local hit = pollCollision()
-    if not hit then break end
-    score = score + 100
-    note(0, "E5", 0.08)
-  end
-end
-
-function play_draw()
-  local scr = screen()
-  cls(scr, 0)
-  sprT(scr, 1, flr(px), flr(py))
-  text(scr, "SCORE:" .. score, 4, 4, 3)
-end
-```
-
-### Minimal Platformer Concept
-
-```lua
-local px, py = 100, 200
+local scr = screen()
+local px, py = 72, 120
 local vy = 0
 local GRAVITY = 0.4
-local GROUND = 200
+local GROUND = 120
 local jumping = false
 
+function _init()
+  mode(4)
+end
+
 function play_init()
-  px, py = 100, GROUND
+  px, py = 72, GROUND
   vy = 0
 end
 
 function play_update()
-  -- Horizontal movement
   if btn("left") then px = px - 2 end
   if btn("right") then px = px + 2 end
 
-  -- Jump
   if btnp("a") and not jumping then
     vy = -7
     jumping = true
-    note(0, "C5", 0.05)
   end
 
-  -- Gravity
   vy = vy + GRAVITY
   py = py + vy
 
-  -- Ground collision
   if py >= GROUND then
     py = GROUND
     vy = 0
@@ -1065,81 +598,8 @@ function play_update()
 end
 
 function play_draw()
-  local scr = screen()
   cls(scr, 0)
-
-  -- Ground
-  rectf(scr, 0, 216, 320, 24, 1)
-
-  -- Player (simple rectangle)
-  rectf(scr, flr(px), flr(py), 16, 16, 3)
+  rectf(scr, 0, 136, 160, 8, 1)
+  rectf(scr, px, py, 16, 16, 3)
 end
 ```
-
-### Using Visual Sprites
-
-```lua
-local _sprNames = {}
-local _sprNext = 1
-
-local function defVisual(name, art)
-  local data = ""
-  for line in art:gmatch("[^\n]+") do
-    local trimmed = line:match("^%s*(.-)%s*$")
-    if #trimmed == 16 then
-      for i = 1, 16 do
-        local ch = trimmed:sub(i, i)
-        if ch == "." or ch == "0" then data = data .. "0"
-        else data = data .. ch end
-      end
-    end
-  end
-  if #data == 256 then
-    defSprite(_sprNext, data)
-    _sprNames[name] = _sprNext
-    _sprNext = _sprNext + 1
-  end
-end
-
-sprite_id = function(name)
-  return _sprNames[name] or 0
-end
-
-defVisual("hero", [[
-......1111......
-.....111111.....
-....11311311....
-....11111111....
-.....111111.....
-......3333......
-.....333333.....
-....33333333....
-...3333333333...
-....33333333....
-.....333333.....
-......3333......
-.....33..33.....
-....33....33....
-...33......33...
-..33........33..
-]])
-
-function play_draw()
-  local scr = screen()
-  cls(scr, 0)
-  sprT(scr, sprite_id("hero"), 152, 112)
-end
-```
-
-### BGM Example
-
-```lua
-function play_init()
-  bgm({
-    "C4 . E4 . G4 . E4 . C4 . E4 . G4 . C5 .",
-    "C3 - - - G2 - - - A2 - - - E2 - - -",
-  }, 140, true)
-end
-```
-
-Track tokens: note names play notes, `"-"` sustains, `"."` silences, `"|"` is ignored (visual aid).
