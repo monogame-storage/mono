@@ -807,17 +807,18 @@ end
         const uf = sceneObj ? sceneObj.update : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_update" : "_update");
         if (uf) try { uf(); } catch (e) { stopWithError((currentScene || "") + " update: " + (e.message || e)); return; }
       }
-      // Apply camera shake
+      // Apply camera shake (save/restore so cam_get() stays clean)
       if (shakeAmount > 0.5) {
         shakeX = Math.floor((Math.random() - 0.5) * shakeAmount * 2);
         shakeY = Math.floor((Math.random() - 0.5) * shakeAmount * 2);
-        camX += shakeX; camY += shakeY;
         shakeAmount *= 0.9;
       } else { shakeAmount = 0; shakeX = 0; shakeY = 0; }
+      camX += shakeX; camY += shakeY;
       {
         const df = sceneObj ? sceneObj.draw : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_draw" : "_draw");
-        if (df) try { df(); } catch (e) { stopWithError((currentScene || "") + " draw: " + (e.message || e)); return; }
+        if (df) try { df(); } catch (e) { camX -= shakeX; camY -= shakeY; stopWithError((currentScene || "") + " draw: " + (e.message || e)); return; }
       }
+      camX -= shakeX; camY -= shakeY;
       if (paused) {
         const scr = surfaces[0];
         const maxC = palette.length - 1;
