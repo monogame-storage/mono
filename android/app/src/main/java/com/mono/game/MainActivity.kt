@@ -53,9 +53,7 @@ fun MonoGameScreen() {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-                    WebView.setWebContentsDebuggingEnabled(true)
-                }
+                WebView.setWebContentsDebuggingEnabled(true)
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = true
