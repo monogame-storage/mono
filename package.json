@@ -6,11 +6,7 @@
   "directories": {
     "doc": "docs"
   },
-  "scripts": {
-    "test": "node runtime/mono-test.js engine-test/suite.lua --suite --console",
-    "test:bounce": "node runtime/mono-test.js demos/bounce/game.lua --frames 30 --ascii --quiet",
-    "verify": "node runtime/mono-test.js"
-  },
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ssk-play/mono.git"

@@ -1,0 +1,43 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: JS syntax check (runtime/)
+        run: |
+          for f in runtime/*.js; do
+            echo "Checking $f"
+            node --check "$f"
+          done
+
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: '5.4'
+
+      - name: Lua syntax check (demos/ & engine-test/)
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            echo "Checking $f"
+            if ! luac -p "$f"; then
+              fail=1
+            fi
+          done < <(find demos engine-test -name '*.lua' -type f)
+          exit $fail
