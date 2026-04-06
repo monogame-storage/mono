@@ -166,10 +166,42 @@
       updateFromDelta(clientX - anchor.x, clientY - anchor.y);
     }
 
-    dpad.addEventListener("touchstart", (e) => { e.preventDefault(); startInput(e.touches[0].clientX, e.touches[0].clientY); });
-    document.addEventListener("touchmove", (e) => { if (anchor) updateFromDelta(e.touches[0].clientX - anchor.x, e.touches[0].clientY - anchor.y); });
-    document.addEventListener("touchend", (e) => { if (anchor) { e.preventDefault(); releaseAll(); } });
-    document.addEventListener("touchcancel", () => { if (anchor) releaseAll(); });
+    let dpadTouchId = null;
+    dpad.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      dpadTouchId = t.identifier;
+      startInput(t.clientX, t.clientY);
+    }, {passive: false});
+    document.addEventListener("touchmove", (e) => {
+      if (dpadTouchId == null) return;
+      for (let i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].identifier === dpadTouchId) {
+          updateFromDelta(e.touches[i].clientX - anchor.x, e.touches[i].clientY - anchor.y);
+          return;
+        }
+      }
+    }, {passive: false});
+    document.addEventListener("touchend", (e) => {
+      if (dpadTouchId == null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === dpadTouchId) {
+          dpadTouchId = null;
+          releaseAll();
+          return;
+        }
+      }
+    });
+    document.addEventListener("touchcancel", (e) => {
+      if (dpadTouchId == null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === dpadTouchId) {
+          dpadTouchId = null;
+          releaseAll();
+          return;
+        }
+      }
+    });
 
     dpad.addEventListener("mousedown", (e) => { e.preventDefault(); mouseDown = true; startInput(e.clientX, e.clientY); });
     document.addEventListener("mousemove", (e) => { if (mouseDown && anchor) updateFromDelta(e.clientX - anchor.x, e.clientY - anchor.y); });
@@ -186,8 +218,8 @@
       btn.addEventListener("mousedown", down);
       btn.addEventListener("mouseup", up);
       btn.addEventListener("mouseleave", up);
-      btn.addEventListener("touchstart", down);
-      btn.addEventListener("touchend", up);
+      btn.addEventListener("touchstart", down, {passive: false});
+      btn.addEventListener("touchend", up, {passive: false});
       btn.addEventListener("touchcancel", up);
     });
   }

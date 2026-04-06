@@ -345,8 +345,14 @@ var Mono = (() => {
     "w": "up", "s": "down", "a": "left", "d": "right",
     "ㅈ": "up", "ㄴ": "down", "ㅁ": "left", "ㅇ": "right",
     "z": "a", "Z": "a", "ㅋ": "a", "x": "b", "X": "b", "ㅌ": "b",
-    "Enter": "start", " ": "select"
+    "Enter": "start", " ": "select",
+    // Android hardware gamepad (sent as KeyboardEvent)
+    "GamepadA": "a", "GamepadB": "b",
+    "GamepadDPadUp": "up", "GamepadDPadDown": "down",
+    "GamepadDPadLeft": "left", "GamepadDPadRight": "right"
   };
+  // Android gamepad keyCode fallback (some devices use keyCode instead of e.key)
+  const keyCodeMap = { 96: "a", 97: "b", 19: "up", 20: "down", 21: "left", 22: "right" };
   const keys = {};
   const keysPrev = {};
 
@@ -358,6 +364,7 @@ var Mono = (() => {
   function btnp(k) { return (keys[k] && !keysPrev[k]) ? true : false; }
 
   // --- Hardware gamepad (Bluetooth / USB) ---
+  const hwPrev = {};
   function pollHardwareGamepad() {
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (let i = 0; i < gamepads.length; i++) {
@@ -367,16 +374,15 @@ var Mono = (() => {
       axisX = Math.abs(gp.axes[0]) > 0.15 ? gp.axes[0] : 0;
       axisY = Math.abs(gp.axes[1]) > 0.15 ? gp.axes[1] : 0;
       axisSource = "gamepad";
-      // Buttons: 0=A(south), 1=B(east), 8=select, 9=start, 12-15=dpad
-      keys["a"]      = gp.buttons[0] && gp.buttons[0].pressed;
-      keys["b"]      = gp.buttons[1] && gp.buttons[1].pressed;
-      keys["select"] = gp.buttons[8] && gp.buttons[8].pressed;
-      keys["start"]  = gp.buttons[9] && gp.buttons[9].pressed;
-      // D-pad buttons (some controllers report dpad as buttons 12-15)
-      if (gp.buttons[12]) keys["up"]    = gp.buttons[12].pressed;
-      if (gp.buttons[13]) keys["down"]  = gp.buttons[13].pressed;
-      if (gp.buttons[14]) keys["left"]  = gp.buttons[14].pressed;
-      if (gp.buttons[15]) keys["right"] = gp.buttons[15].pressed;
+      // Buttons: only set true on press, only set false on hw release
+      const map = {0:"a", 1:"b", 8:"select", 9:"start", 12:"up", 13:"down", 14:"left", 15:"right"};
+      for (const [idx, name] of Object.entries(map)) {
+        const btn = gp.buttons[idx];
+        const pressed = btn ? btn.pressed : false;
+        if (pressed) keys[name] = true;
+        else if (hwPrev[name]) keys[name] = false;
+        hwPrev[name] = pressed;
+      }
       return true;
     }
     return false;
@@ -473,11 +479,11 @@ var Mono = (() => {
       document.addEventListener("keydown", e => {
         if (e.key === "1") { debugMode = !debugMode; return; }
         if (e.key === " ") { paused = !paused; e.preventDefault(); return; }
-        const k = keyMap[e.key];
+        const k = keyMap[e.key] || keyCodeMap[e.keyCode];
         if (k) { keys[k] = true; e.preventDefault(); }
       });
       document.addEventListener("keyup", e => {
-        const k = keyMap[e.key];
+        const k = keyMap[e.key] || keyCodeMap[e.keyCode];
         if (k) { keys[k] = false; e.preventDefault(); }
       });
     }
