@@ -345,12 +345,19 @@ All sprite drawing functions are affected by camera.
 ### Text
 
 ```lua
-text(surface, str, x, y, color)
+text(surface, str, x, y, color [, align])
 ```
 
 - 4x7 pixel bitmap font, 5px character pitch (4px glyph + 1px gap)
 - Uppercase only (auto-converted)
 - Supports: A-Z, 0-9, space, `.` `,` `!` `?` `-` `+` `:` `/` `*` `#` `(` `)` `=` `'` `"` `<` `>` `_`
+- `align` (optional, bit flags — default `ALIGN_LEFT`):
+  - `ALIGN_LEFT` (0) — default
+  - `ALIGN_HCENTER` (1) — x is the horizontal center
+  - `ALIGN_RIGHT` (2) — x is the right edge
+  - `ALIGN_VCENTER` (4) — y is the vertical center
+  - `ALIGN_CENTER` (5) — `ALIGN_HCENTER + ALIGN_VCENTER`
+  - Combine with `+`: `ALIGN_RIGHT + ALIGN_VCENTER`
 - **NOT affected by camera** -- always draws at screen coordinates
 
 ---
