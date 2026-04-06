@@ -403,12 +403,12 @@ var Mono = (() => {
       if (keys["down"])  axisY =  1;
     }
 
-    // Axis → btn derivation (virtual gamepad analog → digital)
-    if (!hwGamepad && axisSource === "gamepad") {
-      keys["left"]  = axisX < -0.5;
-      keys["right"] = axisX >  0.5;
-      keys["up"]    = axisY < -0.5;
-      keys["down"]  = axisY >  0.5;
+    // Axis → btn derivation (analog stick → digital keys)
+    if (axisSource === "gamepad") {
+      const al = axisX < -0.5, ar = axisX > 0.5, au = axisY < -0.5, ad = axisY > 0.5;
+      // Only override if D-pad buttons are not already pressed
+      if (!hwPrev["left"]  && !hwPrev["right"]) { keys["left"] = al; keys["right"] = ar; }
+      if (!hwPrev["up"]    && !hwPrev["down"])   { keys["up"] = au; keys["down"] = ad; }
     }
 
     // Select button toggles pause (mirrors spacebar behavior)
