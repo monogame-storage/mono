@@ -59,20 +59,20 @@
     container.innerHTML = `
       <div class="mono-gp">
         <div class="mono-gp-meta">
-          <button data-key=" ">SELECT</button>
-          <button data-key="Enter">START</button>
+          <button tabindex="-1" data-key=" ">SELECT</button>
+          <button tabindex="-1" data-key="Enter">START</button>
         </div>
         <div class="mono-gp-row">
           <div class="mono-dpad dpad">
-            <button class="mono-dpad-btn mono-dpad-up dpad-up" data-key="ArrowUp">\u25B2</button>
-            <button class="mono-dpad-btn mono-dpad-down dpad-down" data-key="ArrowDown">\u25BC</button>
-            <button class="mono-dpad-btn mono-dpad-left dpad-left" data-key="ArrowLeft">\u25C0</button>
-            <button class="mono-dpad-btn mono-dpad-right dpad-right" data-key="ArrowRight">\u25B6</button>
+            <button tabindex="-1" class="mono-dpad-btn mono-dpad-up dpad-up" data-key="ArrowUp">\u25B2</button>
+            <button tabindex="-1" class="mono-dpad-btn mono-dpad-down dpad-down" data-key="ArrowDown">\u25BC</button>
+            <button tabindex="-1" class="mono-dpad-btn mono-dpad-left dpad-left" data-key="ArrowLeft">\u25C0</button>
+            <button tabindex="-1" class="mono-dpad-btn mono-dpad-right dpad-right" data-key="ArrowRight">\u25B6</button>
             <div class="mono-dpad-center"></div>
           </div>
           <div class="mono-ab">
-            <button class="mono-ab-btn btn-b" data-key="x">B</button>
-            <button class="mono-ab-btn btn-a" data-key="z">A</button>
+            <button tabindex="-1" class="mono-ab-btn btn-b" data-key="x">B</button>
+            <button tabindex="-1" class="mono-ab-btn btn-a" data-key="z">A</button>
           </div>
         </div>
       </div>
