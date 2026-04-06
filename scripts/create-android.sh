@@ -92,18 +92,8 @@ cp "$MONO_ROOT/runtime/console-gamepad.js" "$TARGET_DIR/cart/.mono/console-gamep
 VERSION=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
 echo "$VERSION" > "$TARGET_DIR/cart/.mono/VERSION"
 
-# 4. Create minimal main.lua
-cat > "$TARGET_DIR/cart/main.lua" << 'LUA'
-local scr = screen()
-
-function _update()
-end
-
-function _draw()
-  cls(scr, 0)
-  text(scr, "HELLO MONO", 44, 66, 1)
-end
-LUA
+# 4. Create starter main.lua (same template the editor uses)
+cp "$MONO_ROOT/editor/templates/mono/main.lua" "$TARGET_DIR/cart/main.lua"
 
 # 5. Customize project
 sed -i '' "s/rootProject.name = \"mono-android\"/rootProject.name = \"$DIR_NAME\"/" "$TARGET_DIR/settings.gradle.kts"
