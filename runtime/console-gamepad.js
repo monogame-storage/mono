@@ -59,20 +59,20 @@
     container.innerHTML = `
       <div class="mono-gp">
         <div class="mono-gp-meta">
-          <button data-key=" ">SELECT</button>
-          <button data-key="Enter">START</button>
+          <button tabindex="-1" data-key=" ">SELECT</button>
+          <button tabindex="-1" data-key="Enter">START</button>
         </div>
         <div class="mono-gp-row">
           <div class="mono-dpad dpad">
-            <button class="mono-dpad-btn mono-dpad-up dpad-up" data-key="ArrowUp">\u25B2</button>
-            <button class="mono-dpad-btn mono-dpad-down dpad-down" data-key="ArrowDown">\u25BC</button>
-            <button class="mono-dpad-btn mono-dpad-left dpad-left" data-key="ArrowLeft">\u25C0</button>
-            <button class="mono-dpad-btn mono-dpad-right dpad-right" data-key="ArrowRight">\u25B6</button>
+            <button tabindex="-1" class="mono-dpad-btn mono-dpad-up dpad-up" data-key="ArrowUp">\u25B2</button>
+            <button tabindex="-1" class="mono-dpad-btn mono-dpad-down dpad-down" data-key="ArrowDown">\u25BC</button>
+            <button tabindex="-1" class="mono-dpad-btn mono-dpad-left dpad-left" data-key="ArrowLeft">\u25C0</button>
+            <button tabindex="-1" class="mono-dpad-btn mono-dpad-right dpad-right" data-key="ArrowRight">\u25B6</button>
             <div class="mono-dpad-center"></div>
           </div>
           <div class="mono-ab">
-            <button class="mono-ab-btn btn-b" data-key="x">B</button>
-            <button class="mono-ab-btn btn-a" data-key="z">A</button>
+            <button tabindex="-1" class="mono-ab-btn btn-b" data-key="x">B</button>
+            <button tabindex="-1" class="mono-ab-btn btn-a" data-key="z">A</button>
           </div>
         </div>
       </div>
@@ -166,10 +166,42 @@
       updateFromDelta(clientX - anchor.x, clientY - anchor.y);
     }
 
-    dpad.addEventListener("touchstart", (e) => { e.preventDefault(); startInput(e.touches[0].clientX, e.touches[0].clientY); });
-    document.addEventListener("touchmove", (e) => { if (anchor) updateFromDelta(e.touches[0].clientX - anchor.x, e.touches[0].clientY - anchor.y); });
-    document.addEventListener("touchend", (e) => { if (anchor) { e.preventDefault(); releaseAll(); } });
-    document.addEventListener("touchcancel", () => { if (anchor) releaseAll(); });
+    let dpadTouchId = null;
+    dpad.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      dpadTouchId = t.identifier;
+      startInput(t.clientX, t.clientY);
+    }, {passive: false});
+    document.addEventListener("touchmove", (e) => {
+      if (dpadTouchId == null) return;
+      for (let i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].identifier === dpadTouchId) {
+          updateFromDelta(e.touches[i].clientX - anchor.x, e.touches[i].clientY - anchor.y);
+          return;
+        }
+      }
+    }, {passive: false});
+    document.addEventListener("touchend", (e) => {
+      if (dpadTouchId == null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === dpadTouchId) {
+          dpadTouchId = null;
+          releaseAll();
+          return;
+        }
+      }
+    });
+    document.addEventListener("touchcancel", (e) => {
+      if (dpadTouchId == null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === dpadTouchId) {
+          dpadTouchId = null;
+          releaseAll();
+          return;
+        }
+      }
+    });
 
     dpad.addEventListener("mousedown", (e) => { e.preventDefault(); mouseDown = true; startInput(e.clientX, e.clientY); });
     document.addEventListener("mousemove", (e) => { if (mouseDown && anchor) updateFromDelta(e.clientX - anchor.x, e.clientY - anchor.y); });
@@ -186,8 +218,8 @@
       btn.addEventListener("mousedown", down);
       btn.addEventListener("mouseup", up);
       btn.addEventListener("mouseleave", up);
-      btn.addEventListener("touchstart", down);
-      btn.addEventListener("touchend", up);
+      btn.addEventListener("touchstart", down, {passive: false});
+      btn.addEventListener("touchend", up, {passive: false});
       btn.addEventListener("touchcancel", up);
     });
   }

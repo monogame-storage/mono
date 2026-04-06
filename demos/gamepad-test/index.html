@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamepad Test</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#111;color:#eee;font-family:monospace;padding:20px}
+h2{margin:10px 0 6px;color:#888;font-size:14px}
+#status{color:#f77;font-size:16px;margin-bottom:16px}
+#status.connected{color:#7f7}
+#log{background:#1a1a1a;border:1px solid #333;padding:10px;height:300px;overflow-y:auto;font-size:13px;line-height:1.6;margin-bottom:16px}
+.log-key{color:#7af}.log-gp{color:#fa7}
+#axes,#buttons{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.axis,.btn-box{background:#222;border:1px solid #444;border-radius:4px;padding:8px 12px;font-size:13px;min-width:100px}
+.btn-box.pressed{background:#494;border-color:#6c6}
+#clear{background:#333;border:1px solid #555;color:#ccc;padding:6px 16px;border-radius:4px;font-size:13px;cursor:pointer}
+</style>
+</head>
+<body>
+<h1 style="font-size:18px;margin-bottom:10px">🎮 Gamepad & Key Test</h1>
+<div id="status">No gamepad connected</div>
+
+<h2>Keyboard / Android Key Events</h2>
+<div id="log"></div>
+<button id="clear">Clear Log</button>
+
+<h2>Gamepad API — Axes</h2>
+<div id="axes"></div>
+
+<h2>Gamepad API — Buttons</h2>
+<div id="buttons"></div>
+
+<script>
+const log = document.getElementById('log');
+const status = document.getElementById('status');
+const axesDiv = document.getElementById('axes');
+const btnsDiv = document.getElementById('buttons');
+
+document.getElementById('clear').addEventListener('click', () => log.innerHTML = '');
+
+function addLog(cls, text) {
+  const d = document.createElement('div');
+  d.className = cls;
+  d.textContent = text;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+
+// --- Keyboard events (catches Android gamepad keys too) ---
+document.addEventListener('keydown', (e) => {
+  addLog('log-key', `keydown  key="${e.key}" code="${e.code}" keyCode=${e.keyCode} which=${e.which}`);
+  e.preventDefault();
+}, {passive: false});
+
+document.addEventListener('keyup', (e) => {
+  addLog('log-key', `keyup    key="${e.key}" code="${e.code}" keyCode=${e.keyCode} which=${e.which}`);
+  e.preventDefault();
+}, {passive: false});
+
+// --- Gamepad API ---
+window.addEventListener('gamepadconnected', (e) => {
+  status.textContent = `Connected: ${e.gamepad.id} (${e.gamepad.buttons.length} buttons, ${e.gamepad.axes.length} axes)`;
+  status.className = 'connected';
+  addLog('log-gp', `CONNECTED: ${e.gamepad.id}`);
+});
+
+window.addEventListener('gamepaddisconnected', (e) => {
+  status.textContent = 'Gamepad disconnected';
+  status.className = '';
+  addLog('log-gp', `DISCONNECTED: ${e.gamepad.id}`);
+});
+
+let prevButtons = {};
+
+function pollGamepad() {
+  const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+  let found = false;
+  for (let gi = 0; gi < gamepads.length; gi++) {
+    const gp = gamepads[gi];
+    if (!gp) continue;
+    found = true;
+
+    // Axes
+    let axesHtml = '';
+    for (let i = 0; i < gp.axes.length; i++) {
+      const v = gp.axes[i].toFixed(3);
+      const active = Math.abs(gp.axes[i]) > 0.15;
+      axesHtml += `<div class="axis" style="border-color:${active ? '#fa7' : '#444'}">Axis ${i}: ${v}</div>`;
+    }
+    axesDiv.innerHTML = axesHtml;
+
+    // Buttons
+    let btnsHtml = '';
+    for (let i = 0; i < gp.buttons.length; i++) {
+      const b = gp.buttons[i];
+      const pressed = b.pressed;
+      const val = b.value.toFixed(2);
+      btnsHtml += `<div class="btn-box${pressed ? ' pressed' : ''}">Btn ${i}: ${val}</div>`;
+
+      // Log button press/release
+      const key = `${gi}-${i}`;
+      if (pressed && !prevButtons[key]) {
+        addLog('log-gp', `gamepad[${gi}] button[${i}] PRESSED (value=${val})`);
+      } else if (!pressed && prevButtons[key]) {
+        addLog('log-gp', `gamepad[${gi}] button[${i}] RELEASED`);
+      }
+      prevButtons[key] = pressed;
+    }
+    btnsDiv.innerHTML = btnsHtml;
+  }
+
+  if (!found) {
+    axesDiv.innerHTML = '<div class="axis" style="color:#666">No gamepad</div>';
+    btnsDiv.innerHTML = '<div class="btn-box" style="color:#666">No gamepad</div>';
+  }
+
+  requestAnimationFrame(pollGamepad);
+}
+pollGamepad();
+</script>
+</body>
+</html>

@@ -345,8 +345,14 @@ var Mono = (() => {
     "w": "up", "s": "down", "a": "left", "d": "right",
     "ㅈ": "up", "ㄴ": "down", "ㅁ": "left", "ㅇ": "right",
     "z": "a", "Z": "a", "ㅋ": "a", "x": "b", "X": "b", "ㅌ": "b",
-    "Enter": "start", " ": "select"
+    "Enter": "start", " ": "select",
+    // Android hardware gamepad (sent as KeyboardEvent)
+    "GamepadA": "a", "GamepadB": "b",
+    "GamepadDPadUp": "up", "GamepadDPadDown": "down",
+    "GamepadDPadLeft": "left", "GamepadDPadRight": "right"
   };
+  // Android gamepad keyCode fallback (some devices use keyCode instead of e.key)
+  const keyCodeMap = { 96: "a", 97: "b", 19: "up", 20: "down", 21: "left", 22: "right" };
   const keys = {};
   const keysPrev = {};
 
@@ -357,9 +363,40 @@ var Mono = (() => {
   function btn(k) { return keys[k] ? true : false; }
   function btnp(k) { return (keys[k] && !keysPrev[k]) ? true : false; }
 
+  // --- Hardware gamepad (Bluetooth / USB) ---
+  const hwPrev = {};
+  const gpBtnMap = {0:"a", 1:"b", 8:"select", 9:"start", 12:"up", 13:"down", 14:"left", 15:"right"};
+  function pollHardwareGamepad() {
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (let i = 0; i < gamepads.length; i++) {
+      const gp = gamepads[i];
+      if (!gp) continue;
+      // Axes → analog
+      axisX = Math.abs(gp.axes[0]) > 0.15 ? gp.axes[0] : 0;
+      axisY = Math.abs(gp.axes[1]) > 0.15 ? gp.axes[1] : 0;
+      axisSource = "gamepad";
+      // Buttons: only set true on press, only set false on hw release
+      for (const [idx, name] of Object.entries(gpBtnMap)) {
+        const btn = gp.buttons[idx];
+        const pressed = btn ? btn.pressed : false;
+        if (pressed) keys[name] = true;
+        else if (hwPrev[name]) keys[name] = false;
+        hwPrev[name] = pressed;
+      }
+      return true;
+    }
+    if (axisSource === "gamepad") axisSource = "none";
+    return false;
+  }
+
   function inputUpdate() {
+    // Save previous state BEFORE polling so btnp() can detect edges
+    for (const k in keys) keysPrev[k] = keys[k];
+
+    const hwGamepad = pollHardwareGamepad();
+
     // Keyboard → axis (digital: -1/0/+1)
-    if (axisSource !== "gamepad") {
+    if (!hwGamepad && axisSource !== "gamepad") {
       axisX = 0; axisY = 0;
       if (keys["left"])  axisX = -1;
       if (keys["right"]) axisX =  1;
@@ -367,15 +404,16 @@ var Mono = (() => {
       if (keys["down"])  axisY =  1;
     }
 
-    // Axis → btn derivation (gamepad analog → digital)
+    // Axis → btn derivation (analog stick → digital keys)
     if (axisSource === "gamepad") {
-      keys["left"]  = axisX < -0.5;
-      keys["right"] = axisX >  0.5;
-      keys["up"]    = axisY < -0.5;
-      keys["down"]  = axisY >  0.5;
+      const al = axisX < -0.5, ar = axisX > 0.5, au = axisY < -0.5, ad = axisY > 0.5;
+      // Only override if D-pad buttons are not already pressed
+      if (!hwPrev["left"]  && !hwPrev["right"]) { keys["left"] = al; keys["right"] = ar; }
+      if (!hwPrev["up"]    && !hwPrev["down"])   { keys["up"] = au; keys["down"] = ad; }
     }
 
-    for (const k in keys) keysPrev[k] = keys[k];
+    // Select button toggles pause (mirrors spacebar behavior)
+    if (keys["select"] && !keysPrev["select"]) paused = !paused;
   }
 
   // --- Flush buffer to canvas (always screen = surfaces[0]) ---
@@ -446,11 +484,11 @@ var Mono = (() => {
       document.addEventListener("keydown", e => {
         if (e.key === "1") { debugMode = !debugMode; return; }
         if (e.key === " ") { paused = !paused; e.preventDefault(); return; }
-        const k = keyMap[e.key];
+        const k = keyMap[e.key] || keyCodeMap[e.keyCode];
         if (k) { keys[k] = true; e.preventDefault(); }
       });
       document.addEventListener("keyup", e => {
-        const k = keyMap[e.key];
+        const k = keyMap[e.key] || keyCodeMap[e.keyCode];
         if (k) { keys[k] = false; e.preventDefault(); }
       });
     }
