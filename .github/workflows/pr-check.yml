@@ -41,3 +41,25 @@ jobs:
             fi
           done < <(find demos engine-test -name '*.lua' -type f)
           exit $fail
+
+      - name: Run all demos headlessly (mono-test)
+        run: |
+          fail=0
+          for d in demos/*/; do
+            entry=""
+            for cand in main.lua game.lua; do
+              if [ -f "$d$cand" ]; then entry="$d$cand"; break; fi
+            done
+            if [ -z "$entry" ]; then
+              echo "SKIP $d (no main.lua/game.lua)"
+              continue
+            fi
+            echo "Running $entry"
+            if node editor/templates/mono/mono-test.js "$entry" --frames 60 --quiet; then
+              echo "  OK"
+            else
+              echo "  FAIL"
+              fail=1
+            fi
+          done
+          exit $fail
