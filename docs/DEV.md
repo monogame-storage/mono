@@ -103,6 +103,7 @@ Open `http://localhost:8000` in a browser.
 | Sprite size     | 16 x 16 pixels (default)                        |
 | Frame rate      | 30 FPS                                          |
 | Input           | 8 buttons: up, down, left, right, a, b, start, select |
+| Audio           | 2 channels, square wave                         |
 | Language        | Lua 5.4 via Wasmoon                             |
 
 ### Graphics Mode

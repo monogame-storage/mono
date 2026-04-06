@@ -64,7 +64,8 @@ var Mono = (() => {
     osc.frequency.value = freq;
     gain.gain.value = 0.15;
     // Fade out at end to avoid clicks
-    gain.gain.setValueAtTime(0.15, ctx.currentTime + dur - Math.min(0.02, dur * 0.5));
+    const fadeStart = Math.max(ctx.currentTime, ctx.currentTime + dur - 0.02);
+    gain.gain.setValueAtTime(0.15, fadeStart);
     gain.gain.linearRampToValueAtTime(0, ctx.currentTime + dur);
     osc.connect(gain);
     gain.connect(ctx.destination);
