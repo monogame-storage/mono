@@ -112,7 +112,10 @@ val syncCart = tasks.register("syncCart") {
     }
 }
 
-tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
+tasks.matching {
+    (it.name.startsWith("merge") && it.name.endsWith("Assets")) ||
+    it.name.contains("lint", ignoreCase = true)
+}.configureEach {
     dependsOn(syncCart)
 }
 
