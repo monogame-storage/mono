@@ -410,6 +410,9 @@ var Mono = (() => {
       keys["up"]    = axisY < -0.5;
       keys["down"]  = axisY >  0.5;
     }
+
+    // Select button toggles pause (mirrors spacebar behavior)
+    if (keys["select"] && !keysPrev["select"]) paused = !paused;
   }
 
   // --- Flush buffer to canvas (always screen = surfaces[0]) ---
