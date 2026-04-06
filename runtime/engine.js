@@ -389,6 +389,9 @@ var Mono = (() => {
   }
 
   function inputUpdate() {
+    // Save previous state BEFORE polling so btnp() can detect edges
+    for (const k in keys) keysPrev[k] = keys[k];
+
     const hwGamepad = pollHardwareGamepad();
 
     // Keyboard → axis (digital: -1/0/+1)
@@ -407,8 +410,6 @@ var Mono = (() => {
       keys["up"]    = axisY < -0.5;
       keys["down"]  = axisY >  0.5;
     }
-
-    for (const k in keys) keysPrev[k] = keys[k];
   }
 
   // --- Flush buffer to canvas (always screen = surfaces[0]) ---
