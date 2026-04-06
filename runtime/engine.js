@@ -357,9 +357,36 @@ var Mono = (() => {
   function btn(k) { return keys[k] ? true : false; }
   function btnp(k) { return (keys[k] && !keysPrev[k]) ? true : false; }
 
+  // --- Hardware gamepad (Bluetooth / USB) ---
+  function pollHardwareGamepad() {
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (let i = 0; i < gamepads.length; i++) {
+      const gp = gamepads[i];
+      if (!gp) continue;
+      // Axes → analog
+      axisX = Math.abs(gp.axes[0]) > 0.15 ? gp.axes[0] : 0;
+      axisY = Math.abs(gp.axes[1]) > 0.15 ? gp.axes[1] : 0;
+      axisSource = "gamepad";
+      // Buttons: 0=A(south), 1=B(east), 8=select, 9=start, 12-15=dpad
+      keys["a"]      = gp.buttons[0] && gp.buttons[0].pressed;
+      keys["b"]      = gp.buttons[1] && gp.buttons[1].pressed;
+      keys["select"] = gp.buttons[8] && gp.buttons[8].pressed;
+      keys["start"]  = gp.buttons[9] && gp.buttons[9].pressed;
+      // D-pad buttons (some controllers report dpad as buttons 12-15)
+      if (gp.buttons[12]) keys["up"]    = gp.buttons[12].pressed;
+      if (gp.buttons[13]) keys["down"]  = gp.buttons[13].pressed;
+      if (gp.buttons[14]) keys["left"]  = gp.buttons[14].pressed;
+      if (gp.buttons[15]) keys["right"] = gp.buttons[15].pressed;
+      return true;
+    }
+    return false;
+  }
+
   function inputUpdate() {
+    const hwGamepad = pollHardwareGamepad();
+
     // Keyboard → axis (digital: -1/0/+1)
-    if (axisSource !== "gamepad") {
+    if (!hwGamepad && axisSource !== "gamepad") {
       axisX = 0; axisY = 0;
       if (keys["left"])  axisX = -1;
       if (keys["right"]) axisX =  1;
@@ -367,8 +394,8 @@ var Mono = (() => {
       if (keys["down"])  axisY =  1;
     }
 
-    // Axis → btn derivation (gamepad analog → digital)
-    if (axisSource === "gamepad") {
+    // Axis → btn derivation (virtual gamepad analog → digital)
+    if (!hwGamepad && axisSource === "gamepad") {
       keys["left"]  = axisX < -0.5;
       keys["right"] = axisX >  0.5;
       keys["up"]    = axisY < -0.5;
