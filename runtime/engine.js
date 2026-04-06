@@ -30,6 +30,59 @@ var Mono = (() => {
 
   // --- Camera ---
   let camX = 0, camY = 0;
+  let shakeAmount = 0, shakeX = 0, shakeY = 0;
+
+  // --- Audio (2-channel square wave) ---
+  let audioCtx = null;
+  const channels = [null, null]; // { osc, gain, stopTime }
+  const NOTE_FREQ = {};
+  (() => {
+    const names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+    for (let oct = 0; oct <= 8; oct++)
+      for (let i = 0; i < 12; i++)
+        NOTE_FREQ[names[i] + oct] = 440 * Math.pow(2, (oct - 4) + (i - 9) / 12);
+  })();
+
+  function ensureAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function notePlay(ch, noteStr, dur) {
+    ch = Math.floor(ch);
+    if (ch < 0 || ch > 1) return;
+    dur = dur || 0.1;
+    const freq = NOTE_FREQ[String(noteStr).toUpperCase()];
+    if (!freq) return;
+    const ctx = ensureAudio();
+    // Stop previous note on this channel
+    if (channels[ch]) { try { channels[ch].osc.stop(); } catch(e) {} }
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = freq;
+    gain.gain.value = 0.15;
+    // Fade out at end to avoid clicks
+    const fadeStart = Math.max(ctx.currentTime, ctx.currentTime + dur - 0.02);
+    gain.gain.setValueAtTime(0.15, fadeStart);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + dur);
+    channels[ch] = { osc, gain };
+    osc.onended = () => { if (channels[ch] && channels[ch].osc === osc) channels[ch] = null; };
+  }
+
+  function sfxStop(ch) {
+    if (ch === undefined || ch === false) {
+      for (let i = 0; i < 2; i++) if (channels[i]) { try { channels[i].osc.stop(); } catch(e) {} channels[i] = null; }
+    } else {
+      ch = Math.floor(ch);
+      if (ch >= 0 && ch <= 1 && channels[ch]) { try { channels[ch].osc.stop(); } catch(e) {} channels[ch] = null; }
+    }
+  }
 
   // --- Image storage ---
   let images = [];         // { w, h, data: Uint8Array(w*h) } palette indices, 255=transparent
@@ -180,6 +233,8 @@ var Mono = (() => {
   }
 
   function cam(x, y) { camX = x || 0; camY = y || 0; }
+  function camReset() { camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; }
+  function camShake(amount) { shakeAmount = amount; }
 
   function getPix(s, x, y) {
     x = Math.floor(x); y = Math.floor(y);
@@ -456,7 +511,7 @@ var Mono = (() => {
     if (_loopId) { clearInterval(_loopId); _loopId = null; }
     if (_lua) { _lua.global.close(); _lua = null; }
     images = []; imageIdCounter = 0; pendingLoads = [];
-    camX = 0; camY = 0; surfaces = [];
+    camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
 
     // Clear previous error overlay
     if (canvas && canvas.parentElement) {
@@ -535,8 +590,13 @@ var Mono = (() => {
     lua.global.set("circf", (id, cx, cy, r, c) => { checkColor(c, "circf"); const s = getSurf(id); if (s) circf(s, cx, cy, r, c); });
     lua.global.set("text", (id, str, x, y, c, align) => { checkColor(c, "text"); const s = getSurf(id); if (s) drawText(s, str, x, y, c, align); });
     lua.global.set("cam", cam);
+    lua.global.set("cam_reset", camReset);
+    lua.global.set("cam_shake", camShake);
     lua.global.set("_cam_get_x", () => camX);
     lua.global.set("_cam_get_y", () => camY);
+    // Audio
+    lua.global.set("note", notePlay);
+    lua.global.set("sfx_stop", sfxStop);
     lua.global.set("spr", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
     lua.global.set("sspr", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = getSurf(id); if (s) drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
     lua.global.set("drawImage", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
@@ -748,10 +808,18 @@ end
         const uf = sceneObj ? sceneObj.update : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_update" : "_update");
         if (uf) try { uf(); } catch (e) { stopWithError((currentScene || "") + " update: " + (e.message || e)); return; }
       }
+      // Apply camera shake (save/restore so cam_get() stays clean)
+      if (shakeAmount > 0.5) {
+        shakeX = Math.floor((Math.random() - 0.5) * shakeAmount * 2);
+        shakeY = Math.floor((Math.random() - 0.5) * shakeAmount * 2);
+        shakeAmount *= 0.9;
+      } else { shakeAmount = 0; shakeX = 0; shakeY = 0; }
+      camX += shakeX; camY += shakeY;
       {
         const df = sceneObj ? sceneObj.draw : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_draw" : "_draw");
-        if (df) try { df(); } catch (e) { stopWithError((currentScene || "") + " draw: " + (e.message || e)); return; }
+        if (df) try { df(); } catch (e) { camX -= shakeX; camY -= shakeY; stopWithError((currentScene || "") + " draw: " + (e.message || e)); return; }
       }
+      camX -= shakeX; camY -= shakeY;
       if (paused) {
         const scr = surfaces[0];
         const maxC = palette.length - 1;
@@ -782,7 +850,7 @@ end
     paused = false;
     frame = 0;
     images = []; imageIdCounter = 0; pendingLoads = [];
-    camX = 0; camY = 0; surfaces = [];
+    camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
     currentScene = null; scenePending = null; loadedSceneFiles = {};
   };
 
