@@ -17,6 +17,6 @@ end
 
 function _draw()
   cls(scr, 0)
-  text(scr, "HELLO MONO!", 44, 66, 1)
+  text(scr, "HELLO MONO!", SCREEN_W/2, SCREEN_H/2, 1, ALIGN_CENTER)
   rect(scr, 0, 0, SCREEN_W, SCREEN_H, 1)
 end

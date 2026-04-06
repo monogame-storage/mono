@@ -254,8 +254,15 @@ var Mono = (() => {
     if (debugMode) debugShapes.push({ x: cx - r, y: cy - r, w: r * 2 + 1, h: r * 2 + 1 });
   }
 
-  function drawText(s, str, x, y, c) {
+  const ALIGN_LEFT = 0, ALIGN_HCENTER = 1, ALIGN_RIGHT = 2, ALIGN_VCENTER = 4, ALIGN_CENTER = 5;
+
+  function drawText(s, str, x, y, c, align) {
     str = String(str).toUpperCase();
+    align = align || 0;
+    const textW = str.length * (FONT_W + 1) - 1;
+    if (align & ALIGN_HCENTER) x = x - textW / 2;
+    else if (align & ALIGN_RIGHT) x = x - textW;
+    if (align & ALIGN_VCENTER) y = y - FONT_H / 2;
     let cx = Math.floor(x);
     const cy = Math.floor(y);
     for (const ch of str) {
@@ -512,6 +519,11 @@ var Mono = (() => {
     lua.global.set("SCREEN_W", W);
     lua.global.set("SCREEN_H", H);
     lua.global.set("COLORS", palette.length);
+    lua.global.set("ALIGN_LEFT", ALIGN_LEFT);
+    lua.global.set("ALIGN_HCENTER", ALIGN_HCENTER);
+    lua.global.set("ALIGN_RIGHT", ALIGN_RIGHT);
+    lua.global.set("ALIGN_VCENTER", ALIGN_VCENTER);
+    lua.global.set("ALIGN_CENTER", ALIGN_CENTER);
     // Drawing functions — first arg is surface id
     lua.global.set("cls", (id, c) => { checkColor(c, "cls"); const s = getSurf(id); if (s) cls(s, c); });
     lua.global.set("pix", (id, x, y, c) => { checkColor(c, "pix"); const s = getSurf(id); if (s) setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
@@ -521,7 +533,7 @@ var Mono = (() => {
     lua.global.set("rectf", (id, x, y, w, h, c) => { checkColor(c, "rectf"); const s = getSurf(id); if (s) rectf(s, x, y, w, h, c); });
     lua.global.set("circ", (id, cx, cy, r, c) => { checkColor(c, "circ"); const s = getSurf(id); if (s) circ(s, cx, cy, r, c); });
     lua.global.set("circf", (id, cx, cy, r, c) => { checkColor(c, "circf"); const s = getSurf(id); if (s) circf(s, cx, cy, r, c); });
-    lua.global.set("text", (id, str, x, y, c) => { checkColor(c, "text"); const s = getSurf(id); if (s) drawText(s, str, x, y, c); });
+    lua.global.set("text", (id, str, x, y, c, align) => { checkColor(c, "text"); const s = getSurf(id); if (s) drawText(s, str, x, y, c, align); });
     lua.global.set("cam", cam);
     lua.global.set("_cam_get_x", () => camX);
     lua.global.set("_cam_get_y", () => camY);
