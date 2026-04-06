@@ -365,6 +365,7 @@ var Mono = (() => {
 
   // --- Hardware gamepad (Bluetooth / USB) ---
   const hwPrev = {};
+  const gpBtnMap = {0:"a", 1:"b", 8:"select", 9:"start", 12:"up", 13:"down", 14:"left", 15:"right"};
   function pollHardwareGamepad() {
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (let i = 0; i < gamepads.length; i++) {
@@ -375,8 +376,7 @@ var Mono = (() => {
       axisY = Math.abs(gp.axes[1]) > 0.15 ? gp.axes[1] : 0;
       axisSource = "gamepad";
       // Buttons: only set true on press, only set false on hw release
-      const map = {0:"a", 1:"b", 8:"select", 9:"start", 12:"up", 13:"down", 14:"left", 15:"right"};
-      for (const [idx, name] of Object.entries(map)) {
+      for (const [idx, name] of Object.entries(gpBtnMap)) {
         const btn = gp.buttons[idx];
         const pressed = btn ? btn.pressed : false;
         if (pressed) keys[name] = true;
@@ -385,6 +385,7 @@ var Mono = (() => {
       }
       return true;
     }
+    if (axisSource === "gamepad") axisSource = "none";
     return false;
   }
 
