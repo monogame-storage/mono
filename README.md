@@ -2,7 +2,11 @@
 
 > 제약이 곧 창의력이다.
 
-160×144 해상도, 그레이스케일(1/2/4비트), Lua 5.4 — 제약 안에서 게임을 만드는 판타지 콘솔.
+1960년, 편집자 Bennett Cerf는 Dr. Seuss에게 50개 단어만으로 책을 쓸 수 있냐고 $50를 걸었다. 결과물 *Green Eggs and Ham*은 8백만 부가 팔렸고, 뉴요커는 "50개 단어라는 사실을 의식하기 어렵다"고 평했다. ([Wikipedia](https://en.wikipedia.org/wiki/Green_Eggs_and_Ham))
+
+Rider University의 Catrinel Haught-Tromp는 이를 **Green Eggs and Ham Hypothesis**로 발전시켰다 — 임의의 제약을 준 그룹이 자유롭게 쓴 그룹보다 더 창의적인 결과를 냈고, 제약이 사라진 뒤에도 높아진 창의성이 유지됐다. 제약은 "압도적인 선택지를 관리 가능한 범위로 줄여, 익숙하지 않은 경로를 탐색하게 만든다." ([논문](https://www.cct.umb.edu/630/files/HaughtTromp2017-GreenEggsandHam.pdf), [기사](https://psmag.com/news/constraints-can-be-a-catalyst-for-creativity/))
+
+Mono는 이 원리를 게임 개발에 적용한다. 160×144 해상도, 그레이스케일, Lua 한 파일 — 제약 안에서 게임을 만드는 판타지 콘솔.
 
 ## 콘솔 스펙
 
