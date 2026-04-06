@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mono</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+#game-container{display:flex;flex-direction:column;align-items:center;width:100%;height:100%}
+#screen{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;flex-shrink:0}
+#gamepad{width:100%;flex:1;display:flex;align-items:center;justify-content:center;padding:0 20px}
+
+/* Scale gamepad proportionally with viewport width */
+.mono-gp{gap:4vw!important;width:100%!important}
+.mono-gp-row{padding:0 6vw}
+.mono-dpad{width:34vw!important;height:34vw!important}
+.mono-dpad-btn{width:11.5vw!important;height:11.5vw!important;font-size:5vw!important}
+.mono-dpad-up{left:11.25vw!important;top:0!important}
+.mono-dpad-down{left:11.25vw!important;top:22.5vw!important}
+.mono-dpad-left{left:0!important;top:11.25vw!important}
+.mono-dpad-right{left:22.5vw!important;top:11.25vw!important}
+.mono-dpad-center{left:11.25vw!important;top:11.25vw!important;width:11.5vw!important;height:11.5vw!important}
+.mono-ab{width:34vw!important;height:26vw!important}
+.mono-ab-btn{width:14.5vw!important;height:14.5vw!important;font-size:5.2vw!important}
+.mono-ab .btn-b{left:0!important;top:11.5vw!important}
+.mono-ab .btn-a{left:19.5vw!important;top:3vw!important}
+.mono-gp-meta{margin-bottom:14.5vw!important}
+.mono-gp-meta button{font:700 1.2vw/1.2 monospace!important;padding:0.8vw 2.5vw!important}
+</style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="screen"></canvas>
+  <div id="gamepad" data-gamepad-mode="setKey"></div>
+</div>
+<script src="engine/engine.js"></script>
+<script src="engine/console-gamepad.js"></script>
+<script>
+function fitScreen(){
+  var c=document.getElementById('screen');
+  var gp=document.getElementById('gamepad');
+  // Gamepad height scales with width (vw units keep aspect ratio)
+  var gpH=Math.floor(window.innerWidth*0.62);
+  gp.style.height=gpH+'px';
+  var availH=window.innerHeight-gpH;
+  var s=Math.min(window.innerWidth/160, availH/144);
+  c.style.width=Math.floor(160*s)+'px';
+  c.style.height=Math.floor(144*s)+'px';
+  c.style.marginTop=Math.floor((availH-144*s)/2)+'px';
+}
+fitScreen();window.addEventListener('resize',fitScreen);
+Mono.boot('screen',{game:'main.lua',noAutoFit:true,externalInput:true}).catch(function(e){console.error('BOOT_ERR',e)});
+</script>
+</body>
+</html>
