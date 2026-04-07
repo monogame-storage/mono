@@ -428,6 +428,38 @@ var Mono = (() => {
   let axisX = 0, axisY = 0;
   let axisSource = "none"; // "keyboard" | "gamepad" | "none"
 
+  // --- Touch / Mouse ---
+  let touches = [];           // [{ id, x, y, fx, fy }]
+  let touchStartedFlag = false;
+  let touchEndedFlag = false;
+  let touchStarted = false;
+  let touchEnded = false;
+  let swipeDir = false;
+  let swipeDirFlag = false;
+  let swipeAnchor = null;
+  const SWIPE_THRESHOLD = 10; // game pixels
+
+  function mapToScreen(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const fx = (clientX - rect.left) / rect.width * W;
+    const fy = (clientY - rect.top) / rect.height * H;
+    const x = Math.max(0, Math.min(W - 1, Math.floor(fx)));
+    const y = Math.max(0, Math.min(H - 1, Math.floor(fy)));
+    return { x, y, fx, fy };
+  }
+
+  function detectSwipe(endX, endY) {
+    if (!swipeAnchor) return;
+    const dx = endX - swipeAnchor.x;
+    const dy = endY - swipeAnchor.y;
+    if (Math.abs(dx) < SWIPE_THRESHOLD && Math.abs(dy) < SWIPE_THRESHOLD) return;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      swipeDirFlag = dx > 0 ? "right" : "left";
+    } else {
+      swipeDirFlag = dy > 0 ? "down" : "up";
+    }
+  }
+
   function btn(k) { return keys[k] ? true : false; }
   function btnp(k) { return (keys[k] && !keysPrev[k]) ? true : false; }
 
@@ -482,6 +514,14 @@ var Mono = (() => {
 
     // Select button toggles pause (mirrors spacebar behavior)
     if (keys["select"] && !keysPrev["select"]) paused = !paused;
+
+    // Touch edge detection (persists one frame, like btnp)
+    touchStarted = touchStartedFlag;
+    touchEnded = touchEndedFlag;
+    touchStartedFlag = false;
+    touchEndedFlag = false;
+    swipeDir = swipeDirFlag;
+    swipeDirFlag = false;
   }
 
   // --- Flush buffer to canvas (always screen = surfaces[0]) ---
@@ -559,6 +599,75 @@ var Mono = (() => {
         const k = keyMap[e.key] || keyCodeMap[e.keyCode];
         if (k) { keys[k] = false; e.preventDefault(); }
       });
+
+      // Touch events
+      canvas.addEventListener("touchstart", e => {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+          const p = mapToScreen(t.clientX, t.clientY);
+          touches.push({ id: t.identifier, ...p });
+        }
+        touchStartedFlag = true;
+        if (!swipeAnchor && touches.length > 0) {
+          swipeAnchor = { x: touches[0].fx, y: touches[0].fy };
+        }
+      }, { passive: false });
+
+      canvas.addEventListener("touchmove", e => {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+          const idx = touches.findIndex(tt => tt.id === t.identifier);
+          if (idx >= 0) {
+            const p = mapToScreen(t.clientX, t.clientY);
+            touches[idx] = { id: t.identifier, ...p };
+          }
+        }
+      }, { passive: false });
+
+      const onTouchEnd = e => {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+          const idx = touches.findIndex(tt => tt.id === t.identifier);
+          if (idx >= 0) {
+            detectSwipe(touches[idx].fx, touches[idx].fy);
+            touches.splice(idx, 1);
+          }
+        }
+        touchEndedFlag = true;
+        if (touches.length === 0) swipeAnchor = null;
+      };
+      canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+      canvas.addEventListener("touchcancel", onTouchEnd, { passive: false });
+
+      // Mouse as single touch
+      let mouseDown = false;
+      canvas.addEventListener("mousedown", e => {
+        const p = mapToScreen(e.clientX, e.clientY);
+        touches = touches.filter(t => t.id !== -1);
+        touches.push({ id: -1, ...p });
+        mouseDown = true;
+        touchStartedFlag = true;
+        swipeAnchor = { x: p.fx, y: p.fy };
+      });
+      document.addEventListener("mousemove", e => {
+        if (!mouseDown) return;
+        const idx = touches.findIndex(t => t.id === -1);
+        if (idx >= 0) {
+          const p = mapToScreen(e.clientX, e.clientY);
+          touches[idx] = { id: -1, ...p };
+        }
+      });
+      document.addEventListener("mouseup", e => {
+        if (!mouseDown) return;
+        mouseDown = false;
+        const idx = touches.findIndex(t => t.id === -1);
+        if (idx >= 0) {
+          detectSwipe(touches[idx].fx, touches[idx].fy);
+          touches.splice(idx, 1);
+        }
+        touchEndedFlag = true;
+        if (touches.length === 0) swipeAnchor = null;
+      });
     }
 
     // Get game source (fetch URL or use inline source)
@@ -621,6 +730,15 @@ var Mono = (() => {
     });
     lua.global.set("axis_x", () => axisX);
     lua.global.set("axis_y", () => axisY);
+    lua.global.set("_touch", () => touches.length > 0 ? 1 : 0);
+    lua.global.set("_touch_start", () => touchStarted ? 1 : 0);
+    lua.global.set("_touch_end", () => touchEnded ? 1 : 0);
+    lua.global.set("touch_count", () => touches.length);
+    lua.global.set("_touch_pos_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.x : false; });
+    lua.global.set("_touch_pos_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.y : false; });
+    lua.global.set("_touch_posf_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fx : false; });
+    lua.global.set("_touch_posf_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; });
+    lua.global.set("swipe", () => swipeDir || false);
     lua.global.set("vrow", vrow);
     lua.global.set("vdump", vdump);
     lua.global.set("frame", () => frame);
@@ -653,6 +771,27 @@ function btnp(k)
 end
 function cam_get()
   return _cam_get_x(), _cam_get_y()
+end
+function touch()
+  return _touch() == 1
+end
+function touch_start()
+  return _touch_start() == 1
+end
+function touch_end()
+  return _touch_end() == 1
+end
+function touch_pos(i)
+  i = i or 1
+  local x = _touch_pos_x(i)
+  if x == false then return false end
+  return x, _touch_pos_y(i)
+end
+function touch_posf(i)
+  i = i or 1
+  local x = _touch_posf_x(i)
+  if x == false then return false end
+  return x, _touch_posf_y(i)
 end
     `);
 
@@ -851,6 +990,8 @@ end
     frame = 0;
     images = []; imageIdCounter = 0; pendingLoads = [];
     camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
+    touches = []; touchStarted = false; touchEnded = false; touchStartedFlag = false; touchEndedFlag = false;
+    swipeDir = false; swipeDirFlag = false; swipeAnchor = null;
     currentScene = null; scenePending = null; loadedSceneFiles = {};
   };
 
