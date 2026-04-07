@@ -327,6 +327,7 @@ local function update_play()
 
   -- skull penalty
   if hit_skull then
+    cam_shake(6)
     lives = lives - 1
     if lives <= 0 then
       if score > best then best = score end
@@ -499,7 +500,9 @@ local function draw_play()
     draw_bubble(b.x, b.y, b.mob, b.wobble)
   end
 
-  -- HUD bar
+  -- HUD bar (camera-independent)
+  local cx, cy = cam_get()
+  cam(0, 0)
   rectf(scr, 0, 0, SCREEN_W, 11, 0)
   line(scr, 0, 11, SCREEN_W - 1, 11, 3)
   text(scr, tostring(score), 2, 2, 12)
@@ -510,6 +513,7 @@ local function draw_play()
     local cc = combo_timer > 12 and 15 or 10
     text(scr, combo_text, CX, CY, cc, ALIGN_CENTER)
   end
+  cam(cx, cy)
 end
 
 local function draw_over()
