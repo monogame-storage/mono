@@ -581,6 +581,17 @@ async function main() {
     return (keys[k] && !keysPrev[k]) ? 1 : 0;
   });
 
+  // Touch stubs (no touch/mouse in headless mode)
+  lua.global.set("_touch", () => 0);
+  lua.global.set("_touch_start", () => 0);
+  lua.global.set("_touch_end", () => 0);
+  lua.global.set("touch_count", () => 0);
+  lua.global.set("_touch_pos_x", () => false);
+  lua.global.set("_touch_pos_y", () => false);
+  lua.global.set("_touch_posf_x", () => false);
+  lua.global.set("_touch_posf_y", () => false);
+  lua.global.set("swipe", () => false);
+
   // loadImage — Node.js version using PNG decoder
   let pendingLoads = [];
   lua.global.set("loadImage", (imgPath) => {
@@ -613,6 +624,27 @@ function btnp(k)
 end
 function cam_get()
   return _cam_get_x(), _cam_get_y()
+end
+function touch()
+  return _touch() == 1
+end
+function touch_start()
+  return _touch_start() == 1
+end
+function touch_end()
+  return _touch_end() == 1
+end
+function touch_pos(i)
+  i = i or 1
+  local x = _touch_pos_x(i)
+  if x == false then return false end
+  return x, _touch_pos_y(i)
+end
+function touch_posf(i)
+  i = i or 1
+  local x = _touch_posf_x(i)
+  if x == false then return false end
+  return x, _touch_posf_y(i)
 end
   `);
 

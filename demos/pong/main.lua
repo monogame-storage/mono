@@ -104,15 +104,23 @@ end
 
 function _update()
   if winner then
-    if btnp("start") then
+    if btnp("start") or touch_start() then
       _start()
     end
     return
   end
 
   -- player 2 input (right paddle)
-  if btn("up") then p2.y = p2.y - 3 end
-  if btn("down") then p2.y = p2.y + 3 end
+  local dy = 0
+  if btn("up") then dy = -1 end
+  if btn("down") then dy = 1 end
+  if touch() then
+    local _, ty = touch_pos()
+    local center = p2.y + PH / 2
+    if ty < center - 2 then dy = -1 end
+    if ty > center + 2 then dy = 1 end
+  end
+  p2.y = p2.y + dy * 3
   clamp_paddle(p2)
 
   -- AI

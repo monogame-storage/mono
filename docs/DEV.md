@@ -469,6 +469,49 @@ axis_y()     -- returns analog Y axis value (-1.0 to 1.0)
 
 Korean keyboard layout (ㅈㄴㅁㅇ / ㅋㅌ) is also mapped for convenience.
 
+### Touch & Mouse
+
+Mouse clicks and drags are treated as a single touch point. On mobile, all touch points are available.
+
+```lua
+touch()            -- returns true while any touch/click is active
+touch_start()      -- returns true on the frame a new touch begins (like btnp)
+touch_end()        -- returns true on the frame a touch is released
+touch_count()      -- number of active touch points
+
+touch_pos(i?)      -- returns integer x, y (0-159, 0-143). i defaults to 1
+touch_posf(i?)     -- returns float x, y (sub-pixel precision)
+
+swipe()            -- returns "up", "down", "left", "right", or false
+```
+
+When no touch is active, `touch_pos()` returns `false`.
+
+```lua
+-- basic touch example
+function _update()
+  if touch() then
+    local x, y = touch_pos()
+    pix(x, y, 15)
+  end
+
+  local dir = swipe()
+  if dir == "left" then next_page() end
+end
+
+-- multi-touch
+for i = 1, touch_count() do
+  local x, y = touch_pos(i)
+  circf(x, y, 3, 15)
+end
+
+-- sub-pixel precision for smooth drag
+if touch() then
+  local fx, fy = touch_posf()
+  local dx = fx - prev_fx  -- smooth velocity
+end
+```
+
 ---
 
 ## 10. Scene Management
