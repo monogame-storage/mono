@@ -27,6 +27,7 @@ TEMPLATE_DIR="$MONO_ROOT/android"
 TARGET_DIR=""
 PROJECT_NAME=""
 ORG=""
+ICON=""
 REPLACE_ENGINE=false
 DRY_RUN=false
 
@@ -34,6 +35,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --project-name)        PROJECT_NAME="$2"; shift 2 ;;
     --org)                 ORG="$2"; shift 2 ;;
+    --icon)                ICON="$2"; shift 2 ;;
     --replace-engine) REPLACE_ENGINE=true; shift ;;
     --dry-run)             DRY_RUN=true; shift ;;
     -*)                    echo "Unknown option: $1"; exit 1 ;;
@@ -53,7 +55,8 @@ if [ -z "$TARGET_DIR" ]; then
   echo "  target-dir              Project directory (created if new, updated if exists)"
   echo "  --project-name \"Name\"   Display name (default: derived from dir name)"
   echo "  --org com.example       Organization package (default: com.mono)"
-  echo "  --replace-engine   Replace cart/.mono/ with latest engine"
+  echo "  --icon icon.png         App icon (PNG, 512x512 recommended)"
+  echo "  --replace-engine        Replace cart/.mono/ with latest engine"
   echo "  --dry-run               Show what would be done without making changes"
   exit 1
 fi
@@ -69,6 +72,20 @@ run() {
 
 log() {
   echo "  $1"
+}
+
+generate_icons() {
+  local src="$1" dst="$2"
+  if ! command -v magick &>/dev/null; then
+    echo "  Warning: ImageMagick not found, skipping icon generation"
+    return
+  fi
+  magick "$src" -resize 48x48   "$dst/mipmap-mdpi/ic_launcher.png"
+  magick "$src" -resize 72x72   "$dst/mipmap-hdpi/ic_launcher.png"
+  magick "$src" -resize 96x96   "$dst/mipmap-xhdpi/ic_launcher.png"
+  magick "$src" -resize 144x144 "$dst/mipmap-xxhdpi/ic_launcher.png"
+  magick "$src" -resize 192x192 "$dst/mipmap-xxxhdpi/ic_launcher.png"
+  log "Icon generated from $(basename "$src")"
 }
 
 # --- Detect mode ---
@@ -146,6 +163,11 @@ if [ "$MODE" = "update" ]; then
   if [ -n "$APP_NAME" ] && ! $DRY_RUN; then
     sed -i '' "s/>Mono Game</>$APP_NAME</" "$TARGET_DIR/app/src/main/res/values/strings.xml"
     log "App name → $APP_NAME"
+  fi
+
+  # Custom icon
+  if [ -n "$ICON" ] && ! $DRY_RUN; then
+    generate_icons "$ICON" "$TARGET_DIR/app/src/main/res"
   fi
 
   # Optionally replace engine
@@ -258,6 +280,9 @@ if ! $DRY_RUN; then
   sed -i '' "s/rootProject.name = \"mono-android\"/rootProject.name = \"$DIR_NAME\"/" "$TARGET_DIR/settings.gradle.kts"
   sed -i '' "s/applicationId = \"com.mono.game\"/applicationId = \"$APP_ID\"/" "$TARGET_DIR/app/build.gradle.kts"
   sed -i '' "s/>Mono Game</>$PROJECT_NAME</" "$TARGET_DIR/app/src/main/res/values/strings.xml"
+  if [ -n "$ICON" ]; then
+    generate_icons "$ICON" "$TARGET_DIR/app/src/main/res"
+  fi
 fi
 
 VERSION=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
