@@ -61,7 +61,7 @@ local function draw_shapes()
   end
 end
 
-local function draw_text_mode()
+local function draw_text()
   text(scr, "LEFT",   2,  18,  7)
   text(scr, "CENTER", 0,  32, 11, ALIGN_HCENTER)
   text(scr, "RIGHT",  0,  46, 13, ALIGN_RIGHT)
@@ -98,7 +98,7 @@ local function draw_input()
   row("B",     btn("b"))
 end
 
-local function draw_frame_mode()
+local function draw_frame()
   local f = frame()
   text(scr, "FRAME " .. f, 0, 40, 11, ALIGN_HCENTER)
   local bar = (mode_frame * 2) % 60
@@ -112,11 +112,11 @@ function _draw()
   rect(scr, 0, 0, SCREEN_W, SCREEN_H, 3)
 
   if     mode_idx == 1 then draw_shapes()
-  elseif mode_idx == 2 then draw_text_mode()
+  elseif mode_idx == 2 then draw_text()
   elseif mode_idx == 3 then draw_camera()
   elseif mode_idx == 4 then draw_canvas()
   elseif mode_idx == 5 then draw_input()
-  elseif mode_idx == 6 then draw_frame_mode()
+  elseif mode_idx == 6 then draw_frame()
   end
 
   -- HUD (always camera-independent)
