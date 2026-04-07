@@ -600,75 +600,76 @@ var Mono = (() => {
         if (k) { keys[k] = false; e.preventDefault(); }
       });
 
-      // Touch events
-      canvas.addEventListener("touchstart", e => {
-        e.preventDefault();
-        for (const t of e.changedTouches) {
-          const p = mapToScreen(t.clientX, t.clientY);
-          touches.push({ id: t.identifier, ...p });
-        }
-        touchStartedFlag = true;
-        if (!swipeAnchor && touches.length > 0) {
-          swipeAnchor = { x: touches[0].fx, y: touches[0].fy };
-        }
-      }, { passive: false });
+    }
 
-      canvas.addEventListener("touchmove", e => {
-        e.preventDefault();
-        for (const t of e.changedTouches) {
-          const idx = touches.findIndex(tt => tt.id === t.identifier);
-          if (idx >= 0) {
-            const p = mapToScreen(t.clientX, t.clientY);
-            touches[idx] = { id: t.identifier, ...p };
-          }
-        }
-      }, { passive: false });
+    // Touch & mouse events (always registered, even with externalInput)
+    canvas.addEventListener("touchstart", e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        const p = mapToScreen(t.clientX, t.clientY);
+        touches.push({ id: t.identifier, ...p });
+      }
+      touchStartedFlag = true;
+      if (!swipeAnchor && touches.length > 0) {
+        swipeAnchor = { x: touches[0].fx, y: touches[0].fy };
+      }
+    }, { passive: false });
 
-      const onTouchEnd = e => {
-        e.preventDefault();
-        for (const t of e.changedTouches) {
-          const idx = touches.findIndex(tt => tt.id === t.identifier);
-          if (idx >= 0) {
-            detectSwipe(touches[idx].fx, touches[idx].fy);
-            touches.splice(idx, 1);
-          }
-        }
-        touchEndedFlag = true;
-        if (touches.length === 0) swipeAnchor = null;
-      };
-      canvas.addEventListener("touchend", onTouchEnd, { passive: false });
-      canvas.addEventListener("touchcancel", onTouchEnd, { passive: false });
-
-      // Mouse as single touch
-      let mouseDown = false;
-      canvas.addEventListener("mousedown", e => {
-        const p = mapToScreen(e.clientX, e.clientY);
-        touches = touches.filter(t => t.id !== -1);
-        touches.push({ id: -1, ...p });
-        mouseDown = true;
-        touchStartedFlag = true;
-        swipeAnchor = { x: p.fx, y: p.fy };
-      });
-      document.addEventListener("mousemove", e => {
-        if (!mouseDown) return;
-        const idx = touches.findIndex(t => t.id === -1);
+    canvas.addEventListener("touchmove", e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        const idx = touches.findIndex(tt => tt.id === t.identifier);
         if (idx >= 0) {
-          const p = mapToScreen(e.clientX, e.clientY);
-          touches[idx] = { id: -1, ...p };
+          const p = mapToScreen(t.clientX, t.clientY);
+          touches[idx] = { id: t.identifier, ...p };
         }
-      });
-      document.addEventListener("mouseup", e => {
-        if (!mouseDown) return;
-        mouseDown = false;
-        const idx = touches.findIndex(t => t.id === -1);
+      }
+    }, { passive: false });
+
+    const onTouchEnd = e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        const idx = touches.findIndex(tt => tt.id === t.identifier);
         if (idx >= 0) {
           detectSwipe(touches[idx].fx, touches[idx].fy);
           touches.splice(idx, 1);
         }
-        touchEndedFlag = true;
-        if (touches.length === 0) swipeAnchor = null;
-      });
-    }
+      }
+      touchEndedFlag = true;
+      if (touches.length === 0) swipeAnchor = null;
+    };
+    canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+    canvas.addEventListener("touchcancel", onTouchEnd, { passive: false });
+
+    // Mouse as single touch
+    let mouseDown = false;
+    canvas.addEventListener("mousedown", e => {
+      const p = mapToScreen(e.clientX, e.clientY);
+      touches = touches.filter(t => t.id !== -1);
+      touches.push({ id: -1, ...p });
+      mouseDown = true;
+      touchStartedFlag = true;
+      swipeAnchor = { x: p.fx, y: p.fy };
+    });
+    document.addEventListener("mousemove", e => {
+      if (!mouseDown) return;
+      const idx = touches.findIndex(t => t.id === -1);
+      if (idx >= 0) {
+        const p = mapToScreen(e.clientX, e.clientY);
+        touches[idx] = { id: -1, ...p };
+      }
+    });
+    document.addEventListener("mouseup", e => {
+      if (!mouseDown) return;
+      mouseDown = false;
+      const idx = touches.findIndex(t => t.id === -1);
+      if (idx >= 0) {
+        detectSwipe(touches[idx].fx, touches[idx].fy);
+        touches.splice(idx, 1);
+      }
+      touchEndedFlag = true;
+      if (touches.length === 0) swipeAnchor = null;
+    });
 
     // Get game source (fetch URL or use inline source)
     const gameSrc = opts.source || await fetch(opts.game).then(r => r.text());
