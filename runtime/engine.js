@@ -439,15 +439,48 @@ var Mono = (() => {
   let swipeAnchor = null;
   const SWIPE_THRESHOLD = 10; // game pixels
 
+  function getVisibleCanvas() {
+    return canvas.style.display === "none" ? canvas.nextElementSibling || canvas : canvas;
+  }
+
+  // Compute the actual content rect inside the CSS box,
+  // accounting for object-fit: contain / aspect-ratio letterboxing.
+  function getContentRect() {
+    const vc = getVisibleCanvas();
+    const box = vc.getBoundingClientRect();
+    const canvasRatio = W / H;
+    const boxRatio = box.width / box.height;
+    let cw, ch;
+    if (boxRatio > canvasRatio) {
+      // wider box → content height-fitted, horizontally centered
+      ch = box.height;
+      cw = ch * canvasRatio;
+    } else {
+      // taller box → content width-fitted, vertically centered
+      cw = box.width;
+      ch = cw / canvasRatio;
+    }
+    return {
+      left: box.left + (box.width - cw) / 2,
+      top: box.top + (box.height - ch) / 2,
+      width: cw,
+      height: ch,
+    };
+  }
+
   function mapToScreen(clientX, clientY) {
-    // Use visible element: glCanvas (shader active) or original canvas
-    const visibleCanvas = canvas.style.display === "none" ? canvas.nextElementSibling || canvas : canvas;
-    const rect = visibleCanvas.getBoundingClientRect();
+    const rect = getContentRect();
     const fx = (clientX - rect.left) / rect.width * W;
     const fy = (clientY - rect.top) / rect.height * H;
     const x = Math.max(0, Math.min(W - 1, Math.floor(fx)));
     const y = Math.max(0, Math.min(H - 1, Math.floor(fy)));
     return { x, y, fx, fy };
+  }
+
+  function isInsideCanvas(clientX, clientY) {
+    const rect = getContentRect();
+    return clientX >= rect.left && clientX <= rect.left + rect.width &&
+           clientY >= rect.top && clientY <= rect.top + rect.height;
   }
 
   function detectSwipe(endX, endY) {
@@ -610,11 +643,13 @@ var Mono = (() => {
     touchTarget.addEventListener("touchstart", e => {
       e.preventDefault();
       for (const t of e.changedTouches) {
+        if (!isInsideCanvas(t.clientX, t.clientY)) continue;
         const p = mapToScreen(t.clientX, t.clientY);
         touches.push({ id: t.identifier, ...p });
       }
+      if (touches.length === 0) return;
       touchStartedFlag = true;
-      if (!swipeAnchor && touches.length > 0) {
+      if (!swipeAnchor) {
         swipeAnchor = { x: touches[0].fx, y: touches[0].fy };
       }
     }, { passive: false });
@@ -648,6 +683,7 @@ var Mono = (() => {
     // Mouse as single touch
     let mouseDown = false;
     touchTarget.addEventListener("mousedown", e => {
+      if (!isInsideCanvas(e.clientX, e.clientY)) return;
       const p = mapToScreen(e.clientX, e.clientY);
       touches = touches.filter(t => t.id !== -1);
       touches.push({ id: -1, ...p });

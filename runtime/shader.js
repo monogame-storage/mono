@@ -323,17 +323,23 @@ void main() {
   };
 
 
+  function notifySync() {
+    document.dispatchEvent(new Event("mono:shader-sync"));
+  }
+
   /** Standard shader preset: tint (amber) → lcd */
   shader.preset = function () {
     shader.enable("tint", { tint: [1.0, 0.75, 0.3] });
     shader.enable("lcd", { bg_color: [0, 0, 0], bg_color2: [0.19, 0.19, 0.19] });
     shader.order(["tint", "lcd"]);
+    notifySync();
   };
 
   /** Disable all */
   shader.off = function () {
     for (const name in active) active[name] = false;
     chainParams = {};
+    notifySync();
   };
 
   /** Set chain order */

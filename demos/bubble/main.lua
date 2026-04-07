@@ -314,6 +314,20 @@ local function update_play()
         spawn_particles(best_b.x, best_b.y, 12, false)
         spawn_freed_mob(best_b.x, best_b.y, best_b.mob)
       end
+    else
+      -- empty tap: small splash particles
+      for j = 1, 6 do
+        local angle = math.random() * 6.283
+        local spd = 0.4 + math.random() * 0.6
+        table.insert(particles, {
+          x = tx, y = ty,
+          dx = math.cos(angle) * spd,
+          dy = math.sin(angle) * spd,
+          life = math.random(6, 12),
+          color = 5,
+          kind = "spark",
+        })
+      end
     end
   end
 

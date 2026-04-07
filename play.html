@@ -12,7 +12,6 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     height: 100vh;
     font-family: monospace;
     overflow: hidden;
@@ -20,6 +19,7 @@
     -webkit-user-select: none;
   }
   #back-btn {
+    flex-shrink: 0;
     align-self: flex-start;
     color: #777;
     font-size: 11px;
@@ -27,7 +27,7 @@
     background: #2a2a2a;
     padding: 4px 10px;
     border-radius: 5px;
-    margin-bottom: 8px;
+    margin: 8px;
   }
   #back-btn:hover { color: #e8e8e8; background: #3a3a3a; }
   #console {
@@ -35,7 +35,9 @@
     border-radius: 16px;
     display: flex;
     flex-direction: column;
-    max-height: 100vh;
+    flex: 1;
+    min-height: 0;
+    max-width: 100%;
   }
   #frame {
     background: #111;
@@ -43,11 +45,19 @@
     border-radius: 6px;
     padding: 8px;
     margin: 12px 12px 0;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
   canvas {
     display: block;
-    width: 320px;
-    height: 288px;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    aspect-ratio: 160 / 144;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
   }
@@ -55,6 +65,7 @@
     padding: 24px 32px 48px;
     border-top: 2px solid #3a3a3a;
     margin-top: 12px;
+    flex-shrink: 0;
   }
   #error {
     display: none;

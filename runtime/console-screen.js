@@ -85,18 +85,26 @@
 
     // Shader toggle
     const btn = document.createElement("button");
-    btn.className = "mono-shader-toggle active";
+    btn.className = "mono-shader-toggle";
     btn.textContent = "SHADER";
     footer.appendChild(btn);
 
-    let shaderOn = true;
-    btn.addEventListener("click", () => {
-      shaderOn = !shaderOn;
-      btn.classList.toggle("active", shaderOn);
+    function syncBtn() {
       if (typeof Mono !== "undefined" && Mono.shader) {
-        if (shaderOn) Mono.shader.preset(); else Mono.shader.off();
+        const isOn = Mono.shader.current().chain.length > 0;
+        btn.classList.toggle("active", isOn);
       }
+    }
+
+    btn.addEventListener("click", () => {
+      if (typeof Mono === "undefined" || !Mono.shader) return;
+      const isOn = Mono.shader.current().chain.length > 0;
+      if (isOn) Mono.shader.off(); else Mono.shader.preset();
+      syncBtn();
     });
+
+    // Sync button when shaders are (re-)initialized by boot
+    document.addEventListener("mono:shader-sync", syncBtn);
 
     // Insert into explicit footer container, or after canvas
     if (container.id === "screen-panel-footer") {
