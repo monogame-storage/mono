@@ -322,7 +322,6 @@ void main() {
     shader.enable("tint", { tint: color });
   };
 
-
   function notifySync() {
     document.dispatchEvent(new Event("mono:shader-sync"));
   }

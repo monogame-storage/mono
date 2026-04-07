@@ -468,8 +468,7 @@ var Mono = (() => {
     };
   }
 
-  function mapToScreen(clientX, clientY) {
-    const rect = getContentRect();
+  function mapToScreenWithRect(clientX, clientY, rect) {
     const fx = (clientX - rect.left) / rect.width * W;
     const fy = (clientY - rect.top) / rect.height * H;
     const x = Math.max(0, Math.min(W - 1, Math.floor(fx)));
@@ -477,8 +476,11 @@ var Mono = (() => {
     return { x, y, fx, fy };
   }
 
-  function isInsideCanvas(clientX, clientY) {
-    const rect = getContentRect();
+  function mapToScreen(clientX, clientY) {
+    return mapToScreenWithRect(clientX, clientY, getContentRect());
+  }
+
+  function isInsideRect(clientX, clientY, rect) {
     return clientX >= rect.left && clientX <= rect.left + rect.width &&
            clientY >= rect.top && clientY <= rect.top + rect.height;
   }
@@ -642,15 +644,18 @@ var Mono = (() => {
     const touchTarget = canvas.parentNode || canvas;
     touchTarget.addEventListener("touchstart", e => {
       e.preventDefault();
+      const rect = getContentRect();
+      let added = 0;
       for (const t of e.changedTouches) {
-        if (!isInsideCanvas(t.clientX, t.clientY)) continue;
-        const p = mapToScreen(t.clientX, t.clientY);
+        if (!isInsideRect(t.clientX, t.clientY, rect)) continue;
+        const p = mapToScreenWithRect(t.clientX, t.clientY, rect);
         touches.push({ id: t.identifier, ...p });
+        added++;
       }
-      if (touches.length === 0) return;
+      if (added === 0) return;
       touchStartedFlag = true;
       if (!swipeAnchor) {
-        swipeAnchor = { x: touches[0].fx, y: touches[0].fy };
+        swipeAnchor = { x: touches[touches.length - added].fx, y: touches[touches.length - added].fy };
       }
     }, { passive: false });
 
@@ -683,8 +688,9 @@ var Mono = (() => {
     // Mouse as single touch
     let mouseDown = false;
     touchTarget.addEventListener("mousedown", e => {
-      if (!isInsideCanvas(e.clientX, e.clientY)) return;
-      const p = mapToScreen(e.clientX, e.clientY);
+      const rect = getContentRect();
+      if (!isInsideRect(e.clientX, e.clientY, rect)) return;
+      const p = mapToScreenWithRect(e.clientX, e.clientY, rect);
       touches = touches.filter(t => t.id !== -1);
       touches.push({ id: -1, ...p });
       mouseDown = true;

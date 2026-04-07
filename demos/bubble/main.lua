@@ -316,9 +316,12 @@ local function update_play()
       end
     else
       -- empty tap: small splash particles
-      for j = 1, 6 do
+      local SPLASH_N = 6
+      local SPLASH_SPD_MIN = 0.4
+      local SPLASH_SPD_RNG = 0.6
+      for j = 1, SPLASH_N do
         local angle = math.random() * 6.283
-        local spd = 0.4 + math.random() * 0.6
+        local spd = SPLASH_SPD_MIN + math.random() * SPLASH_SPD_RNG
         table.insert(particles, {
           x = tx, y = ty,
           dx = math.cos(angle) * spd,
