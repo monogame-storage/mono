@@ -145,9 +145,15 @@ if $REPLACE_ENGINE; then
   run rm -rf "$TARGET_DIR/cart/.mono"
   run mkdir -p "$TARGET_DIR/cart/.mono"
 
+  run mkdir -p "$TARGET_DIR/cart/.mono/shaders"
+
   if ! $DRY_RUN; then
     cp "$MONO_ROOT/runtime/engine.js" "$TARGET_DIR/cart/.mono/engine.js"
     cp "$MONO_ROOT/runtime/console-gamepad.js" "$TARGET_DIR/cart/.mono/console-gamepad.js"
+    cp "$MONO_ROOT/runtime/shader.js" "$TARGET_DIR/cart/.mono/shader.js"
+    for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
+      cp "$MONO_ROOT/runtime/shaders/$sf" "$TARGET_DIR/cart/.mono/shaders/$sf"
+    done
 
     VERSION=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
     echo "$VERSION" > "$TARGET_DIR/cart/.mono/VERSION"

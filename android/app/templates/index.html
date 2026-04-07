@@ -35,6 +35,13 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;touch-action:no
   <div id="gamepad" data-gamepad-mode="setKey"></div>
 </div>
 <script src="engine/engine.js"></script>
+<script src="engine/shader.js"></script>
+<script src="engine/shaders/tint.js"></script>
+<script src="engine/shaders/lcd.js"></script>
+<script src="engine/shaders/lcd3d.js"></script>
+<script src="engine/shaders/crt.js"></script>
+<script src="engine/shaders/scanlines.js"></script>
+<script src="engine/shaders/invert_lcd.js"></script>
 <script src="engine/console-gamepad.js"></script>
 <script>
 function fitScreen(){
@@ -50,7 +57,9 @@ function fitScreen(){
   c.style.marginTop=Math.floor((availH-144*s)/2)+'px';
 }
 fitScreen();window.addEventListener('resize',fitScreen);
-Mono.boot('screen',{game:'main.lua',noAutoFit:true,externalInput:true}).catch(function(e){console.error('BOOT_ERR',e)});
+Mono.boot('screen',{game:'main.lua',noAutoFit:true,externalInput:true}).then(function(){
+  if(Mono.shader&&Mono.shader.preset)Mono.shader.preset();
+}).catch(function(e){console.error('BOOT_ERR',e)});
 </script>
 </body>
 </html>
