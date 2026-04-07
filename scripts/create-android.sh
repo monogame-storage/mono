@@ -243,7 +243,11 @@ if ! $DRY_RUN; then
   "chain": ["tint", "lcd"],
   "params": {
     "tint": { "tint": [1.0, 0.75, 0.3] },
-    "lcd": { "bg_color": [0, 0, 0], "bg_color2": [0.19, 0.19, 0.19] }
+    "lcd": { "thickness": 0.20, "pixel_size": 1.0, "bg_color": [0, 0, 0], "bg_color2": [0.19, 0.19, 0.19], "bg_dir": 0.0 },
+    "lcd3d": { "thickness": 0.20, "pixel_size": 1.0, "depth": 1.0, "bg_color": [0, 0, 0], "bg_color2": [0.19, 0.19, 0.19], "bg_dir": 0.0 },
+    "crt": { "curvature": 0.02, "vignette": 0.1 },
+    "scanlines": { "opacity": 0.2 },
+    "invert_lcd": { "gap": 0.20, "bg_color": [0.72, 0.74, 0.42], "dot_color": [0, 0, 0], "vignette": 1.0 }
   }
 }
 SHADER_EOF
