@@ -65,15 +65,19 @@ echo "Creating Mono Android project: $PROJECT_NAME"
 
 # 1. Copy template
 mkdir -p "$TARGET_DIR"
-cp -R "$TEMPLATE_DIR/app" "$TARGET_DIR/app"
-cp -R "$TEMPLATE_DIR/gradle" "$TARGET_DIR/gradle"
-cp "$TEMPLATE_DIR/build.gradle.kts" "$TARGET_DIR/"
-cp "$TEMPLATE_DIR/settings.gradle.kts" "$TARGET_DIR/"
-cp "$TEMPLATE_DIR/gradlew" "$TARGET_DIR/"
-cp "$TEMPLATE_DIR/gradlew.bat" "$TARGET_DIR/"
-chmod +x "$TARGET_DIR/gradlew"
+for item in "$TEMPLATE_DIR"/*; do
+  name="$(basename "$item")"
+  if [ -d "$item" ]; then
+    cp -R "$item" "$TARGET_DIR/$name"
+  else
+    cp "$item" "$TARGET_DIR/"
+  fi
+done
 cp "$TEMPLATE_DIR/.gitignore" "$TARGET_DIR/"
-cp "$TEMPLATE_DIR/README.md" "$TARGET_DIR/"
+# Make scripts executable
+for f in "$TARGET_DIR"/gradlew "$TARGET_DIR"/*.sh; do
+  [ -f "$f" ] && chmod +x "$f"
+done
 
 # 2. Generate local.properties with SDK path
 if [ -n "$ANDROID_HOME" ]; then
