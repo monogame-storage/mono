@@ -70,7 +70,17 @@ function fitScreen(){
 }
 fitScreen();window.addEventListener('resize',fitScreen);
 Mono.boot('screen',{game:'main.lua',noAutoFit:true,externalInput:true}).then(function(){
-  if(Mono.shader&&Mono.shader.preset)Mono.shader.preset();
+  if(!Mono.shader)return;
+  fetch('shader.json').then(function(r){return r.json()}).then(function(cfg){
+    if(!cfg.chain||!cfg.chain.length)return;
+    cfg.chain.forEach(function(name){
+      var p=cfg.params&&cfg.params[name];
+      Mono.shader.enable(name,p||undefined);
+    });
+    Mono.shader.order(cfg.chain);
+  }).catch(function(){
+    if(Mono.shader.preset)Mono.shader.preset();
+  });
 }).catch(function(e){console.error('BOOT_ERR',e)});
 </script>
 </body>

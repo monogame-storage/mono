@@ -235,9 +235,18 @@ if ! $DRY_RUN; then
   echo "$VERSION" > "$TARGET_DIR/cart/.mono/VERSION"
 fi
 
-# 4. Create starter main.lua
+# 4. Create starter main.lua + default shader.json
 if ! $DRY_RUN; then
   cp "$MONO_ROOT/editor/templates/mono/main.lua" "$TARGET_DIR/cart/main.lua"
+  cat > "$TARGET_DIR/cart/shader.json" << 'SHADER_EOF'
+{
+  "chain": ["tint", "lcd"],
+  "params": {
+    "tint": { "tint": [1.0, 0.75, 0.3] },
+    "lcd": { "bg_color": [0, 0, 0], "bg_color2": [0.19, 0.19, 0.19] }
+  }
+}
+SHADER_EOF
 fi
 
 # 5. Customize project
