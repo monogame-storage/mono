@@ -440,7 +440,9 @@ var Mono = (() => {
   const SWIPE_THRESHOLD = 10; // game pixels
 
   function mapToScreen(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
+    // Use visible element: glCanvas (shader active) or original canvas
+    const visibleCanvas = canvas.style.display === "none" ? canvas.nextElementSibling || canvas : canvas;
+    const rect = visibleCanvas.getBoundingClientRect();
     const fx = (clientX - rect.left) / rect.width * W;
     const fy = (clientY - rect.top) / rect.height * H;
     const x = Math.max(0, Math.min(W - 1, Math.floor(fx)));
@@ -603,7 +605,9 @@ var Mono = (() => {
     }
 
     // Touch & mouse events (always registered, even with externalInput)
-    canvas.addEventListener("touchstart", e => {
+    // Bind to canvas parent to work even when shader replaces canvas with glCanvas
+    const touchTarget = canvas.parentNode || canvas;
+    touchTarget.addEventListener("touchstart", e => {
       e.preventDefault();
       for (const t of e.changedTouches) {
         const p = mapToScreen(t.clientX, t.clientY);
@@ -615,7 +619,7 @@ var Mono = (() => {
       }
     }, { passive: false });
 
-    canvas.addEventListener("touchmove", e => {
+    touchTarget.addEventListener("touchmove", e => {
       e.preventDefault();
       for (const t of e.changedTouches) {
         const idx = touches.findIndex(tt => tt.id === t.identifier);
@@ -638,13 +642,14 @@ var Mono = (() => {
       touchEndedFlag = true;
       if (touches.length === 0) swipeAnchor = null;
     };
-    canvas.addEventListener("touchend", onTouchEnd, { passive: false });
-    canvas.addEventListener("touchcancel", onTouchEnd, { passive: false });
+    touchTarget.addEventListener("touchend", onTouchEnd, { passive: false });
+    touchTarget.addEventListener("touchcancel", onTouchEnd, { passive: false });
 
     // Mouse as single touch
     let mouseDown = false;
-    canvas.addEventListener("mousedown", e => {
+    touchTarget.addEventListener("mousedown", e => {
       const p = mapToScreen(e.clientX, e.clientY);
+      console.log("[TOUCH] mousedown on canvas", { x: p.x, y: p.y, fx: p.fx.toFixed(2), fy: p.fy.toFixed(2), touchesBefore: touches.length });
       touches = touches.filter(t => t.id !== -1);
       touches.push({ id: -1, ...p });
       mouseDown = true;
@@ -661,6 +666,7 @@ var Mono = (() => {
     });
     document.addEventListener("mouseup", e => {
       if (!mouseDown) return;
+      console.log("[TOUCH] mouseup", { touchesCount: touches.length });
       mouseDown = false;
       const idx = touches.findIndex(t => t.id === -1);
       if (idx >= 0) {
@@ -731,9 +737,13 @@ var Mono = (() => {
     });
     lua.global.set("axis_x", () => axisX);
     lua.global.set("axis_y", () => axisY);
-    lua.global.set("_touch", () => touches.length > 0 ? 1 : 0);
-    lua.global.set("_touch_start", () => touchStarted ? 1 : 0);
-    lua.global.set("_touch_end", () => touchEnded ? 1 : 0);
+    lua.global.set("_touch", () => touches.length > 0 || touchStartedFlag ? 1 : 0);
+    lua.global.set("_touch_start", () => {
+      const v = touchStarted || touchStartedFlag ? 1 : 0;
+      if (v) console.log("[TOUCH] _touch_start() returning 1", { touchStarted, touchStartedFlag });
+      return v;
+    });
+    lua.global.set("_touch_end", () => touchEnded || touchEndedFlag ? 1 : 0);
     lua.global.set("touch_count", () => touches.length);
     lua.global.set("_touch_pos_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.x : false; });
     lua.global.set("_touch_pos_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.y : false; });
