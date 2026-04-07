@@ -1,0 +1,76 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: JS syntax check (runtime/)
+        run: |
+          fail=0
+          for f in runtime/*.js; do
+            echo "Checking $f"
+            if ! node --check "$f"; then
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@35bcb06abec04ec87df82e08caa84d545348536e # v10
+        with:
+          luaVersion: '5.4'
+
+      - name: Lua syntax check
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            echo "Checking $f"
+            if ! luac -p "$f"; then
+              fail=1
+            fi
+          done < <(find . -name '*.lua' -type f -not -path './node_modules/*')
+          exit $fail
+
+      - name: Run all demos headlessly (mono-test)
+        run: |
+          fail=0
+          for d in demos/*/; do
+            entry=""
+            for cand in main.lua game.lua; do
+              if [ -f "$d$cand" ]; then entry="$d$cand"; break; fi
+            done
+            if [ -z "$entry" ]; then
+              echo "SKIP $d (no main.lua/game.lua)"
+              continue
+            fi
+            echo "Running $entry"
+            if node editor/templates/mono/mono-test.js "$entry" --frames 60 --quiet; then
+              echo "  OK"
+            else
+              echo "  FAIL"
+              fail=1
+            fi
+          done
+          exit $fail
