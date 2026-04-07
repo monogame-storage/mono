@@ -13,7 +13,7 @@
     .mono-log {
       display:flex; flex-direction:column; background:#212121;
       border-top:1px solid #333; font:11px/1.6 monospace; color:#aaa;
-      max-height:120px; overflow:hidden;
+      height:120px; overflow:hidden;
     }
     .mono-log-header {
       display:flex; align-items:center; padding:4px 8px;
@@ -28,7 +28,7 @@
     .mono-log-body {
       flex:1; overflow:auto; padding:4px 8px; min-height:0;
     }
-    .mono-log-body .log-line { white-space:pre-wrap; word-break:break-all; }
+    .mono-log-body .log-line { white-space:pre-wrap; word-break:break-all; user-select:text; -webkit-user-select:text; }
     .mono-log-body .log-error { color:#e66; }
   `;
   document.head.appendChild(style);
