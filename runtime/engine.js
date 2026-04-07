@@ -649,7 +649,6 @@ var Mono = (() => {
     let mouseDown = false;
     touchTarget.addEventListener("mousedown", e => {
       const p = mapToScreen(e.clientX, e.clientY);
-      console.log("[TOUCH] mousedown on canvas", { x: p.x, y: p.y, fx: p.fx.toFixed(2), fy: p.fy.toFixed(2), touchesBefore: touches.length });
       touches = touches.filter(t => t.id !== -1);
       touches.push({ id: -1, ...p });
       mouseDown = true;
@@ -666,7 +665,6 @@ var Mono = (() => {
     });
     document.addEventListener("mouseup", e => {
       if (!mouseDown) return;
-      console.log("[TOUCH] mouseup", { touchesCount: touches.length });
       mouseDown = false;
       const idx = touches.findIndex(t => t.id === -1);
       if (idx >= 0) {
@@ -737,12 +735,10 @@ var Mono = (() => {
     });
     lua.global.set("axis_x", () => axisX);
     lua.global.set("axis_y", () => axisY);
+    // Check both latched state and raw flag: inputUpdate() runs after _update(),
+    // so a fast click (mousedown+mouseup between frames) would be missed without the flag check.
     lua.global.set("_touch", () => touches.length > 0 || touchStartedFlag ? 1 : 0);
-    lua.global.set("_touch_start", () => {
-      const v = touchStarted || touchStartedFlag ? 1 : 0;
-      if (v) console.log("[TOUCH] _touch_start() returning 1", { touchStarted, touchStartedFlag });
-      return v;
-    });
+    lua.global.set("_touch_start", () => touchStarted || touchStartedFlag ? 1 : 0);
     lua.global.set("_touch_end", () => touchEnded || touchEndedFlag ? 1 : 0);
     lua.global.set("touch_count", () => touches.length);
     lua.global.set("_touch_pos_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.x : false; });

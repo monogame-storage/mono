@@ -284,6 +284,7 @@ local function update_play()
 
   -- touch → pop (only on touch start, not drag)
   local popped = 0
+  local popped_pts = 0
   local hit_skull = false
   if not touch_start() then goto skip_pop end
   for i = 1, touch_count() do
@@ -309,6 +310,7 @@ local function update_play()
         spawn_particles(best_b.x, best_b.y, 5, true)
       else
         popped = popped + 1
+        popped_pts = popped_pts + MOB_POINTS[best_b.mob]
         spawn_particles(best_b.x, best_b.y, 12, false)
         spawn_freed_mob(best_b.x, best_b.y, best_b.mob)
       end
@@ -329,13 +331,14 @@ local function update_play()
     if lives <= 0 then
       if score > best then best = score end
       state = STATE_OVER
+      over_cooldown = 30
       return
     end
   end
 
   -- scoring
   if popped > 0 then
-    local pts = popped * 10
+    local pts = popped_pts
     if popped >= 2 then
       pts = pts * popped
       combo_text = "x" .. popped .. "!"
