@@ -10,13 +10,13 @@
 # Options:
 #   --project-name "Name"   Display name (default: derived from directory name)
 #   --org com.example       Organization package (default: com.mono)
-#   --replace-mono-engine   Replace cart/.mono/ with latest engine (update mode only)
+#   --replace-engine   Replace cart/.mono/ with latest engine (update mode only)
 #   --dry-run               Show what would be done without making changes
 #
 # Examples:
 #   ./scripts/create-android.sh ~/projects/mono-pong
 #   ./scripts/create-android.sh ~/projects/mono-pong --project-name "Mono Pong" --org com.ssk
-#   ./scripts/create-android.sh ~/mono/android/pong --replace-mono-engine
+#   ./scripts/create-android.sh ~/mono/android/pong --replace-engine
 
 set -e
 
@@ -34,7 +34,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --project-name)        PROJECT_NAME="$2"; shift 2 ;;
     --org)                 ORG="$2"; shift 2 ;;
-    --replace-mono-engine) REPLACE_ENGINE=true; shift ;;
+    --replace-engine) REPLACE_ENGINE=true; shift ;;
     --dry-run)             DRY_RUN=true; shift ;;
     -*)                    echo "Unknown option: $1"; exit 1 ;;
     *)
@@ -53,7 +53,7 @@ if [ -z "$TARGET_DIR" ]; then
   echo "  target-dir              Project directory (created if new, updated if exists)"
   echo "  --project-name \"Name\"   Display name (default: derived from dir name)"
   echo "  --org com.example       Organization package (default: com.mono)"
-  echo "  --replace-mono-engine   Replace cart/.mono/ with latest engine"
+  echo "  --replace-engine   Replace cart/.mono/ with latest engine"
   echo "  --dry-run               Show what would be done without making changes"
   exit 1
 fi
