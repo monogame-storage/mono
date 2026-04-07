@@ -10,6 +10,10 @@
 --   4 canvas   — off-screen canvas + blit
 --   5 input    — btn/btnp readout
 --   6 frame    — frame counter + animation
+--
+-- NOTE: cam_shake/cam_reset/note/sfx_stop/axis_x/axis_y are
+-- intentionally not used here — mono-test.js template does not
+-- expose them yet (see issue #25).
 
 local scr = screen()
 local off                 -- off-screen canvas (mode 4)
@@ -17,9 +21,6 @@ local mode_idx = 1
 local mode_frame = 0
 local MODE_COUNT = 6
 local MODE_LEN = 60        -- frames per mode when auto-cycling
-
--- safe color count for filled rects (avoid depending on runtime mode)
-local C = 15
 
 function _init()
   mode(4)               -- 16-color mode
@@ -44,12 +45,9 @@ end
 
 function _update()
   mode_frame = mode_frame + 1
-  if btnp("start") then
-    next_mode()
-  elseif mode_frame >= MODE_LEN then
+  if btnp("start") or mode_frame >= MODE_LEN then
     next_mode()
   end
-
 end
 
 local function draw_shapes()

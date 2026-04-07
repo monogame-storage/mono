@@ -3,6 +3,12 @@ name: PR Check
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
@@ -15,23 +21,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: JS syntax check (runtime/)
         run: |
+          fail=0
           for f in runtime/*.js; do
             echo "Checking $f"
-            node --check "$f"
+            if ! node --check "$f"; then
+              fail=1
+            fi
           done
+          exit $fail
 
       - name: Setup Lua
         uses: leafo/gh-actions-lua@v10
         with:
           luaVersion: '5.4'
 
-      - name: Lua syntax check (demos/ & engine-test/)
+      - name: Lua syntax check
         run: |
           fail=0
           while IFS= read -r f; do
@@ -39,7 +50,7 @@ jobs:
             if ! luac -p "$f"; then
               fail=1
             fi
-          done < <(find demos engine-test -name '*.lua' -type f)
+          done < <(find . -name '*.lua' -type f -not -path './node_modules/*')
           exit $fail
 
       - name: Run all demos headlessly (mono-test)
