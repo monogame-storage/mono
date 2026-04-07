@@ -1,10 +1,22 @@
 #!/bin/bash
-# Mono Android project generator
-# Usage: ./scripts/create-android.sh <target-dir> [options]
+# Mono Android project generator / updater
 #
-# Example:
+# New directory  → creates project from template
+# Existing dir   → updates template files, preserving cart/, .git, .gitignore, README.md
+#
+# Usage:
+#   ./scripts/create-android.sh <target-dir> [options]
+#
+# Options:
+#   --project-name "Name"   Display name (default: derived from directory name)
+#   --org com.example       Organization package (default: com.mono)
+#   --replace-mono-engine   Replace cart/.mono/ with latest engine (update mode only)
+#   --dry-run               Show what would be done without making changes
+#
+# Examples:
 #   ./scripts/create-android.sh ~/projects/mono-pong
 #   ./scripts/create-android.sh ~/projects/mono-pong --project-name "Mono Pong" --org com.ssk
+#   ./scripts/create-android.sh ~/mono/android/pong --replace-mono-engine
 
 set -e
 
@@ -15,12 +27,16 @@ TEMPLATE_DIR="$MONO_ROOT/android"
 TARGET_DIR=""
 PROJECT_NAME=""
 ORG=""
+REPLACE_ENGINE=false
+DRY_RUN=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --project-name) PROJECT_NAME="$2"; shift 2 ;;
-    --org)          ORG="$2"; shift 2 ;;
-    -*)             echo "Unknown option: $1"; exit 1 ;;
+    --project-name)        PROJECT_NAME="$2"; shift 2 ;;
+    --org)                 ORG="$2"; shift 2 ;;
+    --replace-mono-engine) REPLACE_ENGINE=true; shift ;;
+    --dry-run)             DRY_RUN=true; shift ;;
+    -*)                    echo "Unknown option: $1"; exit 1 ;;
     *)
       if [ -z "$TARGET_DIR" ]; then
         TARGET_DIR="$1"; shift
@@ -32,19 +48,139 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$TARGET_DIR" ]; then
-  echo "Usage: $0 <target-dir> [--project-name \"My Game\"] [--org com.example]"
+  echo "Usage: $0 <target-dir> [options]"
   echo ""
-  echo "  target-dir      Project directory to create (required)"
-  echo "  --project-name  Display name (default: derived from directory name)"
-  echo "  --org           Organization package (default: com.mono)"
+  echo "  target-dir              Project directory (created if new, updated if exists)"
+  echo "  --project-name \"Name\"   Display name (default: derived from dir name)"
+  echo "  --org com.example       Organization package (default: com.mono)"
+  echo "  --replace-mono-engine   Replace cart/.mono/ with latest engine"
+  echo "  --dry-run               Show what would be done without making changes"
   exit 1
 fi
 
-# Derive defaults from target directory name
+# --- Helpers ---
+run() {
+  if $DRY_RUN; then
+    echo "  [dry-run] $*"
+  else
+    "$@"
+  fi
+}
+
+log() {
+  echo "  $1"
+}
+
+# --- Detect mode ---
+if [ -d "$TARGET_DIR" ] && [ -d "$TARGET_DIR/app" ]; then
+  MODE="update"
+else
+  MODE="create"
+fi
+
 DIR_NAME="$(basename "$TARGET_DIR")"
 
+# ======================================================================
+#  UPDATE MODE — existing project
+# ======================================================================
+if [ "$MODE" = "update" ]; then
+  echo "Updating Mono Android project: $TARGET_DIR"
+  echo ""
+
+  # Preserve user customizations
+  APP_NAME=""
+  APP_ID=""
+  PROJ_NAME=""
+  if [ -f "$TARGET_DIR/app/src/main/res/values/strings.xml" ]; then
+    APP_NAME=$(grep -o '>.*<' "$TARGET_DIR/app/src/main/res/values/strings.xml" | head -1 | tr -d '><')
+  fi
+  if [ -f "$TARGET_DIR/app/build.gradle.kts" ]; then
+    APP_ID=$(grep 'applicationId' "$TARGET_DIR/app/build.gradle.kts" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+  fi
+  if [ -f "$TARGET_DIR/settings.gradle.kts" ]; then
+    PROJ_NAME=$(grep 'rootProject.name' "$TARGET_DIR/settings.gradle.kts" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+  fi
+  log "Preserved: name=\"$APP_NAME\" id=\"$APP_ID\" project=\"$PROJ_NAME\""
+
+  # Copy template files (overwrite)
+  echo ""
+  echo "Copying latest template..."
+  for item in "$TEMPLATE_DIR"/*; do
+    name="$(basename "$item")"
+    case "$name" in
+      .gitignore|README.md) ;; # only create if missing (below)
+      *)
+        if [ -d "$item" ]; then
+          run rm -rf "$TARGET_DIR/$name"
+          run cp -R "$item" "$TARGET_DIR/$name"
+        else
+          run cp "$item" "$TARGET_DIR/"
+        fi
+        log "COPY $name"
+        ;;
+    esac
+  done
+  for f in "$TARGET_DIR"/gradlew "$TARGET_DIR"/*.sh; do
+    [ -f "$f" ] && run chmod +x "$f"
+  done
+  if [ ! -f "$TARGET_DIR/.gitignore" ]; then
+    run cp "$TEMPLATE_DIR/.gitignore" "$TARGET_DIR/"
+    log ".gitignore created (was missing)"
+  fi
+  if [ ! -f "$TARGET_DIR/README.md" ]; then
+    run cp "$TEMPLATE_DIR/README.md" "$TARGET_DIR/"
+    log "README.md created (was missing)"
+  fi
+
+  # Restore customizations
+  echo ""
+  echo "Restoring customizations..."
+  if [ -n "$PROJ_NAME" ] && ! $DRY_RUN; then
+    sed -i '' "s/rootProject.name = \"mono-android\"/rootProject.name = \"$PROJ_NAME\"/" "$TARGET_DIR/settings.gradle.kts"
+    log "Project name → $PROJ_NAME"
+  fi
+  if [ -n "$APP_ID" ] && ! $DRY_RUN; then
+    sed -i '' "s/applicationId = \"com.mono.game\"/applicationId = \"$APP_ID\"/" "$TARGET_DIR/app/build.gradle.kts"
+    log "Application ID → $APP_ID"
+  fi
+  if [ -n "$APP_NAME" ] && ! $DRY_RUN; then
+    sed -i '' "s/>Mono Game</>$APP_NAME</" "$TARGET_DIR/app/src/main/res/values/strings.xml"
+    log "App name → $APP_NAME"
+  fi
+
+  # Optionally replace engine
+  if $REPLACE_ENGINE; then
+    echo ""
+    echo "Replacing cart/.mono/ engine..."
+    run rm -rf "$TARGET_DIR/cart/.mono"
+    run mkdir -p "$TARGET_DIR/cart/.mono/shaders"
+    if ! $DRY_RUN; then
+      cp "$MONO_ROOT/runtime/engine.js" "$TARGET_DIR/cart/.mono/engine.js"
+      cp "$MONO_ROOT/runtime/console-gamepad.js" "$TARGET_DIR/cart/.mono/console-gamepad.js"
+      cp "$MONO_ROOT/runtime/shader.js" "$TARGET_DIR/cart/.mono/shader.js"
+      for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
+        cp "$MONO_ROOT/runtime/shaders/$sf" "$TARGET_DIR/cart/.mono/shaders/$sf"
+      done
+      VERSION=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
+      echo "$VERSION" > "$TARGET_DIR/cart/.mono/VERSION"
+      log "Engine updated to v$VERSION"
+    else
+      log "[dry-run] Would replace engine files"
+    fi
+  fi
+
+  echo ""
+  echo "Done! Updated: $TARGET_DIR"
+  echo ""
+  echo "Next: cd $TARGET_DIR && ./run-debug.sh"
+  exit 0
+fi
+
+# ======================================================================
+#  CREATE MODE — new project
+# ======================================================================
+
 if [ -z "$PROJECT_NAME" ]; then
-  # mono-pong → Mono Pong
   PROJECT_NAME="$(echo "$DIR_NAME" | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')"
 fi
 
@@ -52,62 +188,66 @@ if [ -z "$ORG" ]; then
   ORG="com.mono"
 fi
 
-# com.ssk + mono-pong → com.ssk.mono.pong
 APP_SUFFIX="$(echo "$DIR_NAME" | tr '-' '.' | tr '[:upper:]' '[:lower:]')"
 APP_ID="${ORG}.${APP_SUFFIX}"
-
-if [ -d "$TARGET_DIR" ]; then
-  echo "Error: $TARGET_DIR already exists"
-  exit 1
-fi
 
 echo "Creating Mono Android project: $PROJECT_NAME"
 
 # 1. Copy template
-mkdir -p "$TARGET_DIR"
-for item in "$TEMPLATE_DIR"/*; do
-  name="$(basename "$item")"
-  if [ -d "$item" ]; then
-    cp -R "$item" "$TARGET_DIR/$name"
-  else
-    cp "$item" "$TARGET_DIR/"
-  fi
-done
-cp "$TEMPLATE_DIR/.gitignore" "$TARGET_DIR/"
-# Make scripts executable
-for f in "$TARGET_DIR"/gradlew "$TARGET_DIR"/*.sh; do
-  [ -f "$f" ] && chmod +x "$f"
-done
+run mkdir -p "$TARGET_DIR"
+if ! $DRY_RUN; then
+  for item in "$TEMPLATE_DIR"/*; do
+    name="$(basename "$item")"
+    if [ -d "$item" ]; then
+      cp -R "$item" "$TARGET_DIR/$name"
+    else
+      cp "$item" "$TARGET_DIR/"
+    fi
+  done
+  cp "$TEMPLATE_DIR/.gitignore" "$TARGET_DIR/"
+  for f in "$TARGET_DIR"/gradlew "$TARGET_DIR"/*.sh; do
+    [ -f "$f" ] && chmod +x "$f"
+  done
+fi
 
 # 2. Generate local.properties with SDK path
-if [ -n "$ANDROID_HOME" ]; then
-  echo "sdk.dir=$ANDROID_HOME" > "$TARGET_DIR/local.properties"
-elif [ -d "$HOME/Library/Android/sdk" ]; then
-  echo "sdk.dir=$HOME/Library/Android/sdk" > "$TARGET_DIR/local.properties"
-elif [ -d "$HOME/Android/Sdk" ]; then
-  echo "sdk.dir=$HOME/Android/Sdk" > "$TARGET_DIR/local.properties"
+if ! $DRY_RUN; then
+  if [ -n "$ANDROID_HOME" ]; then
+    echo "sdk.dir=$ANDROID_HOME" > "$TARGET_DIR/local.properties"
+  elif [ -d "$HOME/Library/Android/sdk" ]; then
+    echo "sdk.dir=$HOME/Library/Android/sdk" > "$TARGET_DIR/local.properties"
+  elif [ -d "$HOME/Android/Sdk" ]; then
+    echo "sdk.dir=$HOME/Android/Sdk" > "$TARGET_DIR/local.properties"
+  fi
 fi
 
 # 3. Set up cart/.mono/ with engine + shader files
-mkdir -p "$TARGET_DIR/cart/.mono/shaders"
-cp "$MONO_ROOT/runtime/engine.js" "$TARGET_DIR/cart/.mono/engine.js"
-cp "$MONO_ROOT/runtime/console-gamepad.js" "$TARGET_DIR/cart/.mono/console-gamepad.js"
-cp "$MONO_ROOT/runtime/shader.js" "$TARGET_DIR/cart/.mono/shader.js"
-for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
-  cp "$MONO_ROOT/runtime/shaders/$sf" "$TARGET_DIR/cart/.mono/shaders/$sf"
-done
+run mkdir -p "$TARGET_DIR/cart/.mono/shaders"
+if ! $DRY_RUN; then
+  cp "$MONO_ROOT/runtime/engine.js" "$TARGET_DIR/cart/.mono/engine.js"
+  cp "$MONO_ROOT/runtime/console-gamepad.js" "$TARGET_DIR/cart/.mono/console-gamepad.js"
+  cp "$MONO_ROOT/runtime/shader.js" "$TARGET_DIR/cart/.mono/shader.js"
+  for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
+    cp "$MONO_ROOT/runtime/shaders/$sf" "$TARGET_DIR/cart/.mono/shaders/$sf"
+  done
 
-VERSION=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
-echo "$VERSION" > "$TARGET_DIR/cart/.mono/VERSION"
+  VERSION=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
+  echo "$VERSION" > "$TARGET_DIR/cart/.mono/VERSION"
+fi
 
-# 4. Create starter main.lua (same template the editor uses)
-cp "$MONO_ROOT/editor/templates/mono/main.lua" "$TARGET_DIR/cart/main.lua"
+# 4. Create starter main.lua
+if ! $DRY_RUN; then
+  cp "$MONO_ROOT/editor/templates/mono/main.lua" "$TARGET_DIR/cart/main.lua"
+fi
 
 # 5. Customize project
-sed -i '' "s/rootProject.name = \"mono-android\"/rootProject.name = \"$DIR_NAME\"/" "$TARGET_DIR/settings.gradle.kts"
-sed -i '' "s/applicationId = \"com.mono.game\"/applicationId = \"$APP_ID\"/" "$TARGET_DIR/app/build.gradle.kts"
-sed -i '' "s/>Mono Game</>$PROJECT_NAME</" "$TARGET_DIR/app/src/main/res/values/strings.xml"
+if ! $DRY_RUN; then
+  sed -i '' "s/rootProject.name = \"mono-android\"/rootProject.name = \"$DIR_NAME\"/" "$TARGET_DIR/settings.gradle.kts"
+  sed -i '' "s/applicationId = \"com.mono.game\"/applicationId = \"$APP_ID\"/" "$TARGET_DIR/app/build.gradle.kts"
+  sed -i '' "s/>Mono Game</>$PROJECT_NAME</" "$TARGET_DIR/app/src/main/res/values/strings.xml"
+fi
 
+VERSION=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
 echo ""
 echo "Done! Project created at: $TARGET_DIR"
 echo ""
@@ -118,4 +258,4 @@ echo ""
 echo "Next steps:"
 echo "  cd $TARGET_DIR"
 echo "  # Edit cart/main.lua or deploy from Mono editor"
-echo "  ./gradlew assembleDebug"
+echo "  ./run-debug.sh"
