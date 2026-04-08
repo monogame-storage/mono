@@ -10,6 +10,9 @@ local BS = 3    -- ball size (radius)
 local SPEED = 2.5
 local AI_SPEED = 1.8
 local MAX_SCORE = 9
+local MIN_ANGLE = 0.18  -- ~10 degrees from vertical (tan(10°))
+local OBS_BOOST = 1.3   -- speed multiplier on obstacle hit
+local RALLY_ACCEL = 0.02 -- speed increase per rally hit
 
 -- state
 local p1, p2, ball
@@ -18,9 +21,35 @@ local obstacles
 local serve_dir
 local paused
 local winner
+local rally_speed  -- current ball speed (increases during rally)
+
+local function sfx_paddle()
+  if note then note(0, "C5", 0.05) end
+end
+
+local function sfx_wall()
+  if note then note(0, "C4", 0.03) end
+end
+
+local function sfx_obstacle()
+  if note then note(0, "C6", 0.06) end
+end
+
+local function sfx_score()
+  if note then note(0, "C3", 0.15) end
+end
+
+-- enforce minimum angle from vertical
+local function enforce_min_angle(dx, dy)
+  if math.abs(dy) > 0 and math.abs(dx) / math.abs(dy) < MIN_ANGLE then
+    dx = math.abs(dy) * MIN_ANGLE
+    if ball.dx < 0 then dx = -dx end
+  end
+  return dx, dy
+end
 
 local function reset_ball(dir)
-  -- always give vertical angle to avoid flat horizontal rallies
+  rally_speed = SPEED
   local angle = math.random(1, 2) == 1 and 1.5 or -1.5
   angle = angle + (math.random() - 0.5) * 0.8
   ball = {
@@ -28,6 +57,7 @@ local function reset_ball(dir)
     dx = SPEED * dir,
     dy = angle
   }
+  ball.dx, ball.dy = enforce_min_angle(ball.dx, ball.dy)
 end
 
 local circle_obs  -- circle obstacles
@@ -102,6 +132,48 @@ local function ball_rect_collide(bx, by, br, rx, ry, rw, rh)
   return (dx * dx + dy * dy) <= (br * br)
 end
 
+-- paddle collision with side detection
+local function paddle_hit(paddle, bounce_dir)
+  if not ball_rect_collide(ball.x, ball.y, BS, paddle.x, paddle.y, PW, PH) then
+    return false
+  end
+
+  -- determine if ball hit the face (front) or the edge (top/bottom)
+  local prev_x = ball.x - ball.dx
+  local paddle_front = bounce_dir > 0 and (paddle.x + PW) or paddle.x
+  local hit_face
+
+  if bounce_dir > 0 then
+    -- left paddle: face is on the right side
+    hit_face = prev_x >= paddle.x + PW - 1
+  else
+    -- right paddle: face is on the left side
+    hit_face = prev_x <= paddle.x + 1
+  end
+
+  if not hit_face then
+    -- hit top or bottom edge — reflect vertically, keep horizontal direction
+    ball.dy = -ball.dy
+    ball.y = ball.y + ball.dy * 2
+    sfx_wall()
+    return true
+  end
+
+  -- face hit — normal pong bounce
+  rally_speed = rally_speed + RALLY_ACCEL
+  if bounce_dir > 0 then
+    ball.x = paddle.x + PW + BS
+  else
+    ball.x = paddle.x - BS
+  end
+  ball.dx = rally_speed * bounce_dir
+  local hit = (ball.y - (paddle.y + PH / 2)) / (PH / 2)
+  ball.dy = hit * 3.0
+  ball.dx, ball.dy = enforce_min_angle(ball.dx, ball.dy)
+  sfx_paddle()
+  return true
+end
+
 function _update()
   if winner then
     if btnp("start") or touch_start() then
@@ -109,6 +181,12 @@ function _update()
     end
     return
   end
+
+  -- pause toggle
+  if btnp("select") then
+    paused = not paused
+  end
+  if paused then return end
 
   -- player 2 input (right paddle)
   local dy = 0
@@ -134,27 +212,17 @@ function _update()
   if ball.y - BS <= 0 then
     ball.y = BS
     ball.dy = -ball.dy
+    sfx_wall()
   end
   if ball.y + BS >= SCREEN_H then
     ball.y = SCREEN_H - BS
     ball.dy = -ball.dy
+    sfx_wall()
   end
 
-  -- paddle collision (left)
-  if ball_rect_collide(ball.x, ball.y, BS, p1.x, p1.y, PW, PH) then
-    ball.x = p1.x + PW + BS
-    ball.dx = SPEED
-    local hit = (ball.y - (p1.y + PH / 2)) / (PH / 2)
-    ball.dy = hit * 3.0
-  end
-
-  -- paddle collision (right)
-  if ball_rect_collide(ball.x, ball.y, BS, p2.x, p2.y, PW, PH) then
-    ball.x = p2.x - BS
-    ball.dx = -SPEED
-    local hit = (ball.y - (p2.y + PH / 2)) / (PH / 2)
-    ball.dy = hit * 3.0
-  end
+  -- paddle collisions
+  paddle_hit(p1, 1)
+  paddle_hit(p2, -1)
 
   -- rect obstacle collision
   for _, ob in ipairs(obstacles) do
@@ -163,12 +231,14 @@ function _update()
       local prev_y = ball.y - ball.dy
       local from_side = (prev_x < ob.x or prev_x > ob.x + ob.w)
       if from_side then
-        ball.dx = -ball.dx
+        ball.dx = -ball.dx * OBS_BOOST
         ball.x = ball.x + ball.dx * 2
       else
-        ball.dy = -ball.dy
+        ball.dy = -ball.dy * OBS_BOOST
         ball.y = ball.y + ball.dy * 2
       end
+      ball.dx, ball.dy = enforce_min_angle(ball.dx, ball.dy)
+      sfx_obstacle()
       break
     end
   end
@@ -183,10 +253,12 @@ function _update()
       local nx = cdx / dist
       local ny = cdy / dist
       local dot = ball.dx * nx + ball.dy * ny
-      ball.dx = ball.dx - 2 * dot * nx
-      ball.dy = ball.dy - 2 * dot * ny
+      ball.dx = (ball.dx - 2 * dot * nx) * OBS_BOOST
+      ball.dy = (ball.dy - 2 * dot * ny) * OBS_BOOST
       ball.x = ob.cx + nx * min_dist
       ball.y = ob.cy + ny * min_dist
+      ball.dx, ball.dy = enforce_min_angle(ball.dx, ball.dy)
+      sfx_obstacle()
       break
     end
   end
@@ -196,6 +268,7 @@ function _update()
     score2 = score2 + 1
     print("SCORE " .. score1 .. "-" .. score2)
     serve_dir = -1
+    sfx_score()
     if score2 >= MAX_SCORE then
       winner = "P2"
       print("WINNER: P2 " .. score1 .. "-" .. score2)
@@ -207,6 +280,7 @@ function _update()
     score1 = score1 + 1
     print("SCORE " .. score1 .. "-" .. score2)
     serve_dir = 1
+    sfx_score()
     if score1 >= MAX_SCORE then
       winner = "CPU"
       print("WINNER: CPU " .. score1 .. "-" .. score2)
@@ -243,19 +317,24 @@ function _draw()
   -- ball
   circf(scr, ball.x, ball.y, BS, 15)
 
-  -- score
-  text(scr, tostring(score1), 60, 4, 8)
-  text(scr, tostring(score2), 94, 4, 8)
+  -- score (centered on each half)
+  text(scr, tostring(score1), 40, 4, 8, ALIGN_HCENTER)
+  text(scr, tostring(score2), 120, 4, 8, ALIGN_HCENTER)
 
   -- border
   line(scr, 0, 0, SCREEN_W - 1, 0, 5)
   line(scr, 0, SCREEN_H - 1, SCREEN_W - 1, SCREEN_H - 1, 5)
 
+  -- pause overlay
+  if paused then
+    text(scr, "PAUSED", 80, 68, 10, ALIGN_HCENTER)
+  end
+
   -- winner screen
   if winner then
-    rectf(scr, 40, 55, 80, 30, 0)
-    rect(scr, 40, 55, 80, 30, 15)
-    text(scr, winner .. " WINS!", 52, 63, 15)
-    text(scr, "PRESS START", 44, 75, 8)
+    rectf(scr, 30, 50, 100, 40, 0)
+    rect(scr, 30, 50, 100, 40, 15)
+    text(scr, winner .. " WINS!", 80, 62, 15, ALIGN_HCENTER)
+    text(scr, "PRESS START", 80, 78, 8, ALIGN_HCENTER)
   end
 end

@@ -489,6 +489,23 @@ async function main() {
   lua.global.set("cam", camFn);
   lua.global.set("_cam_get_x", () => camX);
   lua.global.set("_cam_get_y", () => camY);
+  // Audio stubs (headless — no sound, but validate args)
+  const NOTE_NAMES = new Set();
+  (() => {
+    const names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+    for (let oct = 0; oct <= 8; oct++)
+      for (const n of names) NOTE_NAMES.add(n + oct);
+  })();
+  lua.global.set("note", (ch, noteStr, dur) => {
+    if (!NOTE_NAMES.has(String(noteStr).toUpperCase())) {
+      throw new Error("note: invalid note '" + noteStr + "'. Use note name strings like 'C4', 'F#5' (not MIDI numbers)");
+    }
+  });
+  lua.global.set("sfx_stop", () => {});
+  lua.global.set("cam_shake", () => {});
+  lua.global.set("cam_reset", () => {});
+  lua.global.set("axis_x", () => 0);
+  lua.global.set("axis_y", () => 0);
   lua.global.set("spr", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
   lua.global.set("sspr", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = getSurf(id); if (s) drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
   lua.global.set("drawImage", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
