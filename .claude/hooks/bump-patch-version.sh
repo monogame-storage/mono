@@ -1,5 +1,5 @@
 #!/bin/bash
-# PostToolUse hook: bump patch version when engine.js or mono-test.js is edited
+# PostToolUse hook: bump patch version when engine.js, mono-test.js, or CONTEXT.md is edited
 
 INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
@@ -8,6 +8,7 @@ FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
 case "$FILE" in
   */runtime/engine.js) REPO=$(echo "$FILE" | sed 's|/runtime/engine.js||') ;;
   */editor/templates/mono/mono-test.js) REPO=$(echo "$FILE" | sed 's|/editor/templates/mono/mono-test.js||') ;;
+  */editor/templates/mono/CONTEXT.md) REPO=$(echo "$FILE" | sed 's|/editor/templates/mono/CONTEXT.md||') ;;
   *) exit 0 ;;
 esac
 EDITOR="$REPO/editor/index.html"
