@@ -5,3 +5,4 @@ local.properties
 app/src/main/assets/cart
 .cache
 *.hprof
+.DS_Store
