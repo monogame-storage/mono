@@ -56,7 +56,7 @@ jobs:
       - name: Run all demos headlessly (mono-test)
         run: |
           fail=0
-          for d in demos/*/; do
+          for d in demo/*/; do
             entry=""
             for cand in main.lua game.lua; do
               if [ -f "$d$cand" ]; then entry="$d$cand"; break; fi

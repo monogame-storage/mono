@@ -5,8 +5,8 @@ Mono is a constraint-driven fantasy game console (160x144, 16 grayscale colors, 
 
 ## Key Files
 - `runtime/engine.js` — Single-file game engine (Wasmoon + canvas + ECS + audio)
-- `demos/engine-test/game.lua` — Engine test suite (8 modes: shooter, camera, sprites, input, sound, tilemap, RPG, brawler)
-- `demos/pacman/game.lua` — Pac-Man Lua port
+- `demo/engine-test/game.lua` — Engine test suite (8 modes: shooter, camera, sprites, input, sound, tilemap, RPG, brawler)
+- `demo/pacman/game.lua` — Pac-Man Lua port
 - `docs/DEV.md` — Developer guide (API reference)
 - `docs/AI-PITFALLS.md` — Common AI mistakes when generating Mono code
 
