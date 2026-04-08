@@ -11,9 +11,13 @@ import android.webkit.WebViewClient
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -25,6 +29,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        AdConfig.initialize(this)
+        BillingConfig.initialize(this)
         enableImmersiveMode()
         setContent {
             MonoGameScreen()
@@ -42,54 +48,65 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MonoGameScreen() {
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { context ->
-            val assetLoader = WebViewAssetLoader.Builder()
-                .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
-                .build()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        AndroidView(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            factory = { context ->
+                val assetLoader = WebViewAssetLoader.Builder()
+                    .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+                    .build()
 
-            WebView(context).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                WebView.setWebContentsDebuggingEnabled(true)
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.allowFileAccess = true
-                settings.mediaPlaybackRequiresUserGesture = false
-                settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
-                setBackgroundColor(android.graphics.Color.BLACK)
+                WebView(context).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    WebView.setWebContentsDebuggingEnabled(true)
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.allowFileAccess = true
+                    settings.mediaPlaybackRequiresUserGesture = false
+                    settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+                    setBackgroundColor(android.graphics.Color.BLACK)
 
-                webChromeClient = object : WebChromeClient() {
-                    override fun onConsoleMessage(msg: ConsoleMessage?): Boolean {
-                        msg?.let {
-                            Log.d("MonoWebView", "${it.messageLevel()}: ${it.message()} [${it.sourceId()}:${it.lineNumber()}]")
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onConsoleMessage(msg: ConsoleMessage?): Boolean {
+                            msg?.let {
+                                Log.d("MonoWebView", "${it.messageLevel()}: ${it.message()} [${it.sourceId()}:${it.lineNumber()}]")
+                            }
+                            return true
                         }
-                        return true
                     }
-                }
 
-                webViewClient = object : WebViewClient() {
-                    override fun shouldInterceptRequest(
-                        view: WebView,
-                        request: WebResourceRequest
-                    ): WebResourceResponse? {
-                        val response = assetLoader.shouldInterceptRequest(request.url)
-                        if (response != null && request.url.path?.endsWith(".wasm") == true) {
-                            return WebResourceResponse(
-                                "application/wasm",
-                                response.encoding,
-                                response.data
-                            )
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldInterceptRequest(
+                            view: WebView,
+                            request: WebResourceRequest
+                        ): WebResourceResponse? {
+                            val response = assetLoader.shouldInterceptRequest(request.url)
+                            if (response != null && request.url.path?.endsWith(".wasm") == true) {
+                                return WebResourceResponse(
+                                    "application/wasm",
+                                    response.encoding,
+                                    response.data
+                                )
+                            }
+                            return response
                         }
-                        return response
                     }
-                }
 
-                loadUrl("https://appassets.androidplatform.net/assets/cart/index.html")
+                    loadUrl("https://appassets.androidplatform.net/assets/cart/index.html")
+                }
             }
-        }
-    )
+        )
+
+        RemoveAdsButton()
+        BannerAdSlot()
+    }
 }
