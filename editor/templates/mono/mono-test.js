@@ -16,6 +16,9 @@
  *   --vrow Y         Print specific row Y (0-143)
  *   --suite          Test suite mode: parse PASS/FAIL output, exit code
  *   --input "F:K"    Inject input at frame F key K (e.g., "3:a,5:up")
+ *   --touch "F:A:X,Y" Inject touch events inline or from file
+ *                     Inline: "5:start:80,60;7:end:80,60"
+ *                     File:   touch-events.txt (one event per line, # comments)
  *   --snapshot FILE  Save vdump to file
  *   --diff FILE      Compare vdump against expected file
  *   --quiet          Suppress frame-by-frame logs
@@ -44,6 +47,7 @@ Options:
   --vrow Y         Print specific row(s), comma-separated
   --suite          Test suite mode (parse PASS/FAIL)
   --input "F:K"    Inject input (e.g., "3:a,5:up")
+  --touch "F:A:X,Y" Inject touch inline or from file
   --snapshot FILE  Save vdump to file
   --diff FILE      Compare vdump against expected file
   --quiet          Suppress frame logs
@@ -93,6 +97,7 @@ const regionArg = getOpt("region", null);
 const untilText = getOpt("until", null);
 const totalRuns = parseInt(getOpt("runs", "1")) || 1;
 const seedArg = getOpt("seed", null);
+const touchArg = getOpt("touch", null);
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
@@ -439,6 +444,80 @@ function applyInput(frame) {
   }
 }
 
+// --- Touch simulation ---
+const touches = [];              // [{ id, x, y, fx, fy }]
+let touchStartedFlag = false;
+let touchEndedFlag = false;
+let touchStarted = false;
+let touchEnded = false;
+const touchSchedule = {};        // { frame: [{ id, action, x, y }] }
+
+if (touchArg) {
+  // Support both inline and file-based touch input
+  let touchRaw = touchArg;
+  if (fs.existsSync(touchArg)) {
+    touchRaw = fs.readFileSync(touchArg, "utf8");
+  }
+  // Split by semicolons or newlines
+  for (const part of touchRaw.split(/[;\n]/)) {
+    const trimmed = part.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const segs = trimmed.split(":");
+    let frame, id, action, coords;
+    if (segs.length === 3) {
+      frame = parseInt(segs[0]);
+      id = 1;
+      action = segs[1].trim();
+      coords = segs[2].trim();
+    } else if (segs.length === 4) {
+      frame = parseInt(segs[0]);
+      id = parseInt(segs[1]);
+      action = segs[2].trim();
+      coords = segs[3].trim();
+    } else {
+      console.error(`Invalid touch format: "${trimmed}"`);
+      process.exit(1);
+    }
+    if (action !== "start" && action !== "move" && action !== "end") {
+      console.error(`Invalid touch action "${action}" (expected start/move/end): "${trimmed}"`);
+      process.exit(1);
+    }
+    const [cx, cy] = coords.split(",").map(s => parseFloat(s.trim()));
+    if (!touchSchedule[frame]) touchSchedule[frame] = [];
+    touchSchedule[frame].push({ id, action, x: cx, y: cy });
+  }
+}
+
+function applyTouch(frame) {
+  if (!touchSchedule[frame]) return;
+  for (const evt of touchSchedule[frame]) {
+    const fx = evt.x;
+    const fy = evt.y;
+    const x = Math.floor(fx);
+    const y = Math.floor(fy);
+    if (evt.action === "start") {
+      const existIdx = touches.findIndex(t => t.id === evt.id);
+      if (existIdx !== -1) touches.splice(existIdx, 1);
+      touches.push({ id: evt.id, x, y, fx, fy });
+      touchStartedFlag = true;
+    } else if (evt.action === "move") {
+      const idx = touches.findIndex(t => t.id === evt.id);
+      if (idx !== -1) touches[idx] = { id: evt.id, x, y, fx, fy };
+    } else if (evt.action === "end") {
+      const idx = touches.findIndex(t => t.id === evt.id);
+      if (idx !== -1) touches.splice(idx, 1);
+      touchEndedFlag = true;
+    }
+  }
+}
+
+function touchUpdate() {
+  touchStarted = touchStartedFlag;
+  touchEnded = touchEndedFlag;
+  touchStartedFlag = false;
+  touchEndedFlag = false;
+}
+
 // --- Main execution ---
 async function main() {
   // Resolve lua source
@@ -598,15 +677,15 @@ async function main() {
     return (keys[k] && !keysPrev[k]) ? 1 : 0;
   });
 
-  // Touch stubs (no touch/mouse in headless mode)
-  lua.global.set("_touch", () => 0);
-  lua.global.set("_touch_start", () => 0);
-  lua.global.set("_touch_end", () => 0);
-  lua.global.set("touch_count", () => 0);
-  lua.global.set("_touch_pos_x", () => false);
-  lua.global.set("_touch_pos_y", () => false);
-  lua.global.set("_touch_posf_x", () => false);
-  lua.global.set("_touch_posf_y", () => false);
+  // Touch simulation (matches engine.js semantics)
+  lua.global.set("_touch", () => touches.length > 0 || touchStartedFlag ? 1 : 0);
+  lua.global.set("_touch_start", () => touchStarted || touchStartedFlag ? 1 : 0);
+  lua.global.set("_touch_end", () => touchEnded || touchEndedFlag ? 1 : 0);
+  lua.global.set("touch_count", () => touches.length);
+  lua.global.set("_touch_pos_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.x : false; });
+  lua.global.set("_touch_pos_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.y : false; });
+  lua.global.set("_touch_posf_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fx : false; });
+  lua.global.set("_touch_posf_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; });
   lua.global.set("swipe", () => false);
 
   // loadImage — Node.js version using PNG decoder
@@ -821,6 +900,7 @@ end
 
   for (let f = 1; f <= frameCount; f++) {
     applyInput(f);
+    applyTouch(f);
 
     // Bot: call _bot() after draw, inject result as input for next frame
     if (botFn && f > 1) {
@@ -863,6 +943,7 @@ end
     }
     frameNum = f;
     inputUpdate();
+    touchUpdate();
     if (untilTriggered) {
       untilFrame = f;
       if (!quiet) console.log(`--until matched at frame ${f}: "${untilMatch}"`);
