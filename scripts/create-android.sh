@@ -29,6 +29,7 @@ PROJECT_NAME=""
 ORG=""
 ICON=""
 REPLACE_ENGINE=false
+KEEP_ANDROID=false
 DRY_RUN=false
 
 while [[ $# -gt 0 ]]; do
@@ -37,6 +38,7 @@ while [[ $# -gt 0 ]]; do
     --org)                 ORG="$2"; shift 2 ;;
     --icon)                ICON="$2"; shift 2 ;;
     --replace-engine) REPLACE_ENGINE=true; shift ;;
+    --keep-android)   KEEP_ANDROID=true; shift ;;
     --dry-run)             DRY_RUN=true; shift ;;
     -*)                    echo "Unknown option: $1"; exit 1 ;;
     *)
@@ -57,6 +59,7 @@ if [ -z "$TARGET_DIR" ]; then
   echo "  --org com.example       Organization package (default: com.mono)"
   echo "  --icon icon.png         App icon (PNG, 512x512 recommended)"
   echo "  --replace-engine        Replace cart/.mono/ with latest engine"
+  echo "  --keep-android          Keep app/ as-is (only update non-app template files)"
   echo "  --dry-run               Show what would be done without making changes"
   exit 1
 fi
@@ -130,6 +133,15 @@ if [ "$MODE" = "update" ]; then
     name="$(basename "$item")"
     case "$name" in
       .gitignore|README.md|cart) ;; # preserve user data
+      app|settings.gradle.kts)
+        if $KEEP_ANDROID; then
+          log "KEEP $name (--keep-android)"
+        else
+          run rm -rf "$TARGET_DIR/$name"
+          run cp -R "$item" "$TARGET_DIR/$name"
+          log "COPY $name"
+        fi
+        ;;
       *)
         if [ -d "$item" ]; then
           run rm -rf "$TARGET_DIR/$name"
