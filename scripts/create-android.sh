@@ -80,6 +80,10 @@ generate_icons() {
     echo "  Warning: ImageMagick not found, skipping icon generation"
     return
   fi
+  if $DRY_RUN; then
+    log "[dry-run] Would generate icons from $(basename "$src")"
+    return
+  fi
   magick "$src" -resize 48x48   "$dst/mipmap-mdpi/ic_launcher.png"
   magick "$src" -resize 72x72   "$dst/mipmap-hdpi/ic_launcher.png"
   magick "$src" -resize 96x96   "$dst/mipmap-xhdpi/ic_launcher.png"
@@ -125,7 +129,7 @@ if [ "$MODE" = "update" ]; then
   for item in "$TEMPLATE_DIR"/*; do
     name="$(basename "$item")"
     case "$name" in
-      .gitignore|README.md) ;; # only create if missing (below)
+      .gitignore|README.md|cart) ;; # preserve user data
       *)
         if [ -d "$item" ]; then
           run rm -rf "$TARGET_DIR/$name"
