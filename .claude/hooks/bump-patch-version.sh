@@ -1,16 +1,15 @@
 #!/bin/bash
-# PostToolUse hook: bump patch version when runtime/engine.js is edited
+# PostToolUse hook: bump patch version when engine.js or mono-test.js is edited
 
 INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
 
-# Only trigger for engine.js edits
+# Only trigger for engine.js or mono-test.js edits
 case "$FILE" in
-  */runtime/engine.js) ;;
+  */runtime/engine.js) REPO=$(echo "$FILE" | sed 's|/runtime/engine.js||') ;;
+  */editor/templates/mono/mono-test.js) REPO=$(echo "$FILE" | sed 's|/editor/templates/mono/mono-test.js||') ;;
   *) exit 0 ;;
 esac
-
-REPO=$(echo "$FILE" | sed 's|/runtime/engine.js||')
 EDITOR="$REPO/editor/index.html"
 
 if [ ! -f "$EDITOR" ]; then
