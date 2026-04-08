@@ -1,0 +1,238 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "frame",
+      "id": "C3Z6Z",
+      "x": -11,
+      "y": -725,
+      "name": "App Icon",
+      "clip": true,
+      "width": 512,
+      "height": 512,
+      "fill": "#111111",
+      "cornerRadius": 80,
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "zt94W",
+          "x": 41.5,
+          "y": 41,
+          "name": "Screen",
+          "width": 429,
+          "height": 411,
+          "fill": "#222222",
+          "cornerRadius": 24,
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Q2xNk",
+              "x": 14,
+              "y": 15,
+              "name": "Screen Inner",
+              "width": 401,
+              "height": 381,
+              "fill": "#2f2f2fff",
+              "cornerRadius": 16,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "63y8n",
+                  "x": 60.5,
+                  "y": 92,
+                  "name": "M Dots",
+                  "width": 279,
+                  "height": 197,
+                  "fill": "#00000000",
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "G1PYN",
+                      "x": 0,
+                      "y": 0,
+                      "name": "a0",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "GVjs3",
+                      "x": 246,
+                      "y": 0,
+                      "name": "a1",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "rPldE",
+                      "x": 0,
+                      "y": 41,
+                      "name": "b0",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "DA3Iu",
+                      "x": 41,
+                      "y": 41,
+                      "name": "b1",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dyqKb",
+                      "x": 205,
+                      "y": 41,
+                      "name": "b2",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "IVyzv",
+                      "x": 246,
+                      "y": 41,
+                      "name": "b3",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "YpUkU",
+                      "x": 0,
+                      "y": 82,
+                      "name": "c0",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "skQi6",
+                      "x": 82,
+                      "y": 82,
+                      "name": "c1",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dZCnX",
+                      "x": 164,
+                      "y": 82,
+                      "name": "c2",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "P1Inn",
+                      "x": 246,
+                      "y": 82,
+                      "name": "c3",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "g8asv",
+                      "x": 0,
+                      "y": 123,
+                      "name": "d0",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZnIdm",
+                      "x": 123,
+                      "y": 123,
+                      "name": "d1",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "jii9z",
+                      "x": 246,
+                      "y": 123,
+                      "name": "d2",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "cJoM7",
+                      "x": 0,
+                      "y": 164,
+                      "name": "e0",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ISQuO",
+                      "x": 246,
+                      "y": 164,
+                      "name": "e1",
+                      "width": 33,
+                      "height": 33,
+                      "fill": "#e4e4e4ff",
+                      "cornerRadius": 3
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RAbT4",
+              "x": 23,
+              "y": 23,
+              "name": "Reflection",
+              "opacity": 0.08,
+              "width": 60,
+              "height": 20,
+              "fill": "#ffffff",
+              "cornerRadius": 10
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -58,6 +58,7 @@ fun MonoGameScreen() {
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = true
                 settings.mediaPlaybackRequiresUserGesture = false
+                settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
                 setBackgroundColor(android.graphics.Color.BLACK)
 
                 webChromeClient = object : WebChromeClient() {

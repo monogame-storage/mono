@@ -90,6 +90,22 @@ val syncCart = tasks.register("syncCart") {
             .copyTo(file("${engineDir}/console-gamepad.js"), overwrite = true)
         logger.lifecycle("syncCart: console-gamepad.js copied")
 
+        // Shader files (from cart/.mono/)
+        val shaderFiles = listOf(
+            "shader.js",
+            "shaders/tint.js", "shaders/lcd.js", "shaders/lcd3d.js",
+            "shaders/crt.js", "shaders/scanlines.js", "shaders/invert_lcd.js"
+        )
+        for (sf in shaderFiles) {
+            val src = file("${cartDir}/.mono/$sf")
+            if (src.exists()) {
+                val dst = file("${engineDir}/$sf")
+                dst.parentFile.mkdirs()
+                src.copyTo(dst, overwrite = true)
+            }
+        }
+        logger.lifecycle("syncCart: shader files copied")
+
         // Download wasmoon (cached)
         val cache = file("${rootProject.projectDir}/.cache/wasmoon").apply { mkdirs() }
         fun cached(name: String, url: String): File {

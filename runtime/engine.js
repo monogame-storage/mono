@@ -53,8 +53,9 @@ var Mono = (() => {
     ch = Math.floor(ch);
     if (ch < 0 || ch > 1) return;
     dur = dur || 0.1;
-    const freq = NOTE_FREQ[String(noteStr).toUpperCase()];
-    if (!freq) return;
+    const key = String(noteStr).toUpperCase();
+    const freq = NOTE_FREQ[key];
+    if (!freq) throw new Error("note: invalid note '" + noteStr + "'. Use note name strings like 'C4', 'F#5' (not MIDI numbers)");
     const ctx = ensureAudio();
     // Stop previous note on this channel
     if (channels[ch]) { try { channels[ch].osc.stop(); } catch(e) {} }
