@@ -133,7 +133,7 @@ if [ "$MODE" = "update" ]; then
     name="$(basename "$item")"
     case "$name" in
       .gitignore|README.md|cart) ;; # preserve user data
-      app)
+      app|settings.gradle.kts)
         if $KEEP_ANDROID; then
           log "KEEP $name (--keep-android)"
         else

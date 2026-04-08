@@ -53,6 +53,8 @@ fun MonoGameScreen() {
             .fillMaxSize()
             .background(Color.Black)
     ) {
+        // Column + weight(1f) is needed so BannerAdSlot/RemoveAdsButton can sit below WebView.
+        // When ad slots are no-op (empty composables), WebView still fills the screen.
         AndroidView(
             modifier = Modifier
                 .fillMaxWidth()
@@ -67,6 +69,7 @@ fun MonoGameScreen() {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
+                    // Intentionally enabled in release — needed for diagnosing WebView issues in production
                     WebView.setWebContentsDebuggingEnabled(true)
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true

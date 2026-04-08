@@ -1,5 +1,6 @@
 #!/bin/bash
 # Replace app icon from a single PNG source (generates adaptive icon)
+# macOS only (uses sed -i '' and ImageMagick)
 # Usage: ./update-icon.sh <icon.png> [--bg COLOR]
 #
 # Examples:
