@@ -206,6 +206,35 @@ Unused APIs:
 - **커버리지 검증**: 새 데모가 엔진 API를 충분히 테스트하는지 확인
 - **LLM 호출 패턴**: AI가 생성한 코드가 실제로 어떤 API를 쓰는지 분석
 
+## Gameplay Trace (`--trace`)
+
+각 프레임의 상태(VRAM 해시, 활성 입력, 새로 출력된 로그)를 JSONL 형식으로 저장한다. AI가 게임 플레이를 분석하거나 버그 리포트를 자동화하는 데 활용.
+
+```bash
+node mono-test.js game.lua --frames 100 --input "5:right,20:a" --trace session.jsonl
+```
+
+### JSONL 포맷
+
+```json
+{"frame":1,"hash":"1b2ae874","keys":[],"logs":[]}
+{"frame":2,"hash":"65a4c22a","keys":["right"],"logs":[]}
+{"frame":3,"hash":"442a724a","keys":[],"logs":["[Lua] score=10"]}
+```
+
+각 줄 = 한 프레임:
+- `frame`: 프레임 번호
+- `hash`: VRAM FNV-1a 32-bit 해시
+- `keys`: 해당 프레임에 활성화된 키 배열
+- `logs`: 해당 프레임에서 새로 출력된 Lua print 문
+
+### 활용
+
+- **AI 플레이 분석**: LLM에게 trace를 전달 → "왜 프레임 50에서 게임이 멈췄는지 분석해줘"
+- **자동 버그 리포트**: 버그 발생 시 trace 파일을 함께 제출
+- **회귀 테스트**: 해시 시퀀스가 예상과 다르면 엔진이 바뀐 지점을 프레임 단위로 특정 가능
+- **AI Self-Play**: `_bot()` 시스템과 결합해 AI가 스스로 플레이하고 결과를 분석
+
 ## 향후 확장
 
 - `.mono/CONTEXT.md`에 mono-test 사용법 자동 포함

@@ -25,6 +25,7 @@
  *   --record FILE    Record input sequence to file during run
  *   --determinism N  Run N times with same seed, verify identical VRAM
  *   --coverage       Report which engine APIs were called (and how often)
+ *   --trace FILE     Write per-frame gameplay trace (JSONL) for AI analysis
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
  *   --ascii          Print ASCII art of screen (downscaled)
@@ -58,6 +59,7 @@ Options:
   --record FILE    Record input sequence to file during run
   --determinism N  Run N times with same seed, verify identical VRAM
   --coverage       Report which engine APIs were called
+  --trace FILE     Write per-frame gameplay trace (JSONL)
   --quiet          Suppress frame logs
   --console        Print Lua print() output
   --ascii          Print ASCII art (downscaled 4:1)
@@ -110,6 +112,7 @@ const replayFile = getOpt("replay", null);
 const recordFile = getOpt("record", null);
 const determinismRuns = parseInt(getOpt("determinism", "0")) || 0;
 const coverageMode = hasFlag("coverage");
+const traceFile = getOpt("trace", null);
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
@@ -712,6 +715,10 @@ async function main() {
   let frameNum = 0;
   lua.global.set("frame", () => frameNum);
 
+  // Trace state (for --trace)
+  const traceEvents = [];
+  let traceLogCount = 0;
+
   // Scene system
   let currentScene = null;
   let scenePending = null;
@@ -1050,6 +1057,20 @@ end
     }
     frameNum = f;
     recordInput(f);
+
+    // Trace: capture per-frame state for AI analysis
+    if (traceFile) {
+      const activeKeys = Object.keys(keys).filter(k => keys[k]);
+      const newLogs = luaOutput.slice(traceLogCount);
+      traceLogCount = luaOutput.length;
+      traceEvents.push({
+        frame: f,
+        hash: vramHash(),
+        keys: activeKeys,
+        logs: newLogs,
+      });
+    }
+
     inputUpdate();
     touchUpdate();
     if (untilTriggered) {
@@ -1316,6 +1337,14 @@ end
     const recordPath = path.resolve(recordFile);
     saveRecording(recordPath, frameNum);
     console.log(`Recording saved: ${recordPath} (${recordedFrames.length} frames with input)`);
+  }
+
+  // Save trace file if --trace was specified
+  if (traceFile) {
+    const tracePath = path.resolve(traceFile);
+    const lines = traceEvents.map(e => JSON.stringify(e));
+    fs.writeFileSync(tracePath, lines.join("\n") + "\n");
+    console.log(`Trace saved: ${tracePath} (${traceEvents.length} frames)`);
   }
 
   // API coverage report
