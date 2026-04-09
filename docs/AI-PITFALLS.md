@@ -256,4 +256,22 @@ local dir = math.random(0, 2)
 
 ---
 
+## 14. Single-touch only, ignoring multi-touch
+**Symptom:** Game only responds to one finger; simultaneous taps or multi-finger drags don't work
+**Cause:** AI reads only `touch_pos(1)` and ignores `touch_count()`
+**Fix:** Always iterate all active touches
+```lua
+-- BAD: only first finger
+local tx, ty = touch_pos(1)
+
+-- GOOD: handle all touches
+for i = 1, touch_count() do
+  local tx, ty = touch_pos(i)
+  -- handle each touch independently
+end
+```
+Track per-touch state (e.g. drags) by touch index. Compare previous vs current touch sets to detect new/ended touches per-finger.
+
+---
+
 *Add new entries as bugs are discovered. Format: Symptom → Cause → Fix with code examples.*
