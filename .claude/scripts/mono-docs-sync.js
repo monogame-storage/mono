@@ -79,6 +79,16 @@ function extractDocAPIs() {
   const names = new Set();
   let inCodeBlock = false;
   let codeLang = "";
+
+  // Also scan the whole doc (not just code blocks) for backtick-quoted
+  // constant-style identifiers: `SCREEN_W`, `COLORS`, `ALIGN_CENTER`, etc.
+  // This lets docs document uppercase constants in prose or tables.
+  const constRe = /`([A-Z][A-Z0-9_]*)`/g;
+  let constMatch;
+  while ((constMatch = constRe.exec(src)) !== null) {
+    names.add(constMatch[1]);
+  }
+
   for (const line of lines) {
     const fence = line.match(/^```(\w*)/);
     if (fence) {
@@ -107,6 +117,12 @@ function extractDocAPIs() {
       // Filter out common stdlib identifiers
       if (["math", "string", "table", "io", "os", "require", "print", "pairs", "ipairs", "tostring", "tonumber", "type", "unpack", "select"].includes(name)) continue;
       names.add(name);
+    }
+    // Also catch uppercase constants referenced inside code blocks
+    const uppercaseRe = /(?:^|[^.\w])([A-Z][A-Z0-9_]+)\b/g;
+    let u;
+    while ((u = uppercaseRe.exec(line)) !== null) {
+      names.add(u[1]);
     }
   }
   return names;

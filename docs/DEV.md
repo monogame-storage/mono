@@ -366,6 +366,11 @@ local id = loadImage("bg.png")     -- load image, returns integer ID
 spr(surface, id, x, y)             -- draw full image at (x, y), camera-affected
 sspr(surface, id, sx, sy, sw, sh, dx, dy)  -- draw sub-region of image
 
+-- drawImage / drawImageRegion are aliases for spr / sspr kept for
+-- code readability when working with non-sprite images.
+drawImage(surface, id, x, y)       -- same as spr()
+drawImageRegion(surface, id, sx, sy, sw, sh, dx, dy)  -- same as sspr()
+
 imageWidth(id)                      -- returns image width in pixels
 imageHeight(id)                     -- returns image height in pixels
 ```
@@ -612,12 +617,7 @@ Press number keys during gameplay to toggle overlays:
 print(...)    -- logs to browser console with "[Lua]" prefix
 ```
 
-### Video Debug
-
-```lua
-vrow(y)       -- returns hex string of one scanline's color values
-vdump()       -- returns hex string of entire screen (used by mono-test.js)
-```
+`print` is Lua's built-in routed to the console for dev convenience — it is not a Mono API.
 
 ---
 
