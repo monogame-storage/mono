@@ -173,6 +173,39 @@ time-based APIs, uninitialized state.
 - `os.time()`, `os.clock()` 같은 시간 기반 API
 - 전역 상태 초기화 누락
 
+## API Coverage (`--coverage`)
+
+실행 중 어떤 엔진 API가 호출되었는지 추적하여 사용/미사용 API를 리포트한다. 데드 API 제거 후보를 찾는 데 유용.
+
+```bash
+node mono-test.js game.lua --frames 30 --coverage --quiet
+```
+
+### 출력 예시
+
+```
+=== API COVERAGE ===
+Total APIs:  52
+Used:        14 (26.9%)
+Unused:      38
+
+Used APIs (by call count):
+  pix     480 calls
+  text     91 calls
+  rect     60 calls
+  cls      31 calls
+  ...
+
+Unused APIs:
+  gpix, note, tone, noise, wave, sfx_stop, cam_shake, ...
+```
+
+### 활용
+
+- **데드 API 감지**: 아무 데모도 사용 안 하는 API는 제거 후보 (ALPHA 단계에서 적극 권장)
+- **커버리지 검증**: 새 데모가 엔진 API를 충분히 테스트하는지 확인
+- **LLM 호출 패턴**: AI가 생성한 코드가 실제로 어떤 API를 쓰는지 분석
+
 ## 향후 확장
 
 - `.mono/CONTEXT.md`에 mono-test 사용법 자동 포함

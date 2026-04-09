@@ -24,6 +24,7 @@
  *   --replay FILE    Load input sequence from file and replay
  *   --record FILE    Record input sequence to file during run
  *   --determinism N  Run N times with same seed, verify identical VRAM
+ *   --coverage       Report which engine APIs were called (and how often)
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
  *   --ascii          Print ASCII art of screen (downscaled)
@@ -56,6 +57,7 @@ Options:
   --replay FILE    Load input sequence from file and replay
   --record FILE    Record input sequence to file during run
   --determinism N  Run N times with same seed, verify identical VRAM
+  --coverage       Report which engine APIs were called
   --quiet          Suppress frame logs
   --console        Print Lua print() output
   --ascii          Print ASCII art (downscaled 4:1)
@@ -107,6 +109,7 @@ const touchArg = getOpt("touch", null);
 const replayFile = getOpt("replay", null);
 const recordFile = getOpt("record", null);
 const determinismRuns = parseInt(getOpt("determinism", "0")) || 0;
+const coverageMode = hasFlag("coverage");
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
@@ -626,6 +629,23 @@ async function main() {
   const { LuaFactory } = require("wasmoon");
   const factory = new LuaFactory();
   const lua = await factory.createEngine();
+
+  // API coverage: wrap lua.global.set to count function calls
+  const apiCounts = {};
+  if (coverageMode) {
+    const origSet = lua.global.set.bind(lua.global);
+    lua.global.set = function(name, value) {
+      if (typeof value === "function") {
+        apiCounts[name] = 0;
+        const wrapped = function(...args) {
+          apiCounts[name]++;
+          return value.apply(this, args);
+        };
+        return origSet(name, wrapped);
+      }
+      return origSet(name, value);
+    };
+  }
 
   // Collect console output
   const luaOutput = [];
@@ -1296,6 +1316,32 @@ end
     const recordPath = path.resolve(recordFile);
     saveRecording(recordPath, frameNum);
     console.log(`Recording saved: ${recordPath} (${recordedFrames.length} frames with input)`);
+  }
+
+  // API coverage report
+  if (coverageMode) {
+    const entries = Object.entries(apiCounts).sort((a, b) => b[1] - a[1]);
+    const used = entries.filter(([_, c]) => c > 0);
+    const unused = entries.filter(([_, c]) => c === 0);
+    console.log("\n=== API COVERAGE ===");
+    console.log(`Total APIs:  ${entries.length}`);
+    console.log(`Used:        ${used.length} (${((used.length / entries.length) * 100).toFixed(1)}%)`);
+    console.log(`Unused:      ${unused.length}`);
+    if (used.length > 0) {
+      console.log("\nUsed APIs (by call count):");
+      const nameWidth = Math.max(...used.map(([n]) => n.length));
+      for (const [name, count] of used) {
+        console.log(`  ${name.padEnd(nameWidth)}  ${count.toString().padStart(8)} calls`);
+      }
+    }
+    if (unused.length > 0) {
+      console.log("\nUnused APIs:");
+      const unusedNames = unused.map(([n]) => n);
+      const perLine = 6;
+      for (let i = 0; i < unusedNames.length; i += perLine) {
+        console.log("  " + unusedNames.slice(i, i + perLine).join(", "));
+      }
+    }
   }
 
   // Summary
