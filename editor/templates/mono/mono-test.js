@@ -26,6 +26,8 @@
  *   --determinism N  Run N times with same seed, verify identical VRAM
  *   --coverage       Report which engine APIs were called (and how often)
  *   --trace FILE     Write per-frame gameplay trace (JSONL) for AI analysis
+ *   --golden FILE    Record/check hash snapshots at key frames (regression)
+ *   --golden-update  Update the golden file with current hashes
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
  *   --ascii          Print ASCII art of screen (downscaled)
@@ -60,6 +62,8 @@ Options:
   --determinism N  Run N times with same seed, verify identical VRAM
   --coverage       Report which engine APIs were called
   --trace FILE     Write per-frame gameplay trace (JSONL)
+  --golden FILE    Record/check hash snapshots at key frames
+  --golden-update  Update golden file with current hashes
   --quiet          Suppress frame logs
   --console        Print Lua print() output
   --ascii          Print ASCII art (downscaled 4:1)
@@ -113,6 +117,8 @@ const recordFile = getOpt("record", null);
 const determinismRuns = parseInt(getOpt("determinism", "0")) || 0;
 const coverageMode = hasFlag("coverage");
 const traceFile = getOpt("trace", null);
+const goldenFile = getOpt("golden", null);
+const goldenUpdate = hasFlag("golden-update");
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
@@ -377,6 +383,27 @@ function vramHash() {
     hash = Math.imul(hash, 0x01000193);
   }
   return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+// --- Golden snapshots ---
+// File format (one per line):
+//   # mono golden snapshots
+//   # seed=42 colors=1
+//   30 1b2ae874
+//   60 65a4c22a
+//   120 04718784
+const goldenTargets = {};  // { frame: expectedHash }
+const goldenCaptured = {}; // { frame: actualHash } — filled during run
+if (goldenFile && !goldenUpdate && fs.existsSync(goldenFile)) {
+  const lines = fs.readFileSync(goldenFile, "utf8").split("\n");
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const parts = line.split(/\s+/);
+    const frame = parseInt(parts[0]);
+    const hash = parts[1];
+    if (!isNaN(frame) && hash) goldenTargets[frame] = hash;
+  }
 }
 
 // Image quantization (no DOM needed)
@@ -1071,6 +1098,18 @@ end
       });
     }
 
+    // Golden snapshot capture: record hash at target frames
+    if (goldenFile) {
+      if (goldenUpdate) {
+        // Record every 30 frames by default (1 sec intervals at 30fps)
+        if (f % 30 === 0 || f === frameCount) {
+          goldenCaptured[f] = vramHash();
+        }
+      } else if (goldenTargets[f] !== undefined) {
+        goldenCaptured[f] = vramHash();
+      }
+    }
+
     inputUpdate();
     touchUpdate();
     if (untilTriggered) {
@@ -1337,6 +1376,52 @@ end
     const recordPath = path.resolve(recordFile);
     saveRecording(recordPath, frameNum);
     console.log(`Recording saved: ${recordPath} (${recordedFrames.length} frames with input)`);
+  }
+
+  // Golden snapshot check / update
+  if (goldenFile) {
+    if (goldenUpdate) {
+      // Write current captures to the golden file
+      const lines = [];
+      lines.push("# mono golden snapshots");
+      const seed = runSeed !== null ? runSeed : (seedArg !== null ? parseInt(seedArg) : 0);
+      lines.push(`# seed=${seed} colors=${colorBits}`);
+      const frames = Object.keys(goldenCaptured).map(Number).sort((a, b) => a - b);
+      for (const fr of frames) {
+        lines.push(`${fr} ${goldenCaptured[fr]}`);
+      }
+      fs.writeFileSync(path.resolve(goldenFile), lines.join("\n") + "\n");
+      console.log(`Golden snapshots saved: ${goldenFile} (${frames.length} snapshots)`);
+    } else {
+      // Compare captures to targets
+      const targetFrames = Object.keys(goldenTargets).map(Number).sort((a, b) => a - b);
+      let pass = 0, fail = 0;
+      const failures = [];
+      for (const fr of targetFrames) {
+        const expected = goldenTargets[fr];
+        const actual = goldenCaptured[fr];
+        if (actual === undefined) {
+          fail++;
+          failures.push(`frame ${fr}: expected ${expected}, but frame not reached`);
+        } else if (actual === expected) {
+          pass++;
+        } else {
+          fail++;
+          failures.push(`frame ${fr}: expected ${expected}, got ${actual}`);
+        }
+      }
+      console.log(`\n=== GOLDEN SNAPSHOTS ===`);
+      console.log(`Targets: ${targetFrames.length}`);
+      console.log(`Passed:  ${pass}`);
+      console.log(`Failed:  ${fail}`);
+      if (failures.length > 0) {
+        console.log(`\nFailures:`);
+        for (const f of failures) console.log(`  ${f}`);
+        hasError = true;
+      } else if (pass > 0) {
+        console.log(`GOLDEN: PASS ✓`);
+      }
+    }
   }
 
   // Save trace file if --trace was specified

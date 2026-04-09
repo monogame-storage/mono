@@ -235,6 +235,55 @@ node mono-test.js game.lua --frames 100 --input "5:right,20:a" --trace session.j
 - **회귀 테스트**: 해시 시퀀스가 예상과 다르면 엔진이 바뀐 지점을 프레임 단위로 특정 가능
 - **AI Self-Play**: `_bot()` 시스템과 결합해 AI가 스스로 플레이하고 결과를 분석
 
+## Golden Snapshot Regression (`--golden`)
+
+데모 게임의 특정 프레임에서의 VRAM 해시를 "정상 상태"로 기록해 두고, 엔진 변경 후에도 동일한 해시가 나오는지 자동 검증한다.
+
+### 기록
+
+```bash
+node mono-test.js game.lua --frames 120 --golden game.golden --golden-update --seed 42
+# → 30, 60, 90, 120 프레임마다 해시를 기록
+```
+
+### 검증
+
+```bash
+node mono-test.js game.lua --frames 120 --golden game.golden --seed 42
+# → 기록된 해시와 비교
+```
+
+### Golden 파일 포맷
+
+```
+# mono golden snapshots
+# seed=42 colors=1
+30 313b8c88
+60 6337619a
+90 5773643e
+120 af0d75fb
+```
+
+### 출력 예시 (실패)
+
+```
+=== GOLDEN SNAPSHOTS ===
+Targets: 4
+Passed:  1
+Failed:  3
+
+Failures:
+  frame 30: expected deadbeef, got 313b8c88
+  frame 60: expected cafef00d, got 6337619a
+  frame 90: expected 12345678, got 5773643e
+```
+
+### 활용
+
+- **엔진 회귀 테스트**: 엔진 수정 후 모든 데모의 golden을 돌려 영향받은 데모를 즉시 파악
+- **CI 통합**: PR 빌드 시 자동 실행 → 의도치 않은 렌더링 변경 차단
+- **버그 재현 고정**: 버그 발생 프레임의 해시를 golden으로 저장 → 수정 후 다른 해시가 나오면 고쳐진 것
+
 ## 향후 확장
 
 - `.mono/CONTEXT.md`에 mono-test 사용법 자동 포함
