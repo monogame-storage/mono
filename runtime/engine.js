@@ -861,9 +861,9 @@ var Mono = (() => {
     lua.global.set("_touch_posf_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fx : false; });
     lua.global.set("_touch_posf_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; });
     lua.global.set("swipe", () => swipeDir || false);
-    lua.global.set("vrow", vrow);
-    lua.global.set("vdump", vdump);
     lua.global.set("frame", () => frame);
+    // print is intentionally routed to console.log for debugging. It is NOT
+    // part of the public Mono API — it's Lua's built-in, kept for dev convenience.
     lua.global.set("print", (...args) => console.log("[Lua]", ...args));
 
     // mode(bits) — set color depth (1=2 colors, 2=4 colors, 4=16 colors)

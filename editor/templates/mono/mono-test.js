@@ -747,8 +747,6 @@ async function main() {
   lua.global.set("blit", blitFn);
   lua.global.set("imageWidth", (id) => { const img = images[id]; return img ? img.w : 0; });
   lua.global.set("imageHeight", (id) => { const img = images[id]; return img ? img.h : 0; });
-  lua.global.set("vrow", vrow);
-  lua.global.set("vdump", vdump);
 
   // frame counter
   let frameNum = 0;
@@ -1500,8 +1498,12 @@ end
       _touch_posf_x: "touch_posf",
       _touch_posf_y: null,
     };
+    // APIs that are not really Mono APIs — routed to stdio for dev convenience
+    // or Lua built-ins that happen to be overridden. Exclude from coverage totals.
+    const API_EXCLUDE = new Set(["print"]);
     const merged = {};
     for (const [name, count] of Object.entries(apiCounts)) {
+      if (API_EXCLUDE.has(name)) continue;
       if (name in API_RENAME) {
         const pub = API_RENAME[name];
         if (pub === null) continue;  // skip; counted via its partner
