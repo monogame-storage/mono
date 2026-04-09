@@ -1,5 +1,24 @@
 # Mono — Claude Code Project Instructions
 
+## Project Stage: ALPHA (Engine Development)
+
+Current focus: engine development + first-party game for Play Store release.
+
+### Stage Rules
+- NO backward compatibility — break anything freely
+- NO deprecation warnings or migration guides
+- NO defensive coding for external consumers
+- API changes are expected and encouraged
+- Optimize for speed of iteration, not stability
+
+### Stage Roadmap
+```
+ALPHA   (now)  Engine development     — no external users, break freely
+BETA           Online editor          — API stabilization begins
+GAMMA          Publishing system      — backward compatibility starts
+PUBLIC         User pages & community — stability required
+```
+
 ## Project
 Mono is a constraint-driven fantasy game console (160x144, 16 grayscale colors, 16x16 sprites, Lua 5.4 via Wasmoon).
 
