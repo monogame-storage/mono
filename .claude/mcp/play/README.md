@@ -17,24 +17,15 @@ Sessions live only for the lifetime of the MCP server process. A fresh Claude Co
 
 ## Installation in Claude Code
 
-```json
-{
-  "mcpServers": {
-    "mono-play": {
-      "command": "node",
-      "args": ["/absolute/path/to/mono/.claude/mcp/play/server.js"]
-    }
-  }
-}
-```
+This server is registered at the project level via `.mcp.json` at the repo root. When you open this repo in Claude Code, it prompts once to approve the project MCP servers, then the tools are available for every session.
 
-Or:
+Tools appear as `mcp__mono-play__play_start`, `mcp__mono-play__play_step`, etc.
+
+If you want to register it manually at the user level instead (e.g., to use from outside this repo):
 
 ```bash
 claude mcp add mono-play node /absolute/path/to/mono/.claude/mcp/play/server.js
 ```
-
-Tools appear as `mcp__mono-play__play_start`, `mcp__mono-play__play_step`, etc.
 
 ## Example flow (manual JSON-RPC)
 

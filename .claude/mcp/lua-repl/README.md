@@ -11,26 +11,15 @@ Snippets that don't define `_draw()` are auto-wrapped: the code becomes the body
 
 ## Installation in Claude Code
 
-Add to your Claude Code settings under `mcpServers`:
+This server is registered at the project level via `.mcp.json` at the repo root. When you open this repo in Claude Code, it prompts once to approve the project MCP servers, then the tools are available for every session.
 
-```json
-{
-  "mcpServers": {
-    "mono-lua-repl": {
-      "command": "node",
-      "args": ["/absolute/path/to/mono/.claude/mcp/lua-repl/server.js"]
-    }
-  }
-}
-```
+Tools appear as `mcp__mono-lua-repl__lua_eval` and `mcp__mono-lua-repl__lua_check`.
 
-Or via `claude mcp add`:
+If you want to register it manually at the user level instead (e.g., to use from outside this repo), run:
 
 ```bash
 claude mcp add mono-lua-repl node /absolute/path/to/mono/.claude/mcp/lua-repl/server.js
 ```
-
-Restart Claude Code. The tools appear as `mcp__mono-lua-repl__lua_eval` and `mcp__mono-lua-repl__lua_check`.
 
 ## Manual test
 
