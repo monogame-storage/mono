@@ -177,33 +177,45 @@ time-based APIs, uninitialized state.
 
 실행 중 어떤 엔진 API가 호출되었는지 추적하여 사용/미사용 API를 리포트한다. 데드 API 제거 후보를 찾는 데 유용.
 
+### 단일 게임
+
 ```bash
 node mono-test.js game.lua --frames 30 --coverage --quiet
 ```
 
-### 출력 예시
+**주의**: 단일 게임 커버리지는 해당 게임이 사용하는 API만 보여준다. 엔진 전체의 API 사용 현황을 보려면 **`--scan`과 함께 사용**해 여러 게임의 커버리지를 합산해야 한다.
+
+### 여러 게임 합산 (권장)
+
+```bash
+node mono-test.js --scan ./demo --frames 30 --coverage --quiet
+```
+
+### 출력 예시 (aggregated)
 
 ```
-=== API COVERAGE ===
-Total APIs:  52
-Used:        14 (26.9%)
-Unused:      38
+=== AGGREGATED COVERAGE (2 games) ===
+Public APIs: 41
+Used:        13 (31.7%)
+Unused:      28
 
-Used APIs (by call count):
-  pix     480 calls
-  text     91 calls
-  rect     60 calls
-  cls      31 calls
+Used APIs (by total call count):
+  rectf    751 calls   [engine-test, shader-test]
+  pix      480 calls   [engine-test]
+  text     121 calls   [engine-test, shader-test]
   ...
 
-Unused APIs:
+Unused APIs (dead code candidates):
   gpix, note, tone, noise, wave, sfx_stop, cam_shake, ...
 ```
 
+- 각 API 옆 `[게임1, 게임2]`는 어느 게임이 사용했는지 표시
+- 내부 API (`_` 접두사, 예: `_btn`, `_cam_get_x`)는 Lua 글루 코드용이라 자동 필터링
+
 ### 활용
 
-- **데드 API 감지**: 아무 데모도 사용 안 하는 API는 제거 후보 (ALPHA 단계에서 적극 권장)
-- **커버리지 검증**: 새 데모가 엔진 API를 충분히 테스트하는지 확인
+- **데드 API 감지**: 어떤 데모도 사용하지 않는 API는 제거 후보 (ALPHA 단계에서 적극 권장)
+- **카테고리 커버리지 확인**: 오디오(note/tone/noise), 터치, 스프라이트 등이 미사용이면 **해당 카테고리를 테스트하는 데모가 없다는 신호**
 - **LLM 호출 패턴**: AI가 생성한 코드가 실제로 어떤 API를 쓰는지 분석
 
 ## Gameplay Trace (`--trace`)

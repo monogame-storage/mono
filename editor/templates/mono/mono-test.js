@@ -121,7 +121,10 @@ const touchArg = getOpt("touch", null);
 const replayFile = getOpt("replay", null);
 const recordFile = getOpt("record", null);
 const determinismRuns = parseInt(getOpt("determinism", "0")) || 0;
-const coverageMode = hasFlag("coverage");
+// --coverage-json is an internal flag used by --scan --coverage to collect
+// machine-readable coverage output from each child process.
+const coverageAggregate = hasFlag("coverage-json");
+const coverageMode = hasFlag("coverage") || coverageAggregate;
 const traceFile = getOpt("trace", null);
 const goldenFile = getOpt("golden", null);
 const goldenUpdate = hasFlag("golden-update");
@@ -1480,26 +1483,36 @@ end
 
   // API coverage report
   if (coverageMode) {
-    const entries = Object.entries(apiCounts).sort((a, b) => b[1] - a[1]);
-    const used = entries.filter(([_, c]) => c > 0);
-    const unused = entries.filter(([_, c]) => c === 0);
-    console.log("\n=== API COVERAGE ===");
-    console.log(`Total APIs:  ${entries.length}`);
-    console.log(`Used:        ${used.length} (${((used.length / entries.length) * 100).toFixed(1)}%)`);
-    console.log(`Unused:      ${unused.length}`);
-    if (used.length > 0) {
-      console.log("\nUsed APIs (by call count):");
-      const nameWidth = Math.max(...used.map(([n]) => n.length));
-      for (const [name, count] of used) {
-        console.log(`  ${name.padEnd(nameWidth)}  ${count.toString().padStart(8)} calls`);
+    // Filter out internal APIs (prefixed with _) — these are Lua wrapper helpers,
+    // not real public APIs. They're consumed by Lua glue code, not user games.
+    const publicEntries = Object.entries(apiCounts)
+      .filter(([name]) => !name.startsWith("_"))
+      .sort((a, b) => b[1] - a[1]);
+    const used = publicEntries.filter(([_, c]) => c > 0);
+    const unused = publicEntries.filter(([_, c]) => c === 0);
+
+    if (coverageAggregate) {
+      // Emit machine-readable coverage for aggregation (used by --scan --coverage)
+      console.log("__COVERAGE_JSON__" + JSON.stringify(Object.fromEntries(publicEntries)));
+    } else {
+      console.log("\n=== API COVERAGE ===");
+      console.log(`Public APIs: ${publicEntries.length}  (internal _prefixed hidden)`);
+      console.log(`Used:        ${used.length} (${((used.length / publicEntries.length) * 100).toFixed(1)}%)`);
+      console.log(`Unused:      ${unused.length}`);
+      if (used.length > 0) {
+        console.log("\nUsed APIs (by call count):");
+        const nameWidth = Math.max(...used.map(([n]) => n.length));
+        for (const [name, count] of used) {
+          console.log(`  ${name.padEnd(nameWidth)}  ${count.toString().padStart(8)} calls`);
+        }
       }
-    }
-    if (unused.length > 0) {
-      console.log("\nUnused APIs:");
-      const unusedNames = unused.map(([n]) => n);
-      const perLine = 6;
-      for (let i = 0; i < unusedNames.length; i += perLine) {
-        console.log("  " + unusedNames.slice(i, i + perLine).join(", "));
+      if (unused.length > 0) {
+        console.log("\nUnused APIs:");
+        const unusedNames = unused.map(([n]) => n);
+        const perLine = 6;
+        for (let i = 0; i < unusedNames.length; i += perLine) {
+          console.log("  " + unusedNames.slice(i, i + perLine).join(", "));
+        }
       }
     }
   }
@@ -1609,19 +1622,23 @@ if (totalRuns > 1) {
     const thisScript = process.argv[1];
     const frames = frameCount > 0 ? frameCount : 30;
     const results = [];
+    const aggregatedCoverage = {};  // apiName → total count across all games
+    const perGameCoverage = {};     // relPath → { apiName: count }
 
     for (const gamePath of games) {
       const gameDir = path.dirname(gamePath);
       const relPath = path.relative(rootDir, gamePath);
       const start = Date.now();
-      const child = spawnSync("node", [
+      const childArgs = [
         thisScript,
         "game.lua",
         "--frames", String(frames),
         "--colors", String(colorBits),
         "--quiet",
         "--snapshot", "/dev/null",
-      ], {
+      ];
+      if (coverageMode) childArgs.push("--coverage-json");
+      const child = spawnSync("node", childArgs, {
         cwd: gameDir,
         encoding: "utf8",
       });
@@ -1631,11 +1648,58 @@ if (totalRuns > 1) {
       const output = (child.stdout || "") + (child.stderr || "");
       const errorLine = ok ? "" : (output.split("\n").find(l => l.includes("error")) || "").trim().substring(0, 80);
 
+      // Parse coverage JSON from child output
+      if (coverageMode) {
+        const covLine = output.split("\n").find(l => l.startsWith("__COVERAGE_JSON__"));
+        if (covLine) {
+          try {
+            const gameCov = JSON.parse(covLine.substring("__COVERAGE_JSON__".length));
+            perGameCoverage[relPath] = gameCov;
+            for (const [name, count] of Object.entries(gameCov)) {
+              aggregatedCoverage[name] = (aggregatedCoverage[name] || 0) + count;
+            }
+          } catch (e) { /* ignore parse errors */ }
+        }
+      }
+
       results.push({ path: relPath, ok, elapsed, errorLine });
       const status = ok ? "✓ PASS" : "✗ FAIL";
       console.log(`  ${status}  ${relPath.padEnd(40)} ${elapsed.toString().padStart(5)}ms`);
       if (!ok && errorLine) {
         console.log(`         ${errorLine}`);
+      }
+    }
+
+    // Aggregated coverage report (when --coverage is used with --scan)
+    if (coverageMode && Object.keys(aggregatedCoverage).length > 0) {
+      const entries = Object.entries(aggregatedCoverage).sort((a, b) => b[1] - a[1]);
+      const used = entries.filter(([_, c]) => c > 0);
+      const unused = entries.filter(([_, c]) => c === 0);
+      console.log(`\n=== AGGREGATED COVERAGE (${games.length} games) ===`);
+      console.log(`Public APIs: ${entries.length}`);
+      console.log(`Used:        ${used.length} (${((used.length / entries.length) * 100).toFixed(1)}%)`);
+      console.log(`Unused:      ${unused.length}`);
+      if (used.length > 0) {
+        console.log("\nUsed APIs (by total call count):");
+        const nameWidth = Math.max(...used.map(([n]) => n.length));
+        for (const [name, count] of used) {
+          // Show which games use this API
+          const userGames = Object.keys(perGameCoverage)
+            .filter(g => perGameCoverage[g][name] > 0)
+            .map(g => path.basename(path.dirname(g)));
+          const gameList = userGames.length <= 3
+            ? userGames.join(", ")
+            : `${userGames.slice(0, 3).join(", ")}, +${userGames.length - 3}`;
+          console.log(`  ${name.padEnd(nameWidth)}  ${count.toString().padStart(8)} calls   [${gameList}]`);
+        }
+      }
+      if (unused.length > 0) {
+        console.log(`\nUnused APIs (dead code candidates):`);
+        const names = unused.map(([n]) => n);
+        const perLine = 6;
+        for (let i = 0; i < names.length; i += perLine) {
+          console.log("  " + names.slice(i, i + perLine).join(", "));
+        }
       }
     }
 
