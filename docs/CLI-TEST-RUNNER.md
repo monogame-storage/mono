@@ -129,6 +129,50 @@ DIFF: MISMATCH ✗
 - 엔진 변경이 어디에 영향을 줬는지 눈으로 바로 파악 가능
 - AI가 실패 원인을 이해하기 쉬움 (텍스트 비교만으로는 불가능)
 
+## Determinism Verification (`--determinism`)
+
+같은 seed로 N번 실행하여 모든 실행의 VRAM이 동일한지 (FNV-1a 해시 비교) 검증한다. Lockstep 멀티플레이어의 전제 조건인 결정론적 실행을 보장하기 위함.
+
+```bash
+node mono-test.js game.lua --frames 120 --determinism 5 --seed 42
+```
+
+### 출력 예시 (통과)
+
+```
+=== DETERMINISM CHECK ===
+Runs:   5
+Seed:   42
+Frames: 120
+Unique VRAM hashes: 1
+DETERMINISM: PASS ✓  (all runs produced hash af0d75fb)
+```
+
+### 출력 예시 (실패)
+
+```
+=== DETERMINISM CHECK ===
+Runs:   5
+Seed:   42
+Frames: 120
+Unique VRAM hashes: 3
+DETERMINISM: FAIL ✗  (3 distinct hashes)
+  af0d75fb: 2 runs
+  1c3a8e9b: 2 runs
+  7f2d9c01: 1 runs
+
+Lockstep multiplayer requires deterministic execution.
+Common causes: unseeded math.random(), table iteration order,
+time-based APIs, uninitialized state.
+```
+
+### 비결정론의 흔한 원인
+
+- `math.random()` 시드 미설정
+- Lua 테이블 순회 순서 (insertion order 보장 안 됨)
+- `os.time()`, `os.clock()` 같은 시간 기반 API
+- 전역 상태 초기화 누락
+
 ## 향후 확장
 
 - `.mono/CONTEXT.md`에 mono-test 사용법 자동 포함

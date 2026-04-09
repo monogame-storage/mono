@@ -23,6 +23,7 @@
  *   --diff FILE      Compare vdump against expected file
  *   --replay FILE    Load input sequence from file and replay
  *   --record FILE    Record input sequence to file during run
+ *   --determinism N  Run N times with same seed, verify identical VRAM
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
  *   --ascii          Print ASCII art of screen (downscaled)
@@ -54,6 +55,7 @@ Options:
   --diff FILE      Compare vdump against expected file
   --replay FILE    Load input sequence from file and replay
   --record FILE    Record input sequence to file during run
+  --determinism N  Run N times with same seed, verify identical VRAM
   --quiet          Suppress frame logs
   --console        Print Lua print() output
   --ascii          Print ASCII art (downscaled 4:1)
@@ -104,6 +106,7 @@ const seedArg = getOpt("seed", null);
 const touchArg = getOpt("touch", null);
 const replayFile = getOpt("replay", null);
 const recordFile = getOpt("record", null);
+const determinismRuns = parseInt(getOpt("determinism", "0")) || 0;
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
@@ -357,6 +360,17 @@ function vdump() {
   const rows = [];
   for (let y = 0; y < H; y++) rows.push(vrow(y));
   return rows.join("\n");
+}
+
+// FNV-1a 32-bit hash of current VRAM — for determinism checks
+function vramHash() {
+  const buf = surfaces[0].colorBuf;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < buf.length; i++) {
+    hash ^= buf[i];
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 // Image quantization (no DOM needed)
@@ -1289,10 +1303,12 @@ end
     console.log(`\n${hasError ? "FAILED" : "OK"} (${frameCount} frames, ${luaOutput.length} log lines)`);
   }
 
+  const finalHash = vramHash();
+
   lua.global.close();
 
   // Return result for multi-run mode
-  return { hasError, untilTriggered, untilFrame, untilMatch, luaOutput };
+  return { hasError, untilTriggered, untilFrame, untilMatch, luaOutput, vramHash: finalHash };
 }
 
 // --- Multi-run mode ---
@@ -1346,6 +1362,56 @@ if (totalRuns > 1) {
     }
 
     process.exit(results.some(r => r.hasError) ? 1 : 0);
+  })().catch(e => { console.error("Fatal:", e); process.exit(1); });
+} else if (determinismRuns > 1) {
+  // --- Determinism verification mode ---
+  // Run the same game N times with the same seed; all VRAM hashes must match.
+  (async () => {
+    const fixedSeed = seedArg !== null ? parseInt(seedArg) : 42;
+    runSeed = fixedSeed;
+    const hashes = [];
+    let anyError = false;
+
+    for (let r = 1; r <= determinismRuns; r++) {
+      // Full state reset
+      palette = buildPalette(colorBits);
+      const cb = new Uint8Array(W * H);
+      const b32 = new Uint32Array(W * H);
+      surfaces = [{ w: W, h: H, buf32: b32, colorBuf: cb }];
+      camX = 0; camY = 0;
+      images = []; imageIdCounter = 0;
+      for (const k in keys) keys[k] = false;
+      for (const k in keysPrev) keysPrev[k] = false;
+      runSeed = fixedSeed;
+
+      const result = await main();
+      if (result.hasError) anyError = true;
+      hashes.push(result.vramHash);
+      if (!quiet) console.log(`  Run ${r}: hash=${result.vramHash}`);
+    }
+
+    const unique = [...new Set(hashes)];
+    console.log(`\n=== DETERMINISM CHECK ===`);
+    console.log(`Runs:   ${determinismRuns}`);
+    console.log(`Seed:   ${fixedSeed}`);
+    console.log(`Frames: ${frameCount}`);
+    console.log(`Unique VRAM hashes: ${unique.length}`);
+
+    if (unique.length === 1) {
+      console.log(`DETERMINISM: PASS ✓  (all runs produced hash ${unique[0]})`);
+      process.exit(anyError ? 1 : 0);
+    } else {
+      console.log(`DETERMINISM: FAIL ✗  (${unique.length} distinct hashes)`);
+      const counts = {};
+      for (const h of hashes) counts[h] = (counts[h] || 0) + 1;
+      for (const [h, c] of Object.entries(counts)) {
+        console.log(`  ${h}: ${c} runs`);
+      }
+      console.log(`\nLockstep multiplayer requires deterministic execution.`);
+      console.log(`Common causes: unseeded math.random(), table iteration order,`);
+      console.log(`time-based APIs, uninitialized state.`);
+      process.exit(1);
+    }
   })().catch(e => { console.error("Fatal:", e); process.exit(1); });
 } else {
   main().then(r => process.exit(r.hasError ? 1 : 0)).catch(e => {
