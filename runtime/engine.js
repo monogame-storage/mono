@@ -581,6 +581,7 @@ var Mono = (() => {
   const API = {};
   let _loopId = null;
   let _lua = null;
+  let _tickFn = null;
 
   API.boot = async (canvasId, opts) => {
     if (!opts || (!opts.game && !opts.source)) return;
@@ -1030,11 +1031,22 @@ end
       inputUpdate();
       _loopId = setTimeout(tick, FRAME_MS);
     }
+    _tickFn = tick;
     _loopId = setTimeout(tick, FRAME_MS);
+  };
+
+  API.suspend = () => {
+    if (_loopId) { clearTimeout(_loopId); _loopId = null; }
+    sfxStop();
+  };
+
+  API.resume = () => {
+    if (!_loopId && _tickFn && _lua) { _loopId = setTimeout(_tickFn, FRAME_MS); }
   };
 
   API.stop = () => {
     if (_loopId) { clearTimeout(_loopId); _loopId = null; }
+    _tickFn = null;
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;
     frame = 0;

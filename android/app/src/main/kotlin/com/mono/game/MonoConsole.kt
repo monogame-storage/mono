@@ -26,8 +26,14 @@ fun MonoConsole(modifier: Modifier = Modifier) {
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_PAUSE -> webViewRef[0]?.onPause()
-                Lifecycle.Event.ON_RESUME -> webViewRef[0]?.onResume()
+                Lifecycle.Event.ON_PAUSE -> webViewRef[0]?.let {
+                    it.evaluateJavascript("if(window.Mono&&Mono.suspend)Mono.suspend()", null)
+                    it.onPause()
+                }
+                Lifecycle.Event.ON_RESUME -> webViewRef[0]?.let {
+                    it.onResume()
+                    it.evaluateJavascript("if(window.Mono&&Mono.resume)Mono.resume()", null)
+                }
                 else -> {}
             }
         }
