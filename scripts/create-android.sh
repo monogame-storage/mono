@@ -35,7 +35,7 @@ DRY_RUN=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project-name)        PROJECT_NAME="$2"; shift 2 ;;
-    --package)                 PACKAGE="$2"; shift 2 ;;
+    --package)             PACKAGE="$2"; shift 2 ;;
     --icon)                ICON="$2"; shift 2 ;;
     --replace-engine) REPLACE_ENGINE=true; shift ;;
     --keep-android)   KEEP_ANDROID=true; shift ;;

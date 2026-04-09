@@ -20,17 +20,17 @@ import androidx.webkit.WebViewAssetLoader
 
 @Composable
 fun MonoConsole(modifier: Modifier = Modifier) {
-    val webViewRef = remember { arrayOfNulls<WebView>(1) }
+    val webViewRef = remember { object { var value: WebView? = null } }
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_PAUSE -> webViewRef[0]?.let {
+                Lifecycle.Event.ON_PAUSE -> webViewRef.value?.let {
                     it.evaluateJavascript("if(window.Mono&&Mono.suspend)Mono.suspend()", null)
                     it.onPause()
                 }
-                Lifecycle.Event.ON_RESUME -> webViewRef[0]?.let {
+                Lifecycle.Event.ON_RESUME -> webViewRef.value?.let {
                     it.onResume()
                     it.evaluateJavascript("if(window.Mono&&Mono.resume)Mono.resume()", null)
                 }
@@ -88,7 +88,7 @@ fun MonoConsole(modifier: Modifier = Modifier) {
                 }
 
                 loadUrl("https://appassets.androidplatform.net/assets/cart/index.html")
-            }.also { webViewRef[0] = it }
+            }.also { webViewRef.value = it }
         }
     )
 }

@@ -1041,7 +1041,7 @@ end
   };
 
   API.resume = () => {
-    if (!_loopId && _tickFn && _lua) { _loopId = setTimeout(_tickFn, FRAME_MS); }
+    if (!_loopId && _tickFn && _lua) { _tickFn(); }
   };
 
   API.stop = () => {
