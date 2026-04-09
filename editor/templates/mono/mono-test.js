@@ -1138,9 +1138,28 @@ end
       console.log("DIFF: MATCH ✓");
     } else {
       console.log("DIFF: MISMATCH ✗");
-      // Find first differing row
+
+      // Parse expected vdump text back into a VRAM buffer
       const expRows = expected.split("\n");
       const actRows = actual.split("\n");
+      const expBuf = new Uint8Array(W * H);
+      for (let y = 0; y < Math.min(expRows.length, H); y++) {
+        const row = expRows[y];
+        for (let x = 0; x < Math.min(row.length, W); x++) {
+          expBuf[y * W + x] = parseInt(row[x], 16) || 0;
+        }
+      }
+      const actBuf = surfaces[0].colorBuf;
+
+      // Count differing pixels
+      let diffCount = 0;
+      for (let i = 0; i < W * H; i++) {
+        if (expBuf[i] !== actBuf[i]) diffCount++;
+      }
+      const diffPct = ((diffCount / (W * H)) * 100).toFixed(2);
+      console.log(`  ${diffCount} pixels differ (${diffPct}%)`);
+
+      // Find first differing row (for compact text output)
       for (let i = 0; i < Math.max(expRows.length, actRows.length); i++) {
         if (expRows[i] !== actRows[i]) {
           console.log(`  First diff at row ${i}:`);
@@ -1149,6 +1168,67 @@ end
           break;
         }
       }
+
+      // Render ASCII diff side-by-side and difference map
+      const scale = 4;
+      const maxColor = palette.length - 1;
+      const chars16 = " .:-=+*#%@";
+      const outH = Math.ceil(H / scale);
+      const outW = Math.ceil(W / scale);
+
+      function asciiFromBuf(buf) {
+        const lines = [];
+        for (let sy = 0; sy < outH; sy++) {
+          let row = "";
+          for (let sx = 0; sx < outW; sx++) {
+            let sum = 0, count = 0;
+            for (let dy = 0; dy < scale && (sy * scale + dy) < H; dy++) {
+              for (let dx = 0; dx < scale && (sx * scale + dx) < W; dx++) {
+                sum += buf[(sy * scale + dy) * W + (sx * scale + dx)];
+                count++;
+              }
+            }
+            const avg = sum / count;
+            const charIdx = Math.round((avg / maxColor) * (chars16.length - 1));
+            const ch = chars16[Math.min(charIdx, chars16.length - 1)];
+            row += ch;
+          }
+          lines.push(row);
+        }
+        return lines;
+      }
+
+      function diffMap() {
+        const lines = [];
+        for (let sy = 0; sy < outH; sy++) {
+          let row = "";
+          for (let sx = 0; sx < outW; sx++) {
+            let differs = false;
+            for (let dy = 0; dy < scale && (sy * scale + dy) < H && !differs; dy++) {
+              for (let dx = 0; dx < scale && (sx * scale + dx) < W && !differs; dx++) {
+                const idx = (sy * scale + dy) * W + (sx * scale + dx);
+                if (expBuf[idx] !== actBuf[idx]) differs = true;
+              }
+            }
+            row += differs ? "X" : ".";
+          }
+          lines.push(row);
+        }
+        return lines;
+      }
+
+      const expAscii = asciiFromBuf(expBuf);
+      const actAscii = asciiFromBuf(actBuf);
+      const diffAscii = diffMap();
+      const labelExp = "expected".padEnd(outW);
+      const labelAct = "actual".padEnd(outW);
+      const labelDiff = "diff".padEnd(outW);
+      console.log(`\n  ${labelExp}  ${labelAct}  ${labelDiff}`);
+      console.log(`  ${"-".repeat(outW)}  ${"-".repeat(outW)}  ${"-".repeat(outW)}`);
+      for (let i = 0; i < outH; i++) {
+        console.log(`  ${expAscii[i]}  ${actAscii[i]}  ${diffAscii[i]}`);
+      }
+
       hasError = true;
     }
   }

@@ -97,8 +97,38 @@ node mono-test.js game.lua --frames 100 --replay session.replay --snapshot actua
 - **AI 루프**: AI가 생성한 코드가 기존 replay를 통과하는지 자동 검증
 - **데모 녹화**: 특정 게임 플레이 흐름을 기록해 두고 데모로 활용
 
+## Visual Diff (`--diff`)
+
+`--snapshot`으로 저장한 vdump 파일과 현재 실행 결과를 비교한다. 불일치 시 차이나는 픽셀 개수와 퍼센티지를 표시하고, 4:1 다운스케일 ASCII 아트로 expected / actual / diff map을 side-by-side로 출력한다.
+
+```bash
+# 1. 기대 출력 저장
+node mono-test.js game.lua --frames 30 --snapshot expected.txt
+
+# 2. 엔진 수정 후 동일 상태 검증
+node mono-test.js game.lua --frames 30 --diff expected.txt
+```
+
+### 출력 예시 (불일치)
+
+```
+DIFF: MISMATCH ✗
+  1511 pixels differ (6.56%)
+  First diff at row 2:
+  expected: 30ffff0f00f00fff...
+  actual:   30ffff0f00f00fff...
+
+  expected              actual              diff
+  --------              --------            ----
+  :-:--:-: --::-        :-:--:-: --::-      .........X.XXXXXX
+  ---+:-+. :-:::        ---+:-+. :-:::      .........XXXXXXXX
+  ...                   ...                  ...
+```
+
+- **diff map**: `X` = 해당 블록 내 최소 1픽셀 차이, `.` = 완전 일치
+- 엔진 변경이 어디에 영향을 줬는지 눈으로 바로 파악 가능
+- AI가 실패 원인을 이해하기 쉬움 (텍스트 비교만으로는 불가능)
+
 ## 향후 확장
 
-- `--snapshot frame5.txt` 로 특정 프레임 vdump 저장/비교
-- `--diff expected.txt` 로 기대 출력과 비교 (regression test)
 - `.mono/CONTEXT.md`에 mono-test 사용법 자동 포함
