@@ -284,6 +284,45 @@ Failures:
 - **CI 통합**: PR 빌드 시 자동 실행 → 의도치 않은 렌더링 변경 차단
 - **버그 재현 고정**: 버그 발생 프레임의 해시를 golden으로 저장 → 수정 후 다른 해시가 나오면 고쳐진 것
 
+## Performance Benchmark (`--bench`)
+
+각 프레임의 update+draw 실행 시간과 메모리 사용량을 측정하여 성능 리그레션을 감지한다.
+
+```bash
+node mono-test.js game.lua --frames 300 --bench --quiet
+```
+
+### 출력 예시
+
+```
+=== BENCHMARK ===
+Frames: 300
+min:    0.035ms
+avg:    0.086ms
+p50:    0.056ms
+p95:    0.192ms
+p99:    0.395ms
+max:    2.409ms
+budget: 33.333ms (30 FPS)
+over:   0 frames (0.0%)
+
+Heap:   6.86MB used / 10.70MB total
+RSS:    63.53MB
+```
+
+### 메트릭
+
+- **min/avg/p50/p95/p99/max**: 프레임 시간 분포 (낮을수록 좋음)
+- **budget**: 30 FPS 목표(33.33ms) 대비 초과 프레임 수
+- **Heap**: Node.js V8 힙 사용량
+- **RSS**: 프로세스 전체 메모리
+
+### 활용
+
+- **엔진 변경 전후 비교**: 렌더링 최적화가 실제로 효과 있는지 수치로 확인
+- **CI 성능 게이트**: p99 > 33ms면 빌드 실패 처리
+- **프로파일링**: avg가 올라가면 어떤 프레임에서 튀는지 `--trace`와 함께 디버깅
+
 ## 향후 확장
 
 - `.mono/CONTEXT.md`에 mono-test 사용법 자동 포함

@@ -28,6 +28,7 @@
  *   --trace FILE     Write per-frame gameplay trace (JSONL) for AI analysis
  *   --golden FILE    Record/check hash snapshots at key frames (regression)
  *   --golden-update  Update the golden file with current hashes
+ *   --bench          Measure per-frame time (avg/p50/p95/p99/max) + heap
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
  *   --ascii          Print ASCII art of screen (downscaled)
@@ -64,6 +65,7 @@ Options:
   --trace FILE     Write per-frame gameplay trace (JSONL)
   --golden FILE    Record/check hash snapshots at key frames
   --golden-update  Update golden file with current hashes
+  --bench          Measure per-frame time + heap usage
   --quiet          Suppress frame logs
   --console        Print Lua print() output
   --ascii          Print ASCII art (downscaled 4:1)
@@ -119,6 +121,7 @@ const coverageMode = hasFlag("coverage");
 const traceFile = getOpt("trace", null);
 const goldenFile = getOpt("golden", null);
 const goldenUpdate = hasFlag("golden-update");
+const benchMode = hasFlag("bench");
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
@@ -746,6 +749,9 @@ async function main() {
   const traceEvents = [];
   let traceLogCount = 0;
 
+  // Benchmark state (for --bench)
+  const frameTimesNs = [];
+
   // Scene system
   let currentScene = null;
   let scenePending = null;
@@ -1072,6 +1078,7 @@ end
     }
 
     const basename = currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) : null;
+    const frameStart = benchMode ? process.hrtime.bigint() : 0n;
     const uf = sceneObj ? sceneObj.update : lua.global.get(basename ? basename + "_update" : "_update");
     if (uf) {
       try { uf(); }
@@ -1081,6 +1088,10 @@ end
     if (df) {
       try { df(); }
       catch (e) { console.error(`${currentScene || ""} draw error (frame ${f}):`, e.message || e); hasError = true; break; }
+    }
+    if (benchMode) {
+      const elapsedNs = Number(process.hrtime.bigint() - frameStart);
+      frameTimesNs.push(elapsedNs);
     }
     frameNum = f;
     recordInput(f);
@@ -1430,6 +1441,35 @@ end
     const lines = traceEvents.map(e => JSON.stringify(e));
     fs.writeFileSync(tracePath, lines.join("\n") + "\n");
     console.log(`Trace saved: ${tracePath} (${traceEvents.length} frames)`);
+  }
+
+  // Benchmark report
+  if (benchMode && frameTimesNs.length > 0) {
+    const sorted = [...frameTimesNs].sort((a, b) => a - b);
+    const n = sorted.length;
+    const avg = sorted.reduce((s, v) => s + v, 0) / n;
+    const p50 = sorted[Math.floor(n * 0.50)];
+    const p95 = sorted[Math.floor(n * 0.95)];
+    const p99 = sorted[Math.floor(n * 0.99)];
+    const max = sorted[n - 1];
+    const min = sorted[0];
+    const fmt = (ns) => (ns / 1e6).toFixed(3) + "ms";
+    const mem = process.memoryUsage();
+    const mb = (b) => (b / 1024 / 1024).toFixed(2) + "MB";
+    console.log("\n=== BENCHMARK ===");
+    console.log(`Frames: ${n}`);
+    console.log(`min:    ${fmt(min)}`);
+    console.log(`avg:    ${fmt(avg)}`);
+    console.log(`p50:    ${fmt(p50)}`);
+    console.log(`p95:    ${fmt(p95)}`);
+    console.log(`p99:    ${fmt(p99)}`);
+    console.log(`max:    ${fmt(max)}`);
+    const budget = 33.333;  // 30 FPS = 33.33ms/frame
+    const overBudget = sorted.filter(ns => ns / 1e6 > budget).length;
+    console.log(`budget: 33.333ms (30 FPS)`);
+    console.log(`over:   ${overBudget} frames (${((overBudget / n) * 100).toFixed(1)}%)`);
+    console.log(`\nHeap:   ${mb(mem.heapUsed)} used / ${mb(mem.heapTotal)} total`);
+    console.log(`RSS:    ${mb(mem.rss)}`);
   }
 
   // API coverage report
