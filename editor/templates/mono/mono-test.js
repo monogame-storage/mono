@@ -30,6 +30,7 @@
  *   --golden-update  Update the golden file with current hashes
  *   --bench          Measure per-frame time (avg/p50/p95/p99/max) + heap
  *   --fuzz N         Run N times with random inputs, report crash rate
+ *   --scan DIR       Run every game.lua found in DIR/**, report pass/fail
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
  *   --ascii          Print ASCII art of screen (downscaled)
@@ -68,6 +69,7 @@ Options:
   --golden-update  Update golden file with current hashes
   --bench          Measure per-frame time + heap usage
   --fuzz N         Run N times with random inputs, report crash rate
+  --scan DIR       Run every game.lua in DIR/** and report pass/fail
   --quiet          Suppress frame logs
   --console        Print Lua print() output
   --ascii          Print ASCII art (downscaled 4:1)
@@ -125,6 +127,7 @@ const goldenFile = getOpt("golden", null);
 const goldenUpdate = hasFlag("golden-update");
 const benchMode = hasFlag("bench");
 const fuzzRuns = parseInt(getOpt("fuzz", "0")) || 0;
+const scanDir = getOpt("scan", null);
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
@@ -1566,6 +1569,91 @@ if (totalRuns > 1) {
 
     process.exit(results.some(r => r.hasError) ? 1 : 0);
   })().catch(e => { console.error("Fatal:", e); process.exit(1); });
+} else if (scanDir) {
+  // --- Scan mode ---
+  // Recursively find all game.lua files under scanDir and run each one
+  // as a subprocess. Report pass/fail + final VRAM hash per game.
+  (() => {
+    const { spawnSync } = require("child_process");
+    const rootDir = path.resolve(scanDir);
+    if (!fs.existsSync(rootDir)) {
+      console.error(`Scan directory not found: ${rootDir}`);
+      process.exit(1);
+    }
+
+    // Recursively collect all game.lua files
+    function findGames(dir) {
+      const found = [];
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const e of entries) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          found.push(...findGames(full));
+        } else if (e.isFile() && e.name === "game.lua") {
+          found.push(full);
+        }
+      }
+      return found;
+    }
+
+    const games = findGames(rootDir);
+    if (games.length === 0) {
+      console.log(`No game.lua files found under ${rootDir}`);
+      process.exit(0);
+    }
+
+    console.log(`=== SCAN ${rootDir} ===`);
+    console.log(`Found ${games.length} game(s)`);
+    console.log();
+
+    const thisScript = process.argv[1];
+    const frames = frameCount > 0 ? frameCount : 30;
+    const results = [];
+
+    for (const gamePath of games) {
+      const gameDir = path.dirname(gamePath);
+      const relPath = path.relative(rootDir, gamePath);
+      const start = Date.now();
+      const child = spawnSync("node", [
+        thisScript,
+        "game.lua",
+        "--frames", String(frames),
+        "--colors", String(colorBits),
+        "--quiet",
+        "--snapshot", "/dev/null",
+      ], {
+        cwd: gameDir,
+        encoding: "utf8",
+      });
+      const elapsed = Date.now() - start;
+
+      const ok = child.status === 0;
+      const output = (child.stdout || "") + (child.stderr || "");
+      const errorLine = ok ? "" : (output.split("\n").find(l => l.includes("error")) || "").trim().substring(0, 80);
+
+      results.push({ path: relPath, ok, elapsed, errorLine });
+      const status = ok ? "✓ PASS" : "✗ FAIL";
+      console.log(`  ${status}  ${relPath.padEnd(40)} ${elapsed.toString().padStart(5)}ms`);
+      if (!ok && errorLine) {
+        console.log(`         ${errorLine}`);
+      }
+    }
+
+    const passCount = results.filter(r => r.ok).length;
+    const failCount = results.length - passCount;
+    console.log();
+    console.log(`=== SCAN RESULTS ===`);
+    console.log(`Total:  ${results.length}`);
+    console.log(`Passed: ${passCount}`);
+    console.log(`Failed: ${failCount}`);
+    if (failCount === 0) {
+      console.log(`SCAN: PASS ✓`);
+      process.exit(0);
+    } else {
+      console.log(`SCAN: FAIL ✗`);
+      process.exit(1);
+    }
+  })();
 } else if (fuzzRuns > 0) {
   // --- Fuzz mode ---
   // Run the game N times with random inputs at random frames.

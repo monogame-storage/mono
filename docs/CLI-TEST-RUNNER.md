@@ -370,6 +370,49 @@ Error samples (sorted by frequency):
 - **새 API 검증**: 엔진에 새 함수 추가 후 랜덤 입력으로 엣지 케이스 탐지
 - **CI 안정성 게이트**: 크래시율이 0%가 아니면 merge 차단
 
+## Scan Mode (`--scan`)
+
+디렉토리 하위의 모든 `game.lua`를 재귀적으로 찾아서 각각 격리된 subprocess로 실행한다. 엔진 변경 후 전체 데모의 호환성을 한 번에 검증하거나, 퍼블리싱 시스템에서 여러 유저 게임을 일괄 검수하는 용도.
+
+```bash
+node mono-test.js --scan ./demo --frames 30
+```
+
+### 출력 예시
+
+```
+=== SCAN /Users/ssk/work/mono/demo ===
+Found 2 game(s)
+
+  ✓ PASS  engine-test/game.lua                        53ms
+  ✓ PASS  shader-test/game.lua                        48ms
+
+=== SCAN RESULTS ===
+Total:  2
+Passed: 2
+Failed: 0
+SCAN: PASS ✓
+```
+
+### 실패 시 출력
+
+```
+  ✓ PASS  engine-test/game.lua                        53ms
+  ✗ FAIL  broken-game/game.lua                        12ms
+         update error (frame 5): attempt to index nil value
+```
+
+- 각 게임은 **독립된 subprocess**로 실행 → 한 게임이 크래시해도 다른 게임에 영향 없음
+- 첫 에러 라인을 요약 표시
+- 실패 존재 시 exit code 1 (CI 게이트 역할)
+
+### 활용
+
+- **엔진 변경 영향 검증**: 엔진 수정 후 모든 데모가 여전히 작동하는지 1초 이내 확인
+- **버전 호환성**: 구버전 게임이 새 엔진에서 돌아가는지 일괄 검증
+- **퍼블리싱 검수**: monogame-storage에 올라온 유저 게임을 자동으로 스모크 테스트
+- **CI 통합**: PR마다 모든 데모 + 모든 유저 게임 실행 → 실패 시 merge 차단
+
 ## 향후 확장
 
 - `.mono/CONTEXT.md`에 mono-test 사용법 자동 포함
