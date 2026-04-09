@@ -58,9 +58,47 @@ Frame 1: _update OK, _draw OK
 OK (1 frame, no errors)
 ```
 
+## Input Replay
+
+실제 플레이 또는 입력 시퀀스를 파일로 기록하고 나중에 재생하여 결정론적 회귀 테스트를 만들 수 있다.
+
+### 기록
+
+```bash
+node mono-test.js game.lua --frames 100 --input "5:right,10:a,20:up" --record session.replay
+# → session.replay 파일에 프레임별 입력 기록
+```
+
+### 재생
+
+```bash
+node mono-test.js game.lua --frames 100 --replay session.replay --snapshot actual.txt
+# → 동일한 입력 시퀀스로 실행 → VRAM 스냅샷 비교 가능
+```
+
+### Replay 파일 포맷
+
+```
+# mono replay v1
+# seed=42 colors=1 frames=100
+5 right
+10 a
+20 up
+```
+
+- 한 줄 = 한 프레임 (입력이 있는 프레임만)
+- `frame keys...` — 해당 프레임에 활성화된 키들 (공백 구분)
+- `#` 으로 시작하는 줄은 주석/메타데이터
+- 메타데이터의 `seed=N`은 `--seed` 미지정 시 자동 적용
+
+### 사용 시나리오
+
+- **버그 리포트**: 버그 재현 시나리오를 `.replay` 파일로 저장 → 엔진 수정 후 동일한 replay로 회귀 테스트
+- **AI 루프**: AI가 생성한 코드가 기존 replay를 통과하는지 자동 검증
+- **데모 녹화**: 특정 게임 플레이 흐름을 기록해 두고 데모로 활용
+
 ## 향후 확장
 
-- `--input "frame:3 btn:a"` 식으로 입력 시나리오 주입
 - `--snapshot frame5.txt` 로 특정 프레임 vdump 저장/비교
 - `--diff expected.txt` 로 기대 출력과 비교 (regression test)
 - `.mono/CONTEXT.md`에 mono-test 사용법 자동 포함

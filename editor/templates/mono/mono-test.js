@@ -21,6 +21,8 @@
  *                     File:   touch-events.txt (one event per line, # comments)
  *   --snapshot FILE  Save vdump to file
  *   --diff FILE      Compare vdump against expected file
+ *   --replay FILE    Load input sequence from file and replay
+ *   --record FILE    Record input sequence to file during run
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
  *   --ascii          Print ASCII art of screen (downscaled)
@@ -50,6 +52,8 @@ Options:
   --touch "F:A:X,Y" Inject touch inline or from file
   --snapshot FILE  Save vdump to file
   --diff FILE      Compare vdump against expected file
+  --replay FILE    Load input sequence from file and replay
+  --record FILE    Record input sequence to file during run
   --quiet          Suppress frame logs
   --console        Print Lua print() output
   --ascii          Print ASCII art (downscaled 4:1)
@@ -98,6 +102,8 @@ const untilText = getOpt("until", null);
 const totalRuns = parseInt(getOpt("runs", "1")) || 1;
 const seedArg = getOpt("seed", null);
 const touchArg = getOpt("touch", null);
+const replayFile = getOpt("replay", null);
+const recordFile = getOpt("record", null);
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
@@ -432,6 +438,59 @@ if (inputArg) {
   }
 }
 
+// --- Replay: load input sequence from file ---
+// Format:
+//   # mono replay v1
+//   # seed=42 colors=1
+//   0
+//   1
+//   2 right
+//   3 right a
+let replaySeed = null;
+let replayColors = null;
+if (replayFile) {
+  if (!fs.existsSync(replayFile)) {
+    console.error(`Replay file not found: ${replayFile}`);
+    process.exit(1);
+  }
+  const lines = fs.readFileSync(replayFile, "utf8").split("\n");
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith("#")) {
+      // Parse metadata from comments
+      const seedMatch = line.match(/seed=(\d+)/);
+      if (seedMatch) replaySeed = parseInt(seedMatch[1]);
+      const colorsMatch = line.match(/colors=(\d+)/);
+      if (colorsMatch) replayColors = parseInt(colorsMatch[1]);
+      continue;
+    }
+    // frame followed by keys: "2 right a"
+    const parts = line.split(/\s+/);
+    const frame = parseInt(parts[0]);
+    if (isNaN(frame)) continue;
+    const frameKeys = parts.slice(1).filter(k => k.length > 0);
+    if (frameKeys.length > 0) {
+      if (!inputSchedule[frame]) inputSchedule[frame] = [];
+      for (const k of frameKeys) inputSchedule[frame].push(k);
+    }
+  }
+  if (replaySeed !== null && seedArg === null) {
+    runSeed = replaySeed;
+  }
+}
+
+// --- Record: capture input sequence during run ---
+const recordedFrames = [];  // [{ frame, keys: [...] }]
+
+function recordInput(f) {
+  if (!recordFile) return;
+  const activeKeys = Object.keys(keys).filter(k => keys[k]);
+  if (activeKeys.length > 0) {
+    recordedFrames.push({ frame: f, keys: activeKeys });
+  }
+}
+
 function inputUpdate() {
   for (const k in keys) keysPrev[k] = keys[k];
 }
@@ -442,6 +501,17 @@ function applyInput(frame) {
   if (inputSchedule[frame]) {
     for (const k of inputSchedule[frame]) keys[k] = true;
   }
+}
+
+function saveRecording(filePath, totalFrames) {
+  const lines = [];
+  lines.push("# mono replay v1");
+  const seed = runSeed !== null ? runSeed : (seedArg !== null ? parseInt(seedArg) : 0);
+  lines.push(`# seed=${seed} colors=${colorBits} frames=${totalFrames}`);
+  for (const entry of recordedFrames) {
+    lines.push(`${entry.frame} ${entry.keys.join(" ")}`);
+  }
+  fs.writeFileSync(filePath, lines.join("\n") + "\n");
 }
 
 // --- Touch simulation ---
@@ -945,6 +1015,7 @@ end
       catch (e) { console.error(`${currentScene || ""} draw error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
     frameNum = f;
+    recordInput(f);
     inputUpdate();
     touchUpdate();
     if (untilTriggered) {
@@ -1124,6 +1195,13 @@ end
     } else {
       console.log(`\n--until "${untilText}" NOT matched in ${frameCount} frames`);
     }
+  }
+
+  // Save recording if --record was specified
+  if (recordFile) {
+    const recordPath = path.resolve(recordFile);
+    saveRecording(recordPath, frameNum);
+    console.log(`Recording saved: ${recordPath} (${recordedFrames.length} frames with input)`);
   }
 
   // Summary
