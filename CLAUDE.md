@@ -32,9 +32,9 @@ Mono is a constraint-driven fantasy game console (160x144, 16 grayscale colors, 
 ## Rules
 
 ### When AI makes a mistake
-- Record the bug pattern in `docs/AI-PITFALLS.md`
-- Format: Symptom, Cause, Fix with code examples
-- This document is referenced in future prompts to prevent the same mistake
+- First, fix the root cause — if the API is confusing, rename it; if a return type is ambiguous, change it
+- Only document in `docs/AI-PITFALLS.md` when the root cause cannot be fixed (e.g. Lua language limitations, Wasmoon quirks)
+- We are in ALPHA — prefer changing the engine over teaching AI to work around bad design
 
 ### Lua specifics (Wasmoon)
 - Lua 5.4, NOT Luau — no type annotations
