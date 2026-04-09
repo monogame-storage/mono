@@ -86,12 +86,14 @@ var Mono = (() => {
   function tonePlay(ch, startHz, endHz, dur) {
     ch = Math.floor(ch);
     if (ch < 0 || ch > 1) return;
+    startHz = Number(startHz) || 200;
+    endHz = Number(endHz) || 200;
     dur = dur || 0.2;
     const ctx = ensureAudio();
     stopChannel(ch);
     const osc = ctx.createOscillator();
     osc.type = channelWave[ch];
-    osc.frequency.setValueAtTime(startHz, ctx.currentTime);
+    osc.frequency.setValueAtTime(Math.max(startHz, 1), ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(Math.max(endHz, 1), ctx.currentTime + dur);
     startChannel(ch, osc, ctx.createGain(), dur);
   }
@@ -99,7 +101,7 @@ var Mono = (() => {
   function noisePlay(ch, dur) {
     ch = Math.floor(ch);
     if (ch < 0 || ch > 1) return;
-    dur = dur || 0.2;
+    dur = Math.min(dur || 0.2, 2);
     const ctx = ensureAudio();
     stopChannel(ch);
     const sampleRate = ctx.sampleRate;
