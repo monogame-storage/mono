@@ -1483,11 +1483,37 @@ end
 
   // API coverage report
   if (coverageMode) {
-    // Filter out internal APIs (prefixed with _) — these are Lua wrapper helpers,
-    // not real public APIs. They're consumed by Lua glue code, not user games.
-    const publicEntries = Object.entries(apiCounts)
-      .filter(([name]) => !name.startsWith("_"))
-      .sort((a, b) => b[1] - a[1]);
+    // Internal JS functions (prefixed with _) are invoked via Lua wrappers.
+    // Map them to their public names so the report shows what the user actually called.
+    // Pairs that must be merged (e.g., _touch_pos_x and _touch_pos_y → touch_pos)
+    // map their secondary half to null so counts aren't double-counted.
+    const API_RENAME = {
+      _btn: "btn",
+      _btnp: "btnp",
+      _cam_get_x: "cam_get",
+      _cam_get_y: null,
+      _touch: "touch",
+      _touch_start: "touch_start",
+      _touch_end: "touch_end",
+      _touch_pos_x: "touch_pos",
+      _touch_pos_y: null,
+      _touch_posf_x: "touch_posf",
+      _touch_posf_y: null,
+    };
+    const merged = {};
+    for (const [name, count] of Object.entries(apiCounts)) {
+      if (name in API_RENAME) {
+        const pub = API_RENAME[name];
+        if (pub === null) continue;  // skip; counted via its partner
+        merged[pub] = (merged[pub] || 0) + count;
+      } else if (name.startsWith("_")) {
+        // Any other _prefixed helpers not in the rename map are truly internal
+        continue;
+      } else {
+        merged[name] = (merged[name] || 0) + count;
+      }
+    }
+    const publicEntries = Object.entries(merged).sort((a, b) => b[1] - a[1]);
     const used = publicEntries.filter(([_, c]) => c > 0);
     const unused = publicEntries.filter(([_, c]) => c === 0);
 
