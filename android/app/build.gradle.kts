@@ -61,6 +61,23 @@ val syncCart = tasks.register("syncCart") {
         }
         logger.lifecycle("syncCart: game files copied from cart/")
 
+        // Generate modules.json (list of .lua files except main entry for require() support)
+        val luaFiles = mutableListOf<String>()
+        fun scanLua(dir: File, prefix: String) {
+            dir.listFiles()?.sorted()?.forEach { f ->
+                if (f.isDirectory && f.name != ".mono") {
+                    scanLua(f, prefix + f.name + "/")
+                } else if (f.extension == "lua" && (prefix + f.name) != "main.lua") {
+                    luaFiles.add(prefix + f.name)
+                }
+            }
+        }
+        scanLua(cartDir, "")
+        file("${cartAssetsDir}/modules.json").writeText(
+            "[" + luaFiles.joinToString(",") { "\"$it\"" } + "]"
+        )
+        logger.lifecycle("syncCart: modules.json generated (${luaFiles.size} modules)")
+
         // engine/ directory
         val engineDir = file("${cartAssetsDir}/engine")
         engineDir.mkdirs()
