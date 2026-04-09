@@ -241,7 +241,7 @@ end
 
 ---
 
-## rnd() does not exist in engine
+## 13. rnd() does not exist in engine
 **Symptom:** `attempt to call a nil value (global 'rnd')` at runtime
 **Cause:** AI assumes `rnd()` is a built-in like PICO-8. Mono engine does not provide `rnd()`.
 **Note:** Both `mono-test.js` and the browser engine will fail identically — neither provides `rnd()`.
@@ -253,6 +253,24 @@ local dir = rnd(3)
 -- GOOD
 local dir = math.random(0, 2)
 ```
+
+---
+
+## 14. Single-touch only, ignoring multi-touch
+**Symptom:** Game only responds to one finger; simultaneous taps or multi-finger drags don't work
+**Cause:** AI reads only `touch_pos(1)` and ignores `touch_count()`
+**Fix:** Always iterate all active touches
+```lua
+-- BAD: only first finger
+local tx, ty = touch_pos(1)
+
+-- GOOD: handle all touches
+for i = 1, touch_count() do
+  local tx, ty = touch_pos(i)
+  -- handle each touch independently
+end
+```
+Track per-touch state (e.g. drags) by touch index. Compare previous vs current touch sets to detect new/ended touches per-finger.
 
 ---
 
