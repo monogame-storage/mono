@@ -445,12 +445,18 @@ tone(0, 1500, 100, 0.6)   -- falling bomb (high → low)
 
 ```lua
 noise(channel, duration)
+noise(channel, duration, filter, cutoff)
 ```
 
 - White noise burst on a channel (explosions, impacts, wind)
+- Optional filter: `"low"` (lowpass), `"high"` (highpass), `"band"` (bandpass)
+- `cutoff`: filter frequency in Hz (default 1000)
 
 ```lua
-noise(0, 0.3)   -- explosion
+noise(0, 0.3)                -- white noise explosion
+noise(0, 0.4, "low", 400)   -- deep rumble (400Hz and below)
+noise(0, 0.2, "high", 2000) -- hiss/sizzle (2000Hz and above)
+noise(1, 0.5, "band", 800)  -- muffled thud
 ```
 
 ### Waveform

@@ -50,17 +50,30 @@ var Mono = (() => {
     return audioCtx;
   }
 
+  let _noiseBuf = null; // shared noise buffer (lazy init)
+  function getNoiseBuf() {
+    const ctx = audioCtx;
+    if (!_noiseBuf || _noiseBuf.sampleRate !== ctx.sampleRate) {
+      const len = ctx.sampleRate; // 1 second
+      _noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = _noiseBuf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    }
+    return _noiseBuf;
+  }
+
   function stopChannel(ch) {
     if (channels[ch]) { try { channels[ch].src.stop(); } catch(e) {} channels[ch] = null; }
   }
 
-  function startChannel(ch, src, gain, dur) {
+  function startChannel(ch, src, gain, dur, filter) {
     const ctx = audioCtx;
     gain.gain.value = 0.15;
     const fadeStart = Math.max(ctx.currentTime, ctx.currentTime + dur - 0.02);
     gain.gain.setValueAtTime(0.15, fadeStart);
     gain.gain.linearRampToValueAtTime(0, ctx.currentTime + dur);
-    src.connect(gain);
+    if (filter) { src.connect(filter); filter.connect(gain); }
+    else { src.connect(gain); }
     gain.connect(ctx.destination);
     src.start();
     src.stop(ctx.currentTime + dur);
@@ -98,20 +111,28 @@ var Mono = (() => {
     startChannel(ch, osc, ctx.createGain(), dur);
   }
 
-  function noisePlay(ch, dur) {
+  function noisePlay(ch, dur, filterType, filterFreq) {
     ch = Math.floor(ch);
     if (ch < 0 || ch > 1) return;
-    dur = Math.min(dur || 0.2, 2);
+    dur = dur || 0.2;
     const ctx = ensureAudio();
     stopChannel(ch);
-    const sampleRate = ctx.sampleRate;
-    const len = Math.floor(sampleRate * dur);
-    const buf = ctx.createBuffer(1, len, sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     const src = ctx.createBufferSource();
-    src.buffer = buf;
-    startChannel(ch, src, ctx.createGain(), dur);
+    src.buffer = getNoiseBuf();
+    src.loop = true;
+    var filter = null;
+    if (filterType) {
+      var ft = String(filterType).toLowerCase();
+      if (ft === "low") ft = "lowpass";
+      else if (ft === "high") ft = "highpass";
+      else if (ft === "band") ft = "bandpass";
+      if (ft === "lowpass" || ft === "highpass" || ft === "bandpass") {
+        filter = ctx.createBiquadFilter();
+        filter.type = ft;
+        filter.frequency.value = Number(filterFreq) || 1000;
+      }
+    }
+    startChannel(ch, src, ctx.createGain(), dur, filter);
   }
 
   function waveSet(ch, type) {
