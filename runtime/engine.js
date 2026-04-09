@@ -32,9 +32,10 @@ var Mono = (() => {
   let camX = 0, camY = 0;
   let shakeAmount = 0, shakeX = 0, shakeY = 0;
 
-  // --- Audio (2-channel square wave) ---
+  // --- Audio (2-channel synth: square/sawtooth/triangle/sine + noise) ---
   let audioCtx = null;
-  const channels = [null, null]; // { osc, gain, stopTime }
+  const channels = [null, null]; // { src, gain }
+  const channelWave = ["square", "square"]; // waveform per channel
   const NOTE_FREQ = {};
   (() => {
     const names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
@@ -49,6 +50,37 @@ var Mono = (() => {
     return audioCtx;
   }
 
+  let _noiseBuf = null; // shared noise buffer (lazy init)
+  function getNoiseBuf() {
+    const ctx = audioCtx;
+    if (!_noiseBuf || _noiseBuf.sampleRate !== ctx.sampleRate) {
+      const len = ctx.sampleRate; // 1 second
+      _noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = _noiseBuf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    }
+    return _noiseBuf;
+  }
+
+  function stopChannel(ch) {
+    if (channels[ch]) { try { channels[ch].src.stop(); } catch(e) {} channels[ch] = null; }
+  }
+
+  function startChannel(ch, src, gain, dur, filter) {
+    const ctx = audioCtx;
+    gain.gain.value = 0.15;
+    const fadeStart = Math.max(ctx.currentTime, ctx.currentTime + dur - 0.02);
+    gain.gain.setValueAtTime(0.15, fadeStart);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + dur);
+    if (filter) { src.connect(filter); filter.connect(gain); }
+    else { src.connect(gain); }
+    gain.connect(ctx.destination);
+    src.start();
+    src.stop(ctx.currentTime + dur);
+    channels[ch] = { src, gain };
+    src.onended = () => { if (channels[ch] && channels[ch].src === src) channels[ch] = null; };
+  }
+
   function notePlay(ch, noteStr, dur) {
     ch = Math.floor(ch);
     if (ch < 0 || ch > 1) return;
@@ -57,31 +89,67 @@ var Mono = (() => {
     const freq = NOTE_FREQ[key];
     if (!freq) throw new Error("note: invalid note '" + noteStr + "'. Use note name strings like 'C4', 'F#5' (not MIDI numbers)");
     const ctx = ensureAudio();
-    // Stop previous note on this channel
-    if (channels[ch]) { try { channels[ch].osc.stop(); } catch(e) {} }
+    stopChannel(ch);
     const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "square";
+    osc.type = channelWave[ch];
     osc.frequency.value = freq;
-    gain.gain.value = 0.15;
-    // Fade out at end to avoid clicks
-    const fadeStart = Math.max(ctx.currentTime, ctx.currentTime + dur - 0.02);
-    gain.gain.setValueAtTime(0.15, fadeStart);
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + dur);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + dur);
-    channels[ch] = { osc, gain };
-    osc.onended = () => { if (channels[ch] && channels[ch].osc === osc) channels[ch] = null; };
+    startChannel(ch, osc, ctx.createGain(), dur);
+  }
+
+  function tonePlay(ch, startHz, endHz, dur) {
+    ch = Math.floor(ch);
+    if (ch < 0 || ch > 1) return;
+    startHz = Number(startHz) || 200;
+    endHz = Number(endHz) || 200;
+    dur = dur || 0.2;
+    const ctx = ensureAudio();
+    stopChannel(ch);
+    const osc = ctx.createOscillator();
+    osc.type = channelWave[ch];
+    osc.frequency.setValueAtTime(Math.max(startHz, 1), ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(endHz, 1), ctx.currentTime + dur);
+    startChannel(ch, osc, ctx.createGain(), dur);
+  }
+
+  function noisePlay(ch, dur, filterType, filterFreq) {
+    ch = Math.floor(ch);
+    if (ch < 0 || ch > 1) return;
+    dur = dur || 0.2;
+    const ctx = ensureAudio();
+    stopChannel(ch);
+    const src = ctx.createBufferSource();
+    src.buffer = getNoiseBuf();
+    src.loop = true;
+    var filter = null;
+    if (filterType) {
+      var ft = String(filterType).toLowerCase();
+      if (ft === "low") ft = "lowpass";
+      else if (ft === "high") ft = "highpass";
+      else if (ft === "band") ft = "bandpass";
+      if (ft === "lowpass" || ft === "highpass" || ft === "bandpass") {
+        filter = ctx.createBiquadFilter();
+        filter.type = ft;
+        filter.frequency.value = Number(filterFreq) || 1000;
+      }
+    }
+    startChannel(ch, src, ctx.createGain(), dur, filter);
+  }
+
+  function waveSet(ch, type) {
+    ch = Math.floor(ch);
+    if (ch < 0 || ch > 1) return;
+    const valid = ["square", "sawtooth", "triangle", "sine"];
+    type = String(type).toLowerCase();
+    if (valid.indexOf(type) === -1) return;
+    channelWave[ch] = type;
   }
 
   function sfxStop(ch) {
     if (ch === undefined || ch === false) {
-      for (let i = 0; i < 2; i++) if (channels[i]) { try { channels[i].osc.stop(); } catch(e) {} channels[i] = null; }
+      for (let i = 0; i < 2; i++) stopChannel(i);
     } else {
       ch = Math.floor(ch);
-      if (ch >= 0 && ch <= 1 && channels[ch]) { try { channels[ch].osc.stop(); } catch(e) {} channels[ch] = null; }
+      if (ch >= 0 && ch <= 1) stopChannel(ch);
     }
   }
 
@@ -754,6 +822,9 @@ var Mono = (() => {
     lua.global.set("_cam_get_y", () => camY);
     // Audio
     lua.global.set("note", notePlay);
+    lua.global.set("tone", tonePlay);
+    lua.global.set("noise", noisePlay);
+    lua.global.set("wave", waveSet);
     lua.global.set("sfx_stop", sfxStop);
     lua.global.set("spr", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
     lua.global.set("sspr", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = getSurf(id); if (s) drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });

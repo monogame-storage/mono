@@ -103,7 +103,7 @@ Open `http://localhost:8000` in a browser.
 | Sprite size     | 16 x 16 pixels (default)                        |
 | Frame rate      | 30 FPS                                          |
 | Input           | 8 buttons: up, down, left, right, a, b, start, select |
-| Audio           | 2 channels, square wave                         |
+| Audio           | 2 channels, square/sawtooth/triangle/sine + noise |
 | Language        | Lua 5.4 via Wasmoon                             |
 
 ### Graphics Mode
@@ -421,11 +421,60 @@ end
 note(channel, noteStr, duration)
 ```
 
-- `channel`: 0 or 1 (two square-wave channels)
+- `channel`: 0 or 1 (two channels)
 - `noteStr`: note name + octave, e.g. `"C4"`, `"A#5"`, `"F#3"`
 - `duration`: seconds (e.g. `0.1`)
 
 Supported note names: C, C#, D, D#, E, F, F#, G, G#, A, A#, B (octaves 0-8).
+
+### Frequency Sweep
+
+```lua
+tone(channel, startHz, endHz, duration)
+```
+
+- Smooth frequency glide from `startHz` to `endHz` (exponential ramp)
+- Uses the channel's current waveform
+
+```lua
+tone(1, 200, 2000, 0.4)   -- rocket whistle (low → high)
+tone(0, 1500, 100, 0.6)   -- falling bomb (high → low)
+```
+
+### Noise
+
+```lua
+noise(channel, duration)
+noise(channel, duration, filter, cutoff)
+```
+
+- White noise burst on a channel (explosions, impacts, wind)
+- Optional filter: `"low"` (lowpass), `"high"` (highpass), `"band"` (bandpass)
+- `cutoff`: filter frequency in Hz (default 1000)
+
+```lua
+noise(0, 0.3)                -- white noise explosion
+noise(0, 0.4, "low", 400)   -- deep rumble (400Hz and below)
+noise(0, 0.2, "high", 2000) -- hiss/sizzle (2000Hz and above)
+noise(1, 0.5, "band", 800)  -- muffled thud
+```
+
+### Waveform
+
+```lua
+wave(channel, type)
+```
+
+- Switch waveform: `"square"` (default), `"sawtooth"`, `"triangle"`, `"sine"`
+- Affects subsequent `note()` and `tone()` calls on that channel
+
+```lua
+wave(1, "sine")
+tone(1, 300, 3000, 0.5)   -- smooth sine whistle
+wave(1, "square")          -- back to default
+```
+
+### Stop
 
 ```lua
 sfx_stop(channel)    -- stop a specific channel

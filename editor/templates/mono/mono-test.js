@@ -580,6 +580,9 @@ async function main() {
       throw new Error("note: invalid note '" + noteStr + "'. Use note name strings like 'C4', 'F#5' (not MIDI numbers)");
     }
   });
+  lua.global.set("tone", () => {});
+  lua.global.set("noise", () => {});
+  lua.global.set("wave", () => {});
   lua.global.set("sfx_stop", () => {});
   lua.global.set("cam_shake", () => {});
   lua.global.set("cam_reset", () => {});
