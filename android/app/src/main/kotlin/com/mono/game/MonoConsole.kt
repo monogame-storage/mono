@@ -9,12 +9,32 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.util.Log
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.webkit.WebViewAssetLoader
 
 @Composable
 fun MonoConsole(modifier: Modifier = Modifier) {
+    val webViewRef = remember { arrayOfNulls<WebView>(1) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> webViewRef[0]?.onPause()
+                Lifecycle.Event.ON_RESUME -> webViewRef[0]?.onResume()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     AndroidView(
         modifier = modifier,
         factory = { context ->
@@ -62,7 +82,7 @@ fun MonoConsole(modifier: Modifier = Modifier) {
                 }
 
                 loadUrl("https://appassets.androidplatform.net/assets/cart/index.html")
-            }
+            }.also { webViewRef[0] = it }
         }
     )
 }
