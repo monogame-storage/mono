@@ -946,7 +946,7 @@ end
             await Promise.all(fetches);
           }
         }
-      } catch {}
+      } catch (e) { if (e instanceof SyntaxError) console.warn("modules.json parse error:", e); }
     }
     // 2. Register preloaded modules
     if (opts.modules) {
