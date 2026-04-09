@@ -218,6 +218,42 @@ Unused APIs (dead code candidates):
 - **카테고리 커버리지 확인**: 오디오(note/tone/noise), 터치, 스프라이트 등이 미사용이면 **해당 카테고리를 테스트하는 데모가 없다는 신호**
 - **LLM 호출 패턴**: AI가 생성한 코드가 실제로 어떤 API를 쓰는지 분석
 
+### GAMMA 단계 확장: 퍼블리싱된 게임 전체 커버리지
+
+퍼블리싱 시스템이 생기면 `--scan`은 `monogame-storage/release/users/**` 전체에 돌릴 수 있지만, 실행이 느려진다. 대신 **퍼블리싱 시 정적 분석**으로 각 게임이 어떤 API를 쓰는지 기록해두는 게 효율적.
+
+```
+  Developer publishes ──► Firebase Function
+                              │
+                              ├─ Parse game.lua (regex or luaparse)
+                              ├─ Extract function calls → intersect with API set
+                              └─ Write to Firestore:
+                                   games/{slug}: { apis: ["cls", "rectf", ...] }
+                                   api_usage/{api}: { used_by: [slug1, slug2, ...] }
+```
+
+정적 분석을 선택한 이유:
+
+| 방식 | 장점 | 단점 |
+|---|---|---|
+| 런타임 텔레메트리 | 실사용 데이터 | 동의 필요, 네트워크 의존, 스팸 위험 |
+| 정적 분석 | 동의 불필요, 결정론적, 오프라인 | 존재 여부만 확인 (런타임 hit 아님) |
+| 주기 `--scan` | 이미 구현됨 | 전체 게임 실행 → 느림 |
+
+제거 결정에는 "존재 여부"면 충분 — 파일에 호출이 있는데 제거하면 깨지니까.
+
+쿼리 예시:
+
+```
+  "아무도 안 쓰는 API" → api_usage where used_by is empty
+  "cam_get 제거 시 영향받는 게임" → games where apis contains "cam_get"
+  "가장 많이 쓰이는 top 10"  → api_usage order by len(used_by) desc limit 10
+```
+
+구현 난이도는 낮다 — 정규식 `\b(\w+)\s*\(`로 호출 식별자 추출 후 public API 집합과 교집합만 내면 된다. 오탐은 해롭지 않으니 (제거 안 함) 처음엔 regex로 충분, 필요시 `luaparse` AST로 업그레이드.
+
+**단계**: ALPHA에서는 불필요. 로컬 `--scan --coverage`로 충분하다. GAMMA(퍼블리싱) 단계에서 Firebase Function에 추가.
+
 ## Gameplay Trace (`--trace`)
 
 각 프레임의 상태(VRAM 해시, 활성 입력, 새로 출력된 로그)를 JSONL 형식으로 저장한다. AI가 게임 플레이를 분석하거나 버그 리포트를 자동화하는 데 활용.
