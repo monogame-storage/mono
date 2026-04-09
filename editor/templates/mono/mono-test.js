@@ -29,6 +29,7 @@
  *   --golden FILE    Record/check hash snapshots at key frames (regression)
  *   --golden-update  Update the golden file with current hashes
  *   --bench          Measure per-frame time (avg/p50/p95/p99/max) + heap
+ *   --fuzz N         Run N times with random inputs, report crash rate
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
  *   --ascii          Print ASCII art of screen (downscaled)
@@ -66,6 +67,7 @@ Options:
   --golden FILE    Record/check hash snapshots at key frames
   --golden-update  Update golden file with current hashes
   --bench          Measure per-frame time + heap usage
+  --fuzz N         Run N times with random inputs, report crash rate
   --quiet          Suppress frame logs
   --console        Print Lua print() output
   --ascii          Print ASCII art (downscaled 4:1)
@@ -122,6 +124,7 @@ const traceFile = getOpt("trace", null);
 const goldenFile = getOpt("golden", null);
 const goldenUpdate = hasFlag("golden-update");
 const benchMode = hasFlag("bench");
+const fuzzRuns = parseInt(getOpt("fuzz", "0")) || 0;
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
@@ -1562,6 +1565,111 @@ if (totalRuns > 1) {
     }
 
     process.exit(results.some(r => r.hasError) ? 1 : 0);
+  })().catch(e => { console.error("Fatal:", e); process.exit(1); });
+} else if (fuzzRuns > 0) {
+  // --- Fuzz mode ---
+  // Run the game N times with random inputs at random frames.
+  // Report crash rate and collect unique error messages.
+  (async () => {
+    const validKeys = ["up", "down", "left", "right", "a", "b"];
+    const results = { crashes: 0, ok: 0 };
+    const errorSamples = {};  // message → count
+    const errorFirstSeed = {}; // message → first seed that triggered it
+
+    for (let r = 1; r <= fuzzRuns; r++) {
+      // Reset state per run
+      palette = buildPalette(colorBits);
+      const cb = new Uint8Array(W * H);
+      const b32 = new Uint32Array(W * H);
+      surfaces = [{ w: W, h: H, buf32: b32, colorBuf: cb }];
+      camX = 0; camY = 0;
+      images = []; imageIdCounter = 0;
+      for (const k in keys) keys[k] = false;
+      for (const k in keysPrev) keysPrev[k] = false;
+
+      // Per-run deterministic seed so failing cases can be reproduced
+      const fuzzSeed = r * 6037 + 13;
+      runSeed = fuzzSeed;
+
+      // Generate random input schedule for this run
+      for (const k of Object.keys(inputSchedule)) delete inputSchedule[k];
+      const rng = (() => {
+        // Mulberry32 PRNG seeded with fuzzSeed
+        let a = fuzzSeed >>> 0;
+        return () => {
+          a = (a + 0x6D2B79F5) >>> 0;
+          let t = a;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      })();
+      // Random number of input events: 1-20
+      const numEvents = 1 + Math.floor(rng() * 20);
+      for (let i = 0; i < numEvents; i++) {
+        const frame = 1 + Math.floor(rng() * Math.max(1, frameCount));
+        const key = validKeys[Math.floor(rng() * validKeys.length)];
+        if (!inputSchedule[frame]) inputSchedule[frame] = [];
+        inputSchedule[frame].push(key);
+      }
+
+      // Suppress verbose output during fuzz runs
+      const origLog = console.log;
+      const origErr = console.error;
+      const capturedErrors = [];
+      console.log = () => {};
+      console.error = (...args) => { capturedErrors.push(args.join(" ")); };
+
+      let result;
+      try {
+        result = await main();
+      } catch (e) {
+        result = { hasError: true };
+        capturedErrors.push(e.message || String(e));
+      }
+
+      console.log = origLog;
+      console.error = origErr;
+
+      if (result && result.hasError || capturedErrors.length > 0) {
+        results.crashes++;
+        // Capture the first error line as the sample
+        for (const err of capturedErrors) {
+          // Normalize by stripping frame numbers and paths
+          const normalized = err
+            .replace(/\(frame \d+\)/g, "(frame N)")
+            .replace(/line \d+/g, "line N")
+            .substring(0, 200);
+          errorSamples[normalized] = (errorSamples[normalized] || 0) + 1;
+          if (errorFirstSeed[normalized] === undefined) {
+            errorFirstSeed[normalized] = fuzzSeed;
+          }
+        }
+      } else {
+        results.ok++;
+      }
+
+      if (!quiet && r % 10 === 0) {
+        process.stdout.write(`\rFuzz progress: ${r}/${fuzzRuns} (${results.crashes} crashes)`);
+      }
+    }
+
+    if (!quiet) process.stdout.write("\n");
+    const crashRate = ((results.crashes / fuzzRuns) * 100).toFixed(2);
+    console.log(`\n=== FUZZ RESULTS ===`);
+    console.log(`Runs:     ${fuzzRuns}`);
+    console.log(`OK:       ${results.ok}`);
+    console.log(`Crashes:  ${results.crashes} (${crashRate}%)`);
+    const uniqueErrors = Object.keys(errorSamples);
+    console.log(`Unique errors: ${uniqueErrors.length}`);
+    if (uniqueErrors.length > 0) {
+      console.log(`\nError samples (sorted by frequency):`);
+      const sorted = uniqueErrors.sort((a, b) => errorSamples[b] - errorSamples[a]);
+      for (const err of sorted.slice(0, 10)) {
+        console.log(`  [${errorSamples[err]}x, first seed=${errorFirstSeed[err]}] ${err}`);
+      }
+    }
+    process.exit(results.crashes > 0 ? 1 : 0);
   })().catch(e => { console.error("Fatal:", e); process.exit(1); });
 } else if (determinismRuns > 1) {
   // --- Determinism verification mode ---

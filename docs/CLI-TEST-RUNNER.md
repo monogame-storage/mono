@@ -323,6 +323,53 @@ RSS:    63.53MB
 - **CI 성능 게이트**: p99 > 33ms면 빌드 실패 처리
 - **프로파일링**: avg가 올라가면 어떤 프레임에서 튀는지 `--trace`와 함께 디버깅
 
+## Fuzz Testing (`--fuzz`)
+
+N번 게임을 실행하면서 각 실행마다 랜덤 입력 시퀀스를 주입해 엔진 크래시와 예외를 찾는다.
+
+```bash
+node mono-test.js game.lua --frames 60 --fuzz 100
+```
+
+### 입력 생성
+
+- 실행마다 결정론적 seed (`r * 6037 + 13`) 사용 → 실패 케이스 재현 가능
+- 실행마다 1~20개의 랜덤 입력 이벤트 (프레임+키)
+- 키는 `up/down/left/right/a/b` 중 랜덤 선택
+
+### 출력 예시
+
+```
+=== FUZZ RESULTS ===
+Runs:     100
+OK:       100
+Crashes:  0 (0.00%)
+Unique errors: 0
+```
+
+### 실패 시 출력
+
+```
+=== FUZZ RESULTS ===
+Runs:     100
+OK:       97
+Crashes:  3 (3.00%)
+Unique errors: 2
+
+Error samples (sorted by frequency):
+  [2x, first seed=6050] attempt to index nil value (frame N)
+  [1x, first seed=24161] bad argument to rectf (line N)
+```
+
+- 동일 에러는 프레임 번호와 라인 번호를 정규화하여 그룹화
+- `first seed`를 수동 재현에 활용: `--seed <값>`으로 동일 입력 재생성 가능 (수동으로)
+
+### 활용
+
+- **퍼블리싱 전 안정성 검증**: 유저 게임을 등록하기 전 엔진에 투입해 크래시 유무 확인
+- **새 API 검증**: 엔진에 새 함수 추가 후 랜덤 입력으로 엣지 케이스 탐지
+- **CI 안정성 게이트**: 크래시율이 0%가 아니면 merge 차단
+
 ## 향후 확장
 
 - `.mono/CONTEXT.md`에 mono-test 사용법 자동 포함
