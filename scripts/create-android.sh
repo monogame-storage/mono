@@ -9,13 +9,13 @@
 #
 # Options:
 #   --project-name "Name"   Display name (default: derived from directory name)
-#   --org com.example       Organization package (default: com.mono)
+#   --package com.ssk.pong  Full package name (default: com.mono.<dir-name>)
 #   --replace-engine   Replace cart/.mono/ with latest engine (update mode only)
 #   --dry-run               Show what would be done without making changes
 #
 # Examples:
 #   ./scripts/create-android.sh ~/projects/mono-pong
-#   ./scripts/create-android.sh ~/projects/mono-pong --project-name "Mono Pong" --org com.ssk
+#   ./scripts/create-android.sh ~/projects/mono-pong --project-name "Mono Pong" --package com.ssk.pong
 #   ./scripts/create-android.sh ~/mono/android/pong --replace-engine
 
 set -e
@@ -26,7 +26,7 @@ TEMPLATE_DIR="$MONO_ROOT/android"
 # --- Parse arguments ---
 TARGET_DIR=""
 PROJECT_NAME=""
-ORG=""
+PACKAGE=""
 ICON=""
 REPLACE_ENGINE=false
 KEEP_ANDROID=false
@@ -35,7 +35,7 @@ DRY_RUN=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project-name)        PROJECT_NAME="$2"; shift 2 ;;
-    --org)                 ORG="$2"; shift 2 ;;
+    --package)             PACKAGE="$2"; shift 2 ;;
     --icon)                ICON="$2"; shift 2 ;;
     --replace-engine) REPLACE_ENGINE=true; shift ;;
     --keep-android)   KEEP_ANDROID=true; shift ;;
@@ -56,7 +56,7 @@ if [ -z "$TARGET_DIR" ]; then
   echo ""
   echo "  target-dir              Project directory (created if new, updated if exists)"
   echo "  --project-name \"Name\"   Display name (default: derived from dir name)"
-  echo "  --org com.example       Organization package (default: com.mono)"
+  echo "  --package com.ssk.pong  Full package name (default: com.mono.<dir-name>)"
   echo "  --icon icon.png         App icon (PNG, 512x512 recommended)"
   echo "  --replace-engine        Replace cart/.mono/ with latest engine"
   echo "  --keep-android          Keep app/ as-is (only update non-app template files)"
@@ -222,12 +222,12 @@ if [ -z "$PROJECT_NAME" ]; then
   PROJECT_NAME="$(echo "$DIR_NAME" | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')"
 fi
 
-if [ -z "$ORG" ]; then
-  ORG="com.mono"
+if [ -z "$PACKAGE" ]; then
+  APP_SUFFIX="$(echo "$DIR_NAME" | tr '-' '.' | tr '[:upper:]' '[:lower:]')"
+  PACKAGE="com.mono.${APP_SUFFIX}"
 fi
 
-APP_SUFFIX="$(echo "$DIR_NAME" | tr '-' '.' | tr '[:upper:]' '[:lower:]')"
-APP_ID="${ORG}.${APP_SUFFIX}"
+APP_ID="$PACKAGE"
 
 echo "Creating Mono Android project: $PROJECT_NAME"
 
