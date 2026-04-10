@@ -26,6 +26,7 @@ Rules are derived from `docs/AI-PITFALLS.md`. Each rule is a regex heuristic, no
 | `draw-random` | warn | `math.random()` inside a `_draw()` body (flickers) |
 | `text-after-cam` | warn | `text()` drawn while `cam()` is non-zero (misaligned HUD) |
 | `surface-missing` | warn | drawing functions with a literal as first arg instead of `scr` |
+| `defensive-api-check` | warn | `if cam_shake then cam_shake(...)` — public APIs are always registered in ALPHA |
 | `diagonal-unnormalized` | info | reads both axes but no `0.7071` diagonal normalization |
 
 ## When to use

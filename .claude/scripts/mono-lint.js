@@ -25,6 +25,42 @@ const ANSI = {
   bold:   s => `\x1b[1m${s}\x1b[0m`,
 };
 
+// --- Public API set ---
+// Load the set of public Mono APIs from runtime/engine.js so defensive
+// nil-check rules know which names are guaranteed to exist. Internal
+// helpers (prefixed with _) are mapped to their public wrapper.
+const REPO_ROOT = path.resolve(__dirname, "../..");
+const ENGINE_JS = path.join(REPO_ROOT, "runtime/engine.js");
+
+const INTERNAL_TO_PUBLIC = {
+  _btn: "btn",
+  _btnp: "btnp",
+  _cam_get_x: "cam_get",
+  _cam_get_y: "cam_get",
+  _touch: "touch",
+  _touch_start: "touch_start",
+  _touch_end: "touch_end",
+  _touch_pos_x: "touch_pos",
+  _touch_pos_y: "touch_pos",
+  _touch_posf_x: "touch_posf",
+  _touch_posf_y: "touch_posf",
+};
+
+function loadPublicAPIs() {
+  const names = new Set();
+  if (!fs.existsSync(ENGINE_JS)) return names;
+  const src = fs.readFileSync(ENGINE_JS, "utf8");
+  const setRe = /lua\.global\.set\(\s*"([^"]+)"/g;
+  let m;
+  while ((m = setRe.exec(src)) !== null) {
+    const raw = m[1];
+    if (raw in INTERNAL_TO_PUBLIC) names.add(INTERNAL_TO_PUBLIC[raw]);
+    else if (!raw.startsWith("_")) names.add(raw);
+  }
+  return names;
+}
+const PUBLIC_APIS = loadPublicAPIs();
+
 // --- Rules ---
 // Each rule receives the full file content + per-line array.
 // Returns an array of { line, severity, rule, msg }.
@@ -221,6 +257,44 @@ rule("surface-missing", ({ lines }) => {
         });
       }
     }
+  }
+  return out;
+});
+
+// Rule 8: defensive nil-check on a public Mono API
+// Catches patterns like `if cam_shake then cam_shake(1) end` where the
+// author is guarding against a missing engine API. In ALPHA stage the
+// engine always registers public APIs, so this guard is dead weight
+// and violates the "NO defensive coding" stage rule.
+rule("defensive-api-check", ({ lines }) => {
+  const out = [];
+  if (PUBLIC_APIS.size === 0) return out;  // engine.js not found — skip
+  // Match `if NAME then` where NAME is a bare identifier. Allow optional
+  // trailing `NAME(` on the same line (single-line form) but do not require it.
+  const ifRe = /^\s*if\s+([a-z_][\w]*)\s+then\b/;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (l.trim().startsWith("--")) continue;
+    const m = l.match(ifRe);
+    if (!m) continue;
+    const name = m[1];
+    if (!PUBLIC_APIS.has(name)) continue;
+    // Confirm the identifier is actually called inside the if-block
+    // (either same line or up to 5 lines after). This reduces false
+    // positives when the name happens to match but isn't being checked
+    // for existence.
+    const callRe = new RegExp(`(?:^|[^.\\w])${name}\\s*\\(`);
+    let calledInside = false;
+    for (let j = i; j < Math.min(i + 6, lines.length); j++) {
+      if (callRe.test(lines[j])) { calledInside = true; break; }
+    }
+    if (!calledInside) continue;
+    out.push({
+      line: i + 1,
+      severity: "warn",
+      rule: "defensive-api-check",
+      msg: `'if ${name} then' guards a public Mono API that is always registered — drop the check (ALPHA: no defensive coding)`,
+    });
   }
   return out;
 });
