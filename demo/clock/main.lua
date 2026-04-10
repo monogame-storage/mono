@@ -1,23 +1,26 @@
 -- Clock Demo
--- Showcases the date() API in three skins:
---   1. small  — compact 7-segment digital
---   2. large  — big 7-segment digital filling most of the screen
---   3. analog — classic face with hour/minute/second hands
+-- Showcases the date() API in four skins:
+--   1. small digital  — compact 7-segment HH:MM
+--   2. large digital  — big 7-segment HH:MM filling most of the screen
+--   3. small analog   — compact round face with three hands
+--   4. large analog   — big round face with three hands
 --
 -- Controls:
---   A      — cycle to next skin
---   B      — cycle to previous skin
---   START  — reset to small skin
+--   A — cycle to next skin
+--   B — context toggle:
+--         digital modes → 24-hour ↔ 12-hour
+--         analog modes  → second hand on ↔ off
 --
--- The colon blink and analog second-hand tick use frame() (not time())
--- so the animation advances identically in browser and headless runs.
--- The hh/mm/ss digits come from date().
+-- The digital colon blink uses frame() (not time()) so the animation
+-- advances identically in browser and headless runs. The hh/mm/ss values
+-- come from date().
 
 local scr = screen()
 
-local MODE_COUNT = 3
-local MODE_NAMES = { "SMALL", "LARGE", "ANALOG" }
+local MODE_COUNT = 4
 local mode_idx = 1
+local use_12h = false       -- digital skins: false = 24-hour, true = 12-hour
+local show_seconds = true   -- analog skins: draw the second hand?
 
 function _init()
   mode(4)
@@ -27,13 +30,18 @@ function _start()
   mode_idx = 1
 end
 
+local function is_digital() return mode_idx == 1 or mode_idx == 2 end
+local function is_analog()  return mode_idx == 3 or mode_idx == 4 end
+
 function _update()
   if btnp("a") then
     mode_idx = mode_idx % MODE_COUNT + 1
   elseif btnp("b") then
-    mode_idx = (mode_idx - 2) % MODE_COUNT + 1
-  elseif btnp("start") then
-    mode_idx = 1
+    if is_digital() then
+      use_12h = not use_12h
+    elseif is_analog() then
+      show_seconds = not show_seconds
+    end
   end
 end
 
@@ -86,9 +94,17 @@ local function draw_colon(x, y, h, color, visible)
 end
 
 -- Render a HH:MM display centered on (cx, cy) with digit (dw × dh).
+-- Respects the global use_12h toggle: in 12-hour mode, 0 → 12 and
+-- 13..23 wrap to 1..11. Leading zero is kept either way for stable
+-- positioning.
 local function draw_digital(cx, cy, dw, dh, color)
   local d = date()
-  local digits = string.format("%02d%02d", d.hour, d.min)
+  local h = d.hour
+  if use_12h then
+    h = h % 12
+    if h == 0 then h = 12 end
+  end
+  local digits = string.format("%02d%02d", h, d.min)
   local gap    = math.max(1, math.floor(dw * 0.25))  -- inter-digit spacing
   local col_w  = math.max(3, math.floor(dw * 0.35))  -- colon column width
   local total  = 4 * dw + 2 * gap + col_w + 2 * gap
@@ -116,23 +132,24 @@ local function draw_large()
   draw_digital(SCREEN_W / 2, SCREEN_H / 2 - 2, 20, 42, 15)
 end
 
--- ─── Skin 3: analog ──────────────────────────────────────────────────────
-local function draw_analog()
-  local cx = SCREEN_W / 2
-  local cy = SCREEN_H / 2 - 2
-  local r  = 52
-
+-- ─── Analog renderer (parameterized for both sizes) ─────────────────────
+-- Draws a circular clock face centered on (cx, cy) with radius r. All
+-- decorations — tick marks, hand lengths, center cap — scale with r so
+-- the same function powers both the small and large analog skins.
+local function draw_analog(cx, cy, r)
   -- face
   circf(scr, cx, cy, r, 1)
   circ (scr, cx, cy, r, 11)
   circ (scr, cx, cy, r - 1, 11)
 
-  -- hour markers (12 ticks; 4 corners are longer)
+  -- hour markers (12 ticks; every 3rd one is longer for 12/3/6/9)
+  local long_tick  = math.max(3, math.floor(r * 0.18))
+  local short_tick = math.max(2, math.floor(r * 0.10))
   for i = 0, 11 do
-    local a  = i * math.pi / 6 - math.pi / 2
-    local r1 = (i % 3 == 0) and (r - 7) or (r - 4)
-    local x1 = cx + math.floor(math.cos(a) * r1)
-    local y1 = cy + math.floor(math.sin(a) * r1)
+    local a     = i * math.pi / 6 - math.pi / 2
+    local inset = (i % 3 == 0) and long_tick or short_tick
+    local x1 = cx + math.floor(math.cos(a) * (r - inset))
+    local y1 = cy + math.floor(math.sin(a) * (r - inset))
     local x2 = cx + math.floor(math.cos(a) * (r - 1))
     local y2 = cy + math.floor(math.sin(a) * (r - 1))
     line(scr, x1, y1, x2, y2, 15)
@@ -140,26 +157,38 @@ local function draw_analog()
 
   local d = date()
 
-  -- hour hand (short, thick): slow sweep including minute offset
+  -- hour hand (short): slow sweep including minute offset
   local ha = ((d.hour % 12) + d.min / 60) * math.pi / 6 - math.pi / 2
   line(scr, cx, cy,
        cx + math.floor(math.cos(ha) * (r * 0.55)),
        cy + math.floor(math.sin(ha) * (r * 0.55)), 15)
 
-  -- minute hand (medium)
+  -- minute hand (medium) — smooth drift with second offset
   local ma = (d.min + d.sec / 60) * math.pi / 30 - math.pi / 2
   line(scr, cx, cy,
        cx + math.floor(math.cos(ma) * (r * 0.78)),
        cy + math.floor(math.sin(ma) * (r * 0.78)), 14)
 
-  -- second hand (long, thin) — ticks once per second
-  local sa = d.sec * math.pi / 30 - math.pi / 2
-  line(scr, cx, cy,
-       cx + math.floor(math.cos(sa) * (r * 0.88)),
-       cy + math.floor(math.sin(sa) * (r * 0.88)), 12)
+  -- second hand (long) — ticks once per second. Hidden when the
+  -- user has toggled show_seconds off via B.
+  if show_seconds then
+    local sa = d.sec * math.pi / 30 - math.pi / 2
+    line(scr, cx, cy,
+         cx + math.floor(math.cos(sa) * (r * 0.88)),
+         cy + math.floor(math.sin(sa) * (r * 0.88)), 12)
+  end
 
-  -- center cap
-  circf(scr, cx, cy, 2, 15)
+  -- center cap: grows slightly with radius
+  local cap = math.max(1, math.floor(r * 0.05))
+  circf(scr, cx, cy, cap, 15)
+end
+
+local function draw_analog_small()
+  draw_analog(SCREEN_W / 2, SCREEN_H / 2 - 2, 26)
+end
+
+local function draw_analog_large()
+  draw_analog(SCREEN_W / 2, SCREEN_H / 2 - 2, 52)
 end
 
 -- ─── Draw ────────────────────────────────────────────────────────────────
@@ -168,12 +197,7 @@ function _draw()
 
   if     mode_idx == 1 then draw_small()
   elseif mode_idx == 2 then draw_large()
-  elseif mode_idx == 3 then draw_analog()
+  elseif mode_idx == 3 then draw_analog_small()
+  elseif mode_idx == 4 then draw_analog_large()
   end
-
-  -- HUD: title, current skin, hint
-  text(scr, "CLOCK", 2, 2, 11)
-  text(scr, MODE_NAMES[mode_idx] .. " " .. mode_idx .. "/" .. MODE_COUNT,
-       SCREEN_W - 2, 2, 6, ALIGN_RIGHT)
-  text(scr, "A NEXT  B PREV", 0, SCREEN_H - 10, 8, ALIGN_HCENTER)
 end
