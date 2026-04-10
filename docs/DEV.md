@@ -13,7 +13,7 @@ Create a project folder with this structure:
 ```
 my-game/
   index.html
-  game.lua
+  main.lua
 ```
 
 **index.html:**
@@ -32,13 +32,13 @@ my-game/
   <canvas id="screen"></canvas>
 </div>
 <script src="../../runtime/engine.js"></script>
-<script>Mono.boot("screen", { game: "game.lua" }).catch(e => console.error("Boot failed:", e));</script>
+<script>Mono.boot("screen", { game: "main.lua" }).catch(e => console.error("Boot failed:", e));</script>
 </body></html>
 ```
 
 Adjust the paths to `engine.js` and `mono.css` relative to your project folder.
 
-### Minimal game.lua (Hello World)
+### Minimal main.lua (Hello World)
 
 ```lua
 local scr = screen()

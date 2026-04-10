@@ -40,7 +40,7 @@ echo
 
 # Extract list of passing entries. SCAN output rows look like
 #   ✓ PASS  pong/main.lua         42ms
-#   ✓ PASS  engine-test/game.lua  55ms
+#   ✓ PASS  engine-test/main.lua  55ms
 # Capture the full relative path so we know both the dir AND the entry file.
 SCAN_PASS_LINES=$(echo "$SCAN_OUT" | grep -E "^  ✓ PASS" || true)
 if [ -z "$SCAN_PASS_LINES" ]; then

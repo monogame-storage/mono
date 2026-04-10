@@ -65,14 +65,14 @@ OK (1 frame, no errors)
 ### 기록
 
 ```bash
-node mono-test.js game.lua --frames 100 --input "5:right,10:a,20:up" --record session.replay
+node mono-test.js main.lua --frames 100 --input "5:right,10:a,20:up" --record session.replay
 # → session.replay 파일에 프레임별 입력 기록
 ```
 
 ### 재생
 
 ```bash
-node mono-test.js game.lua --frames 100 --replay session.replay --snapshot actual.txt
+node mono-test.js main.lua --frames 100 --replay session.replay --snapshot actual.txt
 # → 동일한 입력 시퀀스로 실행 → VRAM 스냅샷 비교 가능
 ```
 
@@ -103,10 +103,10 @@ node mono-test.js game.lua --frames 100 --replay session.replay --snapshot actua
 
 ```bash
 # 1. 기대 출력 저장
-node mono-test.js game.lua --frames 30 --snapshot expected.txt
+node mono-test.js main.lua --frames 30 --snapshot expected.txt
 
 # 2. 엔진 수정 후 동일 상태 검증
-node mono-test.js game.lua --frames 30 --diff expected.txt
+node mono-test.js main.lua --frames 30 --diff expected.txt
 ```
 
 ### 출력 예시 (불일치)
@@ -134,7 +134,7 @@ DIFF: MISMATCH ✗
 같은 seed로 N번 실행하여 모든 실행의 VRAM이 동일한지 (FNV-1a 해시 비교) 검증한다. Lockstep 멀티플레이어의 전제 조건인 결정론적 실행을 보장하기 위함.
 
 ```bash
-node mono-test.js game.lua --frames 120 --determinism 5 --seed 42
+node mono-test.js main.lua --frames 120 --determinism 5 --seed 42
 ```
 
 ### 출력 예시 (통과)
@@ -180,7 +180,7 @@ time-based APIs, uninitialized state.
 ### 단일 게임
 
 ```bash
-node mono-test.js game.lua --frames 30 --coverage --quiet
+node mono-test.js main.lua --frames 30 --coverage --quiet
 ```
 
 **주의**: 단일 게임 커버리지는 해당 게임이 사용하는 API만 보여준다. 엔진 전체의 API 사용 현황을 보려면 **`--scan`과 함께 사용**해 여러 게임의 커버리지를 합산해야 한다.
@@ -225,7 +225,7 @@ Unused APIs (dead code candidates):
 ```
   Developer publishes ──► Firebase Function
                               │
-                              ├─ Parse game.lua (regex or luaparse)
+                              ├─ Parse main.lua (regex or luaparse)
                               ├─ Extract function calls → intersect with API set
                               └─ Write to Firestore:
                                    games/{slug}: { apis: ["cls", "rectf", ...] }
@@ -259,7 +259,7 @@ Unused APIs (dead code candidates):
 각 프레임의 상태(VRAM 해시, 활성 입력, 새로 출력된 로그)를 JSONL 형식으로 저장한다. AI가 게임 플레이를 분석하거나 버그 리포트를 자동화하는 데 활용.
 
 ```bash
-node mono-test.js game.lua --frames 100 --input "5:right,20:a" --trace session.jsonl
+node mono-test.js main.lua --frames 100 --input "5:right,20:a" --trace session.jsonl
 ```
 
 ### JSONL 포맷
@@ -290,14 +290,14 @@ node mono-test.js game.lua --frames 100 --input "5:right,20:a" --trace session.j
 ### 기록
 
 ```bash
-node mono-test.js game.lua --frames 120 --golden game.golden --golden-update --seed 42
+node mono-test.js main.lua --frames 120 --golden game.golden --golden-update --seed 42
 # → 30, 60, 90, 120 프레임마다 해시를 기록
 ```
 
 ### 검증
 
 ```bash
-node mono-test.js game.lua --frames 120 --golden game.golden --seed 42
+node mono-test.js main.lua --frames 120 --golden game.golden --seed 42
 # → 기록된 해시와 비교
 ```
 
@@ -337,7 +337,7 @@ Failures:
 각 프레임의 update+draw 실행 시간과 메모리 사용량을 측정하여 성능 리그레션을 감지한다.
 
 ```bash
-node mono-test.js game.lua --frames 300 --bench --quiet
+node mono-test.js main.lua --frames 300 --bench --quiet
 ```
 
 ### 출력 예시
@@ -376,7 +376,7 @@ RSS:    63.53MB
 N번 게임을 실행하면서 각 실행마다 랜덤 입력 시퀀스를 주입해 엔진 크래시와 예외를 찾는다.
 
 ```bash
-node mono-test.js game.lua --frames 60 --fuzz 100
+node mono-test.js main.lua --frames 60 --fuzz 100
 ```
 
 ### 입력 생성
@@ -420,7 +420,7 @@ Error samples (sorted by frequency):
 
 ## Scan Mode (`--scan`)
 
-디렉토리 하위의 모든 `game.lua`를 재귀적으로 찾아서 각각 격리된 subprocess로 실행한다. 엔진 변경 후 전체 데모의 호환성을 한 번에 검증하거나, 퍼블리싱 시스템에서 여러 유저 게임을 일괄 검수하는 용도.
+디렉토리 하위의 모든 `main.lua`를 재귀적으로 찾아서 각각 격리된 subprocess로 실행한다. 엔진 변경 후 전체 데모의 호환성을 한 번에 검증하거나, 퍼블리싱 시스템에서 여러 유저 게임을 일괄 검수하는 용도.
 
 ```bash
 node mono-test.js --scan ./demo --frames 30
@@ -430,14 +430,15 @@ node mono-test.js --scan ./demo --frames 30
 
 ```
 === SCAN /Users/ssk/work/mono/demo ===
-Found 2 game(s)
+Found 12 game(s)
 
-  ✓ PASS  engine-test/game.lua                        53ms
-  ✓ PASS  shader-test/game.lua                        48ms
+  ✓ PASS  engine-test/main.lua                        53ms
+  ✓ PASS  pong/main.lua                               45ms
+  ...
 
 === SCAN RESULTS ===
-Total:  2
-Passed: 2
+Total:  12
+Passed: 12
 Failed: 0
 SCAN: PASS ✓
 ```
@@ -445,8 +446,8 @@ SCAN: PASS ✓
 ### 실패 시 출력
 
 ```
-  ✓ PASS  engine-test/game.lua                        53ms
-  ✗ FAIL  broken-game/game.lua                        12ms
+  ✓ PASS  engine-test/main.lua                        53ms
+  ✗ FAIL  broken-game/main.lua                        12ms
          update error (frame 5): attempt to index nil value
 ```
 

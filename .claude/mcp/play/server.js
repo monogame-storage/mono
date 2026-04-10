@@ -41,12 +41,13 @@ function newSessionId() {
 
 function runGameOnce(gamePath, colors, frames, inputs) {
   const gameDir = path.dirname(gamePath);
+  const entry = path.basename(gamePath);
   const inputStr = inputs
     .flatMap(entry => entry.keys.map(k => `${entry.frame}:${k}`))
     .join(",");
   const args = [
     TEST_RUNNER,
-    "game.lua",
+    entry,
     "--frames", String(frames),
     "--colors", String(colors),
     "--quiet",
@@ -87,8 +88,8 @@ const TOOLS = [
       properties: {
         game_path: {
           type: "string",
-          description: "Path to game.lua (absolute or relative to mono repo root). " +
-            "Example: 'demo/pong/game.lua'",
+          description: "Path to main.lua (absolute or relative to mono repo root). " +
+            "Example: 'demo/pong/main.lua'",
         },
         colors: { type: "number", description: "1, 2, or 4. Default: 4", default: 4 },
         initial_frames: {

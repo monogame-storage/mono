@@ -4,17 +4,15 @@ Checklist to add a new demo without breaking the portal or the coverage report. 
 
 ## Required conventions
 
-### 1. Entry file is `main.lua` — not `game.lua`
+### 1. Entry file is `main.lua`
 
 ```
 demo/<name>/
-├── main.lua      ← entry point, loaded by play.html
+├── main.lua      ← entry point, loaded by play.html AND mono-test.js --scan
 ├── (optional)    ← other .lua scene files, assets, etc.
 ```
 
-`play.html` loads the file at `/demo/<name>/main.lua`. Do NOT name it `game.lua` — that filename is used by `mono-test.js` internally when running standalone tests, but it will not show up in the browser portal.
-
-> Historical note: earlier demos under `editor/templates/mono/` used `game.lua`. Those are templates for the editor, not browser demos. Everything under `demo/` must use `main.lua`.
+Every demo uses `main.lua` as the entry file — no exceptions. `play.html` loads `/demo/<name>/main.lua` and `mono-test.js --scan` recursively walks `demo/` looking for `main.lua` files. There is no separate "test file" vs "play file"; the same file drives both.
 
 ### 2. Register in `play.html`
 
@@ -107,7 +105,7 @@ Catches the `/docs/AI-PITFALLS.md` patterns (forward refs, `rnd()` in draw, remo
 
 | Mistake | Symptom | Fix |
 |---|---|---|
-| Used `game.lua` instead of `main.lua` | Demo doesn't appear in portal | Rename to `main.lua` |
+| Used a filename other than `main.lua` | Demo doesn't appear in portal or scan | Rename to `main.lua` |
 | Forgot `play.html` entry | 404 when visiting `/play.html?game=xxx` | Add to `GAMES` dict |
 | Forgot `demo/index.html` link | Works by URL, not discoverable | Add `<a>` |
 | Interesting APIs only fire on input | Coverage 0% for those APIs | Add attract mode |
@@ -116,16 +114,18 @@ Catches the `/docs/AI-PITFALLS.md` patterns (forward refs, `rnd()` in draw, remo
 
 ## Existing demos
 
-| Demo | Entry | Category | What it shows |
-|---|---|---|---|
-| bounce | main.lua | physics | ball + wall bouncing |
-| dodge | main.lua | action | arcade dodge |
-| pong | main.lua | sport | 2-player pong with AI fallback |
-| invaders | main.lua | shooter | Space Invaders |
-| bubble | main.lua | touch | touch bubbles |
-| starfighter | main.lua | sprite | full sprite API — loadImage, spr, sspr, drawImage, drawImageRegion |
-| paint | main.lua | touch | full touch API + swipe + gpix |
-| tiltmaze | main.lua | scene | scene system, analog tilt, canvas prerender + blit |
-| synth | main.lua | audio | wave/note/tone/noise/sfx_stop + waveform visualization |
-| engine-test | game.lua | internal | used only by mono-test.js, not play.html |
-| shader-test | main + index.html | visuals | custom HTML UI for shader chain |
+| Demo | Category | What it shows |
+|---|---|---|
+| bounce | physics | ball + wall bouncing |
+| dodge | action | arcade dodge |
+| pong | sport | 2-player pong with AI fallback |
+| invaders | shooter | Space Invaders |
+| bubble | touch | touch bubbles |
+| starfighter | sprite | full sprite API — loadImage, spr, sspr, drawImage, drawImageRegion |
+| paint | touch | full touch API + swipe + gpix |
+| tiltmaze | scene | scene system, analog tilt, canvas prerender + blit |
+| synth | audio | wave/note/tone/noise/sfx_stop + waveform visualization |
+| engine-test | api | comprehensive engine API coverage across 6 modes |
+| shader-test | visuals | custom HTML UI for shader chain (has its own `index.html`) |
+
+All demos have `main.lua` as the entry file. `shader-test` additionally has a custom `index.html` because it exposes a shader control panel; it is opened via `/demo/shader-test/` directly rather than through `play.html`.

@@ -146,7 +146,7 @@ boot → Lua 로드 → _init() 1회 → [_update() + _draw() + flush] @30fps
 
 ```js
 Mono.boot("screen", {
-  game: "game.lua",
+  game: "main.lua",
   colors: 1          // 1, 2, 4 (기본: 1)
 })
 ```

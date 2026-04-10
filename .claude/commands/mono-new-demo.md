@@ -25,7 +25,7 @@ Pick the one closest to what the demo should exercise. The template will preload
 
 ```
 demo/<name>/
-├── game.lua    — minimal _init/_start/_update/_draw with category-specific stubs
+├── main.lua    — minimal _init/_start/_update/_draw with category-specific stubs
 └── README.md   — intent, target APIs, verification command
 ```
 
