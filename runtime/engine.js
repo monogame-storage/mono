@@ -2,7 +2,7 @@
  * Mono Runtime Engine
  * 160x144, grayscale (1/2/4-bit), Lua 5.4 via Wasmoon.
  *
- * Mono.boot("screen", { game: "game.lua", colors: 1 })
+ * Mono.boot("screen", { game: "main.lua", colors: 1 })
  *   colors: 1 (2色), 2 (4色), 4 (16色). Default: 1
  */
 var Mono = (() => {

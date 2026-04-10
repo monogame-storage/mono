@@ -38,9 +38,12 @@ echo
 echo "$SCAN_LINE" | sed 's/^/  /'
 echo
 
-# Extract list of games that passed
-GAMES=$(echo "$SCAN_OUT" | grep -E "^  ✓ PASS" | awk '{print $3}' | sed 's|/game.lua||' || true)
-if [ -z "$GAMES" ]; then
+# Extract list of passing entries. SCAN output rows look like
+#   ✓ PASS  pong/main.lua         42ms
+#   ✓ PASS  engine-test/main.lua  55ms
+# Capture the full relative path so we know both the dir AND the entry file.
+SCAN_PASS_LINES=$(echo "$SCAN_OUT" | grep -E "^  ✓ PASS" || true)
+if [ -z "$SCAN_PASS_LINES" ]; then
   echo "  no passing games, aborting deeper checks"
   exit 1
 fi
@@ -48,50 +51,53 @@ fi
 # --- 2. DETERMINISM per game ---
 echo "[2/4] DETERMINISM ($DETERMINISM_RUNS runs each)"
 DETM_FAIL=0
-for g in $GAMES; do
-  GDIR="$DEMO_DIR/$g"
-  if [ -f "$GDIR/game.lua" ]; then
-    OUT=$(cd "$GDIR" && node "$TEST_RUNNER" game.lua --frames "$FRAMES" --colors 4 --determinism "$DETERMINISM_RUNS" --seed 42 --quiet 2>&1 || true)
-    if echo "$OUT" | grep -q "DETERMINISM: PASS"; then
-      printf "  ✓ %-30s PASS\n" "$g"
-    else
-      printf "  ✗ %-30s FAIL\n" "$g"
-      DETM_FAIL=$((DETM_FAIL + 1))
-    fi
+while IFS= read -r line; do
+  REL=$(echo "$line" | awk '{print $3}')
+  GDIR="$DEMO_DIR/$(dirname "$REL")"
+  ENTRY=$(basename "$REL")
+  NAME=$(dirname "$REL")
+  OUT=$(cd "$GDIR" && node "$TEST_RUNNER" "$ENTRY" --frames "$FRAMES" --colors 4 --determinism "$DETERMINISM_RUNS" --seed 42 --quiet 2>&1 || true)
+  if echo "$OUT" | grep -q "DETERMINISM: PASS"; then
+    printf "  ✓ %-30s PASS\n" "$NAME"
+  else
+    printf "  ✗ %-30s FAIL\n" "$NAME"
+    DETM_FAIL=$((DETM_FAIL + 1))
   fi
-done
+done <<< "$SCAN_PASS_LINES"
 echo
 
 # --- 3. FUZZ per game ---
 echo "[3/4] FUZZ ($FUZZ_RUNS runs each)"
 FUZZ_CRASH=0
-for g in $GAMES; do
-  GDIR="$DEMO_DIR/$g"
-  if [ -f "$GDIR/game.lua" ]; then
-    OUT=$(cd "$GDIR" && node "$TEST_RUNNER" game.lua --frames "$FRAMES" --colors 4 --fuzz "$FUZZ_RUNS" --quiet 2>&1 || true)
-    CRASHES=$(echo "$OUT" | grep -oE "Crashes:\s+[0-9]+" | awk '{print $2}' || echo "?")
-    if [ "$CRASHES" = "0" ]; then
-      printf "  ✓ %-30s 0 crashes\n" "$g"
-    else
-      printf "  ✗ %-30s %s crashes\n" "$g" "$CRASHES"
-      FUZZ_CRASH=$((FUZZ_CRASH + 1))
-    fi
+while IFS= read -r line; do
+  REL=$(echo "$line" | awk '{print $3}')
+  GDIR="$DEMO_DIR/$(dirname "$REL")"
+  ENTRY=$(basename "$REL")
+  NAME=$(dirname "$REL")
+  OUT=$(cd "$GDIR" && node "$TEST_RUNNER" "$ENTRY" --frames "$FRAMES" --colors 4 --fuzz "$FUZZ_RUNS" --quiet 2>&1 || true)
+  CRASHES=$(echo "$OUT" | grep -oE "Crashes:\s+[0-9]+" | awk '{print $2}' || echo "?")
+  if [ "$CRASHES" = "0" ]; then
+    printf "  ✓ %-30s 0 crashes\n" "$NAME"
+  else
+    printf "  ✗ %-30s %s crashes\n" "$NAME" "$CRASHES"
+    FUZZ_CRASH=$((FUZZ_CRASH + 1))
   fi
-done
+done <<< "$SCAN_PASS_LINES"
 echo
 
 # --- 4. BENCH per game ---
 echo "[4/4] BENCH"
-for g in $GAMES; do
-  GDIR="$DEMO_DIR/$g"
-  if [ -f "$GDIR/game.lua" ]; then
-    OUT=$(cd "$GDIR" && node "$TEST_RUNNER" game.lua --frames "$FRAMES" --colors 4 --bench --quiet 2>&1 || true)
-    AVG=$(echo "$OUT" | grep -E "^avg:" | awk '{print $2}' || echo "?")
-    P99=$(echo "$OUT" | grep -E "^p99:" | awk '{print $2}' || echo "?")
-    OVER=$(echo "$OUT" | grep -E "^over:" | awk '{print $2}' || echo "?")
-    printf "  %-30s avg=%-10s p99=%-10s over-budget=%s\n" "$g" "$AVG" "$P99" "$OVER"
-  fi
-done
+while IFS= read -r line; do
+  REL=$(echo "$line" | awk '{print $3}')
+  GDIR="$DEMO_DIR/$(dirname "$REL")"
+  ENTRY=$(basename "$REL")
+  NAME=$(dirname "$REL")
+  OUT=$(cd "$GDIR" && node "$TEST_RUNNER" "$ENTRY" --frames "$FRAMES" --colors 4 --bench --quiet 2>&1 || true)
+  AVG=$(echo "$OUT" | grep -E "^avg:" | awk '{print $2}' || echo "?")
+  P99=$(echo "$OUT" | grep -E "^p99:" | awk '{print $2}' || echo "?")
+  OVER=$(echo "$OUT" | grep -E "^over:" | awk '{print $2}' || echo "?")
+  printf "  %-30s avg=%-10s p99=%-10s over-budget=%s\n" "$NAME" "$AVG" "$P99" "$OVER"
+done <<< "$SCAN_PASS_LINES"
 echo
 
 # --- Summary ---

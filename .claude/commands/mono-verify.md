@@ -8,7 +8,7 @@ Run the Mono verification pipeline by invoking the helper script:
 ./.claude/scripts/mono-verify.sh
 ```
 
-The script runs `mono-test.js` in four modes against every `game.lua` in `demo/`:
+The script runs `mono-test.js` in four modes against every `main.lua` in `demo/`:
 
 1. **SCAN + COVERAGE** — confirms every demo boots and reports aggregated public-API coverage.
 2. **DETERMINISM** (3 runs × same seed) — confirms each demo is lockstep-ready.

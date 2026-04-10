@@ -34,7 +34,7 @@ fi
 mkdir -p "$DEMO_DIR"
 
 # Base template — common to all categories
-cat > "$DEMO_DIR/game.lua" <<LUA
+cat > "$DEMO_DIR/main.lua" <<LUA
 -- $NAME demo
 -- Category: $CATEGORY
 local scr = screen()
@@ -49,13 +49,13 @@ LUA
 # Category-specific additions in _start
 case "$CATEGORY" in
   audio)
-    cat >> "$DEMO_DIR/game.lua" <<'LUA'
+    cat >> "$DEMO_DIR/main.lua" <<'LUA'
   wave(0, "square")
   wave(1, "sine")
 LUA
     ;;
   sprite)
-    cat >> "$DEMO_DIR/game.lua" <<'LUA'
+    cat >> "$DEMO_DIR/main.lua" <<'LUA'
   -- sprites = loadImage("sprites.png")
   -- sprites_w = imageWidth(sprites)
   -- sprites_h = imageHeight(sprites)
@@ -63,7 +63,7 @@ LUA
     ;;
 esac
 
-cat >> "$DEMO_DIR/game.lua" <<'LUA'
+cat >> "$DEMO_DIR/main.lua" <<'LUA'
 end
 
 function _update()
@@ -71,7 +71,7 @@ LUA
 
 case "$CATEGORY" in
   touch)
-    cat >> "$DEMO_DIR/game.lua" <<'LUA'
+    cat >> "$DEMO_DIR/main.lua" <<'LUA'
   if touch() then
     local x, y = touch_pos()
     -- handle touch at (x, y)
@@ -83,7 +83,7 @@ case "$CATEGORY" in
 LUA
     ;;
   audio)
-    cat >> "$DEMO_DIR/game.lua" <<'LUA'
+    cat >> "$DEMO_DIR/main.lua" <<'LUA'
   if btnp("a") then note(0, "C5", 0.2) end
   if btnp("b") then tone(1, 400, 2000, 0.2) end
   if btnp("start") then sfx_stop() end
@@ -91,7 +91,7 @@ LUA
     ;;
 esac
 
-cat >> "$DEMO_DIR/game.lua" <<LUA
+cat >> "$DEMO_DIR/main.lua" <<LUA
 end
 
 function _draw()
@@ -134,21 +134,21 @@ Document player input here.
 
 \`\`\`bash
 cd demo/$NAME
-node ../../editor/templates/mono/mono-test.js game.lua --frames 120 --coverage
+node ../../editor/templates/mono/mono-test.js main.lua --frames 120 --coverage
 \`\`\`
 MD
 
 # Smoke test
 cd "$DEMO_DIR"
-if node "$REPO_ROOT/editor/templates/mono/mono-test.js" game.lua --frames 10 --colors 4 --quiet >/dev/null 2>&1; then
+if node "$REPO_ROOT/editor/templates/mono/mono-test.js" main.lua --frames 10 --colors 4 --quiet >/dev/null 2>&1; then
   echo "✓ demo/$NAME scaffolded and passes smoke test"
   echo "  files:"
-  echo "    $DEMO_DIR/game.lua"
+  echo "    $DEMO_DIR/main.lua"
   echo "    $DEMO_DIR/README.md"
   echo "  next:"
-  echo "    edit game.lua to implement your demo"
+  echo "    edit main.lua to implement your demo"
   echo "    run /mono-verify to confirm it fits the pipeline"
 else
-  echo "✗ demo/$NAME scaffolded but smoke test failed — check game.lua" >&2
+  echo "✗ demo/$NAME scaffolded but smoke test failed — check main.lua" >&2
   exit 1
 fi

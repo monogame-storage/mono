@@ -7,7 +7,7 @@
 //
 // Usage:
 //   node mono-lint.js <file.lua> [file2.lua ...]
-//   node mono-lint.js demo/pong/game.lua
+//   node mono-lint.js demo/pong/main.lua
 //
 // Exit codes:
 //   0 — no findings

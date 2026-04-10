@@ -57,12 +57,9 @@ jobs:
         run: |
           fail=0
           for d in demo/*/; do
-            entry=""
-            for cand in main.lua game.lua; do
-              if [ -f "$d$cand" ]; then entry="$d$cand"; break; fi
-            done
-            if [ -z "$entry" ]; then
-              echo "SKIP $d (no main.lua/game.lua)"
+            entry="${d}main.lua"
+            if [ ! -f "$entry" ]; then
+              echo "SKIP $d (no main.lua)"
               continue
             fi
             echo "Running $entry"

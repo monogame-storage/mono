@@ -4,7 +4,7 @@ Lets Claude actually play a Mono game: boot it, take an action, see the next ASC
 
 ## Tools
 
-- **`play_start`** — boot a game (`demo/pong/game.lua`, etc.), run initial frames, return ASCII + `session_id`.
+- **`play_start`** — boot a game (`demo/pong/main.lua`, etc.), run initial frames, return ASCII + `session_id`.
 - **`play_step`** — advance a session by N frames with given inputs (held during the first new frame). Returns the resulting ASCII + any new Lua `print()` output.
 - **`play_list`** — list all active sessions in the current server process.
 - **`play_stop`** — destroy a session.
@@ -32,7 +32,7 @@ claude mcp add mono-play node /absolute/path/to/mono/.claude/mcp/play/server.js
 ```bash
 cat <<'JSON' | node server.js
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
-{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"play_start","arguments":{"game_path":"demo/pong/game.lua","initial_frames":5}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"play_start","arguments":{"game_path":"demo/pong/main.lua","initial_frames":5}}}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"play_list"}}
 JSON
 ```
@@ -42,7 +42,7 @@ JSON
 - **LLM QA**: "Play pong for 200 frames and tell me if the AI ever scores." The agent plays, sees the score update, reports back.
 - **Bug reproduction**: Given a bug description, the agent tries input sequences until it reproduces the failing state, then exports the session to a `.replay` file.
 - **Gameplay balancing**: Let the agent play multiple times with different strategies and report which wins.
-- **Demo discovery**: Drop a new `game.lua`, ask the agent to figure out the controls by experimentation.
+- **Demo discovery**: Drop a new `main.lua`, ask the agent to figure out the controls by experimentation.
 
 ## Dependencies
 
