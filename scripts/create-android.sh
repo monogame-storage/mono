@@ -51,6 +51,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# --replace-engine implies --keep-android: the intent is "swap engine only",
+# so app/ (which may contain user customizations like AdMob/Billing setup)
+# must not be wiped by the template refresh phase.
+if $REPLACE_ENGINE; then
+  KEEP_ANDROID=true
+fi
+
 if [ -z "$TARGET_DIR" ]; then
   echo "Usage: $0 <target-dir> [options]"
   echo ""
@@ -58,7 +65,7 @@ if [ -z "$TARGET_DIR" ]; then
   echo "  --project-name \"Name\"   Display name (default: derived from dir name)"
   echo "  --package com.ssk.pong  Full package name (default: com.mono.<dir-name>)"
   echo "  --icon icon.png         App icon (PNG, 512x512 recommended)"
-  echo "  --replace-engine        Replace cart/.mono/ with latest engine"
+  echo "  --replace-engine        Replace cart/.mono/ with latest engine (implies --keep-android)"
   echo "  --keep-android          Keep app/ as-is (only update non-app template files)"
   echo "  --dry-run               Show what would be done without making changes"
   exit 1
