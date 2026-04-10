@@ -1622,16 +1622,22 @@ if (totalRuns > 1) {
       process.exit(1);
     }
 
-    // Recursively collect all game.lua files
+    // Recursively collect entry files. Each demo directory is expected to
+    // contain EITHER main.lua (browser-playable via play.html) OR game.lua
+    // (legacy / test-runner-only). If both are present, main.lua wins.
     function findGames(dir) {
       const found = [];
       const entries = fs.readdirSync(dir, { withFileTypes: true });
+      const siblings = new Set(entries.filter(e => e.isFile()).map(e => e.name));
+      if (siblings.has("main.lua")) {
+        found.push(path.join(dir, "main.lua"));
+      } else if (siblings.has("game.lua")) {
+        found.push(path.join(dir, "game.lua"));
+      }
       for (const e of entries) {
-        const full = path.join(dir, e.name);
         if (e.isDirectory()) {
+          const full = path.join(dir, e.name);
           found.push(...findGames(full));
-        } else if (e.isFile() && e.name === "game.lua") {
-          found.push(full);
         }
       }
       return found;
@@ -1639,7 +1645,7 @@ if (totalRuns > 1) {
 
     const games = findGames(rootDir);
     if (games.length === 0) {
-      console.log(`No game.lua files found under ${rootDir}`);
+      console.log(`No main.lua or game.lua files found under ${rootDir}`);
       process.exit(0);
     }
 
@@ -1656,10 +1662,11 @@ if (totalRuns > 1) {
     for (const gamePath of games) {
       const gameDir = path.dirname(gamePath);
       const relPath = path.relative(rootDir, gamePath);
+      const entryFile = path.basename(gamePath);  // main.lua or game.lua
       const start = Date.now();
       const childArgs = [
         thisScript,
-        "game.lua",
+        entryFile,
         "--frames", String(frames),
         "--colors", String(colorBits),
         "--quiet",

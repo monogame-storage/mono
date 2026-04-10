@@ -22,9 +22,12 @@ local serve_dir
 local paused
 local winner
 local rally_speed  -- current ball speed (increases during rally)
+local shake_frames  -- counts down for cam_reset after cam_shake
 
 local function sfx_paddle()
   if note then note(0, "C5", 0.05) end
+  if cam_shake then cam_shake(1) end
+  shake_frames = 4
 end
 
 local function sfx_wall()
@@ -33,9 +36,13 @@ end
 
 local function sfx_obstacle()
   if note then note(0, "C6", 0.06) end
+  if cam_shake then cam_shake(2) end
+  shake_frames = 6
 end
 
 local function sfx_score()
+  -- sfx_stop() cuts any lingering audio before the victory chime
+  if sfx_stop then sfx_stop() end
   if note then note(0, "C3", 0.15) end
 end
 
@@ -82,6 +89,7 @@ function _start()
   serve_dir = 1
   winner = nil
   paused = false
+  shake_frames = 0
   init_obstacles()
   reset_ball(serve_dir)
 end
@@ -175,6 +183,12 @@ local function paddle_hit(paddle, bounce_dir)
 end
 
 function _update()
+  -- shake decay: call cam_reset() once the shake wears off
+  if shake_frames > 0 then
+    shake_frames = shake_frames - 1
+    if shake_frames == 0 and cam_reset then cam_reset() end
+  end
+
   if winner then
     if btnp("start") or touch_start() then
       _start()
@@ -190,13 +204,21 @@ function _update()
 
   -- player 2 input (right paddle)
   local dy = 0
-  if btn("up") then dy = -1 end
-  if btn("down") then dy = 1 end
+  local has_input = false
+  if btn("up")   then dy = -1; has_input = true end
+  if btn("down") then dy =  1; has_input = true end
   if touch() then
     local _, ty = touch_pos()
     local center = p2.y + PH / 2
     if ty < center - 2 then dy = -1 end
-    if ty > center + 2 then dy = 1 end
+    if ty > center + 2 then dy =  1 end
+    has_input = true
+  end
+  -- Attract mode: if no human input, p2 auto-tracks the ball (slower than AI p1)
+  if not has_input and ball.dx > 0 then
+    local p2_center = p2.y + PH / 2
+    if     p2_center < ball.y - 3 then dy = 1
+    elseif p2_center > ball.y + 3 then dy = -1 end
   end
   p2.y = p2.y + dy * 3
   clamp_paddle(p2)
@@ -328,6 +350,16 @@ function _draw()
   -- pause overlay
   if paused then
     text(scr, "PAUSED", 80, 68, 10, ALIGN_HCENTER)
+  end
+
+  -- debug probe: gpix samples the screen where the ball is, draws a tiny
+  -- confirmation marker in the corner. Exercises gpix() and proves that
+  -- drawing above landed on the expected pixel.
+  if gpix then
+    local c = gpix(scr, math.floor(ball.x), math.floor(ball.y))
+    if c and c >= 0 then
+      rectf(scr, SCREEN_W - 4, SCREEN_H - 4, 3, 3, 6)
+    end
   end
 
   -- winner screen
