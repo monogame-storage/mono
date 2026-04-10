@@ -4,7 +4,7 @@ Lightweight Model Context Protocol server that exposes a Lua REPL backed by the 
 
 ## Tools
 
-- **`lua_eval`** — run a Lua snippet for N frames and return the rendered screen as ASCII, hex vdump, or just the VRAM hash.
+- **`lua_eval`** — run a Lua snippet for N frames and return the rendered screen as a VRAM hex dump (160×144, one character per pixel, values 0-f = color index) or just the VRAM hash.
 - **`lua_check`** — fast OK/error validation (1 frame, no rendering output).
 
 Snippets that don't define `_draw()` are auto-wrapped: the code becomes the body of a default `_draw()` that runs against a cleared screen. You can also define the full lifecycle (`_init/_start/_update/_draw`) yourself.

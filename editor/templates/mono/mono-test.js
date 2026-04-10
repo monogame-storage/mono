@@ -33,10 +33,8 @@
  *   --scan DIR       Run every main.lua found in DIR/**, report pass/fail
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
- *   --ascii          Print ASCII art of screen (downscaled)
- *   --ascii-full     Print full-resolution ASCII art (160x144)
  *   --png FILE       Save screen as PNG image
- *   --region X,Y,W,H Crop vdump/ascii to region (e.g., "0,0,40,20")
+ *   --region X,Y,W,H Crop vdump to region (e.g., "0,0,40,20")
  *   --until "TEXT"   Stop when Lua prints matching text (e.g., "WINS")
  *   --runs N         Run N times, report stats (use with --until)
  *   --seed N         Set math.randomseed for reproducible runs
@@ -72,8 +70,6 @@ Options:
   --scan DIR       Run every main.lua in DIR/** and report pass/fail
   --quiet          Suppress frame logs
   --console        Print Lua print() output
-  --ascii          Print ASCII art (downscaled 4:1)
-  --ascii-full     Print full ASCII art (160x144)
   --png FILE       Save screen as PNG
   --region X,Y,W,H Crop output to region
   --until "TEXT"   Stop when Lua prints matching text
@@ -110,8 +106,6 @@ const snapshotFile = getOpt("snapshot", null);
 const diffFile = getOpt("diff", null);
 const quiet = hasFlag("quiet");
 const showConsole = hasFlag("console") || suiteMode;
-const doAscii = hasFlag("ascii");
-const doAsciiFull = hasFlag("ascii-full");
 const pngFile = getOpt("png", null);
 const regionArg = getOpt("region", null);
 const untilText = getOpt("until", null);
@@ -1183,38 +1177,6 @@ end
     return 0;
   }
 
-  // --- ASCII art renderer ---
-  // Maps grayscale palette indices to density characters
-  function renderAscii(downscale) {
-    const scale = downscale || 1;
-    // 16-color grayscale ramp: dark to bright
-    const chars16 = " .:-=+*#%@";
-    const maxColor = palette.length - 1;
-    const lines = [];
-    const outW = Math.ceil(cropW / scale);
-    const outH = Math.ceil(cropH / scale);
-    for (let sy = 0; sy < outH; sy++) {
-      let row = "";
-      for (let sx = 0; sx < outW; sx++) {
-        // Average the block
-        let sum = 0, count = 0;
-        for (let dy = 0; dy < scale && (sy * scale + dy) < cropH; dy++) {
-          for (let dx = 0; dx < scale && (sx * scale + dx) < cropW; dx++) {
-            sum += getPixelInRegion(sx * scale + dx, sy * scale + dy);
-            count++;
-          }
-        }
-        const avg = sum / count;
-        const charIdx = Math.round((avg / maxColor) * (chars16.length - 1));
-        // Double-width for aspect ratio correction
-        const ch = chars16[Math.min(charIdx, chars16.length - 1)];
-        row += ch + ch;
-      }
-      lines.push(row);
-    }
-    return lines.join("\n");
-  }
-
   // --- PNG export ---
   function savePng(filePath) {
     const { PNG } = require("pngjs");
@@ -1278,7 +1240,8 @@ end
     } else {
       console.log("DIFF: MISMATCH ✗");
 
-      // Parse expected vdump text back into a VRAM buffer
+      // Parse expected vdump text back into a VRAM buffer for precise
+      // pixel-level comparison.
       const expRows = expected.split("\n");
       const actRows = actual.split("\n");
       const expBuf = new Uint8Array(W * H);
@@ -1298,88 +1261,28 @@ end
       const diffPct = ((diffCount / (W * H)) * 100).toFixed(2);
       console.log(`  ${diffCount} pixels differ (${diffPct}%)`);
 
-      // Find first differing row (for compact text output)
+      // List up to the first 10 differing rows in hex form — caller can
+      // re-run with --vdump --region or --snapshot to inspect further.
+      const diffRows = [];
       for (let i = 0; i < Math.max(expRows.length, actRows.length); i++) {
-        if (expRows[i] !== actRows[i]) {
-          console.log(`  First diff at row ${i}:`);
-          console.log(`  expected: ${(expRows[i] || "(missing)").substring(0, 40)}...`);
-          console.log(`  actual:   ${(actRows[i] || "(missing)").substring(0, 40)}...`);
-          break;
-        }
+        if (expRows[i] !== actRows[i]) diffRows.push(i);
       }
-
-      // Render ASCII diff side-by-side and difference map
-      const scale = 4;
-      const maxColor = palette.length - 1;
-      const chars16 = " .:-=+*#%@";
-      const outH = Math.ceil(H / scale);
-      const outW = Math.ceil(W / scale);
-
-      function asciiFromBuf(buf) {
-        const lines = [];
-        for (let sy = 0; sy < outH; sy++) {
-          let row = "";
-          for (let sx = 0; sx < outW; sx++) {
-            let sum = 0, count = 0;
-            for (let dy = 0; dy < scale && (sy * scale + dy) < H; dy++) {
-              for (let dx = 0; dx < scale && (sx * scale + dx) < W; dx++) {
-                sum += buf[(sy * scale + dy) * W + (sx * scale + dx)];
-                count++;
-              }
-            }
-            const avg = sum / count;
-            const charIdx = Math.round((avg / maxColor) * (chars16.length - 1));
-            const ch = chars16[Math.min(charIdx, chars16.length - 1)];
-            row += ch;
-          }
-          lines.push(row);
+      if (diffRows.length > 0) {
+        const shown = diffRows.slice(0, 10);
+        console.log(`  differing rows: ${diffRows.length} total (showing first ${shown.length})`);
+        for (const i of shown) {
+          const exp = (expRows[i] || "(missing)").substring(0, 60);
+          const act = (actRows[i] || "(missing)").substring(0, 60);
+          console.log(`    row ${String(i).padStart(3)}  exp: ${exp}${exp.length >= 60 ? "..." : ""}`);
+          console.log(`              act: ${act}${act.length >= 60 ? "..." : ""}`);
         }
-        return lines;
-      }
-
-      function diffMap() {
-        const lines = [];
-        for (let sy = 0; sy < outH; sy++) {
-          let row = "";
-          for (let sx = 0; sx < outW; sx++) {
-            let differs = false;
-            for (let dy = 0; dy < scale && (sy * scale + dy) < H && !differs; dy++) {
-              for (let dx = 0; dx < scale && (sx * scale + dx) < W && !differs; dx++) {
-                const idx = (sy * scale + dy) * W + (sx * scale + dx);
-                if (expBuf[idx] !== actBuf[idx]) differs = true;
-              }
-            }
-            row += differs ? "X" : ".";
-          }
-          lines.push(row);
+        if (diffRows.length > shown.length) {
+          console.log(`    ... ${diffRows.length - shown.length} more differing rows`);
         }
-        return lines;
-      }
-
-      const expAscii = asciiFromBuf(expBuf);
-      const actAscii = asciiFromBuf(actBuf);
-      const diffAscii = diffMap();
-      const labelExp = "expected".padEnd(outW);
-      const labelAct = "actual".padEnd(outW);
-      const labelDiff = "diff".padEnd(outW);
-      console.log(`\n  ${labelExp}  ${labelAct}  ${labelDiff}`);
-      console.log(`  ${"-".repeat(outW)}  ${"-".repeat(outW)}  ${"-".repeat(outW)}`);
-      for (let i = 0; i < outH; i++) {
-        console.log(`  ${expAscii[i]}  ${actAscii[i]}  ${diffAscii[i]}`);
       }
 
       hasError = true;
     }
-  }
-
-  // ASCII art output
-  if (doAscii) {
-    console.log("\n--- ascii (4:1 downscale) ---");
-    console.log(renderAscii(4));
-  }
-  if (doAsciiFull) {
-    console.log("\n--- ascii (full) ---");
-    console.log(renderAscii(1));
   }
 
   // PNG export

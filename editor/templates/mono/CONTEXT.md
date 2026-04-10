@@ -142,11 +142,11 @@ Dependencies: `npm install wasmoon@1.16.0 pngjs@7`
 
 **Usage**:
 ```bash
-# Run a game file and check visually
-./mono-test main.lua --frames 5 --ascii
+# Run a game file and dump the VRAM (160×144 hex, 0-f per pixel)
+./mono-test main.lua --frames 5 --vdump
 
 # Test inline code (no file needed)
-./mono-test --source 'cls(0) rectf(10,10,20,20,1) print(gpix(15,15))' --ascii --console
+./mono-test --source 'cls(0) rectf(10,10,20,20,1) print(gpix(15,15))' --vdump --console
 
 # Pixel-level assertion
 ./mono-test --source 'cls(0) pix(80,72,1) print(gpix(80,72))' --console --quiet
