@@ -196,6 +196,11 @@ if [ "$MODE" = "update" ]; then
       cp "$MONO_ROOT/runtime/engine.js" "$TARGET_DIR/cart/.mono/engine.js"
       cp "$MONO_ROOT/runtime/console-gamepad.js" "$TARGET_DIR/cart/.mono/console-gamepad.js"
       cp "$MONO_ROOT/runtime/shader.js" "$TARGET_DIR/cart/.mono/shader.js"
+      # Copy template files (excluding main.lua which goes to cart/)
+      for f in "$MONO_ROOT/editor/templates/mono/"*; do
+        name=$(basename "$f")
+        [ "$name" != "main.lua" ] && cp "$f" "$TARGET_DIR/cart/.mono/"
+      done
       for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
         cp "$MONO_ROOT/runtime/shaders/$sf" "$TARGET_DIR/cart/.mono/shaders/$sf"
       done
@@ -265,6 +270,11 @@ if ! $DRY_RUN; then
   cp "$MONO_ROOT/runtime/engine.js" "$TARGET_DIR/cart/.mono/engine.js"
   cp "$MONO_ROOT/runtime/console-gamepad.js" "$TARGET_DIR/cart/.mono/console-gamepad.js"
   cp "$MONO_ROOT/runtime/shader.js" "$TARGET_DIR/cart/.mono/shader.js"
+  # Copy template files (excluding main.lua which goes to cart/)
+  for f in "$MONO_ROOT/editor/templates/mono/"*; do
+    name=$(basename "$f")
+    [ "$name" != "main.lua" ] && cp "$f" "$TARGET_DIR/cart/.mono/"
+  done
   for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
     cp "$MONO_ROOT/runtime/shaders/$sf" "$TARGET_DIR/cart/.mono/shaders/$sf"
   done
