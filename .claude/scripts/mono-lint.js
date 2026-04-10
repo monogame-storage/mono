@@ -288,6 +288,46 @@ rule("defensive-api-check", ({ lines }) => {
   return out;
 });
 
+// Rule 9: standard-compliant game structure (opt-in via .standard marker)
+// Triggered only when linting main.lua in a directory that contains a
+// `.standard` marker file. Checks that required scene files exist and that
+// main.lua boots into a scene (has a go() call in _start).
+// See docs/GAME-STANDARD.md for the full contract.
+rule("standard-structure", ({ file, content }) => {
+  const out = [];
+  if (!file) return out;
+  const base = path.basename(file);
+  if (base !== "main.lua") return out;  // rule only fires on main.lua
+  const dir = path.dirname(file);
+  const marker = path.join(dir, ".standard");
+  if (!fs.existsSync(marker)) return out;  // not opted in
+
+  // Required scene files
+  const required = ["title.lua", "game.lua"];
+  for (const name of required) {
+    if (!fs.existsSync(path.join(dir, name))) {
+      out.push({
+        line: 0,
+        severity: "error",
+        rule: "standard-structure",
+        msg: `standard game missing required scene file: ${name}`,
+      });
+    }
+  }
+
+  // main.lua should call go() inside _start to boot into a scene.
+  // Heuristic: look for a go(...) call anywhere in the file (typically _start).
+  if (!/\bgo\s*\(\s*["'][\w\-/]+["']\s*\)/.test(content)) {
+    out.push({
+      line: 0,
+      severity: "error",
+      rule: "standard-structure",
+      msg: `standard main.lua must call go("<scene>") to boot into the title scene`,
+    });
+  }
+  return out;
+});
+
 // --- Runner ---
 function lintFile(file) {
   const content = fs.readFileSync(file, "utf8");
@@ -295,7 +335,7 @@ function lintFile(file) {
   const findings = [];
   for (const r of RULES) {
     try {
-      const fnOut = r.fn({ content, lines });
+      const fnOut = r.fn({ content, lines, file });
       for (const f of fnOut) findings.push(f);
     } catch (e) {
       findings.push({

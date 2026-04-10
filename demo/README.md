@@ -2,6 +2,17 @@
 
 Checklist to add a new demo without breaking the portal or the coverage report. Follow this or use `/mono-new-demo <name> [category]` which does most of it for you.
 
+## Games vs API showcases
+
+There are two kinds of things under `demo/`:
+
+- **Games** — playable, with a player goal, title screen, gameplay loop, end states. New games must follow the [Mono Game Standard](../docs/GAME-STANDARD.md) (START begins, SELECT pauses) — use `/mono-new-game` to scaffold.
+- **API showcases** — single-file tech demos that exercise engine APIs or visualize a feature (`engine-test`, `shader-test`, `synth`, `clock`). No title, no gameplay loop, no standard compliance required. Use `/mono-new-demo` to scaffold.
+
+This file covers the shared conventions (entry file, portal registration, coverage attract mode). For game-specific rules (START/SELECT behavior, scene structure for games), see `docs/GAME-STANDARD.md`.
+
+Existing games (`pong`, `bounce`, `dodge`, `invaders`, `bubble`, `tiltmaze`, `starfighter`, `paint`) are grandfathered — they predate the standard and are not required to conform.
+
 ## Required conventions
 
 ### 1. Entry file is `main.lua`

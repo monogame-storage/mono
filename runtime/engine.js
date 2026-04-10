@@ -475,6 +475,11 @@ var Mono = (() => {
   let debugMode = true;
   let debugShapes = [];
   let paused = false;
+  // When true, the engine stops handling SELECT entirely — games that want
+  // to use SELECT for inventory/map/meta functions can call select_override(true)
+  // from Lua to take ownership. The game then reads btnp("select") itself and
+  // is responsible for its own pause (or explicitly forgoes pause).
+  let selectOverride = false;
 
   // --- Input ---
   const keyMap = {
@@ -618,8 +623,9 @@ var Mono = (() => {
       if (!hwPrev["up"]    && !hwPrev["down"])   { keys["up"] = au; keys["down"] = ad; }
     }
 
-    // Select button toggles pause (mirrors spacebar behavior)
-    if (keys["select"] && !keysPrev["select"]) paused = !paused;
+    // Select button toggles pause (mirrors spacebar behavior) unless the
+    // game has taken over SELECT via select_override(true).
+    if (!selectOverride && keys["select"] && !keysPrev["select"]) paused = !paused;
 
     // Touch edge detection (persists one frame, like btnp)
     touchStarted = touchStartedFlag;
@@ -871,6 +877,12 @@ var Mono = (() => {
     lua.global.set("_touch_posf_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; });
     lua.global.set("swipe", () => swipeDir || false);
     lua.global.set("frame", () => frame);
+    // select_override(true)  — engine stops handling SELECT; game owns it
+    // select_override(false) — revert to engine default (pause toggle)
+    // When override is active, the game must read btnp("select") itself and
+    // provide its own pause if desired. The engine-drawn pause overlay is
+    // also suppressed while override is on.
+    lua.global.set("select_override", (v) => { selectOverride = !!v; if (v) paused = false; });
     // time() — monotonic seconds since boot, float. Resets with frame.
     lua.global.set("time", () => (performance.now() - bootTime) / 1000);
     // date() — current wall-clock as an os.date("*t")-shaped table, plus ms.
@@ -1168,6 +1180,7 @@ end
     _tickFn = null;
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;
+    selectOverride = false;
     frame = 0;
     bootTime = performance.now();
     images = []; imageIdCounter = 0; pendingLoads = [];

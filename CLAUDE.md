@@ -32,6 +32,9 @@ PUBLIC         User pages & community — stability required
 ### Before adding or renaming a demo
 Read `demo/README.md` or use `/mono-new-demo`. Do not guess file names or portal registration.
 
+### Before creating a new game
+Read `docs/GAME-STANDARD.md` or use `/mono-new-game`. New games must follow the standard (START begins, SELECT pauses); existing demos are grandfathered.
+
 ### Git
 - Commit messages: imperative, concise, with Co-Authored-By
 - Don't amend — always new commits
