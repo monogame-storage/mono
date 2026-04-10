@@ -57,9 +57,9 @@ const TOOLS = [
         },
         show: {
           type: "string",
-          enum: ["ascii", "vdump", "hash"],
-          description: "How to present the result. ascii=art, vdump=hex rows, hash=FNV-1a only. Default: ascii",
-          default: "ascii",
+          enum: ["vdump", "hash"],
+          description: "How to present the result. vdump=160×144 hex rows (0-f per pixel), hash=FNV-1a only. Default: vdump",
+          default: "vdump",
         },
       },
       required: ["code"],
@@ -96,7 +96,7 @@ end
 `;
 }
 
-function runLua(code, { frames = 1, colors = 4, show = "ascii" } = {}) {
+function runLua(code, { frames = 1, colors = 4, show = "vdump" } = {}) {
   const wrapped = wrapCode(code);
   const args = [
     TEST_RUNNER,
@@ -105,9 +105,9 @@ function runLua(code, { frames = 1, colors = 4, show = "ascii" } = {}) {
     "--colors", String(colors),
     "--quiet",
   ];
-  if (show === "ascii") args.push("--ascii");
-  else if (show === "vdump") args.push("--vdump");
-  // hash is always in stdout via the engine
+  if (show === "vdump") args.push("--vdump");
+  // "hash" mode runs without --vdump; the caller reads the final VRAM
+  // hash from the engine's summary output.
 
   const result = spawnSync("node", args, { encoding: "utf8" });
   const ok = result.status === 0;

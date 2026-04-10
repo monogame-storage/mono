@@ -97,9 +97,9 @@ node mono-test.js main.lua --frames 100 --replay session.replay --snapshot actua
 - **AI 루프**: AI가 생성한 코드가 기존 replay를 통과하는지 자동 검증
 - **데모 녹화**: 특정 게임 플레이 흐름을 기록해 두고 데모로 활용
 
-## Visual Diff (`--diff`)
+## Diff (`--diff`)
 
-`--snapshot`으로 저장한 vdump 파일과 현재 실행 결과를 비교한다. 불일치 시 차이나는 픽셀 개수와 퍼센티지를 표시하고, 4:1 다운스케일 ASCII 아트로 expected / actual / diff map을 side-by-side로 출력한다.
+`--snapshot`으로 저장한 vdump 파일과 현재 실행 결과를 비교한다. 불일치 시 차이나는 픽셀 개수/퍼센티지 + 최대 10개의 differing row를 hex 형태로 출력한다.
 
 ```bash
 # 1. 기대 출력 저장
@@ -113,21 +113,17 @@ node mono-test.js main.lua --frames 30 --diff expected.txt
 
 ```
 DIFF: MISMATCH ✗
-  1511 pixels differ (6.56%)
-  First diff at row 2:
-  expected: 30ffff0f00f00fff...
-  actual:   30ffff0f00f00fff...
-
-  expected              actual              diff
-  --------              --------            ----
-  :-:--:-: --::-        :-:--:-: --::-      .........X.XXXXXX
-  ---+:-+. :-:::        ---+:-+. :-:::      .........XXXXXXXX
-  ...                   ...                  ...
+  1515 pixels differ (6.58%)
+  differing rows: 46 total (showing first 10)
+    row  16  exp: 3000cccccccccccccccccccccccccccccc00008888888888888888...
+              act: 300000000000000000000000000000000000000000000000000000...
+    row  17  exp: 3000c0000000000000000000000000000c00008888888888888888...
+              act: 300000000000000000000000000000000000000000000000000000...
+    ...
+    ... 36 more differing rows
 ```
 
-- **diff map**: `X` = 해당 블록 내 최소 1픽셀 차이, `.` = 완전 일치
-- 엔진 변경이 어디에 영향을 줬는지 눈으로 바로 파악 가능
-- AI가 실패 원인을 이해하기 쉬움 (텍스트 비교만으로는 불가능)
+각 행은 그대로 hex이므로 `0` = 픽셀 없음, `f` = 최대 밝기로 읽힌다. 더 자세히 보려면 같은 프레임을 `--vdump` + `--region X,Y,W,H`로 다시 실행해서 관심 영역만 확대한다.
 
 ## Determinism Verification (`--determinism`)
 

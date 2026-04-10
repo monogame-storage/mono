@@ -51,7 +51,7 @@ function runGameOnce(gamePath, colors, frames, inputs) {
     "--frames", String(frames),
     "--colors", String(colors),
     "--quiet",
-    "--ascii",
+    "--vdump",
   ];
   if (inputStr) args.push("--input", inputStr);
   const result = require("child_process").spawnSync("node", args, {
@@ -60,29 +60,33 @@ function runGameOnce(gamePath, colors, frames, inputs) {
   });
   const ok = result.status === 0;
   const out = (result.stdout || "") + (result.stderr || "");
-  // Extract ASCII art block
-  const asciiStart = out.indexOf("--- ascii (4:1 downscale) ---");
-  let ascii = "";
-  if (asciiStart >= 0) {
-    const after = out.slice(asciiStart);
+  // Extract the vdump block — 160 × 144 hex digits where each character
+  // is the color index (0-f) of one pixel. This is the source of truth
+  // for screen state; the LLM receives it verbatim and interprets shapes
+  // directly from the pixel values.
+  const vdumpStart = out.indexOf("--- vdump ---");
+  let vram = "";
+  if (vdumpStart >= 0) {
+    const after = out.slice(vdumpStart);
     const lines = after.split("\n").slice(1);
     const endIdx = lines.findIndex(l => l.startsWith("---") || l.startsWith("OK ") || l.startsWith("FAILED"));
-    ascii = lines.slice(0, endIdx >= 0 ? endIdx : lines.length).join("\n").trimEnd();
+    vram = lines.slice(0, endIdx >= 0 ? endIdx : lines.length).join("\n").trimEnd();
   }
   // Extract any Lua print lines
   const logs = out
     .split("\n")
     .filter(l => l.startsWith("[Lua]"))
     .map(l => l.replace(/^\[Lua\]\s*/, ""));
-  return { ok, ascii, logs, rawOutput: out };
+  return { ok, vram, logs, rawOutput: out };
 }
 
 const TOOLS = [
   {
     name: "play_start",
     description:
-      "Boot a Mono game and return the initial ASCII frame. Returns a session_id " +
-      "that must be passed to subsequent play_step calls.",
+      "Boot a Mono game and return the initial VRAM (160×144 hex dump, " +
+      "one character per pixel, values 0-f = color index). Returns a " +
+      "session_id that must be passed to subsequent play_step calls.",
     inputSchema: {
       type: "object",
       properties: {
@@ -106,7 +110,8 @@ const TOOLS = [
     description:
       "Advance an existing session by N frames with given inputs. " +
       "Keys are applied at the first new frame and held for its duration. " +
-      "Returns the resulting ASCII frame + any Lua print() output produced.",
+      "Returns the resulting VRAM (160×144 hex dump) + any Lua print() " +
+      "output produced.",
     inputSchema: {
       type: "object",
       properties: {
@@ -160,18 +165,18 @@ function handlePlayStart(args) {
     inputs: [],
     totalFrames: initial_frames,
   };
-  const { ok, ascii, logs } = runGameOnce(resolved, colors, initial_frames, []);
+  const { ok, vram, logs } = runGameOnce(resolved, colors, initial_frames, []);
   if (!ok) {
     delete sessions[session_id];
-    return { isError: true, content: [{ type: "text", text: "game failed to boot:\n" + ascii }] };
+    return { isError: true, content: [{ type: "text", text: "game failed to boot:\n" + vram }] };
   }
   const body = [
     `session_id: ${session_id}`,
     `game: ${game_path}`,
     `frame: ${initial_frames}`,
     logs.length ? `logs:\n  ${logs.join("\n  ")}` : "",
-    "frame:",
-    ascii,
+    "vram (160x144, 0-f per pixel):",
+    vram,
   ].filter(Boolean).join("\n");
   return { content: [{ type: "text", text: body }] };
 }
@@ -187,16 +192,16 @@ function handlePlayStep(args) {
     s.inputs.push({ frame: s.totalFrames + 1, keys: [...keys] });
   }
   s.totalFrames += frames;
-  const { ok, ascii, logs } = runGameOnce(s.gamePath, s.colors, s.totalFrames, s.inputs);
+  const { ok, vram, logs } = runGameOnce(s.gamePath, s.colors, s.totalFrames, s.inputs);
   if (!ok) {
-    return { isError: true, content: [{ type: "text", text: "run failed:\n" + ascii }] };
+    return { isError: true, content: [{ type: "text", text: "run failed:\n" + vram }] };
   }
   const body = [
     `frame: ${s.totalFrames}`,
     `inputs applied: ${keys.length > 0 ? keys.join(",") : "(none)"}`,
     logs.length ? `logs:\n  ${logs.slice(-10).join("\n  ")}` : "",
-    "frame:",
-    ascii,
+    "vram (160x144, 0-f per pixel):",
+    vram,
   ].filter(Boolean).join("\n");
   return { content: [{ type: "text", text: body }] };
 }

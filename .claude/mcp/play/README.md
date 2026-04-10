@@ -1,11 +1,11 @@
 # mono-play MCP server
 
-Lets Claude actually play a Mono game: boot it, take an action, see the next ASCII frame, decide the next move, repeat. Useful for LLM-driven playtesting, bug reproduction, and AI self-play experiments.
+Lets Claude actually play a Mono game: boot it, take an action, see the next VRAM frame, decide the next move, repeat. Useful for LLM-driven playtesting, bug reproduction, and AI self-play experiments.
 
 ## Tools
 
-- **`play_start`** — boot a game (`demo/pong/main.lua`, etc.), run initial frames, return ASCII + `session_id`.
-- **`play_step`** — advance a session by N frames with given inputs (held during the first new frame). Returns the resulting ASCII + any new Lua `print()` output.
+- **`play_start`** — boot a game (`demo/pong/main.lua`, etc.), run initial frames, return VRAM hex dump + `session_id`. VRAM is 160×144 hex digits, one character per pixel, `0` = empty / `f` = brightest.
+- **`play_step`** — advance a session by N frames with given inputs (held during the first new frame). Returns the resulting VRAM + any new Lua `print()` output.
 - **`play_list`** — list all active sessions in the current server process.
 - **`play_stop`** — destroy a session.
 
