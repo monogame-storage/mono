@@ -534,6 +534,9 @@ local function draw_play()
 end
 
 local function draw_over()
+  -- draw_play() leaves the camera at (cx, cy); this overlay is pure HUD
+  -- so reset the camera before drawing anything.
+  cam(0, 0)
   cls(scr, 0)
   for _, p in ipairs(particles) do
     draw_particle(p)
