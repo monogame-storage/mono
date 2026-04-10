@@ -25,25 +25,25 @@ local rally_speed  -- current ball speed (increases during rally)
 local shake_frames  -- counts down for cam_reset after cam_shake
 
 local function sfx_paddle()
-  if note then note(0, "C5", 0.05) end
-  if cam_shake then cam_shake(1) end
+  note(0, "C5", 0.05)
+  cam_shake(1)
   shake_frames = 4
 end
 
 local function sfx_wall()
-  if note then note(0, "C4", 0.03) end
+  note(0, "C4", 0.03)
 end
 
 local function sfx_obstacle()
-  if note then note(0, "C6", 0.06) end
-  if cam_shake then cam_shake(2) end
+  note(0, "C6", 0.06)
+  cam_shake(2)
   shake_frames = 6
 end
 
 local function sfx_score()
   -- sfx_stop() cuts any lingering audio before the victory chime
-  if sfx_stop then sfx_stop() end
-  if note then note(0, "C3", 0.15) end
+  sfx_stop()
+  note(0, "C3", 0.15)
 end
 
 -- enforce minimum angle from vertical
@@ -186,7 +186,7 @@ function _update()
   -- shake decay: call cam_reset() once the shake wears off
   if shake_frames > 0 then
     shake_frames = shake_frames - 1
-    if shake_frames == 0 and cam_reset then cam_reset() end
+    if shake_frames == 0 then cam_reset() end
   end
 
   if winner then
@@ -355,11 +355,9 @@ function _draw()
   -- debug probe: gpix samples the screen where the ball is, draws a tiny
   -- confirmation marker in the corner. Exercises gpix() and proves that
   -- drawing above landed on the expected pixel.
-  if gpix then
-    local c = gpix(scr, math.floor(ball.x), math.floor(ball.y))
-    if c and c >= 0 then
-      rectf(scr, SCREEN_W - 4, SCREEN_H - 4, 3, 3, 6)
-    end
+  local sampled = gpix(scr, math.floor(ball.x), math.floor(ball.y))
+  if sampled >= 0 then
+    rectf(scr, SCREEN_W - 4, SCREEN_H - 4, 3, 3, 6)
   end
 
   -- winner screen
