@@ -235,7 +235,7 @@ if [ "$MODE" = "update" ]; then
   echo ""
   echo "Done! Updated: $TARGET_DIR"
   echo ""
-  echo "Next: cd $TARGET_DIR && ./run-debug.sh"
+  echo "Next: cd $TARGET_DIR && ./run.sh"
   exit 0
 fi
 
@@ -329,4 +329,4 @@ echo ""
 echo "Next steps:"
 echo "  cd $TARGET_DIR"
 echo "  # Edit cart/main.lua or deploy from Mono editor"
-echo "  ./run-debug.sh"
+echo "  ./run.sh"

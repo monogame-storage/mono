@@ -11,7 +11,7 @@ Mono 게임을 Android APK로 패키징하는 래퍼.
 # 2. cart/main.lua 작성 (API는 cart/.mono/CONTEXT.md 참조)
 
 # 3. 실행
-cd ~/my-game && ./run-debug.sh
+cd ~/my-game && ./run.sh
 ```
 
 ## Game Files
@@ -31,8 +31,9 @@ cart/
 ## Commands
 
 ```bash
-./run-debug.sh              # 빌드 + 설치 + 실행
-./run-debug.sh --clean      # 클린 빌드
+./run.sh                    # debug 빌드 + 설치 + 실행
+./run.sh --release          # release (signed) 빌드 + 설치 + 실행
+./run.sh --clean            # 클린 빌드
 ./update-icon.sh icon.png   # 앱 아이콘 교체 (512x512 PNG, macOS only)
 ./gradlew bundleRelease     # 릴리스 AAB (signing 설정 필요)
 ```
