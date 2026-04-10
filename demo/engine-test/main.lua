@@ -128,16 +128,15 @@ function _draw()
   elseif mode_idx == 7 then draw_time()
   end
 
-  -- HUD (always camera-independent). Shows the live frame counter,
-  -- monotonic seconds from time(), and wall-clock hh:mm from date()
-  -- so the real-time APIs are exercised on every frame regardless
-  -- of which mode is active (important for short scan runs).
+  -- HUD (always camera-independent). The frame counter is always
+  -- visible; time() / date() are NOT read here because they are
+  -- non-deterministic and would make /mono-verify --determinism
+  -- flaky. Mode 7 draw_time() is the only place real-time APIs
+  -- are exercised, and coverage for them is handled by the
+  -- dedicated demo/clock demo instead.
   cam(0, 0)
   text(scr, "ENGINE TEST", 2, 2, 15)
   text(scr, mode_idx .. "/" .. MODE_COUNT .. " " .. names[mode_idx],
        SCREEN_W - 2, 2, 12, ALIGN_RIGHT)
-  local _d = date()
-  text(scr, string.format("F%d  %.1fs  %02d:%02d",
-       frame(), time(), _d.hour, _d.min),
-       2, SCREEN_H - 10, 6)
+  text(scr, "F" .. frame(), 2, SCREEN_H - 10, 6)
 end

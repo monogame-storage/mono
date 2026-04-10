@@ -663,6 +663,11 @@ var Mono = (() => {
     if (_lua) { _lua.global.close(); _lua = null; }
     images = []; imageIdCounter = 0; pendingLoads = [];
     camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
+    // Reset bootTime at each boot so time() starts near 0 on the very
+    // first boot too (not just after an API.stop()). The module-level
+    // initializer captures `performance.now()` at script parse time,
+    // which would include however long the user took to click play.
+    bootTime = performance.now();
 
     // Clear previous error overlay
     if (canvas && canvas.parentElement) {
@@ -871,6 +876,10 @@ var Mono = (() => {
     // date() — current wall-clock as an os.date("*t")-shaped table, plus ms.
     lua.global.set("date", () => {
       const d = new Date();
+      // yday: compute via UTC-based calendar day diff so DST transitions
+      // (23h or 25h local days) don't shift the result by ±1.
+      const yearStart = Date.UTC(d.getFullYear(), 0, 0);
+      const today     = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
       return {
         year:  d.getFullYear(),
         month: d.getMonth() + 1,
@@ -879,7 +888,7 @@ var Mono = (() => {
         min:   d.getMinutes(),
         sec:   d.getSeconds(),
         wday:  d.getDay() + 1,   // 1 = Sunday, matching stock Lua os.date
-        yday:  Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000),
+        yday:  Math.floor((today - yearStart) / 86400000),
         ms:    d.getMilliseconds(),
       };
     });

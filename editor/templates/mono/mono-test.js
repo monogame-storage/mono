@@ -763,6 +763,9 @@ async function main() {
   });
   lua.global.set("date", () => {
     const d = new Date();
+    // yday via UTC diff to avoid DST edge-case drift.
+    const yearStart = Date.UTC(d.getFullYear(), 0, 0);
+    const today     = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
     return {
       year:  d.getFullYear(),
       month: d.getMonth() + 1,
@@ -771,7 +774,7 @@ async function main() {
       min:   d.getMinutes(),
       sec:   d.getSeconds(),
       wday:  d.getDay() + 1,
-      yday:  Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000),
+      yday:  Math.floor((today - yearStart) / 86400000),
       ms:    d.getMilliseconds(),
     };
   });
