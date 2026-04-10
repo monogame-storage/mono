@@ -69,7 +69,7 @@ LUA
 cat > "$DEMO_DIR/game.lua" <<'LUA'
 -- Gameplay scene.
 -- SELECT is handled by the engine (pause toggle) — no need to implement it.
--- If you want SELECT for inventory / menu / etc., call select_override(true)
+-- If you want SELECT for inventory / menu / etc., call use_pause(false)
 -- in game_init and handle btnp("select") yourself.
 local scr = screen()
 

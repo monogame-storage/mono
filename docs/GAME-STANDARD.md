@@ -65,16 +65,16 @@ By default the engine handles SELECT:
 - Player presses SELECT → engine sets the global paused flag, freezes the game loop, draws the pause overlay.
 - Player presses SELECT again → engine resumes.
 
-Games that want to use SELECT for inventory, minimap, weapon switch, custom menus, or any other meta function may declare override:
+Games that want to use SELECT for inventory, minimap, weapon switch, custom menus, or any other meta function may opt out of the default pause:
 
 ```lua
 function _start()
-  select_override(true)   -- engine stops handling SELECT
+  use_pause(false)   -- engine stops auto-pausing on SELECT
   -- ... game reads btnp("select") itself from here on
 end
 ```
 
-**Consequence of override:** the game loses the default pause and is responsible for its own pause (or explicitly forgoes pause). This is intentional — the game owns SELECT and accepts what that means.
+**Consequence of opting out:** the game loses the default pause and is responsible for its own pause (or explicitly forgoes pause). This is intentional — the game owns SELECT and accepts what that means.
 
 ---
 
@@ -90,23 +90,23 @@ end
 
 - **Blinking "PRESS START"** on the title screen is allowed and recommended — single line of text, simple on/off blink. Classic arcade pattern, does not count as a tutorial overlay.
 - **No other on-screen instructions for start or pause.** Players are expected to press SELECT to pause (it just works) and START to begin.
-- **Pause overlay is engine-provided** for consistency. Games that override SELECT must provide their own visual if they implement a custom pause.
+- **Pause overlay is engine-provided** for consistency. Games that call `use_pause(false)` must provide their own visual if they implement a custom pause.
 
 ---
 
 ## Engine API
 
-### `select_override(enabled)`
+### `use_pause(enabled)`
 
 | Argument | Type | Effect |
 |----------|------|--------|
-| `enabled` | bool | `true`: engine stops handling SELECT; game reads `btnp("select")` directly. `false`: revert to engine default (pause toggle). |
+| `enabled` | bool | `true` (default): engine auto-toggles pause on SELECT. `false`: engine stops handling SELECT; the game reads `btnp("select")` directly. |
 
-Calling `select_override(true)` also clears any active pause state. Typical usage is a one-time call in `_start`.
+Calling `use_pause(false)` also clears any active pause state. Typical usage is a one-time call in `_start`.
 
 ### Pause state (default)
 
-When `select_override` is **not** set, the engine:
+When `use_pause` is left at its default (`true`), the engine:
 
 1. Toggles an internal `paused` flag on each SELECT press edge.
 2. Skips the `_update` call while `paused` is true.
@@ -122,5 +122,5 @@ Pause state resets on engine reload (`API.stop` → boot).
 - **Predictability** — across every Mono game, START begins and SELECT pauses. Two rules, universal.
 - **Zero-effort consistency** — games that do nothing inherit the full pause behavior.
 - **Minimal constraint** — scene names, file count, and internal structure are the game's choice. The standard pins down only the two buttons that matter for cross-game consistency.
-- **Opt-in override** — advanced games can take over SELECT for meta functions without the engine fighting them.
+- **Opt-out switch** — advanced games can call `use_pause(false)` to take ownership of SELECT for meta functions without the engine fighting them.
 - **Minimalist aesthetic** — the only visual concession is a blinking "PRESS START" on the title screen.

@@ -745,10 +745,10 @@ async function main() {
   // frame counter
   let frameNum = 0;
   lua.global.set("frame", () => frameNum);
-  // select_override — API parity with runtime engine. Headless mode has no
+  // use_pause — API parity with runtime engine. Headless mode has no
   // pause behavior to toggle, so this is a no-op stub; games calling it
   // behave identically in both environments.
-  lua.global.set("select_override", () => {});
+  lua.global.set("use_pause", () => {});
 
   // time() / date() — real-time APIs. Headless mode still uses wall-clock
   // for parity with the browser runtime; tests that need determinism

@@ -33,6 +33,11 @@ function _start()
   -- determinism check compares.
   print(string.format("clock ready t=%.3f", time()))
   mode_idx = 1
+  -- Clock is a showcase (no gameplay pause needed). Opt out of the
+  -- engine's auto-pause so SELECT is free to cycle skins backward —
+  -- pairs naturally with A cycling forward. Also exercises the
+  -- use_pause() API for coverage.
+  use_pause(false)
 end
 
 local function is_digital() return mode_idx == 1 or mode_idx == 2 end
@@ -41,6 +46,9 @@ local function is_analog()  return mode_idx == 3 or mode_idx == 4 end
 function _update()
   if btnp("a") then
     mode_idx = mode_idx % MODE_COUNT + 1
+  elseif btnp("select") then
+    -- Cycle skins backward (pairs with A cycling forward)
+    mode_idx = (mode_idx - 2 + MODE_COUNT) % MODE_COUNT + 1
   elseif btnp("b") then
     if is_digital() then
       use_12h = not use_12h
