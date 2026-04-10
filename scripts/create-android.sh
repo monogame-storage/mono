@@ -77,6 +77,26 @@ log() {
   echo "  $1"
 }
 
+copy_engine_files() {
+  local mono_dir="$1"
+  cp "$MONO_ROOT/runtime/engine.js" "$mono_dir/engine.js"
+  cp "$MONO_ROOT/runtime/console-gamepad.js" "$mono_dir/console-gamepad.js"
+  cp "$MONO_ROOT/runtime/shader.js" "$mono_dir/shader.js"
+  # Copy template files (excluding main.lua which goes to cart/)
+  for f in "$MONO_ROOT/editor/templates/mono/"*; do
+    local name=$(basename "$f")
+    case "$name" in
+      main.lua) ;;
+      *) cp -R "$f" "$mono_dir/" ;;
+    esac
+  done
+  for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
+    cp "$MONO_ROOT/runtime/shaders/$sf" "$mono_dir/shaders/$sf"
+  done
+  local version=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
+  echo "$version" > "$mono_dir/VERSION"
+}
+
 generate_icons() {
   local src="$1" dst="$2"
   if ! command -v magick &>/dev/null; then
@@ -193,20 +213,8 @@ if [ "$MODE" = "update" ]; then
     run rm -rf "$TARGET_DIR/cart/.mono"
     run mkdir -p "$TARGET_DIR/cart/.mono/shaders"
     if ! $DRY_RUN; then
-      cp "$MONO_ROOT/runtime/engine.js" "$TARGET_DIR/cart/.mono/engine.js"
-      cp "$MONO_ROOT/runtime/console-gamepad.js" "$TARGET_DIR/cart/.mono/console-gamepad.js"
-      cp "$MONO_ROOT/runtime/shader.js" "$TARGET_DIR/cart/.mono/shader.js"
-      # Copy template files (excluding main.lua which goes to cart/)
-      for f in "$MONO_ROOT/editor/templates/mono/"*; do
-        name=$(basename "$f")
-        [ "$name" != "main.lua" ] && cp "$f" "$TARGET_DIR/cart/.mono/"
-      done
-      for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
-        cp "$MONO_ROOT/runtime/shaders/$sf" "$TARGET_DIR/cart/.mono/shaders/$sf"
-      done
-      VERSION=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
-      echo "$VERSION" > "$TARGET_DIR/cart/.mono/VERSION"
-      log "Engine updated to v$VERSION"
+      copy_engine_files "$TARGET_DIR/cart/.mono"
+      log "Engine updated to v$(cat "$TARGET_DIR/cart/.mono/VERSION")"
     else
       log "[dry-run] Would replace engine files"
     fi
@@ -267,20 +275,7 @@ fi
 # 3. Set up cart/.mono/ with engine + shader files
 run mkdir -p "$TARGET_DIR/cart/.mono/shaders"
 if ! $DRY_RUN; then
-  cp "$MONO_ROOT/runtime/engine.js" "$TARGET_DIR/cart/.mono/engine.js"
-  cp "$MONO_ROOT/runtime/console-gamepad.js" "$TARGET_DIR/cart/.mono/console-gamepad.js"
-  cp "$MONO_ROOT/runtime/shader.js" "$TARGET_DIR/cart/.mono/shader.js"
-  # Copy template files (excluding main.lua which goes to cart/)
-  for f in "$MONO_ROOT/editor/templates/mono/"*; do
-    name=$(basename "$f")
-    [ "$name" != "main.lua" ] && cp "$f" "$TARGET_DIR/cart/.mono/"
-  done
-  for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
-    cp "$MONO_ROOT/runtime/shaders/$sf" "$TARGET_DIR/cart/.mono/shaders/$sf"
-  done
-
-  VERSION=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
-  echo "$VERSION" > "$TARGET_DIR/cart/.mono/VERSION"
+  copy_engine_files "$TARGET_DIR/cart/.mono"
 fi
 
 # 4. Create starter main.lua + default shader.json
