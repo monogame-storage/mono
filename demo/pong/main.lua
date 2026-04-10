@@ -343,6 +343,16 @@ function _draw()
   text(scr, tostring(score1), 40, 4, 8, ALIGN_HCENTER)
   text(scr, tostring(score2), 120, 4, 8, ALIGN_HCENTER)
 
+  -- live wall-clock at the top center (HH:MM).
+  -- Colon blinks once per second using frame() (15 frames on, 15 off
+  -- at 30 fps). frame() is used instead of time() so the blink is
+  -- identical in both browser and headless runs; time() advances by
+  -- real wall-clock seconds which is nearly zero during a fast test.
+  local d = date()
+  local sep = (math.floor(frame() / 15) % 2 == 0) and ":" or " "
+  text(scr, string.format("%02d%s%02d", d.hour, sep, d.min),
+       SCREEN_W / 2, 4, 11, ALIGN_HCENTER)
+
   -- border
   line(scr, 0, 0, SCREEN_W - 1, 0, 5)
   line(scr, 0, SCREEN_H - 1, SCREEN_W - 1, SCREEN_H - 1, 5)
