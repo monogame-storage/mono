@@ -752,6 +752,33 @@ async function main() {
   let frameNum = 0;
   lua.global.set("frame", () => frameNum);
 
+  // time() / date() — real-time APIs. Headless mode still uses wall-clock
+  // for parity with the browser runtime; tests that need determinism
+  // should not read time() / date() (or should seed with a fixed value
+  // via --seed).
+  const bootTime = process.hrtime.bigint();
+  lua.global.set("time", () => {
+    const ns = Number(process.hrtime.bigint() - bootTime);
+    return ns / 1e9;
+  });
+  lua.global.set("date", () => {
+    const d = new Date();
+    // yday via UTC diff to avoid DST edge-case drift.
+    const yearStart = Date.UTC(d.getFullYear(), 0, 0);
+    const today     = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    return {
+      year:  d.getFullYear(),
+      month: d.getMonth() + 1,
+      day:   d.getDate(),
+      hour:  d.getHours(),
+      min:   d.getMinutes(),
+      sec:   d.getSeconds(),
+      wday:  d.getDay() + 1,
+      yday:  Math.floor((today - yearStart) / 86400000),
+      ms:    d.getMilliseconds(),
+    };
+  });
+
   // Trace state (for --trace)
   const traceEvents = [];
   let traceLogCount = 0;
