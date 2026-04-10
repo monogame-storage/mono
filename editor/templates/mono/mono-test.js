@@ -1482,22 +1482,31 @@ end
   // API coverage report
   if (coverageMode) {
     // Internal JS functions (prefixed with _) are invoked via Lua wrappers.
-    // Map them to their public names so the report shows what the user actually called.
-    // Pairs that must be merged (e.g., _touch_pos_x and _touch_pos_y → touch_pos)
-    // map their secondary half to null so counts aren't double-counted.
-    const API_RENAME = {
-      _btn: "btn",
-      _btnp: "btnp",
-      _cam_get_x: "cam_get",
-      _cam_get_y: null,
-      _touch: "touch",
-      _touch_start: "touch_start",
-      _touch_end: "touch_end",
-      _touch_pos_x: "touch_pos",
-      _touch_pos_y: null,
-      _touch_posf_x: "touch_posf",
-      _touch_posf_y: null,
-    };
+    // Map them to their public names so the report shows what the user
+    // actually called. Source of truth:
+    //   .claude/scripts/lib/engine-apis.js  (in the mono repo)
+    // When this file ships as an editor template to a standalone user
+    // project, the shared lib isn't available — fall back to an inlined
+    // copy. Keep the two in sync; drift is caught by /mono-lint when
+    // run from inside the repo.
+    let API_RENAME;
+    try {
+      API_RENAME = require("../../../.claude/scripts/lib/engine-apis").buildCoverageRename();
+    } catch (e) {
+      API_RENAME = {
+        _btn: "btn",
+        _btnp: "btnp",
+        _cam_get_x: "cam_get",
+        _cam_get_y: null,
+        _touch: "touch",
+        _touch_start: "touch_start",
+        _touch_end: "touch_end",
+        _touch_pos_x: "touch_pos",
+        _touch_pos_y: null,
+        _touch_posf_x: "touch_posf",
+        _touch_posf_y: null,
+      };
+    }
     // APIs that are not really Mono APIs — routed to stdio for dev convenience
     // or Lua built-ins that happen to be overridden. Exclude from coverage totals.
     const API_EXCLUDE = new Set(["print"]);

@@ -35,42 +35,17 @@ const ANSI = {
   bold:   s => `\x1b[1m${s}\x1b[0m`,
 };
 
+// Shared helper knows about _internal → public mapping and the engine.js
+// parsing logic. Kept minimal here so this script focuses on the sync check.
+const { loadPublicAPIs } = require("./lib/engine-apis");
+
 // APIs that are intentionally not documented (Lua built-ins, internal wrappers)
 const UNDOCUMENTED_OK = new Set([
   "print",  // Lua built-in, routed for debugging
 ]);
 
-// Public API names that map from internal _prefixed names (for reporting)
-const INTERNAL_TO_PUBLIC = {
-  _btn: "btn",
-  _btnp: "btnp",
-  _cam_get_x: "cam_get",
-  _cam_get_y: "cam_get",
-  _touch: "touch",
-  _touch_start: "touch_start",
-  _touch_end: "touch_end",
-  _touch_pos_x: "touch_pos",
-  _touch_pos_y: "touch_pos",
-  _touch_posf_x: "touch_posf",
-  _touch_posf_y: "touch_posf",
-};
-
 function extractEngineAPIs() {
-  const src = fs.readFileSync(ENGINE_JS, "utf8");
-  const setRe = /lua\.global\.set\(\s*"([^"]+)"/g;
-  const names = new Set();
-  let m;
-  while ((m = setRe.exec(src)) !== null) {
-    const raw = m[1];
-    if (raw in INTERNAL_TO_PUBLIC) {
-      names.add(INTERNAL_TO_PUBLIC[raw]);
-    } else if (raw.startsWith("_")) {
-      // skip truly internal
-    } else {
-      names.add(raw);
-    }
-  }
-  return names;
+  return loadPublicAPIs(ENGINE_JS);
 }
 
 function extractDocAPIs() {
