@@ -10,16 +10,13 @@
 --   4 canvas   — off-screen canvas + blit
 --   5 input    — btn/btnp readout
 --   6 frame    — frame counter + animation
---
--- NOTE: cam_shake/cam_reset/note/sfx_stop/axis_x/axis_y are
--- intentionally not used here — mono-test.js template does not
--- expose them yet (see issue #25).
+--   7 time     — time()/date() real-time APIs
 
 local scr = screen()
 local off                 -- off-screen canvas (mode 4)
 local mode_idx = 1
 local mode_frame = 0
-local MODE_COUNT = 6
+local MODE_COUNT = 7
 local MODE_LEN = 60        -- frames per mode when auto-cycling
 
 function _init()
@@ -105,7 +102,18 @@ local function draw_frame()
   rectf(scr, 50, 60, bar, 6, 14)
 end
 
-local names = { "SHAPES", "TEXT", "CAMERA", "CANVAS", "INPUT", "FRAME" }
+local function draw_time()
+  local t = time()
+  local d = date()
+  text(scr, string.format("TIME %.2f", t), 0, 20, 11, ALIGN_HCENTER)
+  text(scr, string.format("%04d-%02d-%02d", d.year, d.month, d.day),
+       0, 36, 14, ALIGN_HCENTER)
+  text(scr, string.format("%02d:%02d:%02d.%03d", d.hour, d.min, d.sec, d.ms),
+       0, 50, 15, ALIGN_HCENTER)
+  text(scr, "WDAY " .. d.wday .. "  YDAY " .. d.yday, 0, 66, 8, ALIGN_HCENTER)
+end
+
+local names = { "SHAPES", "TEXT", "CAMERA", "CANVAS", "INPUT", "FRAME", "TIME" }
 
 function _draw()
   cls(scr, 0)
@@ -117,9 +125,15 @@ function _draw()
   elseif mode_idx == 4 then draw_canvas()
   elseif mode_idx == 5 then draw_input()
   elseif mode_idx == 6 then draw_frame()
+  elseif mode_idx == 7 then draw_time()
   end
 
-  -- HUD (always camera-independent)
+  -- HUD (always camera-independent). The frame counter is always
+  -- visible; time() / date() are NOT read here because they are
+  -- non-deterministic and would make /mono-verify --determinism
+  -- flaky. Mode 7 draw_time() is the only place real-time APIs
+  -- are exercised, and coverage for them is handled by the
+  -- dedicated demo/clock demo instead.
   cam(0, 0)
   text(scr, "ENGINE TEST", 2, 2, 15)
   text(scr, mode_idx .. "/" .. MODE_COUNT .. " " .. names[mode_idx],

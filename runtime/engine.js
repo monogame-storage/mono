@@ -632,6 +632,10 @@ var Mono = (() => {
 
   // --- Flush buffer to canvas (always screen = surfaces[0]) ---
   let frame = 0;
+  // bootTime is captured per engine start so `time()` reads as monotonic
+  // seconds since the game booted (and resets along with `frame` when the
+  // engine reloads a game via API.stop).
+  let bootTime = performance.now();
   function flush() {
     const scr = surfaces[0];
     if (!scr) return;
@@ -659,6 +663,11 @@ var Mono = (() => {
     if (_lua) { _lua.global.close(); _lua = null; }
     images = []; imageIdCounter = 0; pendingLoads = [];
     camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
+    // Reset bootTime at each boot so time() starts near 0 on the very
+    // first boot too (not just after an API.stop()). The module-level
+    // initializer captures `performance.now()` at script parse time,
+    // which would include however long the user took to click play.
+    bootTime = performance.now();
 
     // Clear previous error overlay
     if (canvas && canvas.parentElement) {
@@ -862,6 +871,27 @@ var Mono = (() => {
     lua.global.set("_touch_posf_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; });
     lua.global.set("swipe", () => swipeDir || false);
     lua.global.set("frame", () => frame);
+    // time() — monotonic seconds since boot, float. Resets with frame.
+    lua.global.set("time", () => (performance.now() - bootTime) / 1000);
+    // date() — current wall-clock as an os.date("*t")-shaped table, plus ms.
+    lua.global.set("date", () => {
+      const d = new Date();
+      // yday: compute via UTC-based calendar day diff so DST transitions
+      // (23h or 25h local days) don't shift the result by ±1.
+      const yearStart = Date.UTC(d.getFullYear(), 0, 0);
+      const today     = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+      return {
+        year:  d.getFullYear(),
+        month: d.getMonth() + 1,
+        day:   d.getDate(),
+        hour:  d.getHours(),
+        min:   d.getMinutes(),
+        sec:   d.getSeconds(),
+        wday:  d.getDay() + 1,   // 1 = Sunday, matching stock Lua os.date
+        yday:  Math.floor((today - yearStart) / 86400000),
+        ms:    d.getMilliseconds(),
+      };
+    });
     // print is intentionally routed to console.log for debugging. It is NOT
     // part of the public Mono API — it's Lua's built-in, kept for dev convenience.
     lua.global.set("print", (...args) => console.log("[Lua]", ...args));
@@ -1139,6 +1169,7 @@ end
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;
     frame = 0;
+    bootTime = performance.now();
     images = []; imageIdCounter = 0; pendingLoads = [];
     camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
     touches = []; touchStarted = false; touchEnded = false; touchStartedFlag = false; touchEndedFlag = false;
