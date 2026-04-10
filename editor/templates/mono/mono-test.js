@@ -34,7 +34,7 @@
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
  *   --png FILE       Save screen as PNG image
- *   --region X,Y,W,H Crop vdump/ascii to region (e.g., "0,0,40,20")
+ *   --region X,Y,W,H Crop vdump to region (e.g., "0,0,40,20")
  *   --until "TEXT"   Stop when Lua prints matching text (e.g., "WINS")
  *   --runs N         Run N times, report stats (use with --until)
  *   --seed N         Set math.randomseed for reproducible runs

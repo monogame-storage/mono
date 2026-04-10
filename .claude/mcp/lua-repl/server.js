@@ -58,7 +58,7 @@ const TOOLS = [
         show: {
           type: "string",
           enum: ["vdump", "hash"],
-          description: "How to present the result. vdump=160×144 hex rows (0-f per pixel), hash=FNV-1a only. Default: vdump",
+          description: "How to present the result. vdump = 160×144 hex rows (0-f per pixel). hash = no visual output, just the OK/FAIL status (fastest, use for compile-check style verification). Default: vdump",
           default: "vdump",
         },
       },
@@ -106,8 +106,11 @@ function runLua(code, { frames = 1, colors = 4, show = "vdump" } = {}) {
     "--quiet",
   ];
   if (show === "vdump") args.push("--vdump");
-  // "hash" mode runs without --vdump; the caller reads the final VRAM
-  // hash from the engine's summary output.
+  // "hash" mode runs with no visual output at all. It's the cheapest
+  // way to answer "does this snippet compile and run?"; callers only
+  // inspect `ok` / `stderr`, never the final VRAM hash (mono-test.js
+  // does not emit the hash to stdout in normal runs — only under
+  // --determinism, which we don't enable here).
 
   const result = spawnSync("node", args, { encoding: "utf8" });
   const ok = result.status === 0;
