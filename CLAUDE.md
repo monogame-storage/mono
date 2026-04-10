@@ -1,5 +1,24 @@
 # Mono — Claude Code Project Instructions
 
+## Project Stage: ALPHA (Engine Development)
+
+Current focus: engine development + first-party game for Play Store release.
+
+### Stage Rules
+- NO backward compatibility — break anything freely
+- NO deprecation warnings or migration guides
+- NO defensive coding for external consumers
+- API changes are expected and encouraged
+- Optimize for speed of iteration, not stability
+
+### Stage Roadmap
+```
+ALPHA   (now)  Engine development     — no external users, break freely
+BETA           Online editor          — API stabilization begins
+GAMMA          Publishing system      — backward compatibility starts
+PUBLIC         User pages & community — stability required
+```
+
 ## Project
 Mono is a constraint-driven fantasy game console (160x144, 16 grayscale colors, 16x16 sprites, Lua 5.4 via Wasmoon).
 
@@ -13,9 +32,9 @@ Mono is a constraint-driven fantasy game console (160x144, 16 grayscale colors, 
 ## Rules
 
 ### When AI makes a mistake
-- Record the bug pattern in `docs/AI-PITFALLS.md`
-- Format: Symptom, Cause, Fix with code examples
-- This document is referenced in future prompts to prevent the same mistake
+- First, fix the root cause — if the API is confusing, rename it; if a return type is ambiguous, change it
+- Only document in `docs/AI-PITFALLS.md` when the root cause cannot be fixed (e.g. Lua language limitations, Wasmoon quirks)
+- We are in ALPHA — prefer changing the engine over teaching AI to work around bad design
 
 ### Lua specifics (Wasmoon)
 - Lua 5.4, NOT Luau — no type annotations
