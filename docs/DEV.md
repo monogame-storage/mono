@@ -239,6 +239,43 @@ Each frame runs in this order:
 local f = frame()  -- returns the current frame number (starts at 0, increments each tick)
 ```
 
+### Real Time
+
+`frame()` counts ticks, not wall-clock time. For real elapsed time or the current date use:
+
+```lua
+local t = time()   -- monotonic seconds since the game booted, as a float
+                   -- resets when the engine reloads a game
+                   -- immune to wall-clock changes
+
+local d = date()   -- current local wall-clock as a table:
+                   -- { year, month, day, hour, min, sec, wday, yday, ms }
+                   -- same shape as Lua's os.date("*t"), plus `ms` (0-999)
+                   -- wday: 1=Sunday .. 7=Saturday
+```
+
+Use cases:
+
+```lua
+-- Seed RNG from real time
+math.randomseed(date().ms + date().sec * 1000)
+
+-- Measure real elapsed time across a slow operation
+local t0 = time()
+do_expensive_thing()
+print("took " .. (time() - t0) .. "s")
+
+-- Display a clock
+function _draw()
+  cls(scr, 0)
+  local d = date()
+  local hhmm = string.format("%02d:%02d", d.hour, d.min)
+  text(scr, hhmm, SCREEN_W/2, 64, 15, ALIGN_CENTER)
+end
+```
+
+**Determinism note:** `time()` and `date()` are inherently non-deterministic. Do NOT use them inside code that `/mono-verify --determinism` or lockstep multiplayer must reproduce bit-for-bit. Guard such reads behind a `--seed`-aware initialization path if the game needs both live clock and reproducible runs.
+
 ---
 
 ## 4. Canvas Surface
