@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "mono-lua-repl": {
+      "command": "node",
+      "args": [".claude/mcp/lua-repl/server.js"]
+    },
+    "mono-play": {
+      "command": "node",
+      "args": [".claude/mcp/play/server.js"]
+    }
+  }
+}
