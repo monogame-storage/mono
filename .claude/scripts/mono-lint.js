@@ -25,6 +25,27 @@ const ANSI = {
   bold:   s => `\x1b[1m${s}\x1b[0m`,
 };
 
+// --- Public API set ---
+// Shared helper parses runtime/engine.js on first use. Lazy-loaded so
+// `require()`ing this file from a non-CLI context (tests, other tools)
+// doesn't trigger file I/O at import time.
+const { loadPublicAPIs } = require("./lib/engine-apis");
+
+let _publicAPIs = null;
+function getPublicAPIs() {
+  if (_publicAPIs === null) {
+    _publicAPIs = loadPublicAPIs();
+    if (_publicAPIs.size === 0) {
+      console.warn(
+        "mono-lint: defensive-api-check skipped — could not load " +
+        "runtime/engine.js API list. Check that the script is being run " +
+        "from inside the mono repo."
+      );
+    }
+  }
+  return _publicAPIs;
+}
+
 // --- Rules ---
 // Each rule receives the full file content + per-line array.
 // Returns an array of { line, severity, rule, msg }.
@@ -221,6 +242,48 @@ rule("surface-missing", ({ lines }) => {
         });
       }
     }
+  }
+  return out;
+});
+
+// Rule 8: defensive nil-check on a public Mono API
+// Catches patterns like `if cam_shake then cam_shake(1) end` where the
+// author is guarding against a missing engine API. In ALPHA stage the
+// engine always registers public APIs, so this guard is dead weight
+// and violates the "NO defensive coding" stage rule.
+//
+// Matches both `if` and `elseif` forms, single-line or multi-line.
+// Looks up to 10 lines ahead for the same identifier being called,
+// which covers most real-world defensive blocks without bloat.
+rule("defensive-api-check", ({ lines }) => {
+  const out = [];
+  const publicAPIs = getPublicAPIs();
+  if (publicAPIs.size === 0) return out;  // warning already emitted by loader
+  const ifRe = /^\s*(?:if|elseif)\s+([a-z_][\w]*)\s+then\b/;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (l.trim().startsWith("--")) continue;
+    const m = l.match(ifRe);
+    if (!m) continue;
+    const name = m[1];
+    if (!publicAPIs.has(name)) continue;
+    // Confirm the identifier is actually called inside the if-block
+    // (either same line or up to 10 lines after). This reduces false
+    // positives when the name happens to match but isn't being checked
+    // for existence. 10 lines covers typical defensive blocks with a
+    // few statements between the guard and the call.
+    const callRe = new RegExp(`(?:^|[^.\\w])${name}\\s*\\(`);
+    let calledInside = false;
+    for (let j = i; j < Math.min(i + 11, lines.length); j++) {
+      if (callRe.test(lines[j])) { calledInside = true; break; }
+    }
+    if (!calledInside) continue;
+    out.push({
+      line: i + 1,
+      severity: "warn",
+      rule: "defensive-api-check",
+      msg: `'${m[0].trim()}' guards a public Mono API that is always registered — drop the check (ALPHA: no defensive coding)`,
+    });
   }
   return out;
 });
