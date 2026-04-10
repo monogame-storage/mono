@@ -21,6 +21,16 @@
  *                     File:   touch-events.txt (one event per line, # comments)
  *   --snapshot FILE  Save vdump to file
  *   --diff FILE      Compare vdump against expected file
+ *   --replay FILE    Load input sequence from file and replay
+ *   --record FILE    Record input sequence to file during run
+ *   --determinism N  Run N times with same seed, verify identical VRAM
+ *   --coverage       Report which engine APIs were called (and how often)
+ *   --trace FILE     Write per-frame gameplay trace (JSONL) for AI analysis
+ *   --golden FILE    Record/check hash snapshots at key frames (regression)
+ *   --golden-update  Update the golden file with current hashes
+ *   --bench          Measure per-frame time (avg/p50/p95/p99/max) + heap
+ *   --fuzz N         Run N times with random inputs, report crash rate
+ *   --scan DIR       Run every game.lua found in DIR/**, report pass/fail
  *   --quiet          Suppress frame-by-frame logs
  *   --console        Print Lua print() output (default: true in suite mode)
  *   --ascii          Print ASCII art of screen (downscaled)
@@ -50,6 +60,16 @@ Options:
   --touch "F:A:X,Y" Inject touch inline or from file
   --snapshot FILE  Save vdump to file
   --diff FILE      Compare vdump against expected file
+  --replay FILE    Load input sequence from file and replay
+  --record FILE    Record input sequence to file during run
+  --determinism N  Run N times with same seed, verify identical VRAM
+  --coverage       Report which engine APIs were called
+  --trace FILE     Write per-frame gameplay trace (JSONL)
+  --golden FILE    Record/check hash snapshots at key frames
+  --golden-update  Update golden file with current hashes
+  --bench          Measure per-frame time + heap usage
+  --fuzz N         Run N times with random inputs, report crash rate
+  --scan DIR       Run every game.lua in DIR/** and report pass/fail
   --quiet          Suppress frame logs
   --console        Print Lua print() output
   --ascii          Print ASCII art (downscaled 4:1)
@@ -98,6 +118,19 @@ const untilText = getOpt("until", null);
 const totalRuns = parseInt(getOpt("runs", "1")) || 1;
 const seedArg = getOpt("seed", null);
 const touchArg = getOpt("touch", null);
+const replayFile = getOpt("replay", null);
+const recordFile = getOpt("record", null);
+const determinismRuns = parseInt(getOpt("determinism", "0")) || 0;
+// --coverage-json is an internal flag used by --scan --coverage to collect
+// machine-readable coverage output from each child process.
+const coverageAggregate = hasFlag("coverage-json");
+const coverageMode = hasFlag("coverage") || coverageAggregate;
+const traceFile = getOpt("trace", null);
+const goldenFile = getOpt("golden", null);
+const goldenUpdate = hasFlag("golden-update");
+const benchMode = hasFlag("bench");
+const fuzzRuns = parseInt(getOpt("fuzz", "0")) || 0;
+const scanDir = getOpt("scan", null);
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
@@ -353,6 +386,38 @@ function vdump() {
   return rows.join("\n");
 }
 
+// FNV-1a 32-bit hash of current VRAM — for determinism checks
+function vramHash() {
+  const buf = surfaces[0].colorBuf;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < buf.length; i++) {
+    hash ^= buf[i];
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+// --- Golden snapshots ---
+// File format (one per line):
+//   # mono golden snapshots
+//   # seed=42 colors=1
+//   30 1b2ae874
+//   60 65a4c22a
+//   120 04718784
+const goldenTargets = {};  // { frame: expectedHash }
+const goldenCaptured = {}; // { frame: actualHash } — filled during run
+if (goldenFile && !goldenUpdate && fs.existsSync(goldenFile)) {
+  const lines = fs.readFileSync(goldenFile, "utf8").split("\n");
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const parts = line.split(/\s+/);
+    const frame = parseInt(parts[0]);
+    const hash = parts[1];
+    if (!isNaN(frame) && hash) goldenTargets[frame] = hash;
+  }
+}
+
 // Image quantization (no DOM needed)
 function quantizeRGBA(rgba, w, h, pal) {
   const out = new Uint8Array(w * h);
@@ -432,6 +497,59 @@ if (inputArg) {
   }
 }
 
+// --- Replay: load input sequence from file ---
+// Format:
+//   # mono replay v1
+//   # seed=42 colors=1
+//   0
+//   1
+//   2 right
+//   3 right a
+let replaySeed = null;
+let replayColors = null;
+if (replayFile) {
+  if (!fs.existsSync(replayFile)) {
+    console.error(`Replay file not found: ${replayFile}`);
+    process.exit(1);
+  }
+  const lines = fs.readFileSync(replayFile, "utf8").split("\n");
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith("#")) {
+      // Parse metadata from comments
+      const seedMatch = line.match(/seed=(\d+)/);
+      if (seedMatch) replaySeed = parseInt(seedMatch[1]);
+      const colorsMatch = line.match(/colors=(\d+)/);
+      if (colorsMatch) replayColors = parseInt(colorsMatch[1]);
+      continue;
+    }
+    // frame followed by keys: "2 right a"
+    const parts = line.split(/\s+/);
+    const frame = parseInt(parts[0]);
+    if (isNaN(frame)) continue;
+    const frameKeys = parts.slice(1).filter(k => k.length > 0);
+    if (frameKeys.length > 0) {
+      if (!inputSchedule[frame]) inputSchedule[frame] = [];
+      for (const k of frameKeys) inputSchedule[frame].push(k);
+    }
+  }
+  if (replaySeed !== null && seedArg === null) {
+    runSeed = replaySeed;
+  }
+}
+
+// --- Record: capture input sequence during run ---
+const recordedFrames = [];  // [{ frame, keys: [...] }]
+
+function recordInput(f) {
+  if (!recordFile) return;
+  const activeKeys = Object.keys(keys).filter(k => keys[k]);
+  if (activeKeys.length > 0) {
+    recordedFrames.push({ frame: f, keys: activeKeys });
+  }
+}
+
 function inputUpdate() {
   for (const k in keys) keysPrev[k] = keys[k];
 }
@@ -442,6 +560,17 @@ function applyInput(frame) {
   if (inputSchedule[frame]) {
     for (const k of inputSchedule[frame]) keys[k] = true;
   }
+}
+
+function saveRecording(filePath, totalFrames) {
+  const lines = [];
+  lines.push("# mono replay v1");
+  const seed = runSeed !== null ? runSeed : (seedArg !== null ? parseInt(seedArg) : 0);
+  lines.push(`# seed=${seed} colors=${colorBits} frames=${totalFrames}`);
+  for (const entry of recordedFrames) {
+    lines.push(`${entry.frame} ${entry.keys.join(" ")}`);
+  }
+  fs.writeFileSync(filePath, lines.join("\n") + "\n");
 }
 
 // --- Touch simulation ---
@@ -543,6 +672,23 @@ async function main() {
   const factory = new LuaFactory();
   const lua = await factory.createEngine();
 
+  // API coverage: wrap lua.global.set to count function calls
+  const apiCounts = {};
+  if (coverageMode) {
+    const origSet = lua.global.set.bind(lua.global);
+    lua.global.set = function(name, value) {
+      if (typeof value === "function") {
+        apiCounts[name] = 0;
+        const wrapped = function(...args) {
+          apiCounts[name]++;
+          return value.apply(this, args);
+        };
+        return origSet(name, wrapped);
+      }
+      return origSet(name, value);
+    };
+  }
+
   // Collect console output
   const luaOutput = [];
 
@@ -601,12 +747,17 @@ async function main() {
   lua.global.set("blit", blitFn);
   lua.global.set("imageWidth", (id) => { const img = images[id]; return img ? img.w : 0; });
   lua.global.set("imageHeight", (id) => { const img = images[id]; return img ? img.h : 0; });
-  lua.global.set("vrow", vrow);
-  lua.global.set("vdump", vdump);
 
   // frame counter
   let frameNum = 0;
   lua.global.set("frame", () => frameNum);
+
+  // Trace state (for --trace)
+  const traceEvents = [];
+  let traceLogCount = 0;
+
+  // Benchmark state (for --bench)
+  const frameTimesNs = [];
 
   // Scene system
   let currentScene = null;
@@ -934,6 +1085,7 @@ end
     }
 
     const basename = currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) : null;
+    const frameStart = benchMode ? process.hrtime.bigint() : 0n;
     const uf = sceneObj ? sceneObj.update : lua.global.get(basename ? basename + "_update" : "_update");
     if (uf) {
       try { uf(); }
@@ -944,7 +1096,38 @@ end
       try { df(); }
       catch (e) { console.error(`${currentScene || ""} draw error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
+    if (benchMode) {
+      const elapsedNs = Number(process.hrtime.bigint() - frameStart);
+      frameTimesNs.push(elapsedNs);
+    }
     frameNum = f;
+    recordInput(f);
+
+    // Trace: capture per-frame state for AI analysis
+    if (traceFile) {
+      const activeKeys = Object.keys(keys).filter(k => keys[k]);
+      const newLogs = luaOutput.slice(traceLogCount);
+      traceLogCount = luaOutput.length;
+      traceEvents.push({
+        frame: f,
+        hash: vramHash(),
+        keys: activeKeys,
+        logs: newLogs,
+      });
+    }
+
+    // Golden snapshot capture: record hash at target frames
+    if (goldenFile) {
+      if (goldenUpdate) {
+        // Record every 30 frames by default (1 sec intervals at 30fps)
+        if (f % 30 === 0 || f === frameCount) {
+          goldenCaptured[f] = vramHash();
+        }
+      } else if (goldenTargets[f] !== undefined) {
+        goldenCaptured[f] = vramHash();
+      }
+    }
+
     inputUpdate();
     touchUpdate();
     if (untilTriggered) {
@@ -1067,9 +1250,28 @@ end
       console.log("DIFF: MATCH ✓");
     } else {
       console.log("DIFF: MISMATCH ✗");
-      // Find first differing row
+
+      // Parse expected vdump text back into a VRAM buffer
       const expRows = expected.split("\n");
       const actRows = actual.split("\n");
+      const expBuf = new Uint8Array(W * H);
+      for (let y = 0; y < Math.min(expRows.length, H); y++) {
+        const row = expRows[y];
+        for (let x = 0; x < Math.min(row.length, W); x++) {
+          expBuf[y * W + x] = parseInt(row[x], 16) || 0;
+        }
+      }
+      const actBuf = surfaces[0].colorBuf;
+
+      // Count differing pixels
+      let diffCount = 0;
+      for (let i = 0; i < W * H; i++) {
+        if (expBuf[i] !== actBuf[i]) diffCount++;
+      }
+      const diffPct = ((diffCount / (W * H)) * 100).toFixed(2);
+      console.log(`  ${diffCount} pixels differ (${diffPct}%)`);
+
+      // Find first differing row (for compact text output)
       for (let i = 0; i < Math.max(expRows.length, actRows.length); i++) {
         if (expRows[i] !== actRows[i]) {
           console.log(`  First diff at row ${i}:`);
@@ -1078,6 +1280,67 @@ end
           break;
         }
       }
+
+      // Render ASCII diff side-by-side and difference map
+      const scale = 4;
+      const maxColor = palette.length - 1;
+      const chars16 = " .:-=+*#%@";
+      const outH = Math.ceil(H / scale);
+      const outW = Math.ceil(W / scale);
+
+      function asciiFromBuf(buf) {
+        const lines = [];
+        for (let sy = 0; sy < outH; sy++) {
+          let row = "";
+          for (let sx = 0; sx < outW; sx++) {
+            let sum = 0, count = 0;
+            for (let dy = 0; dy < scale && (sy * scale + dy) < H; dy++) {
+              for (let dx = 0; dx < scale && (sx * scale + dx) < W; dx++) {
+                sum += buf[(sy * scale + dy) * W + (sx * scale + dx)];
+                count++;
+              }
+            }
+            const avg = sum / count;
+            const charIdx = Math.round((avg / maxColor) * (chars16.length - 1));
+            const ch = chars16[Math.min(charIdx, chars16.length - 1)];
+            row += ch;
+          }
+          lines.push(row);
+        }
+        return lines;
+      }
+
+      function diffMap() {
+        const lines = [];
+        for (let sy = 0; sy < outH; sy++) {
+          let row = "";
+          for (let sx = 0; sx < outW; sx++) {
+            let differs = false;
+            for (let dy = 0; dy < scale && (sy * scale + dy) < H && !differs; dy++) {
+              for (let dx = 0; dx < scale && (sx * scale + dx) < W && !differs; dx++) {
+                const idx = (sy * scale + dy) * W + (sx * scale + dx);
+                if (expBuf[idx] !== actBuf[idx]) differs = true;
+              }
+            }
+            row += differs ? "X" : ".";
+          }
+          lines.push(row);
+        }
+        return lines;
+      }
+
+      const expAscii = asciiFromBuf(expBuf);
+      const actAscii = asciiFromBuf(actBuf);
+      const diffAscii = diffMap();
+      const labelExp = "expected".padEnd(outW);
+      const labelAct = "actual".padEnd(outW);
+      const labelDiff = "diff".padEnd(outW);
+      console.log(`\n  ${labelExp}  ${labelAct}  ${labelDiff}`);
+      console.log(`  ${"-".repeat(outW)}  ${"-".repeat(outW)}  ${"-".repeat(outW)}`);
+      for (let i = 0; i < outH; i++) {
+        console.log(`  ${expAscii[i]}  ${actAscii[i]}  ${diffAscii[i]}`);
+      }
+
       hasError = true;
     }
   }
@@ -1126,15 +1389,173 @@ end
     }
   }
 
+  // Save recording if --record was specified
+  if (recordFile) {
+    const recordPath = path.resolve(recordFile);
+    saveRecording(recordPath, frameNum);
+    console.log(`Recording saved: ${recordPath} (${recordedFrames.length} frames with input)`);
+  }
+
+  // Golden snapshot check / update
+  if (goldenFile) {
+    if (goldenUpdate) {
+      // Write current captures to the golden file
+      const lines = [];
+      lines.push("# mono golden snapshots");
+      const seed = runSeed !== null ? runSeed : (seedArg !== null ? parseInt(seedArg) : 0);
+      lines.push(`# seed=${seed} colors=${colorBits}`);
+      const frames = Object.keys(goldenCaptured).map(Number).sort((a, b) => a - b);
+      for (const fr of frames) {
+        lines.push(`${fr} ${goldenCaptured[fr]}`);
+      }
+      fs.writeFileSync(path.resolve(goldenFile), lines.join("\n") + "\n");
+      console.log(`Golden snapshots saved: ${goldenFile} (${frames.length} snapshots)`);
+    } else {
+      // Compare captures to targets
+      const targetFrames = Object.keys(goldenTargets).map(Number).sort((a, b) => a - b);
+      let pass = 0, fail = 0;
+      const failures = [];
+      for (const fr of targetFrames) {
+        const expected = goldenTargets[fr];
+        const actual = goldenCaptured[fr];
+        if (actual === undefined) {
+          fail++;
+          failures.push(`frame ${fr}: expected ${expected}, but frame not reached`);
+        } else if (actual === expected) {
+          pass++;
+        } else {
+          fail++;
+          failures.push(`frame ${fr}: expected ${expected}, got ${actual}`);
+        }
+      }
+      console.log(`\n=== GOLDEN SNAPSHOTS ===`);
+      console.log(`Targets: ${targetFrames.length}`);
+      console.log(`Passed:  ${pass}`);
+      console.log(`Failed:  ${fail}`);
+      if (failures.length > 0) {
+        console.log(`\nFailures:`);
+        for (const f of failures) console.log(`  ${f}`);
+        hasError = true;
+      } else if (pass > 0) {
+        console.log(`GOLDEN: PASS ✓`);
+      }
+    }
+  }
+
+  // Save trace file if --trace was specified
+  if (traceFile) {
+    const tracePath = path.resolve(traceFile);
+    const lines = traceEvents.map(e => JSON.stringify(e));
+    fs.writeFileSync(tracePath, lines.join("\n") + "\n");
+    console.log(`Trace saved: ${tracePath} (${traceEvents.length} frames)`);
+  }
+
+  // Benchmark report
+  if (benchMode && frameTimesNs.length > 0) {
+    const sorted = [...frameTimesNs].sort((a, b) => a - b);
+    const n = sorted.length;
+    const avg = sorted.reduce((s, v) => s + v, 0) / n;
+    const p50 = sorted[Math.floor(n * 0.50)];
+    const p95 = sorted[Math.floor(n * 0.95)];
+    const p99 = sorted[Math.floor(n * 0.99)];
+    const max = sorted[n - 1];
+    const min = sorted[0];
+    const fmt = (ns) => (ns / 1e6).toFixed(3) + "ms";
+    const mem = process.memoryUsage();
+    const mb = (b) => (b / 1024 / 1024).toFixed(2) + "MB";
+    console.log("\n=== BENCHMARK ===");
+    console.log(`Frames: ${n}`);
+    console.log(`min:    ${fmt(min)}`);
+    console.log(`avg:    ${fmt(avg)}`);
+    console.log(`p50:    ${fmt(p50)}`);
+    console.log(`p95:    ${fmt(p95)}`);
+    console.log(`p99:    ${fmt(p99)}`);
+    console.log(`max:    ${fmt(max)}`);
+    const budget = 33.333;  // 30 FPS = 33.33ms/frame
+    const overBudget = sorted.filter(ns => ns / 1e6 > budget).length;
+    console.log(`budget: 33.333ms (30 FPS)`);
+    console.log(`over:   ${overBudget} frames (${((overBudget / n) * 100).toFixed(1)}%)`);
+    console.log(`\nHeap:   ${mb(mem.heapUsed)} used / ${mb(mem.heapTotal)} total`);
+    console.log(`RSS:    ${mb(mem.rss)}`);
+  }
+
+  // API coverage report
+  if (coverageMode) {
+    // Internal JS functions (prefixed with _) are invoked via Lua wrappers.
+    // Map them to their public names so the report shows what the user actually called.
+    // Pairs that must be merged (e.g., _touch_pos_x and _touch_pos_y → touch_pos)
+    // map their secondary half to null so counts aren't double-counted.
+    const API_RENAME = {
+      _btn: "btn",
+      _btnp: "btnp",
+      _cam_get_x: "cam_get",
+      _cam_get_y: null,
+      _touch: "touch",
+      _touch_start: "touch_start",
+      _touch_end: "touch_end",
+      _touch_pos_x: "touch_pos",
+      _touch_pos_y: null,
+      _touch_posf_x: "touch_posf",
+      _touch_posf_y: null,
+    };
+    // APIs that are not really Mono APIs — routed to stdio for dev convenience
+    // or Lua built-ins that happen to be overridden. Exclude from coverage totals.
+    const API_EXCLUDE = new Set(["print"]);
+    const merged = {};
+    for (const [name, count] of Object.entries(apiCounts)) {
+      if (API_EXCLUDE.has(name)) continue;
+      if (name in API_RENAME) {
+        const pub = API_RENAME[name];
+        if (pub === null) continue;  // skip; counted via its partner
+        merged[pub] = (merged[pub] || 0) + count;
+      } else if (name.startsWith("_")) {
+        // Any other _prefixed helpers not in the rename map are truly internal
+        continue;
+      } else {
+        merged[name] = (merged[name] || 0) + count;
+      }
+    }
+    const publicEntries = Object.entries(merged).sort((a, b) => b[1] - a[1]);
+    const used = publicEntries.filter(([_, c]) => c > 0);
+    const unused = publicEntries.filter(([_, c]) => c === 0);
+
+    if (coverageAggregate) {
+      // Emit machine-readable coverage for aggregation (used by --scan --coverage)
+      console.log("__COVERAGE_JSON__" + JSON.stringify(Object.fromEntries(publicEntries)));
+    } else {
+      console.log("\n=== API COVERAGE ===");
+      console.log(`Public APIs: ${publicEntries.length}  (internal _prefixed hidden)`);
+      console.log(`Used:        ${used.length} (${((used.length / publicEntries.length) * 100).toFixed(1)}%)`);
+      console.log(`Unused:      ${unused.length}`);
+      if (used.length > 0) {
+        console.log("\nUsed APIs (by call count):");
+        const nameWidth = Math.max(...used.map(([n]) => n.length));
+        for (const [name, count] of used) {
+          console.log(`  ${name.padEnd(nameWidth)}  ${count.toString().padStart(8)} calls`);
+        }
+      }
+      if (unused.length > 0) {
+        console.log("\nUnused APIs:");
+        const unusedNames = unused.map(([n]) => n);
+        const perLine = 6;
+        for (let i = 0; i < unusedNames.length; i += perLine) {
+          console.log("  " + unusedNames.slice(i, i + perLine).join(", "));
+        }
+      }
+    }
+  }
+
   // Summary
   if (!quiet) {
     console.log(`\n${hasError ? "FAILED" : "OK"} (${frameCount} frames, ${luaOutput.length} log lines)`);
   }
 
+  const finalHash = vramHash();
+
   lua.global.close();
 
   // Return result for multi-run mode
-  return { hasError, untilTriggered, untilFrame, untilMatch, luaOutput };
+  return { hasError, untilTriggered, untilFrame, untilMatch, luaOutput, vramHash: finalHash };
 }
 
 // --- Multi-run mode ---
@@ -1188,6 +1609,297 @@ if (totalRuns > 1) {
     }
 
     process.exit(results.some(r => r.hasError) ? 1 : 0);
+  })().catch(e => { console.error("Fatal:", e); process.exit(1); });
+} else if (scanDir) {
+  // --- Scan mode ---
+  // Recursively find all game.lua files under scanDir and run each one
+  // as a subprocess. Report pass/fail + final VRAM hash per game.
+  (() => {
+    const { spawnSync } = require("child_process");
+    const rootDir = path.resolve(scanDir);
+    if (!fs.existsSync(rootDir)) {
+      console.error(`Scan directory not found: ${rootDir}`);
+      process.exit(1);
+    }
+
+    // Recursively collect all game.lua files
+    function findGames(dir) {
+      const found = [];
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const e of entries) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          found.push(...findGames(full));
+        } else if (e.isFile() && e.name === "game.lua") {
+          found.push(full);
+        }
+      }
+      return found;
+    }
+
+    const games = findGames(rootDir);
+    if (games.length === 0) {
+      console.log(`No game.lua files found under ${rootDir}`);
+      process.exit(0);
+    }
+
+    console.log(`=== SCAN ${rootDir} ===`);
+    console.log(`Found ${games.length} game(s)`);
+    console.log();
+
+    const thisScript = process.argv[1];
+    const frames = frameCount > 0 ? frameCount : 30;
+    const results = [];
+    const aggregatedCoverage = {};  // apiName → total count across all games
+    const perGameCoverage = {};     // relPath → { apiName: count }
+
+    for (const gamePath of games) {
+      const gameDir = path.dirname(gamePath);
+      const relPath = path.relative(rootDir, gamePath);
+      const start = Date.now();
+      const childArgs = [
+        thisScript,
+        "game.lua",
+        "--frames", String(frames),
+        "--colors", String(colorBits),
+        "--quiet",
+        "--snapshot", "/dev/null",
+      ];
+      if (coverageMode) childArgs.push("--coverage-json");
+      const child = spawnSync("node", childArgs, {
+        cwd: gameDir,
+        encoding: "utf8",
+      });
+      const elapsed = Date.now() - start;
+
+      const ok = child.status === 0;
+      const output = (child.stdout || "") + (child.stderr || "");
+      const errorLine = ok ? "" : (output.split("\n").find(l => l.includes("error")) || "").trim().substring(0, 80);
+
+      // Parse coverage JSON from child output
+      if (coverageMode) {
+        const covLine = output.split("\n").find(l => l.startsWith("__COVERAGE_JSON__"));
+        if (covLine) {
+          try {
+            const gameCov = JSON.parse(covLine.substring("__COVERAGE_JSON__".length));
+            perGameCoverage[relPath] = gameCov;
+            for (const [name, count] of Object.entries(gameCov)) {
+              aggregatedCoverage[name] = (aggregatedCoverage[name] || 0) + count;
+            }
+          } catch (e) { /* ignore parse errors */ }
+        }
+      }
+
+      results.push({ path: relPath, ok, elapsed, errorLine });
+      const status = ok ? "✓ PASS" : "✗ FAIL";
+      console.log(`  ${status}  ${relPath.padEnd(40)} ${elapsed.toString().padStart(5)}ms`);
+      if (!ok && errorLine) {
+        console.log(`         ${errorLine}`);
+      }
+    }
+
+    // Aggregated coverage report (when --coverage is used with --scan)
+    if (coverageMode && Object.keys(aggregatedCoverage).length > 0) {
+      const entries = Object.entries(aggregatedCoverage).sort((a, b) => b[1] - a[1]);
+      const used = entries.filter(([_, c]) => c > 0);
+      const unused = entries.filter(([_, c]) => c === 0);
+      console.log(`\n=== AGGREGATED COVERAGE (${games.length} games) ===`);
+      console.log(`Public APIs: ${entries.length}`);
+      console.log(`Used:        ${used.length} (${((used.length / entries.length) * 100).toFixed(1)}%)`);
+      console.log(`Unused:      ${unused.length}`);
+      if (used.length > 0) {
+        console.log("\nUsed APIs (by total call count):");
+        const nameWidth = Math.max(...used.map(([n]) => n.length));
+        for (const [name, count] of used) {
+          // Show which games use this API
+          const userGames = Object.keys(perGameCoverage)
+            .filter(g => perGameCoverage[g][name] > 0)
+            .map(g => path.basename(path.dirname(g)));
+          const gameList = userGames.length <= 3
+            ? userGames.join(", ")
+            : `${userGames.slice(0, 3).join(", ")}, +${userGames.length - 3}`;
+          console.log(`  ${name.padEnd(nameWidth)}  ${count.toString().padStart(8)} calls   [${gameList}]`);
+        }
+      }
+      if (unused.length > 0) {
+        console.log(`\nUnused APIs (dead code candidates):`);
+        const names = unused.map(([n]) => n);
+        const perLine = 6;
+        for (let i = 0; i < names.length; i += perLine) {
+          console.log("  " + names.slice(i, i + perLine).join(", "));
+        }
+      }
+    }
+
+    const passCount = results.filter(r => r.ok).length;
+    const failCount = results.length - passCount;
+    console.log();
+    console.log(`=== SCAN RESULTS ===`);
+    console.log(`Total:  ${results.length}`);
+    console.log(`Passed: ${passCount}`);
+    console.log(`Failed: ${failCount}`);
+    if (failCount === 0) {
+      console.log(`SCAN: PASS ✓`);
+      process.exit(0);
+    } else {
+      console.log(`SCAN: FAIL ✗`);
+      process.exit(1);
+    }
+  })();
+} else if (fuzzRuns > 0) {
+  // --- Fuzz mode ---
+  // Run the game N times with random inputs at random frames.
+  // Report crash rate and collect unique error messages.
+  (async () => {
+    const validKeys = ["up", "down", "left", "right", "a", "b"];
+    const results = { crashes: 0, ok: 0 };
+    const errorSamples = {};  // message → count
+    const errorFirstSeed = {}; // message → first seed that triggered it
+
+    for (let r = 1; r <= fuzzRuns; r++) {
+      // Reset state per run
+      palette = buildPalette(colorBits);
+      const cb = new Uint8Array(W * H);
+      const b32 = new Uint32Array(W * H);
+      surfaces = [{ w: W, h: H, buf32: b32, colorBuf: cb }];
+      camX = 0; camY = 0;
+      images = []; imageIdCounter = 0;
+      for (const k in keys) keys[k] = false;
+      for (const k in keysPrev) keysPrev[k] = false;
+
+      // Per-run deterministic seed so failing cases can be reproduced
+      const fuzzSeed = r * 6037 + 13;
+      runSeed = fuzzSeed;
+
+      // Generate random input schedule for this run
+      for (const k of Object.keys(inputSchedule)) delete inputSchedule[k];
+      const rng = (() => {
+        // Mulberry32 PRNG seeded with fuzzSeed
+        let a = fuzzSeed >>> 0;
+        return () => {
+          a = (a + 0x6D2B79F5) >>> 0;
+          let t = a;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      })();
+      // Random number of input events: 1-20
+      const numEvents = 1 + Math.floor(rng() * 20);
+      for (let i = 0; i < numEvents; i++) {
+        const frame = 1 + Math.floor(rng() * Math.max(1, frameCount));
+        const key = validKeys[Math.floor(rng() * validKeys.length)];
+        if (!inputSchedule[frame]) inputSchedule[frame] = [];
+        inputSchedule[frame].push(key);
+      }
+
+      // Suppress verbose output during fuzz runs
+      const origLog = console.log;
+      const origErr = console.error;
+      const capturedErrors = [];
+      console.log = () => {};
+      console.error = (...args) => { capturedErrors.push(args.join(" ")); };
+
+      let result;
+      try {
+        result = await main();
+      } catch (e) {
+        result = { hasError: true };
+        capturedErrors.push(e.message || String(e));
+      }
+
+      console.log = origLog;
+      console.error = origErr;
+
+      if (result && result.hasError || capturedErrors.length > 0) {
+        results.crashes++;
+        // Capture the first error line as the sample
+        for (const err of capturedErrors) {
+          // Normalize by stripping frame numbers and paths
+          const normalized = err
+            .replace(/\(frame \d+\)/g, "(frame N)")
+            .replace(/line \d+/g, "line N")
+            .substring(0, 200);
+          errorSamples[normalized] = (errorSamples[normalized] || 0) + 1;
+          if (errorFirstSeed[normalized] === undefined) {
+            errorFirstSeed[normalized] = fuzzSeed;
+          }
+        }
+      } else {
+        results.ok++;
+      }
+
+      if (!quiet && r % 10 === 0) {
+        process.stdout.write(`\rFuzz progress: ${r}/${fuzzRuns} (${results.crashes} crashes)`);
+      }
+    }
+
+    if (!quiet) process.stdout.write("\n");
+    const crashRate = ((results.crashes / fuzzRuns) * 100).toFixed(2);
+    console.log(`\n=== FUZZ RESULTS ===`);
+    console.log(`Runs:     ${fuzzRuns}`);
+    console.log(`OK:       ${results.ok}`);
+    console.log(`Crashes:  ${results.crashes} (${crashRate}%)`);
+    const uniqueErrors = Object.keys(errorSamples);
+    console.log(`Unique errors: ${uniqueErrors.length}`);
+    if (uniqueErrors.length > 0) {
+      console.log(`\nError samples (sorted by frequency):`);
+      const sorted = uniqueErrors.sort((a, b) => errorSamples[b] - errorSamples[a]);
+      for (const err of sorted.slice(0, 10)) {
+        console.log(`  [${errorSamples[err]}x, first seed=${errorFirstSeed[err]}] ${err}`);
+      }
+    }
+    process.exit(results.crashes > 0 ? 1 : 0);
+  })().catch(e => { console.error("Fatal:", e); process.exit(1); });
+} else if (determinismRuns > 1) {
+  // --- Determinism verification mode ---
+  // Run the same game N times with the same seed; all VRAM hashes must match.
+  (async () => {
+    const fixedSeed = seedArg !== null ? parseInt(seedArg) : 42;
+    runSeed = fixedSeed;
+    const hashes = [];
+    let anyError = false;
+
+    for (let r = 1; r <= determinismRuns; r++) {
+      // Full state reset
+      palette = buildPalette(colorBits);
+      const cb = new Uint8Array(W * H);
+      const b32 = new Uint32Array(W * H);
+      surfaces = [{ w: W, h: H, buf32: b32, colorBuf: cb }];
+      camX = 0; camY = 0;
+      images = []; imageIdCounter = 0;
+      for (const k in keys) keys[k] = false;
+      for (const k in keysPrev) keysPrev[k] = false;
+      runSeed = fixedSeed;
+
+      const result = await main();
+      if (result.hasError) anyError = true;
+      hashes.push(result.vramHash);
+      if (!quiet) console.log(`  Run ${r}: hash=${result.vramHash}`);
+    }
+
+    const unique = [...new Set(hashes)];
+    console.log(`\n=== DETERMINISM CHECK ===`);
+    console.log(`Runs:   ${determinismRuns}`);
+    console.log(`Seed:   ${fixedSeed}`);
+    console.log(`Frames: ${frameCount}`);
+    console.log(`Unique VRAM hashes: ${unique.length}`);
+
+    if (unique.length === 1) {
+      console.log(`DETERMINISM: PASS ✓  (all runs produced hash ${unique[0]})`);
+      process.exit(anyError ? 1 : 0);
+    } else {
+      console.log(`DETERMINISM: FAIL ✗  (${unique.length} distinct hashes)`);
+      const counts = {};
+      for (const h of hashes) counts[h] = (counts[h] || 0) + 1;
+      for (const [h, c] of Object.entries(counts)) {
+        console.log(`  ${h}: ${c} runs`);
+      }
+      console.log(`\nLockstep multiplayer requires deterministic execution.`);
+      console.log(`Common causes: unseeded math.random(), table iteration order,`);
+      console.log(`time-based APIs, uninitialized state.`);
+      process.exit(1);
+    }
   })().catch(e => { console.error("Fatal:", e); process.exit(1); });
 } else {
   main().then(r => process.exit(r.hasError ? 1 : 0)).catch(e => {
