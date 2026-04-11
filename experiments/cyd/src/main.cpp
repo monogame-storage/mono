@@ -57,9 +57,10 @@
 #endif
 
 class LGFX_CYD : public lgfx::LGFX_Device {
-  PanelT          _panel;
-  lgfx::Bus_SPI   _bus;
-  lgfx::Light_PWM _light;
+  PanelT               _panel;
+  lgfx::Bus_SPI        _bus;
+  lgfx::Light_PWM      _light;
+  lgfx::Touch_XPT2046  _touch;
 public:
   LGFX_CYD() {
     { auto c = _bus.config();
@@ -100,6 +101,24 @@ public:
       c.pwm_channel= 7;
       _light.config(c);
       _panel.light(&_light);
+    }
+    // Touch (XPT2046) on CYD uses VSPI, independent of the display bus.
+    { auto c = _touch.config();
+      c.x_min       = 300;
+      c.x_max       = 3900;
+      c.y_min       = 200;
+      c.y_max       = 3900;
+      c.pin_int     = 36;
+      c.bus_shared  = false;
+      c.offset_rotation = 0;
+      c.spi_host    = VSPI_HOST;
+      c.freq        = 1000000;
+      c.pin_sclk    = 25;
+      c.pin_mosi    = 32;
+      c.pin_miso    = 39;
+      c.pin_cs      = 33;
+      _touch.config(c);
+      _panel.setTouch(&_touch);
     }
     setPanel(&_panel);
   }
@@ -142,49 +161,79 @@ static void stepAndDrawRects(int n) {
 enum Mode { M_FLUSH, M_CLEAR, M_64, M_256, NUM_MODES };
 static const char* MODE_NAME[] = {
   "A FLUSH",
-  "B CLEAR+FLUSH",
-  "C CLEAR+64+FLUSH",
-  "D CLEAR+256+FLUSH",
+  "B CLEAR",
+  "C 64 RECT",
+  "D 256 RECT",
 };
 static const int MODE_RECTS[] = { 0, 0, 64, 256 };
 
-static int      mode       = M_FLUSH;
-static uint32_t modeStart  = 0;
-static uint32_t frameCount = 0;
-static uint32_t minDtUs    = 0xFFFFFFFFu;
-static uint32_t maxDtUs    = 0;
-static float    lastFps    = 0.0f;
+// Start on the stress case — worst thermals + load hit the operator first.
+static int g_mode = M_256;
 
-static int16_t g_dstCx = 160;  // screen center, filled at setup()
+// All-time stats since the current mode was entered.
+static uint32_t g_modeStartMs = 0;
+static uint32_t g_framesAll   = 0;
+static uint32_t g_minDtAll    = 0xFFFFFFFFu;
+static uint32_t g_maxDtAll    = 0;
+static uint64_t g_sumDtAll    = 0;
+
+// Rolling 1-second window.
+static uint32_t g_rollStartMs   = 0;
+static uint32_t g_rollFrames    = 0;
+static uint32_t g_rollMaxDt     = 0;
+static float    g_rollFps       = 0.0f;
+static uint32_t g_rollMaxDtLast = 0;   // frozen peak dt from the last closed window
+
+// Touch edge detect (rising edge = tap).
+static bool g_touchPrev = false;
+
+// Screen-center cache, filled in setup().
+static int16_t g_dstCx = 160;
 static int16_t g_dstCy = 120;
 
 static inline void flush2x() {
-  // Canvas pivot is at its own center (MONO_W/2, MONO_H/2). Landing that
-  // pivot on the screen center at 2x fills (0,0)..(320,240) exactly.
   canvas.pushRotateZoom(&tft, g_dstCx, g_dstCy, 0.0f, 2.0f, 2.0f);
 }
 
 static void paintHUD() {
+  // Background strip so text stays readable over moving rects.
+  canvas.fillRect(0, 0, MONO_W, 46, TFT_BLACK);
   canvas.setTextColor(TFT_WHITE, TFT_BLACK);
-  canvas.setCursor(2, 2);
   canvas.setTextSize(1);
-  canvas.printf("%s", MODE_NAME[mode]);
-  canvas.setCursor(2, 12);
-  canvas.printf("fps=%.1f", lastFps);
-}
 
-static void drawFrameFor(int m) {
-  if (m == M_FLUSH) {
-    // Static pattern; do nothing (canvas already has last frame + HUD).
-    return;
-  }
-  canvas.fillSprite(TFT_BLACK);
-  stepAndDrawRects(MODE_RECTS[m]);
-  paintHUD();
+  uint32_t nowMs    = millis();
+  uint32_t elapsed  = nowMs - g_modeStartMs;
+  uint32_t elapsedS = elapsed / 1000;
+  float    avgFps   = g_framesAll > 0
+                    ? (g_framesAll * 1000.0f / (float)(elapsed == 0 ? 1 : elapsed))
+                    : 0.0f;
+  float    avgMs    = g_framesAll > 0
+                    ? (float)(g_sumDtAll / (uint64_t)g_framesAll) / 1000.0f
+                    : 0.0f;
+
+  canvas.setCursor(2, 1);
+  canvas.printf("%-10s %02lu:%02lu",
+                MODE_NAME[g_mode],
+                (unsigned long)(elapsedS / 60),
+                (unsigned long)(elapsedS % 60));
+
+  canvas.setCursor(2, 10);
+  canvas.printf("now %5.1f  avg %5.1f", g_rollFps, avgFps);
+
+  canvas.setCursor(2, 19);
+  canvas.printf("dt %4.1f-%4.1f ms",
+                g_minDtAll / 1000.0f, g_maxDtAll / 1000.0f);
+
+  canvas.setCursor(2, 28);
+  canvas.printf("win-max %4.1f avg %4.1f",
+                g_rollMaxDtLast / 1000.0f, avgMs);
+
+  canvas.setCursor(2, 37);
+  canvas.printf("TAP=next  frm=%lu",
+                (unsigned long)g_framesAll);
 }
 
 static void prepareFlushOnlyCanvas() {
-  // Draw a recognizable static frame so operators know the screen isn't frozen.
   canvas.fillSprite(TFT_BLACK);
   for (int y = 0; y < MONO_H; y += 8) {
     for (int x = 0; x < MONO_W; x += 8) {
@@ -193,6 +242,36 @@ static void prepareFlushOnlyCanvas() {
     }
   }
   paintHUD();
+}
+
+static void drawFrameFor(int m) {
+  if (m == M_FLUSH) {
+    // Static pattern — don't touch the canvas so the number stays pure.
+    return;
+  }
+  canvas.fillSprite(TFT_BLACK);
+  stepAndDrawRects(MODE_RECTS[m]);
+  paintHUD();
+}
+
+static void resetStatsForMode() {
+  g_modeStartMs   = millis();
+  g_framesAll     = 0;
+  g_minDtAll      = 0xFFFFFFFFu;
+  g_maxDtAll      = 0;
+  g_sumDtAll      = 0;
+  g_rollStartMs   = g_modeStartMs;
+  g_rollFrames    = 0;
+  g_rollMaxDt     = 0;
+  g_rollFps       = 0.0f;
+  g_rollMaxDtLast = 0;
+}
+
+static void enterMode(int m) {
+  g_mode = m;
+  resetStatsForMode();
+  if (m == M_FLUSH) prepareFlushOnlyCanvas();
+  Serial.printf(">> enter %s\n", MODE_NAME[m]);
 }
 
 // ---- setup / loop -----------------------------------------------
@@ -204,13 +283,12 @@ void setup() {
   Serial.printf("Panel:    %s\n", PANEL_NAME);
   Serial.printf("SPI freq: %d Hz\n", CYD_SPI_FREQ);
   Serial.printf("Canvas:   %dx%d -> 320x240 (2x)\n", MONO_W, MONO_H);
-  Serial.printf("Bench:    %d s per mode\n", BENCH_SECONDS);
 
   tft.init();
-  // LovyanGFX's compile-time invert flag on Panel_ST7789 doesn't take
-  // effect during init() — INVON must be asserted explicitly after init.
+  // Panel_ST7789's compile-time invert flag doesn't take effect during
+  // init() — INVON must be asserted explicitly.
   tft.invertDisplay(PANEL_INVERT);
-  tft.setRotation(3);             // landscape 320x240
+  tft.setRotation(3);
   tft.setBrightness(255);
   tft.fillScreen(TFT_BLACK);
 
@@ -226,41 +304,55 @@ void setup() {
   g_dstCy = tft.height() / 2;
 
   initRects();
-  prepareFlushOnlyCanvas();
-  modeStart = millis();
+  enterMode(g_mode);
 }
 
 void loop() {
   static uint32_t lastUs = micros();
 
-  drawFrameFor(mode);
+  drawFrameFor(g_mode);
   flush2x();
 
+  // ---- Frame timing ---------------------------------------------
   uint32_t now = micros();
   uint32_t dt  = now - lastUs;
   lastUs = now;
-  if (dt < minDtUs) minDtUs = dt;
-  if (dt > maxDtUs) maxDtUs = dt;
-  frameCount++;
 
-  uint32_t elapsed = millis() - modeStart;
-  if (elapsed >= (uint32_t)(BENCH_SECONDS * 1000)) {
-    float fps = frameCount * 1000.0f / (float)elapsed;
-    lastFps = fps;
-    Serial.printf("[%-18s] fps=%6.2f  dt_min=%5lu us  dt_max=%6lu us  frames=%lu\n",
-                  MODE_NAME[mode], fps,
-                  (unsigned long)minDtUs, (unsigned long)maxDtUs,
-                  (unsigned long)frameCount);
+  g_framesAll++;
+  g_sumDtAll += dt;
+  if (dt < g_minDtAll) g_minDtAll = dt;
+  if (dt > g_maxDtAll) g_maxDtAll = dt;
 
-    mode = (mode + 1) % NUM_MODES;
-    frameCount = 0;
-    minDtUs = 0xFFFFFFFFu;
-    maxDtUs = 0;
-    modeStart = millis();
+  g_rollFrames++;
+  if (dt > g_rollMaxDt) g_rollMaxDt = dt;
 
-    if (mode == M_FLUSH) {
-      prepareFlushOnlyCanvas();
-      Serial.println("---- cycle ----");
-    }
+  // Close the 1-second rolling window.
+  uint32_t nowMs   = millis();
+  uint32_t rollMs  = nowMs - g_rollStartMs;
+  if (rollMs >= 1000) {
+    g_rollFps       = g_rollFrames * 1000.0f / (float)rollMs;
+    g_rollMaxDtLast = g_rollMaxDt;
+    Serial.printf("[%-9s] t=%5lus  now=%5.1f  avg=%5.1f  dt=%4.1f..%4.1fms  win-max=%4.1fms  frm=%lu\n",
+                  MODE_NAME[g_mode],
+                  (unsigned long)((nowMs - g_modeStartMs) / 1000),
+                  g_rollFps,
+                  g_framesAll * 1000.0f
+                    / (float)((nowMs - g_modeStartMs) == 0 ? 1 : (nowMs - g_modeStartMs)),
+                  g_minDtAll / 1000.0f,
+                  g_maxDtAll / 1000.0f,
+                  g_rollMaxDtLast / 1000.0f,
+                  (unsigned long)g_framesAll);
+    g_rollStartMs = nowMs;
+    g_rollFrames  = 0;
+    g_rollMaxDt   = 0;
   }
+
+  // ---- Touch edge → advance mode --------------------------------
+  // Poll touch once per frame. Rising edge = tap.
+  int32_t tx, ty;
+  bool touched = tft.getTouch(&tx, &ty);
+  if (touched && !g_touchPrev) {
+    enterMode((g_mode + 1) % NUM_MODES);
+  }
+  g_touchPrev = touched;
 }
