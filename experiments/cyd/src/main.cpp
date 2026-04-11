@@ -1,23 +1,33 @@
-// CYD Mono blit probe
+// CYD Mono Phase 2 probe — Lua in the loop
 // ------------------------------------------------------------------
 // Target: ESP32-2432S028R (Cheap Yellow Display, dual-USB variant)
-// Goal:   measure achievable FPS for a 160x120 framebuffer pushed to
-//         the 320x240 ILI9341 at 2x integer scale via LovyanGFX.
+// Goal:   measure achievable FPS when the per-frame game workload
+//         (256 moving 8x8 rects + draw calls) is driven by Lua 5.4
+//         native code instead of the earlier C baseline.
 //
-// Four benchmark modes cycle every BENCH_SECONDS:
+// The canvas is 160x144 (current Mono standard), pushed 1:1 centered
+// on the 320x240 screen (no upscale — we're measuring Lua cost, not
+// blit cost).
+//
+// Four modes, advanced by touch:
 //   A  FLUSH_ONLY        — re-flush a static pattern (raw blit ceiling)
-//   B  CLEAR+FLUSH       — full-screen clear + flush
-//   C  CLEAR+64+FLUSH    — clear + 64 moving 8x8 rects + flush (typical)
-//   D  CLEAR+256+FLUSH   — clear + 256 moving 8x8 rects + flush (stress)
+//   B  CLEAR+FLUSH       — clear + flush
+//   C  64 RECT (Lua)     — clear + Lua step(64) + flush
+//   D  256 RECT (Lua)    — clear + Lua step(256) + flush
 //
-// Each mode reports avg fps, min/max frame time, and frame count over
-// Serial. The currently-active mode and its live fps are drawn in the
-// top-left of the canvas so you can read it off the physical display.
+// Tap the screen to advance mode. Rolling 1-second + cumulative
+// stats stream over Serial at 1 Hz and are drawn on-screen.
 // ------------------------------------------------------------------
 
 #include <Arduino.h>
 #define LGFX_USE_V1
 #include <LovyanGFX.hpp>
+
+extern "C" {
+  #include "lua.h"
+  #include "lauxlib.h"
+  #include "lualib.h"
+}
 
 // ---- ESP32-2432S028R (CYD) pin map ------------------------------
 // TFT:   SCK=14 MOSI=13 MISO=12 CS=15 DC=2  RST=-1 BL=21
@@ -127,33 +137,97 @@ public:
 static LGFX_CYD    tft;
 static LGFX_Sprite canvas(&tft);
 
-// ---- Workload ---------------------------------------------------
-struct Rect { float x, y, vx, vy; uint16_t color; };
-static constexpr int MAX_RECTS = 256;
-static Rect rects[MAX_RECTS];
+// ---- Lua workload -----------------------------------------------
+// Same logic as the earlier C baseline, now driven from Lua. Each rect
+// is a 5-slot array table {x, y, vx, vy, gray}. `step(n)` moves and
+// draws the first `n` rects by calling back into `fill` (C binding).
+//
+// All binding functions skip typecheck for speed — this is a bench.
+static const char* LUA_SCRIPT = R"LUA(
+local N    = 256
+local W, H = 160, 144
+local rects = {}
 
-static void initRects() {
-  randomSeed(0xC0FFEE);
-  for (int i = 0; i < MAX_RECTS; i++) {
-    rects[i].x  = random(MONO_W - 8);
-    rects[i].y  = random(MONO_H - 8);
-    rects[i].vx = (random(200) - 100) / 50.0f;
-    rects[i].vy = (random(200) - 100) / 50.0f;
-    // 16-level grayscale, matching Mono's palette range.
-    uint8_t g = (uint8_t)(random(16) * 17);
-    rects[i].color = canvas.color565(g, g, g);
-  }
+local rand = math.random
+math.randomseed(0xC0FFEE)
+
+function init()
+  for i = 1, N do
+    rects[i] = {
+      rand(0, W - 9),
+      rand(0, H - 9),
+      (rand() - 0.5) * 4.0,
+      (rand() - 0.5) * 4.0,
+      rand(0, 15) * 17,
+    }
+  end
+end
+
+-- Cache for hot loop.
+local fill = fill
+local rects_local = rects
+
+function step(n)
+  local Wm = W - 9
+  local Hm = H - 9
+  for i = 1, n do
+    local r = rects_local[i]
+    local x, y = r[1] + r[3], r[2] + r[4]
+    if x < 0 then x = 0; r[3] = -r[3]
+    elseif x > Wm then x = Wm; r[3] = -r[3] end
+    if y < 0 then y = 0; r[4] = -r[4]
+    elseif y > Hm then y = Hm; r[4] = -r[4] end
+    r[1] = x
+    r[2] = y
+    fill(x, y, r[5])
+  end
+end
+)LUA";
+
+static lua_State* L = nullptr;
+
+// C binding: fill(x, y, gray). Fixed 8x8 size — that's the only rect
+// the benchmark draws, and hardcoding size avoids 2 extra arg reads.
+static int lbind_fill(lua_State* L) {
+  int x = (int)lua_tonumber(L, 1);
+  int y = (int)lua_tonumber(L, 2);
+  int g = (int)lua_tonumber(L, 3);
+  canvas.fillRect(x, y, 8, 8, canvas.color565(g, g, g));
+  return 0;
 }
 
-static void stepAndDrawRects(int n) {
-  for (int i = 0; i < n; i++) {
-    rects[i].x += rects[i].vx;
-    rects[i].y += rects[i].vy;
-    if (rects[i].x < 0)           { rects[i].x = 0;           rects[i].vx = -rects[i].vx; }
-    if (rects[i].x > MONO_W - 8)  { rects[i].x = MONO_W - 8;  rects[i].vx = -rects[i].vx; }
-    if (rects[i].y < 0)           { rects[i].y = 0;           rects[i].vy = -rects[i].vy; }
-    if (rects[i].y > MONO_H - 8)  { rects[i].y = MONO_H - 8;  rects[i].vy = -rects[i].vy; }
-    canvas.fillRect((int)rects[i].x, (int)rects[i].y, 8, 8, rects[i].color);
+static void lua_fatal(const char* where) {
+  Serial.printf("LUA FATAL @ %s: %s\n", where,
+                lua_tostring(L, -1) ? lua_tostring(L, -1) : "(no msg)");
+  while (true) { delay(1000); }
+}
+
+static void initLua() {
+  L = luaL_newstate();
+  if (!L) { Serial.println("luaL_newstate failed"); while(1) delay(1000); }
+  luaL_openlibs(L);
+
+  // Register fill() as a global before the script loads (so the
+  // `local fill = fill` cache line in the script picks it up).
+  lua_pushcfunction(L, lbind_fill);
+  lua_setglobal(L, "fill");
+
+  if (luaL_loadstring(L, LUA_SCRIPT) != LUA_OK) lua_fatal("load");
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK) lua_fatal("chunk");
+
+  lua_getglobal(L, "init");
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK) lua_fatal("init");
+
+  size_t memKB = (size_t)lua_gc(L, LUA_GCCOUNT, 0);
+  Serial.printf("Lua:      5.4.7  init-mem=%u KB\n", (unsigned)memKB);
+}
+
+static inline void luaStep(int n) {
+  lua_getglobal(L, "step");
+  lua_pushinteger(L, n);
+  if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
+    Serial.printf("step error: %s\n", lua_tostring(L, -1));
+    lua_pop(L, 1);
   }
 }
 
@@ -187,12 +261,12 @@ static uint32_t g_rollMaxDtLast = 0;   // frozen peak dt from the last closed wi
 // Touch edge detect (rising edge = tap).
 static bool g_touchPrev = false;
 
-// Screen-center cache, filled in setup().
-static int16_t g_dstCx = 160;
-static int16_t g_dstCy = 120;
+// Top-left of the canvas on the screen (1:1 centered).
+static int16_t g_dstX = 80;
+static int16_t g_dstY = 48;
 
-static inline void flush2x() {
-  canvas.pushRotateZoom(&tft, g_dstCx, g_dstCy, 0.0f, 2.0f, 2.0f);
+static inline void flush1x() {
+  canvas.pushSprite(&tft, g_dstX, g_dstY);
 }
 
 static void paintHUD() {
@@ -250,7 +324,7 @@ static void drawFrameFor(int m) {
     return;
   }
   canvas.fillSprite(TFT_BLACK);
-  stepAndDrawRects(MODE_RECTS[m]);
+  if (MODE_RECTS[m] > 0) luaStep(MODE_RECTS[m]);
   paintHUD();
 }
 
@@ -299,11 +373,11 @@ void setup() {
     Serial.println("FATAL: createSprite failed (no RAM)");
     while (true) { delay(1000); }
   }
-  canvas.setPivot(MONO_W * 0.5f, MONO_H * 0.5f);
-  g_dstCx = tft.width()  / 2;
-  g_dstCy = tft.height() / 2;
+  g_dstX = (tft.width()  - MONO_W) / 2;
+  g_dstY = (tft.height() - MONO_H) / 2;
+  Serial.printf("Canvas offset: %d,%d (1:1 centered)\n", g_dstX, g_dstY);
 
-  initRects();
+  initLua();
   enterMode(g_mode);
 }
 
@@ -311,7 +385,7 @@ void loop() {
   static uint32_t lastUs = micros();
 
   drawFrameFor(g_mode);
-  flush2x();
+  flush1x();
 
   // ---- Frame timing ---------------------------------------------
   uint32_t now = micros();
