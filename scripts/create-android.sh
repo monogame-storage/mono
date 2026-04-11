@@ -51,12 +51,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# --replace-engine implies --keep-android: the intent is "swap engine only",
-# so app/ (which may contain user customizations like AdMob/Billing setup)
-# must not be wiped by the template refresh phase.
-if $REPLACE_ENGINE; then
-  KEEP_ANDROID=true
-fi
 
 if [ -z "$TARGET_DIR" ]; then
   echo "Usage: $0 <target-dir> [options]"
@@ -65,7 +59,7 @@ if [ -z "$TARGET_DIR" ]; then
   echo "  --project-name \"Name\"   Display name (default: derived from dir name)"
   echo "  --package com.ssk.pong  Full package name (default: com.mono.<dir-name>)"
   echo "  --icon icon.png         App icon (PNG, 512x512 recommended)"
-  echo "  --replace-engine        Replace cart/.mono/ with latest engine (implies --keep-android)"
+  echo "  --replace-engine        Replace cart/.mono/ ONLY (skips template refresh)"
   echo "  --keep-android          Keep app/ as-is (only update non-app template files)"
   echo "  --dry-run               Show what would be done without making changes"
   exit 1
@@ -143,6 +137,22 @@ if [ "$MODE" = "update" ]; then
   echo "Updating Mono Android project: $TARGET_DIR"
   echo ""
 
+  # Engine-only mode: skip template copy / customization restore entirely.
+  if $REPLACE_ENGINE; then
+    echo "Replacing cart/.mono/ engine (engine-only)..."
+    run rm -rf "$TARGET_DIR/cart/.mono"
+    run mkdir -p "$TARGET_DIR/cart/.mono/shaders"
+    if ! $DRY_RUN; then
+      copy_engine_files "$TARGET_DIR/cart/.mono"
+      log "Engine updated to v$(cat "$TARGET_DIR/cart/.mono/VERSION")"
+    else
+      log "[dry-run] Would replace engine files"
+    fi
+    echo ""
+    echo "Done! Engine updated: $TARGET_DIR"
+    exit 0
+  fi
+
   # Preserve user customizations
   APP_NAME=""
   APP_ID=""
@@ -216,20 +226,6 @@ if [ "$MODE" = "update" ]; then
   # Custom icon
   if [ -n "$ICON" ] && ! $DRY_RUN; then
     generate_icons "$ICON" "$TARGET_DIR/app/src/main/res"
-  fi
-
-  # Optionally replace engine
-  if $REPLACE_ENGINE; then
-    echo ""
-    echo "Replacing cart/.mono/ engine..."
-    run rm -rf "$TARGET_DIR/cart/.mono"
-    run mkdir -p "$TARGET_DIR/cart/.mono/shaders"
-    if ! $DRY_RUN; then
-      copy_engine_files "$TARGET_DIR/cart/.mono"
-      log "Engine updated to v$(cat "$TARGET_DIR/cart/.mono/VERSION")"
-    else
-      log "[dry-run] Would replace engine files"
-    fi
   fi
 
   echo ""
