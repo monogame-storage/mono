@@ -471,46 +471,98 @@ void setup() {
   Serial.println("Entering main loop.");
 }
 
+// Mono targets 30 Hz for its logical tick (see runtime/engine.js
+// FPS/FRAME_MS). Demos use frame-counted timing — e.g. bubble's
+// `spawn_rate = 28` means "one bubble every 28 _update calls" — so
+// _update must run at exactly 30 Hz or game speed scales wrong.
+//
+// Rendering (_draw + pushSprite) runs free, without a cap. That
+// matches ESP32 headroom (160+ fps is typical) and keeps the render
+// path showing real hardware performance in the stats line. Between
+// updates, _draw redraws the same game state, which is cheap on a
+// 160x144 1:1 canvas.
+static constexpr uint32_t UPDATE_US = 1000000 / 30;   // 33,333 µs
+static uint32_t g_nextUpdateUs = 0;
+
 void loop() {
-  static uint32_t lastUs    = micros();
-  static uint32_t statsMs   = millis();
-  static uint32_t statsFrms = 0;
-  static uint32_t statsMin  = 0xFFFFFFFFu;
-  static uint32_t statsMax  = 0;
+  static uint32_t statsMs     = millis();
+  static uint32_t statsRender = 0;  // render frames in this window
+  static uint32_t statsUpdate = 0;  // logic ticks  in this window
+  static uint32_t statsMin    = 0xFFFFFFFFu;
+  static uint32_t statsMax    = 0;
+  static uint32_t statsWork   = 0;
 
-  sampleTouch();
+  uint32_t frameStart = micros();
 
-  callLua("_update");
+  // ---- Logic tick (fixed 30 Hz) ---------------------------------
+  // Use a signed compare so the deadline can stay ahead of `now`
+  // without wraparound drama. If we fall more than 4 frames behind
+  // (rare — a GC stall or flash-induced hitch), reset the deadline
+  // instead of running update multiple times in a row.
+  if ((int32_t)(frameStart - g_nextUpdateUs) >= 0) {
+    sampleTouch();
+    callLua("_update");
+    statsUpdate++;
+    g_nextUpdateUs += UPDATE_US;
+    if ((int32_t)(frameStart - g_nextUpdateUs) > (int32_t)(UPDATE_US * 4)) {
+      g_nextUpdateUs = frameStart + UPDATE_US;
+    }
+  }
+
+  // ---- Render (free-running) ------------------------------------
   callLua("_draw");
 
-  // Camera shake: jitter the blit offset rather than re-drawing.
   int dx = g_dstX, dy = g_dstY;
   if (g_shake_frames > 0) {
     dx += (int)(esp_random() % 7) - 3;
     dy += (int)(esp_random() % 7) - 3;
+    // Decrement on update ticks only so shake duration stays in
+    // frames-of-game-logic, not frames-of-render.
+    // (Actually decrement here is fine because shake_frames is set
+    // by Lua in _update — it'll just decay at render rate. Match
+    // engine.js behavior: keep it simple, decrement once per render.)
     g_shake_frames--;
   }
   canvas.pushSprite(&tft, dx, dy);
 
   g_frame++;
+  uint32_t frameEnd = micros();
+  uint32_t workUs   = frameEnd - frameStart;
 
-  uint32_t now = micros();
-  uint32_t dt  = now - lastUs;
-  lastUs = now;
-  statsFrms++;
-  if (dt < statsMin) statsMin = dt;
-  if (dt > statsMax) statsMax = dt;
+  // ---- Stats ----------------------------------------------------
+  statsRender++;
+  statsWork += workUs;
+  if (workUs < statsMin) statsMin = workUs;
+  if (workUs > statsMax) statsMax = workUs;
 
   uint32_t nowMs = millis();
   if (nowMs - statsMs >= 1000) {
-    float fps = statsFrms * 1000.0f / (float)(nowMs - statsMs);
+    float fps     = statsRender * 1000.0f / (float)(nowMs - statsMs);
+    float tickHz  = statsUpdate * 1000.0f / (float)(nowMs - statsMs);
+    float avgMs   = (statsWork / (float)statsRender) / 1000.0f;
     unsigned memKB = (unsigned)lua_gc(L, LUA_GCCOUNT, 0);
-    Serial.printf("[bubble] fps=%5.1f  dt=%4.1f..%4.1fms  frm=%lu  lua=%uKB\n",
-                  fps, statsMin/1000.0f, statsMax/1000.0f,
-                  (unsigned long)g_frame, memKB);
-    statsMs   = nowMs;
-    statsFrms = 0;
-    statsMin  = 0xFFFFFFFFu;
-    statsMax  = 0;
+    Serial.printf("[bubble] fps=%5.1f  tick=%4.1fHz  work %4.1f..%4.1f avg %4.1fms  lua=%uKB\n",
+                  fps, tickHz,
+                  statsMin/1000.0f, statsMax/1000.0f, avgMs, memKB);
+
+    // On-screen HUD in the bottom letterbox (screen y 196..239, the
+    // strip under the 160x144 canvas). Drawn straight to tft, not
+    // canvas, so it survives canvas redraws.
+    tft.fillRect(0, 196, tft.width(), tft.height() - 196, TFT_BLACK);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextSize(1);
+    tft.setCursor(4, 200);
+    tft.printf("fps %5.1f  tick %4.1fHz", fps, tickHz);
+    tft.setCursor(4, 212);
+    tft.printf("work %4.1f-%4.1f avg %4.1fms", statsMin/1000.0f, statsMax/1000.0f, avgMs);
+    tft.setCursor(4, 224);
+    tft.printf("lua %u KB  frm %lu", memKB, (unsigned long)g_frame);
+
+    statsMs     = nowMs;
+    statsRender = 0;
+    statsUpdate = 0;
+    statsWork   = 0;
+    statsMin    = 0xFFFFFFFFu;
+    statsMax    = 0;
   }
 }
