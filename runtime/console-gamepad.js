@@ -11,46 +11,62 @@
 (() => {
   "use strict";
 
-  const DRAG_RANGE = 40;
   const DEADZONE_PX = 6;
 
   // --- Inject CSS ---
+  // All styles use Mono 16-grayscale palette only.
+  // Shape/size hints only, no labels or icons: crosshair D-pad, bigger bright A
+  // vs smaller dark B, empty pill SELECT/START.
   const style = document.createElement("style");
   style.textContent = `
-    .mono-gp { display:flex; flex-direction:column; gap:20px; }
-    .mono-gp-meta { display:flex; justify-content:center; gap:50px; align-items:center; }
+    .mono-gp { display:flex; flex-direction:column; gap:22px; align-items:center; }
+    .mono-gp-row { display:flex; justify-content:space-between; align-items:center; gap:64px; }
+
+    /* SELECT / START — empty pill buttons with outline for visibility on OLED */
+    .mono-gp-meta { display:flex; justify-content:center; gap:28px; align-items:center; }
     .mono-gp-meta button {
-      background:#444; border:none; border-radius:8px; color:#777;
-      font:700 7px/16px monospace; letter-spacing:0.5px; padding:0 16px;
+      background:#333333; border:1px solid #666666; border-radius:11px;
+      height:22px; padding:0; font-size:0; color:transparent;
       cursor:pointer; -webkit-tap-highlight-color:transparent;
     }
-    .mono-gp-meta button:active, .mono-gp-meta button.pressed { background:#666; color:#fff; }
-    .mono-gp-row { display:flex; justify-content:space-between; align-items:center; }
-    .mono-dpad {
-      width:130px; height:130px; position:relative; flex-shrink:0;
-    }
+    .mono-gp-meta button:active, .mono-gp-meta button.pressed { background:#555555; }
+    .mono-gp-meta .btn-select { width:64px; }
+    .mono-gp-meta .btn-start  { width:60px; }
+
+    /* D-pad — 3x3 grid cross shape with outline (OLED visibility) */
+    .mono-dpad { width:150px; height:150px; position:relative; flex-shrink:0; }
     .mono-dpad-btn {
-      position:absolute; width:44px; height:44px; background:#444; border:none;
-      border-radius:4px; color:#999; font-size:18px; cursor:pointer;
-      display:flex; align-items:center; justify-content:center;
-      -webkit-tap-highlight-color:transparent;
+      position:absolute; width:50px; height:50px;
+      background:#4a4a4a; border:1px solid #6a6a6a;
+      border-radius:6px; color:transparent; font-size:0;
+      cursor:pointer; -webkit-tap-highlight-color:transparent;
     }
-    .mono-dpad-btn.pressed { background:#666; color:#fff; }
-    .mono-dpad-up    { left:43px; top:0; }
-    .mono-dpad-down  { left:43px; top:86px; }
-    .mono-dpad-left  { left:0; top:43px; }
-    .mono-dpad-right { left:86px; top:43px; }
-    .mono-dpad-center { position:absolute; left:43px; top:43px; width:44px; height:44px; background:#444; }
-    .mono-ab { width:130px; height:100px; position:relative; flex-shrink:0; }
+    .mono-dpad-btn.pressed { background:#6a6a6a; border-color:#888888; }
+    .mono-dpad-up    { left:50px;  top:0;     }
+    .mono-dpad-down  { left:50px;  top:100px; }
+    .mono-dpad-left  { left:0;     top:50px;  }
+    .mono-dpad-right { left:100px; top:50px;  }
+    .mono-dpad-center {
+      position:absolute; left:50px; top:50px; width:50px; height:50px;
+      background:#333333; border:1px solid #555555; border-radius:4px;
+    }
+
+    /* A/B — B dark/small on left with outline, A bright/bigger top-right */
+    .mono-ab { width:148px; height:110px; position:relative; flex-shrink:0; }
     .mono-ab-btn {
-      position:absolute; width:56px; height:56px; border-radius:50%;
-      background:#f07070; border:none; color:#fff; font:800 20px monospace;
-      cursor:pointer; display:flex; align-items:center; justify-content:center;
-      -webkit-tap-highlight-color:transparent;
+      position:absolute; border-radius:50%; border:none;
+      color:transparent; font-size:0;
+      cursor:pointer; -webkit-tap-highlight-color:transparent;
     }
-    .mono-ab-btn:active, .mono-ab-btn.pressed { background:#ff9090; }
-    .mono-ab .btn-b { left:0; top:44px; }
-    .mono-ab .btn-a { left:74px; top:14px; }
+    .mono-ab .btn-b {
+      left:4px; top:44px; width:58px; height:58px;
+      background:#4a4a4a; border:1px solid #6a6a6a;
+    }
+    .mono-ab .btn-b:active, .mono-ab .btn-b.pressed { background:#6a6a6a; border-color:#888888; }
+    .mono-ab .btn-a {
+      left:82px; top:14px; width:62px; height:62px; background:#eeeeee;
+    }
+    .mono-ab .btn-a:active, .mono-ab .btn-a.pressed { background:#cccccc; }
   `;
   document.head.appendChild(style);
 
@@ -59,8 +75,8 @@
     container.innerHTML = `
       <div class="mono-gp">
         <div class="mono-gp-meta">
-          <button tabindex="-1" data-key=" ">SELECT</button>
-          <button tabindex="-1" data-key="Enter">START</button>
+          <button tabindex="-1" class="btn-select" data-key=" ">SELECT</button>
+          <button tabindex="-1" class="btn-start" data-key="Enter">START</button>
         </div>
         <div class="mono-gp-row">
           <div class="mono-dpad dpad">
@@ -111,6 +127,13 @@
   function setupDpad(dpad) {
     const mode = detectMode(dpad);
     let anchor = null;
+    // Cell-based detection — updated on each startInput from actual dpad rect.
+    // cellHalf = half of one grid cell (3x3 grid → rect.width / 6).
+    // A direction key fires only when the finger is past the center cell on
+    // that axis, so while the finger is still within the UP button rect the
+    // RIGHT key cannot accidentally fire (and vice versa).
+    let cellHalf = 25;
+    let dragRange = 50;
     let activeKeys = new Set();
     let mouseDown = false;
 
@@ -120,16 +143,18 @@
       const dist = Math.sqrt(dx * dx + dy * dy);
       let ax = 0, ay = 0;
       if (dist > DEADZONE_PX) {
-        ax = clamp(dx / DRAG_RANGE, -1, 1);
-        ay = clamp(dy / DRAG_RANGE, -1, 1);
+        ax = clamp(dx / dragRange, -1, 1);
+        ay = clamp(dy / dragRange, -1, 1);
       }
       if (typeof Mono !== "undefined" && Mono.setAxis) Mono.setAxis(ax, ay);
 
       const newKeys = new Set();
-      if (ay < -0.2) newKeys.add(KEY_MAP.up);
-      if (ay >  0.2) newKeys.add(KEY_MAP.down);
-      if (ax < -0.2) newKeys.add(KEY_MAP.left);
-      if (ax >  0.2) newKeys.add(KEY_MAP.right);
+      if (dist > DEADZONE_PX) {
+        if (dy < -cellHalf) newKeys.add(KEY_MAP.up);
+        if (dy >  cellHalf) newKeys.add(KEY_MAP.down);
+        if (dx < -cellHalf) newKeys.add(KEY_MAP.left);
+        if (dx >  cellHalf) newKeys.add(KEY_MAP.right);
+      }
 
       for (const key of activeKeys) {
         if (!newKeys.has(key)) {
@@ -163,6 +188,11 @@
       // Anchor = dpad center (so initial touch position gives immediate direction)
       const rect = dpad.getBoundingClientRect();
       anchor = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      // D-pad is a 3x3 grid. Each cell is rect.width / 3, half is rect.width / 6.
+      // This scales with the current dpad size (base 150px or vw-based on Android).
+      cellHalf = rect.width / 6;
+      // Analog saturates at one cell distance from center — matches the cardinal button edge.
+      dragRange = rect.width / 3;
       updateFromDelta(clientX - anchor.x, clientY - anchor.y);
     }
 
