@@ -475,6 +475,11 @@ var Mono = (() => {
   let debugMode = true;
   let debugShapes = [];
   let paused = false;
+  // Default: engine auto-toggles pause on SELECT press. Games that want to
+  // use SELECT for their own meta functions (inventory, map, etc.) can call
+  // use_pause(false) from Lua to opt out. The game then reads btnp("select")
+  // itself and is responsible for its own pause (if any).
+  let pauseEnabled = true;
 
   // --- Input ---
   const keyMap = {
@@ -618,8 +623,9 @@ var Mono = (() => {
       if (!hwPrev["up"]    && !hwPrev["down"])   { keys["up"] = au; keys["down"] = ad; }
     }
 
-    // Select button toggles pause (mirrors spacebar behavior)
-    if (keys["select"] && !keysPrev["select"]) paused = !paused;
+    // Select button toggles pause (mirrors spacebar behavior) unless the
+    // game has opted out via use_pause(false).
+    if (pauseEnabled && keys["select"] && !keysPrev["select"]) paused = !paused;
 
     // Touch edge detection (persists one frame, like btnp)
     touchStarted = touchStartedFlag;
@@ -871,6 +877,11 @@ var Mono = (() => {
     lua.global.set("_touch_posf_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; });
     lua.global.set("swipe", () => swipeDir || false);
     lua.global.set("frame", () => frame);
+    // use_pause(true)  — engine auto-pauses on SELECT (this is the default)
+    // use_pause(false) — engine stops auto-pausing; game owns SELECT
+    // When opted out, the game must read btnp("select") itself and provide
+    // its own pause if desired. Any active pause state is cleared.
+    lua.global.set("use_pause", (v) => { pauseEnabled = !!v; if (!v) paused = false; });
     // time() — monotonic seconds since boot, float. Resets with frame.
     lua.global.set("time", () => (performance.now() - bootTime) / 1000);
     // date() — current wall-clock as an os.date("*t")-shaped table, plus ms.
@@ -1168,6 +1179,7 @@ end
     _tickFn = null;
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;
+    pauseEnabled = true;
     frame = 0;
     bootTime = performance.now();
     images = []; imageIdCounter = 0; pendingLoads = [];

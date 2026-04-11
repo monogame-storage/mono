@@ -27,6 +27,7 @@ Rules are derived from `docs/AI-PITFALLS.md`. Each rule is a regex heuristic, no
 | `text-after-cam` | warn | `text()` drawn while `cam()` is non-zero (misaligned HUD) |
 | `surface-missing` | warn | drawing functions with a literal as first arg instead of `scr` |
 | `defensive-api-check` | warn | `if cam_shake then cam_shake(...)` — public APIs are always registered in ALPHA |
+| `standard-structure` | error | standard-compliant game (with `.standard` marker) missing `title.lua`/`game.lua` or `main.lua` not calling `go()` |
 | `diagonal-unnormalized` | info | reads both axes but no `0.7071` diagonal normalization |
 
 ## When to use
