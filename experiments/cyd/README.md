@@ -163,23 +163,207 @@ this CH340 dongle.
 
 ## Observed performance (80 MHz SPI, 1:1 blit)
 
-- **bubble title screen:** ~114 fps, frame time 8.6–10.4 ms
+- **bubble title screen:** ~116 fps render, 30.0 Hz logic tick,
+  8.5 ms avg work per frame
 - **256 moving rects in Lua:** ~56 fps, frame time 17.5–18.8 ms
-- **30 fps budget math:** ~9 ms fixed overhead (flush + HUD + touch),
+  (Phase 2 synthetic bench; logic tick decoupling added later)
+- **30 fps budget math:** ~9 ms fixed overhead (flush + touch + HUD),
   → ~24 ms/frame free for Lua game logic + draw
   → ~600 sprite fillRect calls per frame possible at Lua speed
 
+### Logic tick vs render rate
+
+Mono's engine.js hardcodes `FPS = 30`. Every demo uses frame-counted
+timing (e.g. bubble's `spawn_rate = 28` meaning "every 28 _update
+calls"), so _update must run at exactly 30 Hz to keep game speed
+correct. Render is decoupled and runs free — on CYD the loop blits
+the canvas ~116 times per second even though the game state only
+changes 30 times per second. The extra blits are wasted work but
+(a) they cost <10 ms each, well under the 33 ms budget, and
+(b) they keep the render path exercised so the stats line shows
+real hardware headroom.
+
+Implementation: `loop()` gates `_update` (and touch sampling) on a
+33,333 µs deadline; `_draw` + `pushSprite` run every iteration.
+
 ## Open items
 
-- **Audio.** All sound functions are no-ops. If any demo depends on
-  sound for timing (bubble doesn't), those would silently desync.
-- **Image loading.** No `loadImage` / `spr` / `sspr`. Games that ship
-  sprite sheets won't run without these.
-- **Per-unit touch calibration.** The Y-axis flip is applied
-  unconditionally. If a new CYD unit needs a different transform
-  (other axis, different calibration bounds), rerun the guided
-  `calibOneTarget` / `calibrateTouch` routine preserved in git
-  history and apply the correct flip in `sampleTouch()`.
+### Audio (stubbed; feasible — and worth reverse-specifying)
+
+`note`, `tone`, `noise`, `wave`, `sfx_stop` are registered as
+`l_noop` — they accept and ignore arguments. bubble doesn't call
+any of them, so the stubs are fine for the current demo. Other
+demos that need audio:
+
+- `demo/synth` — audio is the point of the demo
+- `demo/starfighter`, `demo/pong` — SFX only
+
+CYD hardware: **GPIO 26 → NPN transistor → onboard speaker.**
+GPIO 26 is also ESP32 DAC channel 2, so both PWM and analog
+output paths are available on the same pin. The speaker is a
+small magnetic unit with a usable frequency response roughly
+**400–6000 Hz** — below and above that the physical transducer
+rolls off hard.
+
+#### Capability envelope
+
+With I2S + internal DAC + a per-sample software mixer (the
+pragmatic path for anything beyond beeps), the CYD can
+comfortably deliver:
+
+| Axis | Realistic value | Limit |
+|---|---|---|
+| Sample rate | **22,050 Hz** mono | speaker Nyquist is ~12 kHz anyway |
+| Bit depth | **8-bit unsigned** | ESP32 internal DAC is 8-bit |
+| Voices | **4** polyphonic | CPU cost <1% of one core at 4 voices |
+| Waveforms | square, triangle, sawtooth, sine, LFSR noise | 256-entry tables, ~1 KB |
+| Envelope | linear attack + decay (AD, no sustain) | per-sample cost trivial |
+| Pitch | fixed or exponential sweep | same precision as current `tone()` |
+| Filter | optional per-voice 1-pole IIR (low/high/band) | 3 mul per sample |
+| Stereo | no — speaker is mono | physical |
+| Reverb/FX | no | not attempted |
+
+CPU: 4 voices × 15 cycles/sample × 22,050 Hz ≈ **1.3 Mcycles/s
+= 0.55% of one 240 MHz core**. Headroom is effectively infinite.
+
+#### Reverse-spec proposal (adopt CYD envelope as the Mono standard)
+
+The current Mono audio spec in `runtime/engine.js` is defined
+**by Web Audio API accidents** — 2 channels, hardcoded 20 ms
+fade-out, `BiquadFilter` on noise, arbitrary oscillator types
+from the browser. That's not a spec, it's "whatever Web Audio
+does with its own defaults". It ports poorly because it inherits
+the host's capability ceiling instead of declaring one.
+
+Flipping it around: **use the CYD's realistic envelope as the
+Mono audio standard**. Any game that works on CYD automatically
+works in the browser (the browser's ceiling is strictly higher);
+the reverse is not true. This is the same pattern Mono already
+uses for video (160×144, 16-color grayscale, 16×16 sprites —
+those aren't browser limits, they're chosen constraints that
+define the fantasy console).
+
+Proposed spec:
+
+```
+MONO SOUND v2
+
+Channels:    4  (ch = 0..3, all equivalent)
+Sample rate: 22,050 Hz mono
+Bit depth:   8-bit unsigned
+Waveforms:   square, triangle, sawtooth, sine, noise
+Envelope:    per-voice attack + decay (seconds, linear)
+Pitch:       fixed or exponential sweep (start → end)
+Filter:      optional per-voice 1-pole low / high / band
+Volume:      per-channel 0..1
+```
+
+Lua surface (backward-compatible with existing demos that already
+use `note/tone/noise/wave/sfx_stop`):
+
+```lua
+wave(ch, "square" | "triangle" | "saw" | "sine" | "noise")
+adsr(ch, attack_sec, decay_sec)
+vol(ch, 0..1)
+note(ch, "C4", dur)
+tone(ch, f_start, f_end, dur)
+noise(ch, dur, "low"|"high"|"band", cutoff_hz)
+sfx_stop(ch)     -- nil ch stops all
+```
+
+Differences from current Mono audio:
+
+| Property | Current | Reverse-spec v2 |
+|---|---|---|
+| Channels | 2 | **4** (Game Boy–level polyphony) |
+| Sample rate | browser default (44.1/48 kHz) | **22,050 Hz** fixed |
+| Bit depth | 32-bit float (Web Audio) | **8-bit** |
+| Envelope | hardcoded 20 ms tail | **configurable AD** |
+| Noise filter | Biquad (Web Audio) | 1-pole IIR |
+
+Net effect: **richer musically** (4 voices, configurable
+envelope) while **narrower technically** (8-bit, 22 kHz, no
+stereo) — which is exactly the fantasy-console trade. The
+browser runtime would need to be constrained down to match;
+that's a small engine change.
+
+Implementation paths, in order of effort:
+
+1. **LEDC PWM square wave** (~200 lines). `ledcWriteTone()` +
+   a timer ISR for sweeps and envelopes. Only square wave.
+   Good enough for `pong` and `starfighter` but doesn't cover
+   the reverse-spec (no triangle / sine / LFSR / filter). Only
+   worth doing as a throwaway first step.
+2. **I2S + internal DAC + software mixer** (~300 lines).
+   Implements the full reverse-spec above. Needed for
+   `demo/synth` to be authentic and for Mono v2 audio to land
+   on CYD as the reference platform.
+
+### Image loading (absent; should be startup pre-bake)
+
+`loadImage`, `spr`, `sspr` are not implemented. Most demos that
+aren't pure primitives need them — `demo/invaders`, `demo/tiltmaze`,
+etc.
+
+**Design decision: pre-bake at game startup, not at firmware
+build time and not per-frame.** Build-time bake locks the firmware
+to a single game and blocks the "one CYD, many games" direction
+Mono is heading. Per-frame decode is pointless (the engine's
+internal image format is already palette bytes). Startup pre-bake
+is the middle ground: assets ship as files on LittleFS or SD, the
+firmware is game-agnostic, and decode cost is paid once at boot.
+
+Recommended architecture:
+
+```
+ESP32 boot
+  → mount LittleFS (internal) or SD (CYD onboard slot)
+  → scan /games/<name>/
+      ├─ main.lua       → doString into Lua VM
+      ├─ manifest.json  → metadata, asset list
+      └─ sprites/*.png  → PNGdec → palette bytes → images[id]
+  → call _init()
+  → main loop
+```
+
+Format notes:
+
+- **PNG:** works, LovyanGFX has it built in, `PNGdec` (bitbank2)
+  standalone is ~5 KB working memory. Fine for startup decode.
+- **WebP:** skip. libwebp is 300–500 KB flash + 150–250 KB RAM,
+  no production-quality small ESP32 port exists, and WebP's
+  advantages (photo compression) don't help 16-color palette
+  art. PNG compresses palette art as well or better.
+- **QOI:** viable alternative (~150 lines C header-only, perfect
+  for palette data), but PNG + author-side tooling is more
+  ergonomic.
+- **Pre-baked palette bytes directly:** also fine as a format for
+  built-in demos, using the same embed-as-C-string pattern we
+  used for `bubble_game.h`.
+
+RAM budget check (current usage):
+
+```
+  25 KB  Arduino base
+  46 KB  canvas 160x144 RGB565
+  65 KB  Lua VM + bubble state
+-------
+ 136 KB  used
+ 184 KB  free (320 KB total)
+```
+
+At ~1 byte per pixel (palette index), 184 KB holds ~180,000 pixels
+= ~700 sprites of 16×16, or a 320×240 background plus ~400
+sprites. Enough for any Mono game we care about. PSRAM-equipped
+CYD variants add 4–8 MB if headroom is ever tight.
+
+### Per-unit touch calibration
+
+The Y-axis flip is applied unconditionally. If a new CYD unit
+needs a different transform (other axis, different calibration
+bounds), rerun the guided `calibOneTarget` / `calibrateTouch`
+routine preserved in git history and apply the correct flip in
+`sampleTouch()`.
 
 ## Why this configuration (short version)
 
