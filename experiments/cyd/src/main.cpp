@@ -1,22 +1,25 @@
-// CYD Mono Phase 2 probe — Lua in the loop
+// CYD Mono Phase 3 — bubble via Mono engine API
 // ------------------------------------------------------------------
 // Target: ESP32-2432S028R (Cheap Yellow Display, dual-USB variant)
-// Goal:   measure achievable FPS when the per-frame game workload
-//         (256 moving 8x8 rects + draw calls) is driven by Lua 5.4
-//         native code instead of the earlier C baseline.
+// Goal:   run the `bubble` demo (demo/bubble/main.lua) unchanged on
+//         the CYD via native Lua 5.4 + a minimal port of the Mono
+//         engine API to C bindings.
 //
-// The canvas is 160x144 (current Mono standard), pushed 1:1 centered
-// on the 320x240 screen (no upscale — we're measuring Lua cost, not
-// blit cost).
+// What exists here:
+//   - Panel: ST7789 @ 80 MHz SPI, 1:1 centered 160x144 canvas
+//   - Lua 5.4.7 native, ~49 KB VM memory
+//   - Mono engine API subset: cls/pix/rect/rectf/circ/circf/line/text,
+//     cam/cam_get/cam_shake/cam_reset, screen/mode,
+//     touch/touch_start/touch_end/touch_count/touch_pos,
+//     frame/time, btn/btnp (stubs), sound stubs
+//   - 4x7 Mono bitmap font, faithful port of runtime/engine.js FONT
+//   - 16-level grayscale palette (matches buildPalette(4))
 //
-// Four modes, advanced by touch:
-//   A  FLUSH_ONLY        — re-flush a static pattern (raw blit ceiling)
-//   B  CLEAR+FLUSH       — clear + flush
-//   C  64 RECT (Lua)     — clear + Lua step(64) + flush
-//   D  256 RECT (Lua)    — clear + Lua step(256) + flush
-//
-// Tap the screen to advance mode. Rolling 1-second + cumulative
-// stats stream over Serial at 1 Hz and are drawn on-screen.
+// Not in scope (stubbed or absent):
+//   - Sound (note/tone/noise/wave)
+//   - Image loading / sprite sheets
+//   - Multi-surface canvases
+//   - Physical buttons (CYD has none; touch only)
 // ------------------------------------------------------------------
 
 #include <Arduino.h>
@@ -113,6 +116,11 @@ public:
       _panel.light(&_light);
     }
     // Touch (XPT2046) on CYD uses VSPI, independent of the display bus.
+    // The raw XPT axes run 180° rotated from the display after
+    // setRotation(3). We *could* try to express this via min/max
+    // swap, but LovyanGFX defensively normalizes min<max so that
+    // trick is silently undone — the flip is applied manually in
+    // sampleTouch() instead.
     { auto c = _touch.config();
       c.x_min       = 300;
       c.x_max       = 3900;
@@ -136,297 +144,373 @@ public:
 
 static LGFX_CYD    tft;
 static LGFX_Sprite canvas(&tft);
+static lua_State*  L = nullptr;
 
-// ---- Lua workload -----------------------------------------------
-// Same logic as the earlier C baseline, now driven from Lua. Each rect
-// is a 5-slot array table {x, y, vx, vy, gray}. `step(n)` moves and
-// draws the first `n` rects by calling back into `fill` (C binding).
-//
-// All binding functions skip typecheck for speed — this is a bench.
-static const char* LUA_SCRIPT = R"LUA(
-local N    = 256
-local W, H = 160, 144
-local rects = {}
+// ---- Game state (managed by C, exposed to Lua) ------------------
+static int       g_cam_x = 0, g_cam_y = 0;
+static int       g_shake_frames = 0;
+static uint32_t  g_frame = 0;
+static uint32_t  g_boot_ms = 0;
+static uint16_t  g_palette[16];
 
-local rand = math.random
-math.randomseed(0xC0FFEE)
+// Touch sampled once per frame; Lua reads through bindings.
+static int       g_touch_x = 0, g_touch_y = 0;
+static bool      g_touch_active  = false;   // held this frame
+static bool      g_touch_prev    = false;   // held previous frame
+static bool      g_touch_started = false;   // rising edge
+static bool      g_touch_ended   = false;   // falling edge
 
-function init()
-  for i = 1, N do
-    rects[i] = {
-      rand(0, W - 9),
-      rand(0, H - 9),
-      (rand() - 0.5) * 4.0,
-      (rand() - 0.5) * 4.0,
-      rand(0, 15) * 17,
+// Canvas offset on screen (1:1 centered).
+static int16_t   g_dstX = 80;
+static int16_t   g_dstY = 48;
+
+// ---- Mono 4x7 font ---------------------------------------------
+#include "mono_font.h"
+static constexpr int FONT_W = 4, FONT_H = 7;
+
+static void monoDrawText(const char* str, int x, int y, int c, int align) {
+  int len = 0;
+  for (const char* p = str; *p; p++) len++;
+  if (len == 0) return;
+  int textW = len * (FONT_W + 1) - 1;
+  if (align & 1) x -= textW / 2;
+  else if (align & 2) x -= textW;
+  if (align & 4) y -= FONT_H / 2;
+  uint16_t col = g_palette[c & 15];
+  for (const char* p = str; *p; p++) {
+    unsigned char ch = (unsigned char)*p;
+    if (ch >= 'a' && ch <= 'z') ch -= 32;
+    uint32_t glyph = (ch < 128) ? MONO_FONT[ch] : 0;
+    if (glyph) {
+      for (int py = 0; py < FONT_H; py++) {
+        for (int px = 0; px < FONT_W; px++) {
+          if (glyph & (1u << (py * FONT_W + px))) {
+            int dx = x + px - g_cam_x;
+            int dy = y + py - g_cam_y;
+            if ((unsigned)dx < (unsigned)MONO_W && (unsigned)dy < (unsigned)MONO_H)
+              canvas.drawPixel(dx, dy, col);
+          }
+        }
+      }
     }
-  end
-end
+    x += FONT_W + 1;
+  }
+}
 
--- Cache for hot loop.
-local fill = fill
-local rects_local = rects
+// ---- Lua bindings ----------------------------------------------
+// Fast float→int helper; bindings skip type-check for speed.
+static inline int argi(lua_State* L, int i) { return (int)lua_tonumber(L, i); }
+static inline uint16_t pal(int c) { return g_palette[c & 15]; }
 
-function step(n)
-  local Wm = W - 9
-  local Hm = H - 9
-  for i = 1, n do
-    local r = rects_local[i]
-    local x, y = r[1] + r[3], r[2] + r[4]
-    if x < 0 then x = 0; r[3] = -r[3]
-    elseif x > Wm then x = Wm; r[3] = -r[3] end
-    if y < 0 then y = 0; r[4] = -r[4]
-    elseif y > Hm then y = Hm; r[4] = -r[4] end
-    r[1] = x
-    r[2] = y
-    fill(x, y, r[5])
-  end
-end
-)LUA";
+static int l_screen(lua_State* L) { lua_pushinteger(L, 0); return 1; }
+static int l_mode(lua_State* L) { (void)L; return 0; }    // always 16-gray; no-op
 
-static lua_State* L = nullptr;
-
-// C binding: fill(x, y, gray). Fixed 8x8 size — that's the only rect
-// the benchmark draws, and hardcoding size avoids 2 extra arg reads.
-static int lbind_fill(lua_State* L) {
-  int x = (int)lua_tonumber(L, 1);
-  int y = (int)lua_tonumber(L, 2);
-  int g = (int)lua_tonumber(L, 3);
-  canvas.fillRect(x, y, 8, 8, canvas.color565(g, g, g));
+static int l_cls(lua_State* L) {
+  canvas.fillSprite(pal(argi(L, 2)));
   return 0;
 }
 
+static int l_pix(lua_State* L) {
+  int x = argi(L, 2) - g_cam_x;
+  int y = argi(L, 3) - g_cam_y;
+  canvas.drawPixel(x, y, pal(argi(L, 4)));
+  return 0;
+}
+
+static int l_rect(lua_State* L) {
+  canvas.drawRect(argi(L, 2) - g_cam_x, argi(L, 3) - g_cam_y,
+                  argi(L, 4), argi(L, 5), pal(argi(L, 6)));
+  return 0;
+}
+static int l_rectf(lua_State* L) {
+  canvas.fillRect(argi(L, 2) - g_cam_x, argi(L, 3) - g_cam_y,
+                  argi(L, 4), argi(L, 5), pal(argi(L, 6)));
+  return 0;
+}
+static int l_circ(lua_State* L) {
+  canvas.drawCircle(argi(L, 2) - g_cam_x, argi(L, 3) - g_cam_y,
+                    argi(L, 4), pal(argi(L, 5)));
+  return 0;
+}
+static int l_circf(lua_State* L) {
+  canvas.fillCircle(argi(L, 2) - g_cam_x, argi(L, 3) - g_cam_y,
+                    argi(L, 4), pal(argi(L, 5)));
+  return 0;
+}
+static int l_line(lua_State* L) {
+  canvas.drawLine(argi(L, 2) - g_cam_x, argi(L, 3) - g_cam_y,
+                  argi(L, 4) - g_cam_x, argi(L, 5) - g_cam_y,
+                  pal(argi(L, 6)));
+  return 0;
+}
+
+static int l_text(lua_State* L) {
+  const char* s = lua_tostring(L, 2);
+  int x = argi(L, 3);
+  int y = argi(L, 4);
+  int c = argi(L, 5);
+  int align = lua_isnumber(L, 6) ? argi(L, 6) : 0;
+  if (s) monoDrawText(s, x, y, c, align);
+  return 0;
+}
+
+static int l_cam(lua_State* L) {
+  g_cam_x = argi(L, 1);
+  g_cam_y = argi(L, 2);
+  return 0;
+}
+static int l_cam_reset(lua_State* L) { (void)L; g_cam_x = g_cam_y = 0; g_shake_frames = 0; return 0; }
+static int l_cam_get_x(lua_State* L) { lua_pushinteger(L, g_cam_x); return 1; }
+static int l_cam_get_y(lua_State* L) { lua_pushinteger(L, g_cam_y); return 1; }
+static int l_cam_shake(lua_State* L) { g_shake_frames = argi(L, 1); return 0; }
+
+static int l_frame(lua_State* L) { lua_pushinteger(L, (lua_Integer)g_frame); return 1; }
+static int l_time(lua_State* L) {
+  lua_pushnumber(L, (double)(millis() - g_boot_ms) / 1000.0);
+  return 1;
+}
+
+static int l_touch(lua_State* L)       { lua_pushinteger(L, (g_touch_active || g_touch_started) ? 1 : 0); return 1; }
+static int l_touch_start(lua_State* L) { lua_pushinteger(L, g_touch_started ? 1 : 0); return 1; }
+static int l_touch_end(lua_State* L)   { lua_pushinteger(L, g_touch_ended   ? 1 : 0); return 1; }
+static int l_touch_count(lua_State* L) { lua_pushinteger(L, (g_touch_active || g_touch_started) ? 1 : 0); return 1; }
+static int l_touch_pos_x(lua_State* L) {
+  if (g_touch_active || g_touch_started) lua_pushinteger(L, g_touch_x);
+  else lua_pushboolean(L, 0);
+  return 1;
+}
+static int l_touch_pos_y(lua_State* L) {
+  if (g_touch_active || g_touch_started) lua_pushinteger(L, g_touch_y);
+  else lua_pushboolean(L, 0);
+  return 1;
+}
+
+static int l_btn(lua_State* L)  { (void)L; lua_pushinteger(L, 0); return 1; }
+static int l_btnp(lua_State* L) { (void)L; lua_pushinteger(L, 0); return 1; }
+
+static int l_print(lua_State* L) {
+  int n = lua_gettop(L);
+  Serial.print("[Lua]");
+  for (int i = 1; i <= n; i++) {
+    Serial.print(" ");
+    const char* s = lua_tostring(L, i);
+    Serial.print(s ? s : "?");
+  }
+  Serial.println();
+  return 0;
+}
+
+// Stubs for audio (bubble doesn't actually play sound yet, but some
+// demos may call these).
+static int l_noop(lua_State* L) { (void)L; return 0; }
+
+// ---- Lua prelude (mirrors engine.js wrappers) ------------------
+static const char* PRELUDE = R"MLUA(
+function btn(k) return _btn(k) == 1 end
+function btnp(k) return _btnp(k) == 1 end
+function cam_get() return _cam_get_x(), _cam_get_y() end
+function touch() return _touch() == 1 end
+function touch_start() return _touch_start() == 1 end
+function touch_end() return _touch_end() == 1 end
+function touch_pos(i)
+  i = i or 1
+  local x = _touch_pos_x(i)
+  if x == false then return false end
+  return x, _touch_pos_y(i)
+end
+function touch_posf(i) return touch_pos(i) end
+)MLUA";
+
+#include "bubble_game.h"
+
 static void lua_fatal(const char* where) {
-  Serial.printf("LUA FATAL @ %s: %s\n", where,
-                lua_tostring(L, -1) ? lua_tostring(L, -1) : "(no msg)");
-  while (true) { delay(1000); }
+  const char* msg = lua_tostring(L, -1);
+  Serial.printf("LUA FATAL @ %s: %s\n", where, msg ? msg : "(no msg)");
+  while (true) delay(1000);
+}
+
+static void registerAPI() {
+  #define REG(name, fn) lua_pushcfunction(L, fn); lua_setglobal(L, name)
+  REG("screen",      l_screen);
+  REG("mode",        l_mode);
+  REG("cls",         l_cls);
+  REG("pix",         l_pix);
+  REG("rect",        l_rect);
+  REG("rectf",       l_rectf);
+  REG("circ",        l_circ);
+  REG("circf",       l_circf);
+  REG("line",        l_line);
+  REG("text",        l_text);
+  REG("cam",         l_cam);
+  REG("cam_reset",   l_cam_reset);
+  REG("cam_shake",   l_cam_shake);
+  REG("_cam_get_x",  l_cam_get_x);
+  REG("_cam_get_y",  l_cam_get_y);
+  REG("frame",       l_frame);
+  REG("time",        l_time);
+  REG("_touch",      l_touch);
+  REG("_touch_start",l_touch_start);
+  REG("_touch_end",  l_touch_end);
+  REG("touch_count", l_touch_count);
+  REG("_touch_pos_x",l_touch_pos_x);
+  REG("_touch_pos_y",l_touch_pos_y);
+  REG("_touch_posf_x", l_touch_pos_x);
+  REG("_touch_posf_y", l_touch_pos_y);
+  REG("_btn",        l_btn);
+  REG("_btnp",       l_btnp);
+  REG("print",       l_print);
+  // Sound stubs
+  REG("note",        l_noop);
+  REG("tone",        l_noop);
+  REG("noise",       l_noop);
+  REG("wave",        l_noop);
+  REG("sfx_stop",    l_noop);
+  #undef REG
+
+  lua_pushinteger(L, MONO_W); lua_setglobal(L, "SCREEN_W");
+  lua_pushinteger(L, MONO_H); lua_setglobal(L, "SCREEN_H");
+  lua_pushinteger(L, 16);     lua_setglobal(L, "COLORS");
+  lua_pushinteger(L, 0);      lua_setglobal(L, "ALIGN_LEFT");
+  lua_pushinteger(L, 1);      lua_setglobal(L, "ALIGN_HCENTER");
+  lua_pushinteger(L, 2);      lua_setglobal(L, "ALIGN_RIGHT");
+  lua_pushinteger(L, 4);      lua_setglobal(L, "ALIGN_VCENTER");
+  lua_pushinteger(L, 5);      lua_setglobal(L, "ALIGN_CENTER");
 }
 
 static void initLua() {
   L = luaL_newstate();
-  if (!L) { Serial.println("luaL_newstate failed"); while(1) delay(1000); }
+  if (!L) { Serial.println("newstate failed"); while(1) delay(1000); }
   luaL_openlibs(L);
+  registerAPI();
 
-  // Register fill() as a global before the script loads (so the
-  // `local fill = fill` cache line in the script picks it up).
-  lua_pushcfunction(L, lbind_fill);
-  lua_setglobal(L, "fill");
+  if (luaL_loadstring(L, PRELUDE) != LUA_OK) lua_fatal("prelude load");
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK)       lua_fatal("prelude run");
 
-  if (luaL_loadstring(L, LUA_SCRIPT) != LUA_OK) lua_fatal("load");
-  if (lua_pcall(L, 0, 0, 0) != LUA_OK) lua_fatal("chunk");
+  if (luaL_loadstring(L, BUBBLE_LUA) != LUA_OK) lua_fatal("bubble load");
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK)          lua_fatal("bubble chunk");
 
-  lua_getglobal(L, "init");
-  if (lua_pcall(L, 0, 0, 0) != LUA_OK) lua_fatal("init");
+  lua_getglobal(L, "_init");
+  if (lua_isfunction(L, -1)) {
+    if (lua_pcall(L, 0, 0, 0) != LUA_OK) lua_fatal("_init");
+  } else {
+    lua_pop(L, 1);
+  }
 
-  size_t memKB = (size_t)lua_gc(L, LUA_GCCOUNT, 0);
-  Serial.printf("Lua:      5.4.7  init-mem=%u KB\n", (unsigned)memKB);
+  unsigned memKB = (unsigned)lua_gc(L, LUA_GCCOUNT, 0);
+  Serial.printf("Lua init OK. mem=%u KB\n", memKB);
 }
 
-static inline void luaStep(int n) {
-  lua_getglobal(L, "step");
-  lua_pushinteger(L, n);
-  if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
-    Serial.printf("step error: %s\n", lua_tostring(L, -1));
+static void callLua(const char* fn) {
+  lua_getglobal(L, fn);
+  if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return; }
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+    Serial.printf("%s error: %s\n", fn, lua_tostring(L, -1));
     lua_pop(L, 1);
   }
 }
 
-// ---- Bench driver -----------------------------------------------
-enum Mode { M_FLUSH, M_CLEAR, M_64, M_256, NUM_MODES };
-static const char* MODE_NAME[] = {
-  "A FLUSH",
-  "B CLEAR",
-  "C 64 RECT",
-  "D 256 RECT",
-};
-static const int MODE_RECTS[] = { 0, 0, 64, 256 };
+// ---- Touch sampling --------------------------------------------
+static void sampleTouch() {
+  int32_t tx, ty;
+  bool touched = tft.getTouch(&tx, &ty);
 
-// Start on the stress case — worst thermals + load hit the operator first.
-static int g_mode = M_256;
-
-// All-time stats since the current mode was entered.
-static uint32_t g_modeStartMs = 0;
-static uint32_t g_framesAll   = 0;
-static uint32_t g_minDtAll    = 0xFFFFFFFFu;
-static uint32_t g_maxDtAll    = 0;
-static uint64_t g_sumDtAll    = 0;
-
-// Rolling 1-second window.
-static uint32_t g_rollStartMs   = 0;
-static uint32_t g_rollFrames    = 0;
-static uint32_t g_rollMaxDt     = 0;
-static float    g_rollFps       = 0.0f;
-static uint32_t g_rollMaxDtLast = 0;   // frozen peak dt from the last closed window
-
-// Touch edge detect (rising edge = tap).
-static bool g_touchPrev = false;
-
-// Top-left of the canvas on the screen (1:1 centered).
-static int16_t g_dstX = 80;
-static int16_t g_dstY = 48;
-
-static inline void flush1x() {
-  canvas.pushSprite(&tft, g_dstX, g_dstY);
-}
-
-static void paintHUD() {
-  // Background strip so text stays readable over moving rects.
-  canvas.fillRect(0, 0, MONO_W, 46, TFT_BLACK);
-  canvas.setTextColor(TFT_WHITE, TFT_BLACK);
-  canvas.setTextSize(1);
-
-  uint32_t nowMs    = millis();
-  uint32_t elapsed  = nowMs - g_modeStartMs;
-  uint32_t elapsedS = elapsed / 1000;
-  float    avgFps   = g_framesAll > 0
-                    ? (g_framesAll * 1000.0f / (float)(elapsed == 0 ? 1 : elapsed))
-                    : 0.0f;
-  float    avgMs    = g_framesAll > 0
-                    ? (float)(g_sumDtAll / (uint64_t)g_framesAll) / 1000.0f
-                    : 0.0f;
-
-  canvas.setCursor(2, 1);
-  canvas.printf("%-10s %02lu:%02lu",
-                MODE_NAME[g_mode],
-                (unsigned long)(elapsedS / 60),
-                (unsigned long)(elapsedS % 60));
-
-  canvas.setCursor(2, 10);
-  canvas.printf("now %5.1f  avg %5.1f", g_rollFps, avgFps);
-
-  canvas.setCursor(2, 19);
-  canvas.printf("dt %4.1f-%4.1f ms",
-                g_minDtAll / 1000.0f, g_maxDtAll / 1000.0f);
-
-  canvas.setCursor(2, 28);
-  canvas.printf("win-max %4.1f avg %4.1f",
-                g_rollMaxDtLast / 1000.0f, avgMs);
-
-  canvas.setCursor(2, 37);
-  canvas.printf("TAP=next  frm=%lu",
-                (unsigned long)g_framesAll);
-}
-
-static void prepareFlushOnlyCanvas() {
-  canvas.fillSprite(TFT_BLACK);
-  for (int y = 0; y < MONO_H; y += 8) {
-    for (int x = 0; x < MONO_W; x += 8) {
-      uint8_t g = ((x ^ y) & 0xF) * 17;
-      canvas.fillRect(x, y, 8, 8, canvas.color565(g, g, g));
-    }
+  // Manual Y-axis flip: LovyanGFX returns correct X for this CYD
+  // variant after setRotation(3), but raw Y is inverted relative to
+  // the display. The "flip y_min/y_max" trick doesn't work because
+  // LovyanGFX defensively normalizes the calibration bounds, so the
+  // inversion must be applied in C. Verified via the 5-point guided
+  // calibration routine (see git history for the calibrateTouch()
+  // implementation if you need to recheck on a new unit).
+  if (touched) {
+    ty = (tft.height() - 1) - ty;
   }
-  paintHUD();
+
+  // Canvas-space mapping for the game.
+  int cx = tx - g_dstX;
+  int cy = ty - g_dstY;
+  bool in = touched && (unsigned)cx < (unsigned)MONO_W && (unsigned)cy < (unsigned)MONO_H;
+  g_touch_started = in && !g_touch_prev;
+  g_touch_ended   = !in && g_touch_prev;
+  g_touch_active  = in;
+  if (in) { g_touch_x = cx; g_touch_y = cy; }
+  g_touch_prev = in;
 }
 
-static void drawFrameFor(int m) {
-  if (m == M_FLUSH) {
-    // Static pattern — don't touch the canvas so the number stays pure.
-    return;
-  }
-  canvas.fillSprite(TFT_BLACK);
-  if (MODE_RECTS[m] > 0) luaStep(MODE_RECTS[m]);
-  paintHUD();
-}
-
-static void resetStatsForMode() {
-  g_modeStartMs   = millis();
-  g_framesAll     = 0;
-  g_minDtAll      = 0xFFFFFFFFu;
-  g_maxDtAll      = 0;
-  g_sumDtAll      = 0;
-  g_rollStartMs   = g_modeStartMs;
-  g_rollFrames    = 0;
-  g_rollMaxDt     = 0;
-  g_rollFps       = 0.0f;
-  g_rollMaxDtLast = 0;
-}
-
-static void enterMode(int m) {
-  g_mode = m;
-  resetStatsForMode();
-  if (m == M_FLUSH) prepareFlushOnlyCanvas();
-  Serial.printf(">> enter %s\n", MODE_NAME[m]);
-}
-
-// ---- setup / loop -----------------------------------------------
+// ---- setup / loop ----------------------------------------------
 void setup() {
   Serial.begin(115200);
   delay(200);
   Serial.println();
-  Serial.println("=== CYD Mono Blit Probe ===");
-  Serial.printf("Panel:    %s\n", PANEL_NAME);
-  Serial.printf("SPI freq: %d Hz\n", CYD_SPI_FREQ);
-  Serial.printf("Canvas:   %dx%d -> 320x240 (2x)\n", MONO_W, MONO_H);
+  Serial.println("=== CYD Mono Phase 3 — bubble ===");
+  Serial.printf("Panel:  %s  SPI=%d Hz\n", PANEL_NAME, CYD_SPI_FREQ);
 
   tft.init();
-  // Panel_ST7789's compile-time invert flag doesn't take effect during
-  // init() — INVON must be asserted explicitly.
   tft.invertDisplay(PANEL_INVERT);
   tft.setRotation(3);
   tft.setBrightness(255);
   tft.fillScreen(TFT_BLACK);
 
-  Serial.printf("Screen:   %dx%d\n", tft.width(), tft.height());
-
   canvas.setColorDepth(16);
   if (!canvas.createSprite(MONO_W, MONO_H)) {
-    Serial.println("FATAL: createSprite failed (no RAM)");
-    while (true) { delay(1000); }
+    Serial.println("FATAL: createSprite failed"); while (true) delay(1000);
   }
+
+  // Build 16-level grayscale palette (matches engine.js buildPalette(4)).
+  for (int i = 0; i < 16; i++) {
+    int g = (int)((i / 15.0f) * 255.0f + 0.5f);
+    g_palette[i] = canvas.color565(g, g, g);
+  }
+
   g_dstX = (tft.width()  - MONO_W) / 2;
   g_dstY = (tft.height() - MONO_H) / 2;
-  Serial.printf("Canvas offset: %d,%d (1:1 centered)\n", g_dstX, g_dstY);
+  Serial.printf("Canvas: %dx%d centered at (%d,%d)\n",
+                MONO_W, MONO_H, g_dstX, g_dstY);
 
+  g_boot_ms = millis();
   initLua();
-  enterMode(g_mode);
+  Serial.println("Entering main loop.");
 }
 
 void loop() {
-  static uint32_t lastUs = micros();
+  static uint32_t lastUs    = micros();
+  static uint32_t statsMs   = millis();
+  static uint32_t statsFrms = 0;
+  static uint32_t statsMin  = 0xFFFFFFFFu;
+  static uint32_t statsMax  = 0;
 
-  drawFrameFor(g_mode);
-  flush1x();
+  sampleTouch();
 
-  // ---- Frame timing ---------------------------------------------
+  callLua("_update");
+  callLua("_draw");
+
+  // Camera shake: jitter the blit offset rather than re-drawing.
+  int dx = g_dstX, dy = g_dstY;
+  if (g_shake_frames > 0) {
+    dx += (int)(esp_random() % 7) - 3;
+    dy += (int)(esp_random() % 7) - 3;
+    g_shake_frames--;
+  }
+  canvas.pushSprite(&tft, dx, dy);
+
+  g_frame++;
+
   uint32_t now = micros();
   uint32_t dt  = now - lastUs;
   lastUs = now;
+  statsFrms++;
+  if (dt < statsMin) statsMin = dt;
+  if (dt > statsMax) statsMax = dt;
 
-  g_framesAll++;
-  g_sumDtAll += dt;
-  if (dt < g_minDtAll) g_minDtAll = dt;
-  if (dt > g_maxDtAll) g_maxDtAll = dt;
-
-  g_rollFrames++;
-  if (dt > g_rollMaxDt) g_rollMaxDt = dt;
-
-  // Close the 1-second rolling window.
-  uint32_t nowMs   = millis();
-  uint32_t rollMs  = nowMs - g_rollStartMs;
-  if (rollMs >= 1000) {
-    g_rollFps       = g_rollFrames * 1000.0f / (float)rollMs;
-    g_rollMaxDtLast = g_rollMaxDt;
-    Serial.printf("[%-9s] t=%5lus  now=%5.1f  avg=%5.1f  dt=%4.1f..%4.1fms  win-max=%4.1fms  frm=%lu\n",
-                  MODE_NAME[g_mode],
-                  (unsigned long)((nowMs - g_modeStartMs) / 1000),
-                  g_rollFps,
-                  g_framesAll * 1000.0f
-                    / (float)((nowMs - g_modeStartMs) == 0 ? 1 : (nowMs - g_modeStartMs)),
-                  g_minDtAll / 1000.0f,
-                  g_maxDtAll / 1000.0f,
-                  g_rollMaxDtLast / 1000.0f,
-                  (unsigned long)g_framesAll);
-    g_rollStartMs = nowMs;
-    g_rollFrames  = 0;
-    g_rollMaxDt   = 0;
+  uint32_t nowMs = millis();
+  if (nowMs - statsMs >= 1000) {
+    float fps = statsFrms * 1000.0f / (float)(nowMs - statsMs);
+    unsigned memKB = (unsigned)lua_gc(L, LUA_GCCOUNT, 0);
+    Serial.printf("[bubble] fps=%5.1f  dt=%4.1f..%4.1fms  frm=%lu  lua=%uKB\n",
+                  fps, statsMin/1000.0f, statsMax/1000.0f,
+                  (unsigned long)g_frame, memKB);
+    statsMs   = nowMs;
+    statsFrms = 0;
+    statsMin  = 0xFFFFFFFFu;
+    statsMax  = 0;
   }
-
-  // ---- Touch edge → advance mode --------------------------------
-  // Poll touch once per frame. Rising edge = tap.
-  int32_t tx, ty;
-  bool touched = tft.getTouch(&tx, &ty);
-  if (touched && !g_touchPrev) {
-    enterMode((g_mode + 1) % NUM_MODES);
-  }
-  g_touchPrev = touched;
 }

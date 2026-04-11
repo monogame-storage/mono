@@ -1,83 +1,201 @@
-# CYD Mono Blit Probe
+# CYD Mono runtime
 
-**Purpose:** a single, narrow experiment — *can an ESP32-2432S028R (CYD)
-push a 160×120 framebuffer to its 320×240 ILI9341 at 30 fps with enough
-CPU headroom left over to run game logic?*
+Native-code Mono runtime running on an **ESP32-2432S028R** (Cheap
+Yellow Display, dual-USB variant). Phase-3 snapshot: `demo/bubble`
+runs unchanged via a minimal Mono engine API port, driven by native
+Lua 5.4.7.
 
-This is Phase 1 of a potential ESP32 port of Mono. It does **not** embed
-a Lua VM, does **not** implement any engine API, and does **not** touch
-the rest of the repo. It exists only to answer the hardware-ceiling
-question so we can decide whether to keep going.
+For the story of how this configuration was found (panel discovery,
+SPI clock probing, benchmark numbers), see **EXPERIMENTS.md**.
 
-## What it measures
+## Status
 
-Four modes cycle every 3 seconds:
+| Area | State |
+|---|---|
+| Display pipeline | Working — 1:1 centered, 80 MHz SPI |
+| Lua VM | Working — Lua 5.4.7 native, ~65 KB for bubble |
+| Mono engine API subset | Working — enough for `demo/bubble` |
+| Touch input | Working — Y axis flipped manually in `sampleTouch()` |
+| Sound | Stubs only |
+| Image loading / sprite sheets | Not ported |
+| Multi-surface canvas | Not ported |
 
-| Mode | Description | Tells us |
-| --- | --- | --- |
-| A | `FLUSH` only — re-push a static frame | Raw 2× blit ceiling (SPI + LovyanGFX overhead) |
-| B | `CLEAR + FLUSH` | Cost of clearing the 160×120 sprite per frame |
-| C | `CLEAR + 64 rects + FLUSH` | Realistic small game loop |
-| D | `CLEAR + 256 rects + FLUSH` | Stress case — lots of fillRect work |
+## Hardware
 
-For each mode the probe prints `fps`, `dt_min`, `dt_max`, and frame count
-over Serial, and shows the current mode + fps on-screen.
+- **Board:** ESP32-2432S028R (2.8" CYD), dual-USB revision
+- **MCU:** ESP32-D0WD-V3, dual-core, 240 MHz, 320 KB RAM, 4 MB flash
+- **Display:** ST7789 (not ILI9341 — dual-USB 2024+ batches ship ST7789)
+- **Touch:** XPT2046 resistive on dedicated VSPI bus
+- **Connection:** CH340 USB-serial (VID 1A86:7523) — both USB ports
+  enumerate on the same CH340
 
-## 30 fps budget
+## Configuration
 
-Frame budget is `33,333 µs`. Mode A is the hardware ceiling; the others
-tell us how much of that budget remains for drawing + (eventually) Lua.
+### Display (LovyanGFX Panel_ST7789)
+| Setting | Value | Notes |
+|---|---|---|
+| SPI bus | HSPI | |
+| Pins | SCK=14 MOSI=13 MISO=12 DC=2 CS=15 RST=−1 BL=21 | |
+| Clock | **80 MHz** | only valid rung above 40; no 55 MHz on ESP32 HSPI |
+| Rotation | **3** (landscape, flipped) | |
+| `invert` | `true` + **explicit `invertDisplay(true)` after `init()`** | compile-time flag alone is not honored by `Panel_ST7789` |
+| `rgb_order` | `false` | CYD ST7789 is wired RGB |
+| Native panel size | 240×320 (portrait); logical 320×240 after rotation | |
 
-A rough back-of-envelope at 40 MHz SPI:
+### Canvas
+| Setting | Value |
+|---|---|
+| Size | 160×144 (current Mono standard) |
+| Blit | 1:1 centered via `pushSprite(&tft, 80, 48)` |
+| Color depth | 16-bit (RGB565) |
+| Palette | 16-level grayscale, `v = round(i/15 × 255)` — matches `buildPalette(4)` in `runtime/engine.js` |
+
+### Touch (LovyanGFX Touch_XPT2046)
+| Setting | Value |
+|---|---|
+| SPI bus | VSPI (independent of display) |
+| Pins | SCK=25 MOSI=32 MISO=39 CS=33 IRQ=36 |
+| Clock | 1 MHz |
+| Calibration | `x_min=300 x_max=3900 y_min=200 y_max=3900` (defaults) |
+| Y-axis fix | `ty = (height − 1) − ty` applied in `sampleTouch()` |
+
+On this CYD unit, after `setRotation(3)` the XPT2046 returns **correct
+X** but **inverted Y** relative to the display. Trying to express this
+via swapped `y_min`/`y_max` does **not** work — LovyanGFX defensively
+normalizes the bounds internally so `min < max` always, silently
+undoing the swap. The flip is applied in C in `sampleTouch()` instead.
+
+Verified with a 5-point guided calibration (TL, TR, BR, BL, center)
+that recorded target vs. raw vs. 180°-flipped values. See
+`EXPERIMENTS.md` for the numbers. If touch misbehaves on a new unit,
+the `calibOneTarget()` routine is available in git history (commit
+with the Phase 3 bubble port).
+
+Screen→canvas conversion: `(cx, cy) = (tx − 80, ty − 48)`, clipped
+to `[0..160) × [0..144)`.
+
+### Lua
+| Setting | Value |
+|---|---|
+| Engine | Lua 5.4.7 (stock sources in `lib/lua/`) |
+| Build flags | `-DLUA_USE_C89 -DLUA_32BITS` |
+| VM memory | ~49 KB base, ~65 KB with `bubble` loaded |
+| Prelude | Mirrors `runtime/engine.js` shim (wraps `_touch_*`, `_cam_get_*`, `_btn*`) |
+
+### Ported engine API
+
+| Category | Functions |
+|---|---|
+| Drawing | `cls`, `pix`, `rect`, `rectf`, `circ`, `circf`, `line`, `text` |
+| Camera | `cam`, `cam_reset`, `cam_shake`, `cam_get` |
+| Input | `touch`, `touch_start`, `touch_end`, `touch_count`, `touch_pos` |
+| Meta | `screen` (returns 0), `mode` (no-op), `frame`, `time`, `print` |
+| Stubs | `btn`, `btnp` (no physical buttons), `note`, `tone`, `noise`, `wave`, `sfx_stop` |
+| Globals | `SCREEN_W`, `SCREEN_H`, `COLORS`, `ALIGN_LEFT/HCENTER/RIGHT/VCENTER/CENTER` |
+
+The 4×7 Mono font is faithfully ported from `runtime/engine.js` into
+`src/mono_font.h`. Camera offsets are applied C-side before drawing.
+
+## Build tree
 
 ```
-Bits per frame (2x = 320x240 RGB565) = 320 * 240 * 16 = 1,228,800 bits
-Theoretical flush                    = 1,228,800 / 40,000,000 ≈ 30.7 ms
+experiments/cyd/
+├── platformio.ini           Arduino framework, LovyanGFX, Lua flags
+├── README.md                this file — current environment spec
+├── EXPERIMENTS.md           how we got here (phase journal)
+├── lib/
+│   └── lua/                 Lua 5.4.7 stock sources + library.json
+└── src/
+    ├── main.cpp             LGFX_CYD, engine API bindings, main loop
+    ├── mono_font.h          generated — 4×7 Mono font table
+    └── bubble_game.h        generated — bubble main.lua embedded as a C string
 ```
 
-…which leaves almost nothing. That's why this probe matters — if
-LovyanGFX + DMA can't beat the naive math, or if 55/80 MHz SPI works on
-this specific board, we need to know *now*.
+`mono_font.h` and `bubble_game.h` are generated, not hand-edited. If
+either source changes, regenerate:
 
-## Build & flash
+```sh
+# Font table (only needed if runtime/engine.js FONT data changes)
+python3 -c "...see EXPERIMENTS.md for the generator snippet..."
 
-PlatformIO is already installed at `~/.platformio/penv/bin/pio`.
+# Bubble script
+python3 -c "
+with open('/Users/ssk/work/mono/demo/bubble/main.lua') as f: src = f.read()
+with open('src/bubble_game.h','w') as f:
+    f.write('#pragma once\nstatic const char* BUBBLE_LUA = R\"MLUA(\n'
+            + src.rstrip() + '\n)MLUA\";\n')
+"
+```
 
-```bash
+## Build / flash / monitor
+
+```sh
 cd experiments/cyd
-~/.platformio/penv/bin/pio run                     # build only
-~/.platformio/penv/bin/pio run -t upload           # flash
-~/.platformio/penv/bin/pio device monitor          # read results
+~/.platformio/penv/bin/pio run                                  # build
+~/.platformio/penv/bin/pio run -t upload \
+    --upload-port /dev/cu.usbserial-10                          # flash
+~/.platformio/penv/bin/pio device monitor -p /dev/cu.usbserial-10  # serial
 ```
 
-Plug the CYD into a USB port (either of the dual-USB jacks works — the
-single CH340 enumerates on both). If `upload` can't find the port,
-list candidates with `pio device list`.
+If `pio device monitor` fails with `termios Operation not supported`,
+use a direct pyserial reader:
 
-## Tweaking the SPI clock
+```sh
+~/.platformio/penv/bin/python3 -c "
+import serial,sys
+s=serial.Serial('/dev/cu.usbserial-10',115200)
+while True:
+    l=s.readline()
+    if l: sys.stdout.write(l.decode('utf-8','replace')); sys.stdout.flush()
+"
+```
 
-Flip `CYD_SPI_FREQ` in `platformio.ini`:
+Upload speed is capped at **460800** — 921600 causes CRC errors on
+this CH340 dongle.
 
-- `40000000` — safe default, works on every CYD I've seen
-- `55000000` — often works, 35 % faster flush
-- `80000000` — sometimes works, can produce glitches; try it
+## Tuning knobs (in `platformio.ini`)
 
-Rebuild + reflash after each change and compare Mode A numbers.
+| Define | Valid values | Notes |
+|---|---|---|
+| `CYD_SPI_FREQ` | 40000000 / 80000000 | ESP32 HSPI has no valid steps between these |
+| `MONO_W` / `MONO_H` | 160 / 144 | match main Mono engine resolution |
+| `PANEL_DRIVER` (in `main.cpp`) | 1=ILI9341, **2=ST7789** (default), 3=ILI9342 | change only for hardware variants |
 
-## What a "pass" looks like
+## Observed performance (80 MHz SPI, 1:1 blit)
 
-- **Mode A ≥ 45 fps** — raw blit has real headroom, Lua port is viable
-- **Mode A 30–45 fps** — tight; doable but Lua will feel the squeeze
-- **Mode A < 30 fps** — hardware can't keep up even bare; stop here,
-  either drop to 15 fps or rethink the pipeline (dirty rects, partial
-  updates, or a different controller)
+- **bubble title screen:** ~114 fps, frame time 8.6–10.4 ms
+- **256 moving rects in Lua:** ~56 fps, frame time 17.5–18.8 ms
+- **30 fps budget math:** ~9 ms fixed overhead (flush + HUD + touch),
+  → ~24 ms/frame free for Lua game logic + draw
+  → ~600 sprite fillRect calls per frame possible at Lua speed
 
-Mode C is the more honest "can a typical game hit 30 fps" signal.
+## Open items
 
-## Not in scope
+- **Audio.** All sound functions are no-ops. If any demo depends on
+  sound for timing (bubble doesn't), those would silently desync.
+- **Image loading.** No `loadImage` / `spr` / `sspr`. Games that ship
+  sprite sheets won't run without these.
+- **Per-unit touch calibration.** The Y-axis flip is applied
+  unconditionally. If a new CYD unit needs a different transform
+  (other axis, different calibration bounds), rerun the guided
+  `calibOneTarget` / `calibrateTouch` routine preserved in git
+  history and apply the correct flip in `sampleTouch()`.
 
-- Lua VM selection / benchmarking (Phase 2)
-- Engine API port (Phase 3)
-- Touch input, audio, filesystem, WiFi
-- Any modification to `runtime/`, `demo/`, or anything outside
-  `experiments/cyd/`
+## Why this configuration (short version)
+
+- **ST7789 not ILI9341** — dual-USB CYDs (2024+) ship this panel even
+  though listings still say ILI9341. Wrong driver = mirrored text +
+  partial screen + wrong colors.
+- **80 MHz SPI, not 40 or 55** — ESP32 HSPI clock is APB/N with
+  integer N only. 55 MHz silently clamps to 40. 80 MHz = ~2× blit
+  throughput; passes 6-min stress soak with 0 drops.
+- **1:1 blit, not 2x upscale** — Mono is already 160×144 natively.
+  Upscaling to 320×240 triples the blit cost for no visual gain
+  (the screen just has black borders either way).
+- **Native Lua 5.4, not Wasmoon** — Wasmoon on ESP32 via WAMR/wasm3
+  would be 2–5× slower, 600+ KB bigger, and use extra linear memory.
+  Native Lua builds cleanly from `lib/lua/src` at 49 KB VM memory.
+- **Y-flip in C, not calibration swap** — LovyanGFX normalizes
+  `y_min < y_max` defensively, so inverting the config bounds is a
+  silent no-op. The manual flip in `sampleTouch()` is the only thing
+  that actually changes the mapping.
