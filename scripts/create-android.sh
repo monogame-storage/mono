@@ -148,6 +148,15 @@ if [ "$MODE" = "update" ]; then
     else
       log "[dry-run] Would replace engine files"
     fi
+
+    # Refresh app/templates/ (index.html etc.) — engine updates often pair
+    # with HTML/CSS changes that must stay in sync.
+    if [ -d "$TEMPLATE_DIR/app/templates" ]; then
+      run rm -rf "$TARGET_DIR/app/templates"
+      run cp -R "$TEMPLATE_DIR/app/templates" "$TARGET_DIR/app/templates"
+      log "Refreshed app/templates/"
+    fi
+
     echo ""
     echo "Done! Engine updated: $TARGET_DIR"
     exit 0
