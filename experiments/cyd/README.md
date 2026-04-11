@@ -205,32 +205,42 @@ small magnetic unit with a usable frequency response roughly
 **400–6000 Hz** — below and above that the physical transducer
 rolls off hard.
 
-**CYD pitfall — DAC channel mapping + pin clamping.** ESP-IDF's
-naming of the two built-in DAC channels is counterintuitive:
-`I2S_DAC_CHANNEL_RIGHT_EN` = DAC1 = **GPIO 25** (the XPT2046 touch
-SCLK), not GPIO 26. Using `RIGHT_EN` silently steers audio to the
-touch pin and breaks both audio output and touch at the same time.
-The speaker path is `I2S_DAC_CHANNEL_LEFT_EN` = DAC2 = GPIO 26.
+#### DAC channel mapping (ESP-IDF naming is counterintuitive)
 
-Second pitfall: **both DAC pins on CYD are externally clamped**,
-so `adc2_get_raw()` loopback verification cannot see full swing
-even when the DAC is working. Measured via the direct
-`dac_output_voltage()` + `adc2_get_raw()` probe in
-`experiments/cyd-audio`:
+| Macro                       | DAC  | GPIO   | CYD use        |
+|---                          |---   |---     |---             |
+| `I2S_DAC_CHANNEL_RIGHT_EN`  | DAC1 | **25** | XPT2046 SCLK   |
+| `I2S_DAC_CHANNEL_LEFT_EN`   | DAC2 | **26** | speaker path   |
 
-| Pin | Rail at DAC=0 | Saturates at | Usable swing via loopback |
-|---|---|---|---|
-| GPIO 25 (DAC1) | ~0.02 V | ~0.34 V | ~0.32 V |
-| GPIO 26 (DAC2) | ~0.65 V | ~0.87 V | ~0.22 V |
+Use `LEFT_EN` + `I2S_CHANNEL_FMT_ONLY_LEFT` for audio on GPIO 26.
+`RIGHT_EN` routes the I2S DMA through DAC1, which takes the pad
+over from the touch controller — breaks touch and audio at the
+same time, one setting two symptoms.
 
-GPIO 25 is loaded by the XPT2046 touch controller's SCLK input.
-GPIO 26 is loaded by the speaker-driver BJT's base-emitter
-junction (the transistor is present even on units with no speaker
-fitted). The DAC *is* driving the pin — `dac=0` vs `dac=64`
-produces a real ADC delta — it just can't overcome the external
-load to reach Vcc. A properly biased speaker amp stage would
-still reproduce the audio; acoustic verification requires either
-a speaker or a scope.
+#### Pin clamping — ADC2 loopback is bounded
+
+Measured with `dac_output_voltage()` + `adc2_get_raw()` on both
+DAC channels (`experiments/cyd-audio` boot diagnostic):
+
+| Pin            | DAC=0    | Saturates at  | Loopback swing |
+|---             |---       |---            |---             |
+| GPIO 25 (DAC1) | ~0.02 V  | ~0.34 V       | ~0.32 V        |
+| GPIO 26 (DAC2) | ~0.65 V  | ~0.87 V       | ~0.22 V        |
+
+Both pins are loaded by onboard circuits:
+
+- **GPIO 25** — XPT2046 touch controller's SCLK input impedance
+- **GPIO 26** — speaker-driver NPN's base-emitter junction (the
+  transistor is fitted even on units with no speaker soldered
+  to the collector)
+
+The DAC *is* driving the pin (`dac=0` → `dac=64` produces a real
+ADC delta), it just can't push past the external load to Vcc.
+ADC2 loopback only sees the clamped-and-averaged swing, so it's
+not a valid acoustic test on CYD. Full verification needs a
+speaker (acoustic) or scope (electrical) on the transistor's
+output stage, where the AC component of the DAC signal gets
+amplified normally.
 
 #### Capability envelope
 
