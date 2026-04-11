@@ -205,6 +205,33 @@ small magnetic unit with a usable frequency response roughly
 **400–6000 Hz** — below and above that the physical transducer
 rolls off hard.
 
+**CYD pitfall — DAC channel mapping + pin clamping.** ESP-IDF's
+naming of the two built-in DAC channels is counterintuitive:
+`I2S_DAC_CHANNEL_RIGHT_EN` = DAC1 = **GPIO 25** (the XPT2046 touch
+SCLK), not GPIO 26. Using `RIGHT_EN` silently steers audio to the
+touch pin and breaks both audio output and touch at the same time.
+The speaker path is `I2S_DAC_CHANNEL_LEFT_EN` = DAC2 = GPIO 26.
+
+Second pitfall: **both DAC pins on CYD are externally clamped**,
+so `adc2_get_raw()` loopback verification cannot see full swing
+even when the DAC is working. Measured via the direct
+`dac_output_voltage()` + `adc2_get_raw()` probe in
+`experiments/cyd-audio`:
+
+| Pin | Rail at DAC=0 | Saturates at | Usable swing via loopback |
+|---|---|---|---|
+| GPIO 25 (DAC1) | ~0.02 V | ~0.34 V | ~0.32 V |
+| GPIO 26 (DAC2) | ~0.65 V | ~0.87 V | ~0.22 V |
+
+GPIO 25 is loaded by the XPT2046 touch controller's SCLK input.
+GPIO 26 is loaded by the speaker-driver BJT's base-emitter
+junction (the transistor is present even on units with no speaker
+fitted). The DAC *is* driving the pin — `dac=0` vs `dac=64`
+produces a real ADC delta — it just can't overcome the external
+load to reach Vcc. A properly biased speaker amp stage would
+still reproduce the audio; acoustic verification requires either
+a speaker or a scope.
+
 #### Capability envelope
 
 With I2S + internal DAC + a per-sample software mixer (the

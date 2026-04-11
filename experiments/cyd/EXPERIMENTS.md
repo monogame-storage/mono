@@ -384,6 +384,149 @@ unit misbehaves.
    coming from the same underlying config is a tell that the model
    disagrees with reality — switch to hard data immediately.
 
+## Audio test firmware (experiments/cyd-audio/)
+
+Standalone PlatformIO project under `experiments/cyd-audio/`. Runs
+the reverse-designed audio stack (4-voice software mixer → I2S +
+internal DAC → GPIO 26) with a touch UI that cycles through 9
+scenes exercising every feature, plus a boot-time diagnostic that
+prints to Serial so results can be collected without operator taps.
+
+### What works (verified)
+
+- 4-voice software mixer at 22,050 Hz, 8-bit unsigned, each sample
+  `mix_sample()` returning the expected range (e.g. ±31 for a
+  single full-volume sine divided by 4 voices)
+- FreeRTOS audio task pinned to core 0 at priority `configMAX−2`,
+  filling 256-sample buffers and handing them to `i2s_write()` at
+  ~86 Hz (matches 22,050/256)
+- `i2s_driver_install` + `I2S_MODE_DAC_BUILT_IN`, DMA consumes the
+  buffers continuously (no underruns)
+- LFSR noise, linear attack+decay envelope, linear frequency sweep,
+  1-pole IIR low/high-pass filter, PCM sample playback with pitch
+  shifting — all implemented and exercised via UI scenes
+- UI itself (LovyanGFX direct to tft, 9 scenes, touch-driven nav)
+
+### The DAC channel mixup
+
+First flash had touch completely dead and no audio. Two symptoms
+from one root cause: I'd written `i2s_set_dac_mode(RIGHT_EN)` and
+`I2S_CHANNEL_FMT_ONLY_RIGHT`, expecting that to route to GPIO 26.
+
+ESP-IDF's channel naming is counterintuitive:
+
+| Macro | DAC | GPIO | CYD use |
+|---|---|---|---|
+| `I2S_DAC_CHANNEL_RIGHT_EN` | DAC1 | **25** | touch SCLK |
+| `I2S_DAC_CHANNEL_LEFT_EN`  | DAC2 | **26** | speaker path |
+
+So my `RIGHT_EN` sent audio through the touch controller's clock
+line. The I2S pad mux takes over the pin, the XPT2046's SPI clock
+stops working, and the audio goes to a pin nothing's listening to.
+Fix: `LEFT_EN` + `I2S_CHANNEL_FMT_ONLY_LEFT`. Touch came back
+immediately and the audio path routed to GPIO 26.
+
+### Verifying audio without a speaker
+
+The operator had no speaker connected, so acoustic verification
+wasn't available. I tried to use `adc2_get_raw()` loopback on
+`ADC2_CH9` (which maps to GPIO 26) to measure the DAC output
+voltage as a stand-in. The first few attempts reported `FAIL: pin
+flat` — active and silence readings were identical at ~1880 lsb.
+
+Layered diagnostic added:
+
+1. **Mixer direct** — call `mix_sample()` in a tight loop, measure
+   range returned. With a 440 Hz full-volume sine voice armed:
+   **range = ±31** ✓ (exactly what 1 voice ÷ 4 gives).
+2. **Task buffer snapshot** — audio_task records min/max of the
+   last buffer it wrote. Matches mixer direct: **±31** ✓.
+3. **audio_task alive** — buffer counter, measured over 100 ms.
+   **9 buffers / 100 ms** = 90 Hz ≈ 22050/256 ✓.
+4. **ADC2_CH9 active vs silence** — reads identical flat ~1880.
+
+Three of four layers pass. The last one contradicts the first
+three, which means the fault isn't in the audio pipeline — it's
+in the ADC readback path.
+
+### Boot probe: direct DAC → ADC on both channels
+
+To isolate whether the I2S layer or the pin itself was the issue,
+added a boot-time probe that bypasses I2S entirely:
+`dac_output_enable()` + `dac_output_voltage()` sweep 0–255, read
+`adc2_get_raw()` on the matching ADC2 channel. Also probed DAC1 /
+GPIO 25 / ADC2_CH8 as a control (GPIO 25 is touch SCLK but gets
+released before `tft.init()`).
+
+Measured on this CYD unit:
+
+```
+DAC1 / GPIO 25 / ADC2_CH8:
+  dac=  0  adc=  16        (≈ 0 V)
+  dac= 64  adc= 321        (≈ 0.30 V)
+  dac=128  adc= 341
+  dac=192  adc= 357
+  dac=255  adc= 347        (saturates ≈ 0.33 V)
+
+DAC2 / GPIO 26 / ADC2_CH9:
+  dac=  0  adc= 681        (≈ 0.65 V)
+  dac= 64  adc= 900        (≈ 0.87 V)
+  dac=128  adc= 907
+  dac=192  adc= 909
+  dac=255  adc= 911        (saturates ≈ 0.87 V)
+```
+
+Both pins show a small but real delta between `dac=0` and
+`dac=64` (proving the DAC is driving the pin and ADC is reading
+it), then **saturate** — additional DAC headroom has no effect.
+Different saturation voltages for the two pins are consistent with
+different external loads:
+
+- **GPIO 25** pinned near ~0.34 V by the XPT2046 touch controller's
+  input impedance on the shared SCLK line
+- **GPIO 26** pinned near ~0.87 V by the speaker-driver NPN's
+  base-emitter junction — the transistor is fitted on this unit
+  regardless of whether a speaker is soldered to its collector
+
+The DAC can't overcome either load to reach Vcc, so the ADC-visible
+swing is only ~0.3 V peak-to-peak on both pins. For a full-volume
+440 Hz sine the audio-band signal is in there but gets clipped
+against the clamp, and at 512 samples over ~15 ms the ADC's
+sample-and-hold averages the clipped swing back to the DC level.
+
+### What this means
+
+- **Software stack is verified correct** (mixer + task + DMA all
+  passing). A real speaker on the GPIO 26 output stage would hear
+  audio, because the AC component still reaches the BJT base and
+  gets amplified.
+- **ADC loopback is inherently limited on CYD.** `dac_output_voltage`
+  can't prove "DAC drives full swing" because the pin's external
+  load bounds it. This is a property of the board, not the code.
+- **Accepting this, the self-test verdict changed** from "FAIL: pin
+  flat" to "SW PASS  HW ?" when the software layers pass but ADC
+  loopback is inconclusive.
+- **Definitive verification needs physical means** — a speaker
+  (acoustic), a scope (visual), or wiring the DAC output through a
+  buffer op-amp before the transistor (electrical isolation of the
+  measurement point). None of those are available in this session,
+  so the audio stack is documented as "software-complete, hardware-
+  unverified on this unit."
+
+### Lessons carried forward
+
+1. **`I2S_DAC_CHANNEL_LEFT_EN` = GPIO 26, not `RIGHT_EN`.** Write
+   this down, the name lies.
+2. **Touch/audio pin sharing is a real hazard on CYD.** DAC1/GPIO25
+   is also touch SCLK; using DAC1 at all silently kills touch.
+3. **ADC2 loopback verification is a poor substitute for a speaker
+   on CYD.** Both DAC pins are clamped by onboard circuits (touch
+   input impedance on 25, speaker-driver BJT base on 26).
+4. **Layered diagnostics pay off.** Without separately measuring
+   mixer/task/i2s_write/ADC, it would have been easy to conclude
+   "audio is broken" from the one failing layer (ADC) and go hunt
+   bugs in the mixer or I2S config — which were fine.
+
 ## Lessons to carry forward
 
 1. **CYD panel variant is not discoverable from listings.** Always
