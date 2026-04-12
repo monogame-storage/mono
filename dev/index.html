@@ -2353,7 +2353,7 @@ async function openEditor(gameId, title, desc) {
     const { files } = await listRes.json();
     if (files && files.length > 0) {
       for (const f of files) {
-        if (f.name === "_chat.json") continue; // skip chat history file
+        if (f.name.startsWith("_")) continue; // skip internal files (_chat.json, _usage.json)
         const fileRes = await fetch(`${API_URL}/games/${gameId}/files/${f.name}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
