@@ -429,16 +429,61 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 10px 16px;
+    padding: 12px 16px;
     flex-shrink: 0;
   }
-  #editor-screen {
-    width: 180px;
-    height: 135px;
+  .console-bezel {
+    width: 220px;
     background: #1a1a1a;
-    border-radius: 4px;
+    border-radius: 12px;
+    padding: 8px 8px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .screen-frame {
+    width: 100%;
+    background: #0a0a0a;
+    border-radius: 6px;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #editor-screen {
+    width: 192px;
+    height: 144px;
+    background: #111;
+    border-radius: 3px;
     image-rendering: pixelated;
   }
+  .console-status {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px;
+  }
+  .console-logo {
+    font-family: 'Inter', sans-serif;
+    font-size: 7px;
+    font-weight: 800;
+    color: #333;
+    letter-spacing: 2px;
+  }
+  .console-dots {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+  }
+  .console-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 2px;
+  }
+  .console-dot.off { background: #2a2a2a; }
+  .console-dot.on { background: #6c6; }
 
   .editor-gamepad-toggle {
     display: flex;
@@ -1268,7 +1313,18 @@
       </div>
     </div>
     <div class="editor-preview">
-      <canvas id="editor-screen" width="160" height="120"></canvas>
+      <div class="console-bezel">
+        <div class="screen-frame">
+          <canvas id="editor-screen" width="160" height="120"></canvas>
+        </div>
+        <div class="console-status">
+          <span class="console-logo">MONO</span>
+          <div class="console-dots">
+            <span class="console-dot off"></span>
+            <span class="console-dot on" id="console-led"></span>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="editor-gamepad-toggle">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="11" r="1"/><circle cx="18" cy="13" r="1"/></svg>
@@ -2592,6 +2648,7 @@ function runGame() {
 
   gameRunning = true;
   document.getElementById("btn-run").style.background = "#ff4444";
+  document.getElementById("console-led").style.background = "#6f6";
 
   // Intercept engine errors
   const origShowError = Mono._showError;
@@ -2630,6 +2687,7 @@ function stopGame() {
   try { Mono.stop(); } catch {}
   gameRunning = false;
   document.getElementById("btn-run").style.background = "#333";
+  document.getElementById("console-led").style.background = "#2a2a2a";
   // Restore console.error
   if (window._origConsoleError) {
     console.error = window._origConsoleError;

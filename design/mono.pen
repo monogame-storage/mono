@@ -645,10 +645,11 @@
           "id": "my1u7",
           "name": "GamePreview",
           "width": "fill_container",
-          "height": 160,
+          "height": 180,
           "fill": "#000000",
+          "layout": "vertical",
           "padding": [
-            10,
+            12,
             16
           ],
           "justifyContent": "center",
@@ -656,12 +657,91 @@
           "children": [
             {
               "type": "frame",
-              "id": "jSoND",
-              "name": "screen",
-              "width": 180,
-              "height": 135,
+              "id": "ByegJ",
+              "name": "ConsoleBezel",
+              "width": 220,
               "fill": "#1a1a1a",
-              "cornerRadius": 4
+              "cornerRadius": 12,
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                8,
+                8,
+                12,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "3xsgv",
+                  "name": "ScreenFrame",
+                  "width": "fill_container",
+                  "fill": "#0a0a0a",
+                  "cornerRadius": 6,
+                  "layout": "vertical",
+                  "padding": 4,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "yDZSv",
+                      "name": "screen",
+                      "width": 192,
+                      "height": 144,
+                      "fill": "#111111",
+                      "cornerRadius": 3
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Dm7y8",
+                  "name": "StatusBar",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    4
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "5ocit",
+                      "fill": "#333333",
+                      "content": "MONO",
+                      "fontFamily": "Inter",
+                      "fontSize": 7,
+                      "fontWeight": "800",
+                      "letterSpacing": 2
+                    },
+                    {
+                      "type": "frame",
+                      "id": "nNhf6",
+                      "name": "dotRow",
+                      "gap": 3,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "BK40Z",
+                          "fill": "#2a2a2a",
+                          "width": 4,
+                          "height": 4
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "7zpnl",
+                          "fill": "#6c6",
+                          "width": 4,
+                          "height": 4
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -8550,7 +8630,7 @@
                   "type": "text",
                   "id": "072R1",
                   "fill": "#666666",
-                  "content": "VAULT PASSPHRASE",
+                  "content": "MASTER KEY",
                   "fontFamily": "Inter",
                   "fontSize": 10,
                   "fontWeight": "600",
@@ -8560,7 +8640,7 @@
                   "type": "text",
                   "id": "oABJw",
                   "fill": "#555555",
-                  "content": "Encrypts your API keys for cloud storage",
+                  "content": "Encrypts your API keys. Never stored online — if lost, you must re-enter all keys.",
                   "fontFamily": "Inter",
                   "fontSize": 11,
                   "fontWeight": "normal"
