@@ -1123,7 +1123,7 @@ end
       const now = performance.now();
       const dt = now - lastTimestamp;
       lastTimestamp = now;
-      accumulator += dt;
+      accumulator = Math.min(accumulator + dt, FRAME_MS * 10); // cap to avoid freeze after tab background
 
       // Process pending scene transition
       if (scenePending) {

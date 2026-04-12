@@ -1894,6 +1894,11 @@ async function loadProviders() {
 async function saveProviders() {
   const pp = document.getElementById("aip-passphrase").value;
   if (!pp) { alert("Set a vault passphrase first"); return; }
+  // WHY plaintext in localStorage: master key is the root secret for decrypting
+  // API keys. It can only be read by same-origin scripts (our domain). Hashing it
+  // would require the user to re-enter it every session. The actual API keys are
+  // AES-GCM encrypted in Firestore — localStorage only holds the decryption key,
+  // which is no different from a browser-stored password.
   localStorage.setItem("mono_vault_pp", pp);
   const encrypted = await encryptData(pp, aiProviders);
   const uid = auth.currentUser.uid;
@@ -2352,14 +2357,15 @@ async function openEditor(gameId, title, desc) {
     });
     const { files } = await listRes.json();
     if (files && files.length > 0) {
-      for (const f of files) {
-        if (f.name.startsWith("_")) continue; // skip internal files (_chat.json, _usage.json)
-        const fileRes = await fetch(`${API_URL}/games/${gameId}/files/${f.name}`, {
+      const gameFiles = files.filter(f => !f.name.startsWith("_"));
+      const loaded = await Promise.all(gameFiles.map(async (f) => {
+        const r = await fetch(`${API_URL}/games/${gameId}/files/${f.name}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const { content } = await fileRes.json();
-        currentFiles.push({ name: f.name, content });
-      }
+        const { content } = await r.json();
+        return { name: f.name, content };
+      }));
+      currentFiles.push(...loaded);
     }
   } catch {}
 
@@ -2469,6 +2475,12 @@ async function sendMessage(autoMsg) {
       const provider = aiProviders.find(p => p.id === selectedValue.slice(9));
       if (provider) {
         model = provider.model;
+        // WHY key sent to our Worker: the Worker proxies AI API calls so we can
+        // support 4 different API formats (OpenAI, Anthropic, Gemini, Responses)
+        // without exposing provider-specific logic in the frontend. The key is used
+        // only for the outbound AI request and is never logged or stored server-side.
+        // Direct frontend calls would require CORS workarounds + duplicating all
+        // API format handling in client code.
         byok = { key: provider.key, url: provider.url || undefined };
       }
     }
@@ -2563,54 +2575,7 @@ async function sendMessage(autoMsg) {
 }
 
 // ── Agentic Loop: auto test → fix → retest ──
-async function autoTestAndFix() {
-  currentFixAttempt++;
-  if (currentFixAttempt > MAX_FIX_RETRIES) {
-    addChatMsg("mono", `Gave up after ${MAX_FIX_RETRIES} fix attempts. Please review manually.`);
-    return;
-  }
 
-  const mainFile = currentFiles.find(f => f.name === "main.lua");
-  if (!mainFile) return;
-
-  addChatMsg("mono", `Running test... (attempt ${currentFixAttempt}/${MAX_FIX_RETRIES})`);
-
-  const fileMap = {};
-  for (const f of currentFiles) fileMap[f.name] = f.content;
-
-  const errors = [];
-  const origErr = console.error;
-  console.error = (...args) => {
-    const m = args.join(" ");
-    if (m.startsWith("Mono:")) errors.push(m.slice(6));
-    origErr.apply(console, args);
-  };
-
-  try {
-    if (gameRunning) stopGame();
-    await Mono.boot("editor-screen", {
-      source: mainFile.content,
-      colors: 4,
-      noAutoFit: true,
-      readFile: async (name) => fileMap[name] || "",
-      modules: {},
-    });
-    await new Promise(r => setTimeout(r, 1100));
-    try { Mono.stop(); } catch {}
-  } catch (e) {
-    errors.push(e.message || String(e));
-  }
-
-  console.error = origErr;
-
-  if (errors.length === 0) {
-    addChatMsg("mono", "✓ Test passed.");
-  } else {
-    const errorText = errors.join("\n");
-    addChatMsg("mono", `✗ Test failed:\n${errorText}\nAuto-fixing... (${currentFixAttempt}/${MAX_FIX_RETRIES})`);
-    await sendMessage("Fix these runtime errors in the game code:\n" + errorText);
-  }
-}
 
 // Save files to R2
 async function saveFile(filename, content) {
@@ -2675,7 +2640,7 @@ function listenGames(uid) {
 function esc(s) {
   const d = document.createElement("div");
   d.textContent = s;
-  return d.innerHTML;
+  return d.innerHTML.replace(/"/g, "&quot;");
 }
 
 // Copy chat message
