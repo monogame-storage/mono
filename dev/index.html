@@ -2323,6 +2323,18 @@ async function openEditor(gameId, title, desc) {
   currentFiles = [];
   sessionTokens = { prompt: 0, completion: 0, total: 0 };
   document.getElementById("editor-usage").textContent = "";
+
+  // Load AI providers if not loaded yet
+  if (aiProviders.length === 0 && localStorage.getItem("mono_vault_pp")) {
+    try {
+      const uid = auth.currentUser.uid;
+      const snap = await getDoc(doc(db, "users", uid, "settings", "ai"));
+      if (snap.exists() && snap.data().encrypted) {
+        aiProviders = await decryptData(localStorage.getItem("mono_vault_pp"), snap.data().encrypted);
+        updateModelSelector();
+      }
+    } catch {}
+  }
   document.getElementById("editor-title").textContent = title;
   location.hash = `editor/${gameId}`;
   document.getElementById("editor-chat").innerHTML =
