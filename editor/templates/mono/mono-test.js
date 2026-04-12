@@ -705,6 +705,7 @@ async function main() {
   lua.global.set("circ", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circ(s, cx, cy, r, c); });
   lua.global.set("circf", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circf(s, cx, cy, r, c); });
   lua.global.set("text", (id, str, x, y, c, align) => { const s = getSurf(id); if (s) drawText(s, str, x, y, c, align); });
+  lua.global.set("vrow", (y) => vrow(y));
   lua.global.set("cam", camFn);
   lua.global.set("_cam_get_x", () => camX);
   lua.global.set("_cam_get_y", () => camY);
