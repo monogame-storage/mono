@@ -933,49 +933,87 @@
           "fill": "#0a0a0a",
           "padding": [
             0,
-            16
+            12
           ],
           "justifyContent": "space_between",
           "alignItems": "center",
           "children": [
             {
+              "type": "text",
+              "id": "clG9m",
+              "name": "emoji",
+              "fill": "#555555",
+              "content": "✚ ·•",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            },
+            {
               "type": "frame",
-              "id": "rBNLQ",
-              "name": "ToggleLabel",
-              "gap": 8,
+              "id": "bK8CM",
+              "name": "btnGroup",
+              "gap": 6,
               "alignItems": "center",
               "children": [
                 {
-                  "type": "icon_font",
-                  "id": "tWCV1",
-                  "name": "gpEye",
-                  "width": 14,
-                  "height": 14,
-                  "iconFontName": "eye",
-                  "iconFontFamily": "lucide",
-                  "fill": "#aaaaaa"
+                  "type": "frame",
+                  "id": "DjftG",
+                  "name": "selBtn",
+                  "fill": "#222222",
+                  "cornerRadius": 4,
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "OKWJF",
+                      "fill": "#666666",
+                      "content": "SELECT",
+                      "fontFamily": "Inter",
+                      "fontSize": 8,
+                      "fontWeight": "600",
+                      "letterSpacing": 1
+                    }
+                  ]
                 },
                 {
-                  "type": "text",
-                  "id": "YDcwY",
-                  "name": "gpTxt",
-                  "fill": "#aaaaaa",
-                  "content": "Show gamepad",
-                  "fontFamily": "Inter",
-                  "fontSize": 11,
-                  "fontWeight": "600"
+                  "type": "frame",
+                  "id": "ae68L",
+                  "name": "startBtn",
+                  "fill": "#222222",
+                  "cornerRadius": 4,
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "3qLzg",
+                      "fill": "#666666",
+                      "content": "START",
+                      "fontFamily": "Inter",
+                      "fontSize": 8,
+                      "fontWeight": "600",
+                      "letterSpacing": 1
+                    }
+                  ]
                 }
               ]
             },
             {
               "type": "icon_font",
-              "id": "GhTYg",
-              "name": "gpChev",
+              "id": "D4uJz",
+              "name": "expand",
               "width": 14,
               "height": 14,
               "iconFontName": "chevron-down",
               "iconFontFamily": "lucide",
-              "fill": "#666666"
+              "fill": "#555555"
             }
           ]
         },
@@ -7628,6 +7666,7 @@
               "content": "Developer",
               "fontFamily": "Inter",
               "fontSize": 14,
+              "fontWeight": "normal",
               "letterSpacing": 2
             }
           ]
@@ -7680,7 +7719,8 @@
                   "fill": "#555555",
                   "content": "you@example.com",
                   "fontFamily": "Inter",
-                  "fontSize": 14
+                  "fontSize": 14,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -7720,7 +7760,8 @@
                   "fill": "#555555",
                   "content": "••••••••",
                   "fontFamily": "Inter",
-                  "fontSize": 14
+                  "fontSize": 14,
+                  "fontWeight": "normal"
                 }
               ]
             },
@@ -7896,7 +7937,8 @@
               "fill": "#666666",
               "content": "Don't have an account?",
               "fontFamily": "Inter",
-              "fontSize": 12
+              "fontSize": 12,
+              "fontWeight": "normal"
             },
             {
               "type": "text",
@@ -7963,6 +8005,7 @@
               "content": "Create Account",
               "fontFamily": "Inter",
               "fontSize": 14,
+              "fontWeight": "normal",
               "letterSpacing": 2
             }
           ]
@@ -8259,7 +8302,8 @@
               "fill": "#666666",
               "content": "Already have an account?",
               "fontFamily": "Inter",
-              "fontSize": 12
+              "fontSize": 12,
+              "fontWeight": "normal"
             },
             {
               "type": "text",
@@ -9441,6 +9485,205 @@
                   "fontFamily": "Inter",
                   "fontSize": 11,
                   "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "Hiqpb",
+      "x": 2400,
+      "y": 1260,
+      "name": "Gamepad Expanded",
+      "width": 390,
+      "height": 160,
+      "fill": "#0a0a0a",
+      "cornerRadius": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "layout": "vertical",
+      "gap": 8,
+      "padding": [
+        8,
+        16,
+        16,
+        16
+      ],
+      "children": [
+        {
+          "type": "frame",
+          "id": "tp3wJ",
+          "name": "topRow",
+          "width": "fill_container",
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "GC8m2",
+              "fill": "#555555",
+              "content": "✚ ·•",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "wyZGS",
+              "name": "btnGrp",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "G9iks",
+                  "name": "sel",
+                  "fill": "#222222",
+                  "cornerRadius": 4,
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Sq9vu",
+                      "fill": "#666666",
+                      "content": "SELECT",
+                      "fontFamily": "Inter",
+                      "fontSize": 8,
+                      "fontWeight": "600",
+                      "letterSpacing": 1
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "35MeN",
+                  "name": "sta",
+                  "fill": "#222222",
+                  "cornerRadius": 4,
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "rzS53",
+                      "fill": "#666666",
+                      "content": "START",
+                      "fontFamily": "Inter",
+                      "fontSize": 8,
+                      "fontWeight": "600",
+                      "letterSpacing": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "icon_font",
+              "id": "vQDmA",
+              "width": 14,
+              "height": 14,
+              "iconFontName": "chevron-up",
+              "iconFontFamily": "lucide",
+              "fill": "#555555"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "BQ0gv",
+          "name": "padRow",
+          "width": "fill_container",
+          "height": "fill_container",
+          "padding": [
+            0,
+            16
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "gysrY",
+              "name": "DPad",
+              "width": 80,
+              "height": 80,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "J4HgS",
+                  "x": 0,
+                  "y": 27,
+                  "name": "dpadH",
+                  "width": 80,
+                  "height": 26,
+                  "fill": "#2a2a2a",
+                  "cornerRadius": 4
+                },
+                {
+                  "type": "frame",
+                  "id": "lDBMf",
+                  "x": 27,
+                  "y": 0,
+                  "name": "dpadV",
+                  "width": 26,
+                  "height": 80,
+                  "fill": "#2a2a2a",
+                  "cornerRadius": 4
+                },
+                {
+                  "type": "frame",
+                  "id": "ojyuT",
+                  "x": 29,
+                  "y": 29,
+                  "name": "dpadC",
+                  "width": 22,
+                  "height": 22,
+                  "fill": "#1a1a1a",
+                  "cornerRadius": 3
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "EIIwY",
+              "name": "ABButtons",
+              "width": 103,
+              "height": 77,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "T3OK0",
+                  "x": 0,
+                  "y": 32.5,
+                  "name": "btnB",
+                  "fill": "#2a2a2a",
+                  "width": 40,
+                  "height": 40
+                },
+                {
+                  "type": "ellipse",
+                  "id": "IJ3hD",
+                  "x": 59,
+                  "y": 0.5,
+                  "name": "btnA",
+                  "fill": "#e8e8e8",
+                  "width": 44,
+                  "height": 44
                 }
               ]
             }

@@ -519,18 +519,116 @@
   .console-dot.off { background: #2a2a2a; }
   .console-dot.on { background: #6c6; }
 
-  .editor-gamepad-toggle {
+  .gamepad-bar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    font-size: 11px;
-    color: #888;
-    background: #000;
+    justify-content: space-between;
+    padding: 0 12px;
+    height: 36px;
+    background: #0a0a0a;
     border-top: 1px solid #1a1a1a;
     flex-shrink: 0;
   }
-  .editor-gamepad-toggle svg { width: 14px; height: 14px; }
+  .gamepad-bar-icon { font-size: 11px; color: #555; }
+  .gamepad-bar-btns {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .gamepad-btn {
+    background: #222;
+    border: none;
+    border-radius: 4px;
+    color: #666;
+    font-family: 'Inter', sans-serif;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+  .gamepad-btn:hover { background: #333; }
+  .gamepad-btn:active { background: #444; color: #eee; }
+  .gamepad-expand {
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .gamepad-panel {
+    display: none;
+    background: #0a0a0a;
+    padding: 8px 16px 16px;
+    flex-shrink: 0;
+  }
+  .gamepad-panel.show { display: block; }
+  .gamepad-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 8px 16px;
+  }
+  .gamepad-dpad {
+    position: relative;
+    width: 80px;
+    height: 80px;
+  }
+  .gamepad-dpad-h {
+    position: absolute;
+    top: 27px; left: 0;
+    width: 80px; height: 26px;
+    background: #2a2a2a;
+    border-radius: 4px;
+  }
+  .gamepad-dpad-v {
+    position: absolute;
+    top: 0; left: 27px;
+    width: 26px; height: 80px;
+    background: #2a2a2a;
+    border-radius: 4px;
+  }
+  .gamepad-dpad-c {
+    position: absolute;
+    top: 29px; left: 29px;
+    width: 22px; height: 22px;
+    background: #1a1a1a;
+    border-radius: 3px;
+  }
+  .gamepad-dpad-zone {
+    position: absolute;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  .gamepad-dpad-zone:active ~ .gamepad-dpad-h,
+  .gamepad-dpad-zone:active ~ .gamepad-dpad-v { background: #444; }
+  .gamepad-dpad-up { top: 0; left: 27px; width: 26px; height: 27px; }
+  .gamepad-dpad-down { bottom: 0; left: 27px; width: 26px; height: 27px; }
+  .gamepad-dpad-left { top: 27px; left: 0; width: 27px; height: 26px; }
+  .gamepad-dpad-right { top: 27px; right: 0; width: 27px; height: 26px; }
+  .gamepad-ab {
+    display: flex;
+    gap: 6px;
+    align-items: flex-end;
+  }
+  .gamepad-btn-b {
+    width: 40px; height: 40px;
+    border-radius: 20px;
+    background: #2a2a2a;
+    border: none;
+    cursor: pointer;
+  }
+  .gamepad-btn-b:active { background: #444; }
+  .gamepad-btn-a {
+    width: 44px; height: 44px;
+    border-radius: 22px;
+    background: #e8e8e8;
+    border: none;
+    cursor: pointer;
+  }
+  .gamepad-btn-a:active { background: #fff; }
 
   .editor-chat {
     flex: 1;
@@ -1375,9 +1473,32 @@
       </div>
       </div>
     </div>
-    <div class="editor-gamepad-toggle">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="11" r="1"/><circle cx="18" cy="13" r="1"/></svg>
-      Show gamepad
+    <div class="gamepad-bar">
+      <span class="gamepad-bar-icon">✚ ·•</span>
+      <div class="gamepad-bar-btns">
+        <button class="gamepad-btn" id="gp-select" data-key="select">SELECT</button>
+        <button class="gamepad-btn" id="gp-start" data-key="start">START</button>
+      </div>
+      <button class="gamepad-expand" id="gp-expand">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+    <div class="gamepad-panel" id="gamepad-panel">
+      <div class="gamepad-controls">
+        <div class="gamepad-dpad" id="gp-dpad">
+          <div class="gamepad-dpad-h"></div>
+          <div class="gamepad-dpad-v"></div>
+          <div class="gamepad-dpad-c"></div>
+          <button class="gamepad-dpad-zone gamepad-dpad-up" data-key="up"></button>
+          <button class="gamepad-dpad-zone gamepad-dpad-down" data-key="down"></button>
+          <button class="gamepad-dpad-zone gamepad-dpad-left" data-key="left"></button>
+          <button class="gamepad-dpad-zone gamepad-dpad-right" data-key="right"></button>
+        </div>
+        <div class="gamepad-ab">
+          <button class="gamepad-btn-b" id="gp-b" data-key="b"></button>
+          <button class="gamepad-btn-a" id="gp-a" data-key="a"></button>
+        </div>
+      </div>
     </div>
     <div class="editor-chat" id="editor-chat">
       <div class="chat-msg">
@@ -2806,6 +2927,24 @@ function stopGame() {
     window._origConsoleError = null;
   }
 }
+
+// ── Gamepad ──
+document.getElementById("gp-expand").addEventListener("click", () => {
+  const panel = document.getElementById("gamepad-panel");
+  const btn = document.getElementById("gp-expand");
+  panel.classList.toggle("show");
+  btn.innerHTML = panel.classList.contains("show")
+    ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+});
+
+// Wire gamepad buttons to engine input
+document.querySelectorAll("[data-key]").forEach(btn => {
+  const key = btn.dataset.key;
+  btn.addEventListener("pointerdown", (e) => { e.preventDefault(); if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, true); });
+  btn.addEventListener("pointerup", () => { if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, false); });
+  btn.addEventListener("pointerleave", () => { if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, false); });
+});
 
 // ── Screen Scale ──
 function buildScaleOptions() {
