@@ -14,10 +14,10 @@ end
 
 function title_draw()
   cls(1)
-  text("SCENE TEST", 45, 30, 15)
-  text("scene: " .. (scene_name() or "nil"), 35, 50, 10)
-  text("frame: " .. frame(), 35, 65, 10)
+  text("SCENE TEST", 45, 24, 15)
+  text("scene: " .. (scene_name() or "nil"), 35, 40, 10)
+  text("frame: " .. frame(), 35, 54, 10)
   if math.floor(blink / 15) % 2 == 0 then
-    text("PRESS START", 40, 100, 15)
+    text("PRESS START", 40, 82, 15)
   end
 end

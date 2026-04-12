@@ -3,7 +3,7 @@
 This is a [Mono](https://github.com/ssk-play/mono) fantasy console game.
 
 ## Constraints
-- Resolution: 160x144
+- Resolution: 160x120
 - Colors: 16 grayscale (4-bit), configurable via `mode()`
 - Sprites: 16x16
 - Language: Lua 5.4 (via Wasmoon)
@@ -36,17 +36,17 @@ canvas_del(c)  -- free
 
 ### Zoom example
 ```lua
-local world = canvas(320, 288)
+local world = canvas(320, 240)
 local scr = screen()
 
 function _draw()
   cls(world, 0)
-  cam(px - 160, py - 144)
+  cam(px - 160, py - 120)
   spr(world, player_img, px, py)
 
   cls(scr, 0)
   cam(0, 0)
-  blit(world, scr, 0, 0, 160, 144)  -- 2x downscale
+  blit(world, scr, 0, 0, 160, 120)  -- 2x downscale
   text(scr, "HP: 100", 2, 2, 15)    -- HUD on screen
 end
 ```
@@ -142,7 +142,7 @@ Dependencies: `npm install wasmoon@1.16.0 pngjs@7`
 
 **Usage**:
 ```bash
-# Run a game file and dump the VRAM (160×144 hex, 0-f per pixel)
+# Run a game file and dump the VRAM (160×120 hex, 0-f per pixel)
 ./mono-test main.lua --frames 5 --vdump
 
 # Test inline code (no file needed)

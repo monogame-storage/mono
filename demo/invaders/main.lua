@@ -1,4 +1,4 @@
--- Space Invaders (1-bit, 160x144)
+-- Space Invaders (1-bit, 160x120)
 -- Original-style: 5 rows x 11 cols of aliens, shields, UFO
 
 local scr = screen()
@@ -541,38 +541,38 @@ local function draw_title()
   text(scr, "SPACE INVADERS", 20, 20, 1)
 
   -- Show alien types with scores
-  draw_spr(ufo_spr, 40, 45, 1)
-  text(scr, "= ?  PTS", 60, 47, 1)
-  draw_spr(alien1[1], 44, 60, 1)
-  text(scr, "= 30 PTS", 60, 62, 1)
-  draw_spr(alien2[1], 42, 75, 1)
-  text(scr, "= 20 PTS", 60, 77, 1)
-  draw_spr(alien3[1], 41, 90, 1)
-  text(scr, "= 10 PTS", 60, 92, 1)
+  draw_spr(ufo_spr, 40, 36, 1)
+  text(scr, "= ?  PTS", 60, 38, 1)
+  draw_spr(alien1[1], 44, 50, 1)
+  text(scr, "= 30 PTS", 60, 52, 1)
+  draw_spr(alien2[1], 42, 64, 1)
+  text(scr, "= 20 PTS", 60, 66, 1)
+  draw_spr(alien3[1], 41, 78, 1)
+  text(scr, "= 10 PTS", 60, 80, 1)
 
   if title_blink % 40 < 28 then
-    text(scr, "PRESS START", 30, 120, 1)
+    text(scr, "PRESS START", 30, 100, 1)
   end
 end
 
 local function draw_dead()
   cls(scr, 0)
-  text(scr, "GAME OVER", 40, 50, 1)
-  text(scr, "SCORE " .. pscore, 40, 65, 1)
-  text(scr, "HI " .. phiscore, 40, 80, 1)
+  text(scr, "GAME OVER", 40, 40, 1)
+  text(scr, "SCORE " .. pscore, 40, 54, 1)
+  text(scr, "HI " .. phiscore, 40, 68, 1)
   title_blink = title_blink + 1
   if title_blink % 40 < 28 then
-    text(scr, "PRESS START", 30, 110, 1)
+    text(scr, "PRESS START", 30, 92, 1)
   end
 end
 
 local function draw_win()
   cls(scr, 0)
-  text(scr, "YOU WIN!", 45, 50, 1)
-  text(scr, "SCORE " .. pscore, 40, 65, 1)
+  text(scr, "YOU WIN!", 45, 40, 1)
+  text(scr, "SCORE " .. pscore, 40, 54, 1)
   title_blink = title_blink + 1
   if title_blink % 40 < 28 then
-    text(scr, "PRESS START", 30, 110, 1)
+    text(scr, "PRESS START", 30, 92, 1)
   end
 end
 

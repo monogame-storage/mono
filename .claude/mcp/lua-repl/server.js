@@ -58,7 +58,7 @@ const TOOLS = [
         show: {
           type: "string",
           enum: ["vdump", "hash"],
-          description: "How to present the result. vdump = 160×144 hex rows (0-f per pixel). hash = no visual output, just the OK/FAIL status (fastest, use for compile-check style verification). Default: vdump",
+          description: "How to present the result. vdump = 160×120 hex rows (0-f per pixel). hash = no visual output, just the OK/FAIL status (fastest, use for compile-check style verification). Default: vdump",
           default: "vdump",
         },
       },
