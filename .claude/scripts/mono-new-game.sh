@@ -27,6 +27,15 @@ fi
 
 mkdir -p "$DEMO_DIR"
 
+# --- cart.json — game manifest ---
+cat > "$DEMO_DIR/cart.json" <<JSON
+{
+  "mono": 1,
+  "engine": "0.4",
+  "title": "$NAME"
+}
+JSON
+
 # --- main.lua — entry, boots into title ---
 cat > "$DEMO_DIR/main.lua" <<'LUA'
 -- Entry file: boot into the title scene.
@@ -172,6 +181,7 @@ cd "$DEMO_DIR"
 if node "$REPO_ROOT/editor/templates/mono/mono-test.js" main.lua --frames 10 --colors 4 --quiet >/dev/null 2>&1; then
   echo "✓ demo/$NAME scaffolded and passes smoke test"
   echo "  files:"
+  echo "    $DEMO_DIR/cart.json"
   echo "    $DEMO_DIR/main.lua"
   echo "    $DEMO_DIR/title.lua"
   echo "    $DEMO_DIR/game.lua"
