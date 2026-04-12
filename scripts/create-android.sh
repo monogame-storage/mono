@@ -137,7 +137,8 @@ if [ "$MODE" = "update" ]; then
   echo "Updating Mono Android project: $TARGET_DIR"
   echo ""
 
-  # Engine-only mode: skip template copy / customization restore entirely.
+  # Engine-only mode: refresh cart/.mono/ + app/templates/, skip everything
+  # else (no app/, no gradle, no customization preserve/restore).
   if $REPLACE_ENGINE; then
     echo "Replacing cart/.mono/ engine (engine-only)..."
     run rm -rf "$TARGET_DIR/cart/.mono"

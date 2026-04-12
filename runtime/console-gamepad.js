@@ -127,13 +127,12 @@
   function setupDpad(dpad) {
     const mode = detectMode(dpad);
     let anchor = null;
-    // Cell-based detection — updated on each startInput from actual dpad rect.
+    // Cell-based detection — set on each startInput from actual dpad rect.
     // cellHalf = half of one grid cell (3x3 grid → rect.width / 6).
     // A direction key fires only when the finger is past the center cell on
     // that axis, so while the finger is still within the UP button rect the
     // RIGHT key cannot accidentally fire (and vice versa).
-    let cellHalf = 25;
-    let dragRange = 50;
+    let cellHalf, dragRange;
     let activeKeys = new Set();
     let mouseDown = false;
 
@@ -191,7 +190,7 @@
       // D-pad is a 3x3 grid. Each cell is rect.width / 3, half is rect.width / 6.
       // This scales with the current dpad size (base 150px or vw-based on Android).
       cellHalf = rect.width / 6;
-      // Analog saturates at one cell distance from center — matches the cardinal button edge.
+      // Analog saturates at cardinal button center (one cell from the dpad center).
       dragRange = rect.width / 3;
       updateFromDelta(clientX - anchor.x, clientY - anchor.y);
     }
@@ -204,7 +203,7 @@
       startInput(t.clientX, t.clientY);
     }, {passive: false});
     document.addEventListener("touchmove", (e) => {
-      if (dpadTouchId == null) return;
+      if (dpadTouchId == null || !anchor) return;
       for (let i = 0; i < e.touches.length; i++) {
         if (e.touches[i].identifier === dpadTouchId) {
           updateFromDelta(e.touches[i].clientX - anchor.x, e.touches[i].clientY - anchor.y);
