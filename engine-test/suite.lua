@@ -44,7 +44,7 @@ section("cls")
 -- ============================================================
 cls(1)
 assert_eq("cls fill",   gpix(0, 0),     1)
-assert_eq("cls fill 2", gpix(159, 143), 1)
+assert_eq("cls fill 2", gpix(159, 119), 1)
 cls(0)
 assert_eq("cls clear",  gpix(0, 0),     0)
 

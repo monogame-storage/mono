@@ -36,7 +36,7 @@ canvas_del(c)  -- free
 
 ### Zoom example
 ```lua
-local world = canvas(320, 288)
+local world = canvas(320, 240)
 local scr = screen()
 
 function _draw()

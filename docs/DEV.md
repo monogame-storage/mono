@@ -318,7 +318,7 @@ text(scr, "HI", 10, 10, 1)
 Draw the world at double resolution, then scale down to the screen:
 
 ```lua
-local world = canvas(320, 288)
+local world = canvas(320, 240)
 local scr = screen()
 
 function _draw()

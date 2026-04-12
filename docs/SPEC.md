@@ -33,7 +33,7 @@
 ```
 Lua script
   ↓ pix(), rect(), circ(), text()...
-VRAM (Uint8Array[23040])  ← 본체
+VRAM (Uint8Array[19200])  ← 본체
   ↓ flush()
 Canvas 2D                 ← 디스플레이 (교체 가능)
 ```
