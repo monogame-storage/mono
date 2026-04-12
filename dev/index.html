@@ -2022,13 +2022,35 @@ document.getElementById("aip-mk-action").addEventListener("click", async () => {
   const pp = localStorage.getItem("mono_vault_pp") || "";
 
   if (pp && input.dataset.masked === "1") {
-    // Change mode — unlock input
+    // Change mode — ask for current key first
     input.value = "";
     input.disabled = false;
     input.dataset.masked = "";
+    input.dataset.verifying = "1";
+    input.placeholder = "Enter current master key";
+    input.focus();
+    document.getElementById("aip-mk-action").textContent = "Verify";
+    status.textContent = "";
+    return;
+  }
+
+  if (input.dataset.verifying === "1") {
+    // Verify current key
+    const entered = input.value.trim();
+    if (!entered) { status.textContent = "Enter current key"; status.className = "aip-mk-status error"; return; }
+    if (entered !== pp) {
+      status.textContent = "✗ Wrong key";
+      status.className = "aip-mk-status error";
+      return;
+    }
+    // Verified — now ask for new key
+    input.value = "";
+    input.dataset.verifying = "";
     input.placeholder = "Enter new master key";
     input.focus();
     document.getElementById("aip-mk-action").textContent = "Save";
+    status.textContent = "✓ Verified. Enter new key.";
+    status.className = "aip-mk-status success";
     return;
   }
 
