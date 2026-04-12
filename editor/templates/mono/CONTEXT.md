@@ -94,6 +94,31 @@ function _ready() go("scenes/title") end
 - Headless Testing: {{BASE_URL}}/docs/LLM-VERIFICATION.md
 - Source: https://github.com/monogame-storage/mono
 
+## Audio (2 channels)
+```lua
+-- Musical notes (channel 0-1, note string, duration in seconds)
+note(0, "C4", 0.2)         -- play middle C
+note(1, "A#5", 0.1)        -- play A#5 on channel 1
+
+-- Frequency sweep (channel, startHz, endHz, duration)
+tone(0, 400, 200, 0.3)     -- descending tone
+tone(1, 200, 2000, 0.4)    -- ascending whistle
+
+-- Noise (channel, duration, [filter, cutoff])
+noise(0, 0.1)              -- white noise burst
+noise(0, 0.3, "low", 400)  -- rumble
+
+-- Waveform: "square" (default), "sawtooth", "triangle", "sine"
+wave(0, "sine")
+note(0, "C4", 0.5)         -- sine wave C4
+
+-- Stop
+sfx_stop(0)                -- stop channel
+sfx_stop()                 -- stop all
+```
+Note names: C, C#, D, D#, E, F, F#, G, G#, A, A#, B (octaves 0-8).
+**There is no `sfx()` function** — use `note()`, `tone()`, or `noise()`.
+
 ## Key Rules
 - Lua 5.4, NOT Luau — no type annotations
 - `local function` must be defined BEFORE it's called
