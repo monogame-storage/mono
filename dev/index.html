@@ -1394,6 +1394,20 @@
     <div class="editor-model-bar">
       <select class="editor-model-select" id="model-select">
         <option value="kimi-latest">mono-alpha</option>
+        <optgroup label="Anthropic">
+          <option value="claude-opus-4">Claude Opus 4</option>
+          <option value="claude-sonnet-4">Claude Sonnet 4</option>
+          <option value="claude-haiku-3.5">Claude Haiku 3.5</option>
+        </optgroup>
+        <optgroup label="Google">
+          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+        </optgroup>
+        <optgroup label="OpenAI">
+          <option value="gpt-5.3-codex">GPT-5.3 Codex</option>
+          <option value="o3">o3</option>
+          <option value="gpt-4.1">GPT-4.1</option>
+        </optgroup>
       </select>
       <span class="editor-usage" id="editor-usage"></span>
       <button class="editor-byok-btn" id="btn-editor-aip">AI</button>
@@ -1454,11 +1468,24 @@
       <div class="apf-field">
         <label>Model</label>
         <select id="apf-model">
-          <option value="gpt-5.3-codex">GPT-5.3 Codex</option>
-          <option value="o3">o3</option>
-          <option value="gpt-4.1">GPT-4.1</option>
-          <option value="kimi-latest">Kimi Latest</option>
-          <option value="custom">Custom</option>
+          <optgroup label="Anthropic">
+            <option value="claude-opus-4">Claude Opus 4</option>
+            <option value="claude-sonnet-4">Claude Sonnet 4</option>
+            <option value="claude-haiku-3.5">Claude Haiku 3.5</option>
+          </optgroup>
+          <optgroup label="Google">
+            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+          </optgroup>
+          <optgroup label="OpenAI">
+            <option value="gpt-5.3-codex">GPT-5.3 Codex</option>
+            <option value="o3">o3</option>
+            <option value="gpt-4.1">GPT-4.1</option>
+          </optgroup>
+          <optgroup label="Other">
+            <option value="kimi-latest">Kimi</option>
+            <option value="custom">Custom</option>
+          </optgroup>
         </select>
       </div>
       <div class="apf-field">
