@@ -2947,20 +2947,25 @@ document.getElementById("gp-expand").addEventListener("click", () => {
 // Wire gamepad buttons to engine input
 document.querySelectorAll("[data-key]").forEach(btn => {
   const key = btn.dataset.key;
-  btn.style.touchAction = "none"; // prevent browser gesture interference
-  btn.addEventListener("pointerdown", (e) => {
+  btn.style.touchAction = "none";
+  btn.style.userSelect = "none";
+  btn.style.webkitUserSelect = "none";
+
+  function keyDown(e) {
     e.preventDefault();
-    console.log("[Gamepad]", key, "down");
+    e.stopPropagation();
+    btn.setPointerCapture(e.pointerId); // keep tracking even if finger moves
     if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, true);
-  });
-  btn.addEventListener("pointerup", (e) => {
-    e.preventDefault();
-    console.log("[Gamepad]", key, "up");
+  }
+  function keyUp(e) {
+    if (e) e.preventDefault();
     if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, false);
-  });
-  btn.addEventListener("pointerleave", () => {
-    if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, false);
-  });
+  }
+
+  btn.addEventListener("pointerdown", keyDown);
+  btn.addEventListener("pointerup", keyUp);
+  btn.addEventListener("pointercancel", keyUp);
+  btn.addEventListener("lostpointercapture", keyUp);
 });
 
 // ── Screen Scale ──
