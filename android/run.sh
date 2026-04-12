@@ -35,12 +35,21 @@ echo "Building $VARIANT APK..."
 ./gradlew $CLEAN $TASK -q
 
 echo "Installing..."
-if ! adb install -r "$APK" 2>&1 | tee /tmp/mono-adb-install.log; then
-  if grep -q 'INSTALL_FAILED_UPDATE_INCOMPATIBLE\|signatures do not match' /tmp/mono-adb-install.log; then
-    echo "Signature mismatch — uninstalling previous build and retrying..."
+INSTALL_LOG=/tmp/mono-adb-install.log
+
+# adb install exit code is unreliable on some devices; check output for "Failure".
+try_install() {
+  adb install "$@" 2>&1 | tee "$INSTALL_LOG"
+  ! grep -qi '^Failure' "$INSTALL_LOG"
+}
+
+if ! try_install -r "$APK"; then
+  if grep -qE 'INSTALL_FAILED_UPDATE_INCOMPATIBLE|INSTALL_FAILED_VERSION_DOWNGRADE|INSTALL_FAILED_ALREADY_EXISTS|signatures do not match' "$INSTALL_LOG"; then
+    echo "Install blocked (signing or version conflict) — uninstalling previous build and retrying..."
     adb uninstall "$APP_ID" || true
-    adb install "$APK"
+    try_install "$APK" || { echo "Install failed after uninstall."; exit 1; }
   else
+    echo "Install failed — see output above."
     exit 1
   fi
 fi

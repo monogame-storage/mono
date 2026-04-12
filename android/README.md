@@ -34,8 +34,16 @@ cart/
 ./run.sh                    # debug 빌드 + 설치 + 실행
 ./run.sh --release          # release (signed) 빌드 + 설치 + 실행
 ./run.sh --clean            # 클린 빌드
+./update-engine.sh          # cart/.mono/ 엔진만 최신으로 교체 ($MONO_ROOT 필요)
 ./update-icon.sh icon.png   # 앱 아이콘 교체 (512x512 PNG, macOS only)
 ./gradlew bundleRelease     # 릴리스 AAB (signing 설정 필요)
+```
+
+## Environment
+
+```bash
+export MONO_ROOT="$HOME/work/mono"                        # mono 레포 루트
+export GOOGLEPLAY_TEMPLATE_ROOT="$HOME/mono/android/googleplay-template"  # 플레이스토어 템플릿
 ```
 
 ## Shader

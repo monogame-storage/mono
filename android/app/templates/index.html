@@ -18,22 +18,29 @@ html,body{width:100%;height:100%;background:#1a1a1a;overflow:hidden;touch-action
 #screen{display:block;image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
 #gamepad{width:100%;display:flex;align-items:center;justify-content:center;padding:0 20px}
 
-/* Scale gamepad proportionally with viewport width */
-.mono-gp{gap:4vw!important;width:100%!important}
+/* Scale gamepad proportionally with viewport width (overrides console-gamepad.js base) */
+.mono-gp{gap:5vw!important;width:100%!important}
 .mono-gp-row{padding:0 .5vw;justify-content:space-between!important}
+
+/* D-pad: 3x3 grid at 34vw total, cell 11.33vw */
 .mono-dpad{width:34vw!important;height:34vw!important}
-.mono-dpad-btn{width:11.5vw!important;height:11.5vw!important;font-size:5vw!important}
-.mono-dpad-up{left:11.25vw!important;top:0!important}
-.mono-dpad-down{left:11.25vw!important;top:22.5vw!important}
-.mono-dpad-left{left:0!important;top:11.25vw!important}
-.mono-dpad-right{left:22.5vw!important;top:11.25vw!important}
-.mono-dpad-center{left:11.25vw!important;top:11.25vw!important;width:11.5vw!important;height:11.5vw!important}
+.mono-dpad-btn{width:11.33vw!important;height:11.33vw!important}
+.mono-dpad-up    {left:11.33vw!important;top:0!important}
+.mono-dpad-down  {left:11.33vw!important;top:22.67vw!important}
+.mono-dpad-left  {left:0!important;top:11.33vw!important}
+.mono-dpad-right {left:22.67vw!important;top:11.33vw!important}
+.mono-dpad-center{left:11.33vw!important;top:11.33vw!important;width:11.33vw!important;height:11.33vw!important}
+
+/* A/B: B smaller/dark on left, A bigger/bright top-right */
 .mono-ab{width:34vw!important;height:26vw!important}
-.mono-ab-btn{width:14.5vw!important;height:14.5vw!important;font-size:5.2vw!important}
-.mono-ab .btn-b{left:0!important;top:11.5vw!important}
-.mono-ab .btn-a{left:19.5vw!important;top:3vw!important}
-.mono-gp-meta{margin-bottom:14.5vw!important}
-.mono-gp-meta button{font:700 1.2vw/1.2 monospace!important;padding:0.8vw 2.5vw!important}
+.mono-ab .btn-b{left:0!important;top:11vw!important;width:13.5vw!important;height:13.5vw!important}
+.mono-ab .btn-a{left:19vw!important;top:3vw!important;width:14.5vw!important;height:14.5vw!important}
+
+/* SELECT / START: empty pill buttons scaled to viewport */
+.mono-gp-meta{gap:7vw!important;margin-bottom:2vw!important}
+.mono-gp-meta button{height:5vw!important;padding:0!important;border-radius:2.5vw!important}
+.mono-gp-meta .btn-select{width:16vw!important}
+.mono-gp-meta .btn-start{width:15vw!important}
 </style>
 </head>
 <body>
