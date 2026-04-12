@@ -46,7 +46,7 @@
     // Skip if already has footer content
     if (container.querySelector(".mono-screen-footer")) return;
 
-    const W = 160, H = 144;
+    const W = 160, H = 120;
 
     // Build footer
     const footer = document.createElement("div");

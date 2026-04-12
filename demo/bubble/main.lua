@@ -486,13 +486,13 @@ local function draw_title()
   for _, b in ipairs(title_bubbles) do
     draw_bubble(b.x, b.y, b.mob, b.wobble)
   end
-  rectf(scr, 20, 30, 120, 38, 0)
-  rect(scr, 20, 30, 120, 38, 8)
-  text(scr, "BUBBLE BOBBLE", CX, 38, 15, ALIGN_HCENTER)
-  text(scr, "Pop to rescue!", CX, 50, 10, ALIGN_HCENTER)
-  text(scr, "Avoid skull!", CX, 58, 8, ALIGN_HCENTER)
+  rectf(scr, 20, 24, 120, 38, 0)
+  rect(scr, 20, 24, 120, 38, 8)
+  text(scr, "BUBBLE BOBBLE", CX, 32, 15, ALIGN_HCENTER)
+  text(scr, "Pop to rescue!", CX, 44, 10, ALIGN_HCENTER)
+  text(scr, "Avoid skull!", CX, 52, 8, ALIGN_HCENTER)
   if math.floor(frame() / 15) % 2 == 0 then
-    text(scr, "TOUCH TO START", CX, 100, 12, ALIGN_HCENTER)
+    text(scr, "TOUCH TO START", CX, 82, 12, ALIGN_HCENTER)
   end
   text(scr, "A MONO DEMO", CX, SCREEN_H - 8, 4, ALIGN_HCENTER)
 end
@@ -544,14 +544,14 @@ local function draw_over()
   for _, m in ipairs(freed_mobs) do
     mob_drawers[m.mob](math.floor(m.x), math.floor(m.y), 15)
   end
-  rectf(scr, 25, 35, 110, 70, 0)
-  rect(scr, 25, 35, 110, 70, 15)
-  text(scr, "GAME OVER", CX, 44, 15, ALIGN_HCENTER)
-  text(scr, "SCORE", CX, 60, 8, ALIGN_HCENTER)
-  text(scr, tostring(score), CX, 70, 12, ALIGN_HCENTER)
-  text(scr, "BEST " .. best, CX, 84, 6, ALIGN_HCENTER)
+  rectf(scr, 25, 25, 110, 62, 0)
+  rect(scr, 25, 25, 110, 62, 15)
+  text(scr, "GAME OVER", CX, 34, 15, ALIGN_HCENTER)
+  text(scr, "SCORE", CX, 48, 8, ALIGN_HCENTER)
+  text(scr, tostring(score), CX, 58, 12, ALIGN_HCENTER)
+  text(scr, "BEST " .. best, CX, 70, 6, ALIGN_HCENTER)
   if math.floor(frame() / 15) % 2 == 0 then
-    text(scr, "TOUCH TO RETRY", CX, 118, 10, ALIGN_HCENTER)
+    text(scr, "TOUCH TO RETRY", CX, 98, 10, ALIGN_HCENTER)
   end
 end
 

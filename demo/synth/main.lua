@@ -127,8 +127,8 @@ function _draw()
 
   -- Piano keys
   local kw = 16
-  local ky = 70
-  local kh = 30
+  local ky = 56
+  local kh = 26
   for i = 1, #NOTES do
     local kx = (i - 1) * kw + 16
     local color = (i == selected) and 14 or 15
@@ -138,8 +138,8 @@ function _draw()
   end
 
   -- Instructions
-  text(scr, "A:PLAY  B:WAVE", 0, 110, 11, ALIGN_HCENTER)
-  text(scr, "UP:SWEEP  DOWN:NOISE", 0, 120, 11, ALIGN_HCENTER)
+  text(scr, "A:PLAY  B:WAVE", 0, 90, 11, ALIGN_HCENTER)
+  text(scr, "UP:SWEEP  DOWN:NOISE", 0, 100, 11, ALIGN_HCENTER)
 
   if last_action_t > 0 then
     text(scr, last_action_msg, 0, SCREEN_H - 8, 14, ALIGN_HCENTER)

@@ -1,7 +1,7 @@
 -- Dodge Game: avoid falling obstacles
 
 local scr = screen()
-local player = { x = 76, y = 130, w = 8, h = 6 }
+local player = { x = 76, y = 108, w = 8, h = 6 }
 local obstacles = {}
 local score = 0
 local speed = 1.5
@@ -85,9 +85,9 @@ function _draw()
 
   -- game over
   if game_over then
-    rectf(scr, 30, 55, 100, 30, 0)
-    rect(scr, 30, 55, 100, 30, 15)
-    text(scr, "GAME OVER", 48, 62, 15)
-    text(scr, "SCORE: " .. score, 52, 74, 10)
+    rectf(scr, 30, 45, 100, 30, 0)
+    rect(scr, 30, 45, 100, 30, 15)
+    text(scr, "GAME OVER", 48, 52, 15)
+    text(scr, "SCORE: " .. score, 52, 64, 10)
   end
 end

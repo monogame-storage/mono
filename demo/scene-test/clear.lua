@@ -14,7 +14,7 @@ end
 
 function clear_draw()
   cls(0)
-  text("STAGE CLEAR!", 35, 55, 15)
-  text("scene: " .. (scene_name() or "nil"), 35, 75, 10)
-  text("frame: " .. frame(), 35, 90, 10)
+  text("STAGE CLEAR!", 35, 44, 15)
+  text("scene: " .. (scene_name() or "nil"), 35, 62, 10)
+  text("frame: " .. frame(), 35, 76, 10)
 end
