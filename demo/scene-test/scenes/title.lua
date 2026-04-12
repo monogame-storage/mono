@@ -16,11 +16,11 @@ end
 
 function scene.draw()
   cls(scr, 1)
-  text(scr, "SCENE TEST", 45, 30, 15)
-  text(scr, "scene: " .. (scene_name() or "nil"), 35, 50, 10)
-  text(scr, "frame: " .. frame(), 35, 65, 10)
+  text(scr, "SCENE TEST", 45, 24, 15)
+  text(scr, "scene: " .. (scene_name() or "nil"), 35, 40, 10)
+  text(scr, "frame: " .. frame(), 35, 54, 10)
   if math.floor(blink / 15) % 2 == 0 then
-    text(scr, "PRESS START", 40, 100, 15)
+    text(scr, "PRESS START", 40, 82, 15)
   end
 end
 

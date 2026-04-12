@@ -16,9 +16,9 @@ end
 
 function scene.draw()
   cls(scr, 0)
-  text(scr, "STAGE CLEAR!", 35, 55, 15)
-  text(scr, "scene: " .. (scene_name() or "nil"), 35, 75, 10)
-  text(scr, "frame: " .. frame(), 35, 90, 10)
+  text(scr, "STAGE CLEAR!", 35, 44, 15)
+  text(scr, "scene: " .. (scene_name() or "nil"), 35, 62, 10)
+  text(scr, "frame: " .. frame(), 35, 76, 10)
 end
 
 return scene

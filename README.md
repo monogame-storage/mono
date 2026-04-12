@@ -6,16 +6,16 @@
 
 Rider University의 Catrinel Haught-Tromp는 이를 **Green Eggs and Ham Hypothesis**로 발전시켰다 — 임의의 제약을 준 그룹이 자유롭게 쓴 그룹보다 더 창의적인 결과를 냈고, 제약이 사라진 뒤에도 높아진 창의성이 유지됐다. 제약은 "압도적인 선택지를 관리 가능한 범위로 줄여, 익숙하지 않은 경로를 탐색하게 만든다." ([논문](https://www.cct.umb.edu/630/files/HaughtTromp2017-GreenEggsandHam.pdf), [기사](https://psmag.com/news/constraints-can-be-a-catalyst-for-creativity/))
 
-Mono는 이 원리를 게임 개발에 적용한다. 160×144 해상도, 그레이스케일, Lua — 제약 안에서 게임을 만드는 판타지 콘솔.
+Mono는 이 원리를 게임 개발에 적용한다. 160×120 해상도, 그레이스케일, Lua — 제약 안에서 게임을 만드는 판타지 콘솔.
 
 ## 콘솔 스펙
 
-- **해상도**: 160×144 고정
+- **해상도**: 160×120 고정
 - **컬러**: 그레이스케일 (1비트=2색, 2비트=4색, 4비트=16색)
 - **프레임레이트**: 30fps
 - **입력**: 방향키 + A(z), B(x), Start(Enter), Pause(Space)
 - **언어**: Lua 5.4 (Wasmoon)
-- **VRAM**: Uint8Array[23,040] — 1픽셀 = 1바이트
+- **VRAM**: Uint8Array[19,200] — 1픽셀 = 1바이트
 
 ## 구조
 
@@ -65,7 +65,7 @@ vdump()                 -- 전체 hex 덤프
 
 -- 상수
 SCREEN_W                -- 160
-SCREEN_H                -- 144
+SCREEN_H                -- 120
 COLORS                  -- 팔레트 크기 (2, 4, 16)
 ```
 

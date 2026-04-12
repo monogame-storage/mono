@@ -26,7 +26,7 @@ node mono-test.js main.lua --frames 30
 ## 핵심 구조
 
 - **Wasmoon**: npm 패키지 (`wasmoon@1.16.0`)로 Node.js에서 Lua 실행
-- **렌더링**: `colorBuf = new Uint8Array(160*144)`에 실제 그리기 — Canvas/DOM 없이 `setPix`, `cls`, `rect`, `text` 등 그대로 동작
+- **렌더링**: `colorBuf = new Uint8Array(160*120)`에 실제 그리기 — Canvas/DOM 없이 `setPix`, `cls`, `rect`, `text` 등 그대로 동작
 - **buf32 대체**: `palette[]` 룩업 스킵하거나 더미 `Uint32Array`로 대체
 - **vdump()**: `colorBuf`에서 hex 텍스트 출력 — LLM이 화면 상태 검증
 - **loadImage**: Node.js `fs.readFile` + `sharp` 또는 순수 PNG 디코더로 대체 (`createImageBitmap` 없음)

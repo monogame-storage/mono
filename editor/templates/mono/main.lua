@@ -1,5 +1,5 @@
 -- My Mono Game
--- 160x144, Lua 5.4
+-- 160x120, Lua 5.4
 
 local scr = screen()
 

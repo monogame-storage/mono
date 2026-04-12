@@ -37,7 +37,7 @@ assert_eq("empty pixel",        gpix(0, 0),   0)
 assert_eq("oob left",   gpix(-1, 0),  0)
 assert_eq("oob right",  gpix(160, 0), 0)
 assert_eq("oob top",    gpix(0, -1),  0)
-assert_eq("oob bottom", gpix(0, 144), 0)
+assert_eq("oob bottom", gpix(0, 120), 0)
 
 -- ============================================================
 section("cls")

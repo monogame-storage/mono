@@ -98,7 +98,7 @@ Open `http://localhost:8000` in a browser.
 
 | Property        | Value                                           |
 |-----------------|-------------------------------------------------|
-| Resolution      | 160 x 144 pixels                                |
+| Resolution      | 160 x 120 pixels                                |
 | Color palette   | Up to 16 grayscale (4-bit), configurable via `mode()` |
 | Sprite size     | 16 x 16 pixels (default)                        |
 | Frame rate      | 30 FPS                                          |
@@ -127,7 +127,7 @@ Default is 1-bit (2 colors) if `mode()` is never called.
 | Constant | Value | Description |
 |----------|-------|-------------|
 | `SCREEN_W` | 160 | Screen width in pixels |
-| `SCREEN_H` | 144 | Screen height in pixels |
+| `SCREEN_H` | 120 | Screen height in pixels |
 | `COLORS` | 2/4/16 | Number of colors in current mode |
 | `ALIGN_LEFT` | 0 | Text align: left (default) |
 | `ALIGN_HCENTER` | 1 | Text align: horizontal center |
@@ -323,13 +323,13 @@ local scr = screen()
 
 function _draw()
   cls(world, 0)
-  cam(px - 160, py - 144)
+  cam(px - 160, py - 120)
   rectf(world, 10, 10, 50, 50, 3)
   spr(world, player_img, px, py)
 
   cls(scr, 0)
   cam(0, 0)
-  blit(world, scr, 0, 0, 160, 144)
+  blit(world, scr, 0, 0, 160, 120)
   text(scr, "HP: 100", 2, 2, 15)
 end
 ```

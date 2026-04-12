@@ -1,6 +1,6 @@
 /**
  * Mono Runtime Engine
- * 160x144, grayscale (1/2/4-bit), Lua 5.4 via Wasmoon.
+ * 160x120, grayscale (1/2/4-bit), Lua 5.4 via Wasmoon.
  *
  * Mono.boot("screen", { game: "main.lua", colors: 1 })
  *   colors: 1 (2色), 2 (4色), 4 (16色). Default: 1
@@ -8,7 +8,7 @@
 var Mono = (() => {
   "use strict";
 
-  const W = 160, H = 144, FPS = 30, FRAME_MS = 1000 / FPS;
+  const W = 160, H = 120, FPS = 30, FRAME_MS = 1000 / FPS;
 
   // --- Color palette ---
   function buildPalette(bits) {

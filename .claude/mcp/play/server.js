@@ -60,7 +60,7 @@ function runGameOnce(gamePath, colors, frames, inputs) {
   });
   const ok = result.status === 0;
   const out = (result.stdout || "") + (result.stderr || "");
-  // Extract the vdump block — 160 × 144 hex digits where each character
+  // Extract the vdump block — 160 × 120 hex digits where each character
   // is the color index (0-f) of one pixel. This is the source of truth
   // for screen state; the LLM receives it verbatim and interprets shapes
   // directly from the pixel values.
@@ -84,7 +84,7 @@ const TOOLS = [
   {
     name: "play_start",
     description:
-      "Boot a Mono game and return the initial VRAM (160×144 hex dump, " +
+      "Boot a Mono game and return the initial VRAM (160×120 hex dump, " +
       "one character per pixel, values 0-f = color index). Returns a " +
       "session_id that must be passed to subsequent play_step calls.",
     inputSchema: {
@@ -110,7 +110,7 @@ const TOOLS = [
     description:
       "Advance an existing session by N frames with given inputs. " +
       "Keys are applied at the first new frame and held for its duration. " +
-      "Returns the resulting VRAM (160×144 hex dump) + any Lua print() " +
+      "Returns the resulting VRAM (160×120 hex dump) + any Lua print() " +
       "output produced.",
     inputSchema: {
       type: "object",
@@ -175,7 +175,7 @@ function handlePlayStart(args) {
     `game: ${game_path}`,
     `frame: ${initial_frames}`,
     logs.length ? `logs:\n  ${logs.join("\n  ")}` : "",
-    "vram (160x144, 0-f per pixel):",
+    "vram (160x120, 0-f per pixel):",
     vram,
   ].filter(Boolean).join("\n");
   return { content: [{ type: "text", text: body }] };
@@ -200,7 +200,7 @@ function handlePlayStep(args) {
     `frame: ${s.totalFrames}`,
     `inputs applied: ${keys.length > 0 ? keys.join(",") : "(none)"}`,
     logs.length ? `logs:\n  ${logs.slice(-10).join("\n  ")}` : "",
-    "vram (160x144, 0-f per pixel):",
+    "vram (160x120, 0-f per pixel):",
     vram,
   ].filter(Boolean).join("\n");
   return { content: [{ type: "text", text: body }] };

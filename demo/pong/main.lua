@@ -60,7 +60,7 @@ local function reset_ball(dir)
   local angle = math.random(1, 2) == 1 and 1.5 or -1.5
   angle = angle + (math.random() - 0.5) * 0.8
   ball = {
-    x = 80, y = 72,
+    x = 80, y = 60,
     dx = SPEED * dir,
     dy = angle
   }
@@ -72,8 +72,8 @@ local circle_obs  -- circle obstacles
 local function init_obstacles()
   obstacles = {}
   circle_obs = {
-    { cx = 80, cy = 34, r = 6 },
-    { cx = 80, cy = 110, r = 6 },
+    { cx = 80, cy = 30, r = 6 },
+    { cx = 80, cy = 90, r = 6 },
   }
 end
 
@@ -82,8 +82,8 @@ function _init()
 end
 
 function _start()
-  p1 = { x = 6, y = 60 }
-  p2 = { x = 150, y = 60 }
+  p1 = { x = 6, y = 48 }
+  p2 = { x = 150, y = 48 }
   score1 = 0
   score2 = 0
   serve_dir = 1
@@ -106,9 +106,9 @@ local function ai_update()
     end
   else
     -- ball going away, drift toward center
-    if center < 68 then
+    if center < 56 then
       p1.y = p1.y + 0.5
-    elseif center > 76 then
+    elseif center > 64 then
       p1.y = p1.y - 0.5
     end
   end
@@ -349,7 +349,7 @@ function _draw()
 
   -- pause overlay
   if paused then
-    text(scr, "PAUSED", 80, 68, 10, ALIGN_HCENTER)
+    text(scr, "PAUSED", 80, 56, 10, ALIGN_HCENTER)
   end
 
   -- debug probe: gpix samples the screen where the ball is, draws a tiny
@@ -362,9 +362,9 @@ function _draw()
 
   -- winner screen
   if winner then
-    rectf(scr, 30, 50, 100, 40, 0)
-    rect(scr, 30, 50, 100, 40, 15)
-    text(scr, winner .. " WINS!", 80, 62, 15, ALIGN_HCENTER)
-    text(scr, "PRESS START", 80, 78, 8, ALIGN_HCENTER)
+    rectf(scr, 30, 40, 100, 40, 0)
+    rect(scr, 30, 40, 100, 40, 15)
+    text(scr, winner .. " WINS!", 80, 50, 15, ALIGN_HCENTER)
+    text(scr, "PRESS START", 80, 66, 8, ALIGN_HCENTER)
   end
 end

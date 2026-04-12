@@ -7,7 +7,7 @@ local scr = screen()
 local W = SCREEN_W
 local H = SCREEN_H
 
--- units: 1m = H/10 = 14.4px
+-- units: 1m = H/10 = 12px
 local M = H / 10
 
 -- ball

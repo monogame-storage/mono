@@ -28,7 +28,7 @@ npm run verify -- main.lua --frames 5 --vdump
 
 | 옵션 | 설명 | LLM 활용 |
 |------|------|----------|
-| `--vdump` | VRAM hex 덤프 (160x144, 0-f per pixel) | 픽셀 단위 검증, 시각 확인 |
+| `--vdump` | VRAM hex 덤프 (160x120, 0-f per pixel) | 픽셀 단위 검증, 시각 확인 |
 | `--vrow Y` | 특정 행 hex 덤프 | 특정 위치 확인 |
 | `--png FILE` | PNG 이미지 저장 | 사람 확인 (Read로 이미지 읽기) |
 | `--region X,Y,W,H` | 영역 크롭 | 특정 영역만 덤프 |

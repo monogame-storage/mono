@@ -128,7 +128,7 @@ const scanDir = getOpt("scan", null);
 let runSeed = null;
 
 // --- Engine core (replicated from engine.js, no DOM) ---
-const W = 160, H = 144;
+const W = 160, H = 120;
 
 function buildPalette(bits) {
   const n = 1 << bits;

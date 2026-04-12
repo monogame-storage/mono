@@ -70,9 +70,9 @@ function fitScreen(){
   var pad=fr.offsetWidth-fr.clientWidth+parseInt(getComputedStyle(fr).paddingLeft)*2;
   var availW=window.innerWidth-pad*2;
   var availH=window.innerHeight-gpH-pad*2;
-  var s=Math.max(1,Math.floor(Math.min(availW/160, availH/144)));
+  var s=Math.max(1,Math.floor(Math.min(availW/160, availH/120)));
   c.style.width=(160*s)+'px';
-  c.style.height=(144*s)+'px';
+  c.style.height=(120*s)+'px';
 }
 fitScreen();window.addEventListener('resize',fitScreen);
 Mono.boot('screen',{game:'main.lua',noAutoFit:true,externalInput:true}).then(function(){
