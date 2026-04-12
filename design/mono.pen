@@ -569,6 +569,39 @@
               "children": [
                 {
                   "type": "frame",
+                  "id": "eHlf9",
+                  "name": "scaleSelect",
+                  "fill": "#333333",
+                  "cornerRadius": 16,
+                  "gap": 4,
+                  "padding": [
+                    6,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "frGNw",
+                      "fill": "#eeeeee",
+                      "content": "2x",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "icon_font",
+                      "id": "k262x",
+                      "width": 10,
+                      "height": 10,
+                      "iconFontName": "chevron-down",
+                      "iconFontFamily": "lucide",
+                      "fill": "#888888"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "6LDd5",
                   "name": "runBtn",
                   "width": 32,
@@ -635,6 +668,28 @@
                       "fill": "#eeeeee"
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "xJ4o7",
+                  "name": "settingsBtn",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "#333333",
+                  "cornerRadius": 16,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "hGB7B",
+                      "width": 14,
+                      "height": 14,
+                      "iconFontName": "settings",
+                      "iconFontFamily": "lucide",
+                      "fill": "#eeeeee"
+                    }
+                  ]
                 }
               ]
             }
@@ -645,16 +700,140 @@
           "id": "my1u7",
           "name": "GamePreview",
           "width": "fill_container",
-          "height": 180,
+          "height": 213,
           "fill": "#000000",
-          "layout": "vertical",
+          "gap": 8,
           "padding": [
             12,
             16
           ],
           "justifyContent": "center",
-          "alignItems": "center",
           "children": [
+            {
+              "type": "frame",
+              "id": "jgCxe",
+              "name": "StatsPanel",
+              "layout": "vertical",
+              "gap": 2,
+              "padding": [
+                4,
+                0
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "7rW74",
+                  "name": "s1",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "j7y9E",
+                      "fill": "#333333",
+                      "content": "FPS",
+                      "textAlign": "right",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 9,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "dfDoD",
+                      "fill": "#6c6",
+                      "content": "30",
+                      "textAlign": "right",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "THdct",
+                  "name": "s2",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "i7t6q",
+                      "fill": "#333333",
+                      "content": "FRM",
+                      "textAlign": "right",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 9,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "sTckL",
+                      "fill": "#6c6",
+                      "content": "847",
+                      "textAlign": "right",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "bqwVQ",
+                  "name": "s3",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "DKljh",
+                      "fill": "#333333",
+                      "content": "MEM",
+                      "textAlign": "right",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 9,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "8dRFk",
+                      "fill": "#6c6",
+                      "content": "2.1M",
+                      "textAlign": "right",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "lSNYO",
+                  "name": "s4",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "dKk0X",
+                      "fill": "#333333",
+                      "content": "SCN",
+                      "textAlign": "right",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 9,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "CsDLi",
+                      "fill": "#6c6",
+                      "content": "game",
+                      "textAlign": "right",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 10,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
             {
               "type": "frame",
               "id": "ByegJ",

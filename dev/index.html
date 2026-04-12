@@ -1341,12 +1341,7 @@
         <button class="editor-icon-btn" id="btn-run" title="Run">
           <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
         </button>
-        <select class="editor-scale-select" id="editor-scale">
-          <option value="1">1x</option>
-          <option value="2" selected>2x</option>
-          <option value="3">3x</option>
-          <option value="fit">Fit</option>
-        </select>
+        <select class="editor-scale-select" id="editor-scale"></select>
         <button class="editor-icon-btn" id="btn-save" title="Save">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>
         </button>
@@ -2272,6 +2267,7 @@ async function openEditor(gameId, title, desc) {
     '<div class="chat-msg"><span class="chat-sender mono">MONO</span><span class="chat-status">Loading...</span></div>';
   document.getElementById("editor-msg").value = "";
   showView("editor");
+  setTimeout(() => { buildScaleOptions(); applyScale(); }, 0);
 
   const token = await auth.currentUser.getIdToken();
 
@@ -2757,30 +2753,52 @@ function stopGame() {
 }
 
 // ── Screen Scale ──
+function buildScaleOptions() {
+  const sel = document.getElementById("editor-scale");
+  const maxW = document.querySelector(".editor-preview").clientWidth - 80;
+  const maxScale = Math.floor(maxW / 160) || 1;
+  sel.innerHTML = "";
+  for (let s = 1; s <= maxScale; s++) {
+    const opt = document.createElement("option");
+    opt.value = String(s);
+    opt.textContent = s + "x";
+    sel.appendChild(opt);
+  }
+  const fitOpt = document.createElement("option");
+  fitOpt.value = "fit";
+  fitOpt.textContent = "Fit";
+  sel.appendChild(fitOpt);
+  // Default: largest integer scale or fit
+  sel.value = maxScale >= 2 ? "2" : "fit";
+}
+
 document.getElementById("editor-scale").addEventListener("change", applyScale);
+window.addEventListener("resize", () => { buildScaleOptions(); applyScale(); });
+
 function applyScale() {
   const val = document.getElementById("editor-scale").value;
   const canvas = document.getElementById("editor-screen");
   const bezel = document.querySelector(".console-bezel");
-  const screenFrame = document.querySelector(".screen-frame");
+  const maxW = document.querySelector(".editor-preview").clientWidth - 80;
+  let w, h;
   if (val === "fit") {
-    const maxW = document.querySelector(".editor-preview").clientWidth - 80;
-    const scale = Math.floor(maxW / 160) || 1;
-    canvas.style.width = (160 * scale) + "px";
-    canvas.style.height = (120 * scale) + "px";
-    bezel.style.width = (160 * scale + 28) + "px";
+    const scale = maxW / 160;
+    w = Math.floor(160 * scale);
+    h = Math.floor(120 * scale);
   } else {
     const s = parseInt(val);
-    canvas.style.width = (160 * s) + "px";
-    canvas.style.height = (120 * s) + "px";
-    bezel.style.width = (160 * s + 28) + "px";
+    w = 160 * s;
+    h = 120 * s;
   }
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+  bezel.style.width = (w + 28) + "px";
 }
 
 let statsInterval = null;
+let statsRafActive = false;
 let lastFrame = 0;
 let lastTime = 0;
-
 let renderFrameCount = 0;
 
 function startStatsLoop() {
@@ -2789,10 +2807,9 @@ function startStatsLoop() {
   lastTime = performance.now();
   document.querySelectorAll(".console-stat").forEach(s => s.classList.add("active"));
 
-  // Count render frames via rAF
-  let countingRaf = true;
+  statsRafActive = true;
   function countFrame() {
-    if (!countingRaf) return;
+    if (!statsRafActive) return;
     renderFrameCount++;
     requestAnimationFrame(countFrame);
   }
@@ -2814,14 +2831,11 @@ function startStatsLoop() {
       document.getElementById("stat-mem").textContent = mem ? (mem / 1048576).toFixed(1) + "M" : "--";
     } catch {}
   }, 1000);
-
-  // Store ref to stop counting
-  statsInterval._stopCounting = () => { countingRaf = false; };
 }
 
 function stopStatsLoop() {
+  statsRafActive = false;
   if (statsInterval) {
-    statsInterval._stopCounting?.();
     clearInterval(statsInterval);
     statsInterval = null;
   }
