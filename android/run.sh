@@ -1,20 +1,41 @@
 #!/bin/bash
 # Build APK and install+launch on connected device/emulator
-# Usage: ./run.sh [--release] [--clean]
-#   --release  Build signed release APK (requires app/key.properties)
-#   --clean    Clean before build
+# Usage: ./run.sh [--release] [--clean] [--FLAG[=VALUE] ...]
+#
+#   --release       Build signed release APK (requires app/key.properties)
+#   --clean         Clean before build
+#   --UPPER_FLAG    Pass "UPPER_FLAG=true" as intent extra to the app
+#   --KEY=VALUE     Pass "KEY=VALUE" as intent extra to the app
+#
+# Examples:
+#   ./run.sh                              # debug build, no flags
+#   ./run.sh --release --clean            # clean release build
+#   ./run.sh --DEMO_MODE --NO_ADS         # debug + app flags
+#   ./run.sh --release --LEVEL=5          # release + app flag with value
 set -e
 
 cd "$(dirname "$0")"
 
 RELEASE=false
 CLEAN=""
+LAUNCH_FLAGS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --release) RELEASE=true; shift ;;
     --clean)   CLEAN="clean"; shift ;;
-    *)         echo "Unknown option: $1"; exit 1 ;;
+    --[A-Z]*)
+      # Uppercase flags are passed through as intent extras.
+      # --FLAG       → --es FLAG true
+      # --FLAG=val   → --es FLAG val
+      KEY="${1#--}"
+      if [[ "$KEY" == *=* ]]; then
+        LAUNCH_FLAGS+=(--es "${KEY%%=*}" "${KEY#*=}")
+      else
+        LAUNCH_FLAGS+=(--es "$KEY" "true")
+      fi
+      shift ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
 
@@ -55,4 +76,7 @@ if ! try_install -r "$APK"; then
 fi
 
 echo "Launching $APP_ID..."
-adb shell am start -n "$APP_ID/$NAMESPACE.MainActivity"
+if [ ${#LAUNCH_FLAGS[@]} -gt 0 ]; then
+  echo "  Flags: ${LAUNCH_FLAGS[*]}"
+fi
+adb shell am start -n "$APP_ID/$NAMESPACE.MainActivity" "${LAUNCH_FLAGS[@]}"
