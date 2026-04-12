@@ -625,6 +625,35 @@
   .aip-strength.fair { color: #fa3; }
   .aip-strength.good { color: #cc6; }
   .aip-strength.strong { color: #6c6; }
+  .aip-mk-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .aip-mk-row .aip-input { flex: 1; }
+  .aip-mk-btn {
+    height: 40px;
+    padding: 0 14px;
+    background: #333;
+    border: none;
+    border-radius: 8px;
+    color: #eee;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .aip-mk-btn:hover { background: #444; }
+  .aip-mk-btn.danger { background: transparent; border: 1px solid #662222; color: #ff6666; }
+  .aip-mk-btn.danger:hover { background: #1a0000; }
+  .aip-mk-status {
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .aip-mk-status.error { color: #ff6666; }
+  .aip-mk-status.success { color: #6c6; }
+  .aip-mk-status.warn { color: #fa3; }
   .aip-divider { height: 1px; background: #222; }
   .aip-provider-card {
     display: flex;
@@ -1285,11 +1314,16 @@
       <span>AI Providers</span>
     </div>
     <div class="aip-content">
-      <div class="aip-passphrase-section">
+      <div class="aip-passphrase-section" id="aip-mk-section">
         <span class="aip-label">Master Key</span>
-        <span class="aip-sublabel">Encrypts your API keys. Never stored online — if lost, you must re-enter all keys.</span>
-        <input type="password" class="aip-input" id="aip-passphrase" placeholder="Enter master key">
+        <span class="aip-sublabel" id="aip-mk-subtitle">Encrypts your API keys. Never stored online — if lost, you must re-enter all keys.</span>
+        <div class="aip-mk-row">
+          <input type="password" class="aip-input" id="aip-passphrase" placeholder="Enter master key">
+          <button class="aip-mk-btn" id="aip-mk-action" style="display:none">Change</button>
+        </div>
         <div class="aip-strength" id="aip-strength"></div>
+        <div class="aip-mk-status" id="aip-mk-status"></div>
+        <button class="aip-mk-btn danger" id="aip-mk-reset" style="display:none">Reset all providers</button>
       </div>
       <div class="aip-divider"></div>
       <span class="aip-label">Providers</span>
@@ -1758,35 +1792,174 @@ function updateModelSelector() {
 }
 
 // ── AI Providers navigation ──
-function openAIProviders() {
+let hasOnlineProviders = false; // whether encrypted data exists in Firestore
+
+async function checkOnlineProviders() {
+  try {
+    const uid = auth.currentUser.uid;
+    const snap = await getDoc(doc(db, "users", uid, "settings", "ai"));
+    hasOnlineProviders = snap.exists() && !!snap.data().encrypted;
+  } catch { hasOnlineProviders = false; }
+}
+
+function renderMasterKeyState() {
   const pp = localStorage.getItem("mono_vault_pp") || "";
   const input = document.getElementById("aip-passphrase");
+  const actionBtn = document.getElementById("aip-mk-action");
+  const resetBtn = document.getElementById("aip-mk-reset");
+  const status = document.getElementById("aip-mk-status");
+  const subtitle = document.getElementById("aip-mk-subtitle");
+  const strength = document.getElementById("aip-strength");
+
+  strength.textContent = "";
+  strength.className = "aip-strength";
+  resetBtn.style.display = "none";
+  status.textContent = "";
+  status.className = "aip-mk-status";
+
   if (pp) {
-    input.value = "##########"; // fixed 10 chars to hide real length
+    // State 2: key exists locally
+    input.value = "##########";
+    input.disabled = true;
     input.dataset.masked = "1";
-  } else {
+    actionBtn.textContent = "Change";
+    actionBtn.style.display = "block";
+    subtitle.textContent = "Encrypts your API keys. Never stored online — if lost, you must re-enter all keys.";
+    subtitle.style.color = "";
+    status.textContent = "✓ Master key set";
+    status.className = "aip-mk-status success";
+  } else if (hasOnlineProviders) {
+    // State 3: no local key but online data exists
     input.value = "";
+    input.disabled = false;
     input.dataset.masked = "";
+    input.placeholder = "Enter your master key to unlock";
+    actionBtn.textContent = "Unlock";
+    actionBtn.style.display = "block";
+    subtitle.textContent = "Encrypted providers found. Enter your master key to unlock.";
+    subtitle.style.color = "#fa3";
+    status.textContent = "";
+  } else {
+    // State 1: no key, no online data
+    input.value = "";
+    input.disabled = false;
+    input.dataset.masked = "";
+    input.placeholder = "Enter master key";
+    actionBtn.textContent = "Save";
+    actionBtn.style.display = "block";
+    subtitle.textContent = "Required — set a master key to encrypt your API keys.";
+    subtitle.style.color = "#ff6666";
+    status.textContent = "No master key set";
+    status.className = "aip-mk-status error";
   }
-  document.getElementById("aip-strength").textContent = "";
-  document.getElementById("aip-strength").className = "aip-strength";
-  loadProviders();
+}
+
+async function openAIProviders() {
+  await checkOnlineProviders();
+  renderMasterKeyState();
+  const pp = localStorage.getItem("mono_vault_pp");
+  if (pp) {
+    await loadProviders();
+  } else {
+    aiProviders = [];
+    renderProviderList();
+  }
   showView("ai-providers");
 }
 
 document.getElementById("btn-aip-back").addEventListener("click", () => showView("devsettings"));
-document.getElementById("aip-passphrase").addEventListener("change", () => {
-  localStorage.setItem("mono_vault_pp", document.getElementById("aip-passphrase").value);
-  loadProviders();
+
+// Master key action button (Save / Unlock / Change)
+document.getElementById("aip-mk-action").addEventListener("click", async () => {
+  const input = document.getElementById("aip-passphrase");
+  const status = document.getElementById("aip-mk-status");
+  const resetBtn = document.getElementById("aip-mk-reset");
+  const pp = localStorage.getItem("mono_vault_pp") || "";
+
+  if (pp && input.dataset.masked === "1") {
+    // Change mode — unlock input
+    input.value = "";
+    input.disabled = false;
+    input.dataset.masked = "";
+    input.placeholder = "Enter new master key";
+    input.focus();
+    document.getElementById("aip-mk-action").textContent = "Save";
+    return;
+  }
+
+  const newKey = input.value.trim();
+  if (!newKey) { status.textContent = "Enter a key"; status.className = "aip-mk-status error"; return; }
+
+  if (hasOnlineProviders && !pp) {
+    // State 3: trying to unlock — verify by decrypting
+    try {
+      const uid = auth.currentUser.uid;
+      const snap = await getDoc(doc(db, "users", uid, "settings", "ai"));
+      const encrypted = snap.data().encrypted;
+      aiProviders = await decryptData(newKey, encrypted);
+      localStorage.setItem("mono_vault_pp", newKey);
+      status.textContent = "✓ Unlocked";
+      status.className = "aip-mk-status success";
+      resetBtn.style.display = "none";
+      renderMasterKeyState();
+      renderProviderList();
+    } catch {
+      status.textContent = "✗ Wrong master key";
+      status.className = "aip-mk-status error";
+      resetBtn.style.display = "block";
+      aiProviders = [];
+      renderProviderList();
+    }
+    return;
+  }
+
+  if (pp && newKey !== pp) {
+    // Changing key — re-encrypt with new key
+    const oldKey = pp;
+    try {
+      // Load with old key first
+      const uid = auth.currentUser.uid;
+      const snap = await getDoc(doc(db, "users", uid, "settings", "ai"));
+      if (snap.exists() && snap.data().encrypted) {
+        aiProviders = await decryptData(oldKey, snap.data().encrypted);
+      }
+    } catch {}
+    localStorage.setItem("mono_vault_pp", newKey);
+    await saveProviders(); // re-encrypt with new key
+    status.textContent = "✓ Master key changed and providers re-encrypted";
+    status.className = "aip-mk-status success";
+    renderMasterKeyState();
+    return;
+  }
+
+  // State 1: first time save
+  localStorage.setItem("mono_vault_pp", newKey);
+  renderMasterKeyState();
+  await loadProviders();
 });
-document.getElementById("aip-passphrase").addEventListener("focus", function() {
-  if (this.dataset.masked === "1") {
-    this.value = localStorage.getItem("mono_vault_pp") || "";
-    this.dataset.masked = "";
+
+// Reset button — clear online data
+document.getElementById("aip-mk-reset").addEventListener("click", async () => {
+  if (!confirm("This will delete all saved providers. Are you sure?")) return;
+  try {
+    const uid = auth.currentUser.uid;
+    await setDoc(doc(db, "users", uid, "settings", "ai"), { encrypted: null });
+    hasOnlineProviders = false;
+    aiProviders = [];
+    renderProviderList();
+    renderMasterKeyState();
+    document.getElementById("aip-mk-status").textContent = "Providers cleared";
+    document.getElementById("aip-mk-status").className = "aip-mk-status warn";
+  } catch (e) {
+    alert("Failed: " + e.message);
   }
 });
+
+// Strength indicator while typing
 document.getElementById("aip-passphrase").addEventListener("input", () => {
-  const val = document.getElementById("aip-passphrase").value;
+  const input = document.getElementById("aip-passphrase");
+  if (input.dataset.masked === "1") return;
+  const val = input.value;
   const el = document.getElementById("aip-strength");
   if (!val) { el.textContent = ""; el.className = "aip-strength"; return; }
   const score = evaluateStrength(val);
