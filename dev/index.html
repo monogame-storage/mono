@@ -2399,7 +2399,7 @@ document.getElementById("btn-editor-back").addEventListener("click", () => {
 });
 
 // Send message
-document.getElementById("btn-send").addEventListener("click", sendMessage);
+document.getElementById("btn-send").addEventListener("click", () => sendMessage());
 const editorMsg = document.getElementById("editor-msg");
 let isComposing = false;
 editorMsg.addEventListener("compositionstart", () => { isComposing = true; });
