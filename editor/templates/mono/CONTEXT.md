@@ -1,6 +1,6 @@
 # Mono Game Project (engine v{{VERSION}})
 
-This is a [Mono](https://github.com/ssk-play/mono) fantasy console game.
+This is a [Mono](https://github.com/monogame-storage/mono) fantasy console game.
 
 ## Constraints
 - Resolution: 160x120
@@ -92,7 +92,7 @@ function _ready() go("scenes/title") end
 - API Reference: {{BASE_URL}}/docs/DEV.md
 - Common AI Mistakes: {{BASE_URL}}/docs/AI-PITFALLS.md
 - Headless Testing: {{BASE_URL}}/docs/LLM-VERIFICATION.md
-- Source: https://github.com/ssk-play/mono
+- Source: https://github.com/monogame-storage/mono
 
 ## Key Rules
 - Lua 5.4, NOT Luau — no type annotations
@@ -113,18 +113,18 @@ If you find a bug or need a feature that isn't available, file a GitHub issue.
 
 ```bash
 # 1. Search existing issues before creating
-gh issue list --repo ssk-play/mono --search "keyword" --state all
+gh issue list --repo monogame-storage/mono --search "keyword" --state all
 
 # 2. If a similar issue exists, comment on it instead
 gh issue comment <number> --body "Additional context: ..."
 
 # 3. Only create a new issue if no match found
-gh issue create --repo ssk-play/mono \
+gh issue create --repo monogame-storage/mono \
   --label "bug" \
   --title "frame() not available in mono-test.js" \
   --body "DEV.md documents frame() but mono-test.js doesn't register it."
 
-gh issue create --repo ssk-play/mono \
+gh issue create --repo monogame-storage/mono \
   --label "proposal" \
   --title "go() with auto file loading" \
   --body "What: go('play') loads play.lua automatically.

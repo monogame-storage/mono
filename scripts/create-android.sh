@@ -100,7 +100,7 @@ copy_engine_files() {
   echo "$version" | cut -d. -f1,2 > "$mono_dir/ENGINE"
   # Substitute template placeholders in CONTEXT.md ({{VERSION}}, {{BASE_URL}})
   if [ -f "$mono_dir/CONTEXT.md" ]; then
-    local base_url="https://github.com/ssk-play/mono/blob/main"
+    local base_url="https://github.com/monogame-storage/mono/blob/main"
     sed -i '' -e "s|{{VERSION}}|$version|g" -e "s|{{BASE_URL}}|$base_url|g" "$mono_dir/CONTEXT.md"
   fi
 }

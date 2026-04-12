@@ -9,16 +9,16 @@
   "scripts": {},
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ssk-play/mono.git"
+    "url": "git+https://github.com/monogame-storage/mono.git"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/ssk-play/mono/issues"
+    "url": "https://github.com/monogame-storage/mono/issues"
   },
-  "homepage": "https://github.com/ssk-play/mono#readme",
+  "homepage": "https://github.com/monogame-storage/mono#readme",
   "dependencies": {
     "luau-web": "^1.4.0",
     "pngjs": "^7.0.0",

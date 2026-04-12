@@ -274,4 +274,23 @@ Track per-touch state (e.g. drags) by touch index. Compare previous vs current t
 
 ---
 
+---
+
+## 13. Nonexistent sound API `sfx()`
+**Symptom:** `attempt to call a nil value (global 'sfx')`
+**Cause:** AI invents `sfx()` which doesn't exist in Mono
+**Fix:** Use the actual sound API: `note()`, `tone()`, `noise()`, `wave()`, `sfx_stop()`
+```lua
+-- BAD: sfx() does not exist
+sfx("hit")
+sfx(0)
+
+-- GOOD: use the real API
+note(0, "C4", 0.1)           -- musical note
+tone(0, 400, 200, 0.2)       -- frequency sweep
+noise(0, 0.1)                -- white noise burst
+wave(0, "sine")              -- change waveform
+sfx_stop(0)                  -- stop channel
+```
+
 *Add new entries as bugs are discovered. Format: Symptom → Cause → Fix with code examples.*
