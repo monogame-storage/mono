@@ -1838,35 +1838,6 @@ document.getElementById("btn-ai-providers").addEventListener("click", () => {
   openAIProviders();
 });
 
-// ── Master Key hashing ──
-let sessionMasterKey = null; // plaintext only in memory
-
-async function hashMasterKey(key) {
-  const uid = auth.currentUser?.uid || "";
-  const data = new TextEncoder().encode(key + uid);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return btoa(String.fromCharCode(...new Uint8Array(hash)));
-}
-
-function saveMasterKeyHash(hash) {
-  localStorage.setItem("mono_vault_hash", hash);
-}
-
-function getMasterKeyHash() {
-  return localStorage.getItem("mono_vault_hash");
-}
-
-async function verifyMasterKey(key) {
-  const hash = await hashMasterKey(key);
-  return hash === getMasterKeyHash();
-}
-
-async function setMasterKey(key) {
-  sessionMasterKey = key;
-  const hash = await hashMasterKey(key);
-  saveMasterKeyHash(hash);
-}
-
 // ── Vault Encryption (AES-GCM + PBKDF2) ──
 async function deriveKey(passphrase, salt) {
   const enc = new TextEncoder();
@@ -1921,8 +1892,9 @@ async function loadProviders() {
 }
 
 async function saveProviders() {
-  const pp = sessionMasterKey;
-  if (!pp) { alert("Set a master key first"); return; }
+  const pp = document.getElementById("aip-passphrase").value;
+  if (!pp) { alert("Set a vault passphrase first"); return; }
+  localStorage.setItem("mono_vault_pp", pp);
   const encrypted = await encryptData(pp, aiProviders);
   const uid = auth.currentUser.uid;
   await setDoc(doc(db, "users", uid, "settings", "ai"), { encrypted });
@@ -1976,7 +1948,7 @@ async function checkOnlineProviders() {
 }
 
 function renderMasterKeyState() {
-  const pp = sessionMasterKey || "";
+  const pp = localStorage.getItem("mono_vault_pp") || "";
   const input = document.getElementById("aip-passphrase");
   const actionBtn = document.getElementById("aip-mk-action");
   const resetBtn = document.getElementById("aip-mk-reset");
@@ -2001,8 +1973,8 @@ function renderMasterKeyState() {
     subtitle.style.color = "";
     status.textContent = "✓ Master key set";
     status.className = "aip-mk-status success";
-  } else if (hasOnlineProviders || getMasterKeyHash()) {
-    // State 3: no session key but data exists (need to unlock)
+  } else if (hasOnlineProviders) {
+    // State 3: no local key but online data exists
     input.value = "";
     input.disabled = false;
     input.dataset.masked = "";
@@ -2030,7 +2002,8 @@ function renderMasterKeyState() {
 async function openAIProviders() {
   await checkOnlineProviders();
   renderMasterKeyState();
-  if (sessionMasterKey) {
+  const pp = localStorage.getItem("mono_vault_pp");
+  if (pp) {
     await loadProviders();
   } else {
     aiProviders = [];
@@ -2046,7 +2019,7 @@ document.getElementById("aip-mk-action").addEventListener("click", async () => {
   const input = document.getElementById("aip-passphrase");
   const status = document.getElementById("aip-mk-status");
   const resetBtn = document.getElementById("aip-mk-reset");
-  const pp = sessionMasterKey || "";
+  const pp = localStorage.getItem("mono_vault_pp") || "";
 
   if (pp && input.dataset.masked === "1") {
     // Change mode — ask for current key first
@@ -2084,24 +2057,14 @@ document.getElementById("aip-mk-action").addEventListener("click", async () => {
   const newKey = input.value.trim();
   if (!newKey) { status.textContent = "Enter a key"; status.className = "aip-mk-status error"; return; }
 
-  if (!pp && (hasOnlineProviders || getMasterKeyHash())) {
-    // State 3: trying to unlock — verify by hash first, then decrypt
-    const hashMatch = getMasterKeyHash() ? await verifyMasterKey(newKey) : true;
-    if (!hashMatch) {
-      status.textContent = "✗ Wrong master key";
-      status.className = "aip-mk-status error";
-      resetBtn.style.display = "block";
-      return;
-    }
+  if (hasOnlineProviders && !pp) {
+    // State 3: trying to unlock — verify by decrypting
     try {
       const uid = auth.currentUser.uid;
       const snap = await getDoc(doc(db, "users", uid, "settings", "ai"));
-      if (snap.exists() && snap.data().encrypted) {
-        aiProviders = await decryptData(newKey, snap.data().encrypted);
-      } else {
-        aiProviders = [];
-      }
-      await setMasterKey(newKey);
+      const encrypted = snap.data().encrypted;
+      aiProviders = await decryptData(newKey, encrypted);
+      localStorage.setItem("mono_vault_pp", newKey);
       status.textContent = "✓ Unlocked";
       status.className = "aip-mk-status success";
       resetBtn.style.display = "none";
@@ -2128,8 +2091,8 @@ document.getElementById("aip-mk-action").addEventListener("click", async () => {
         aiProviders = await decryptData(oldKey, snap.data().encrypted);
       }
     } catch {}
-    await setMasterKey(newKey);
-    await saveProviders();
+    localStorage.setItem("mono_vault_pp", newKey);
+    await saveProviders(); // re-encrypt with new key
     status.textContent = "✓ Master key changed and providers re-encrypted";
     status.className = "aip-mk-status success";
     renderMasterKeyState();
@@ -2137,7 +2100,7 @@ document.getElementById("aip-mk-action").addEventListener("click", async () => {
   }
 
   // State 1: first time save
-  await setMasterKey(newKey);
+  localStorage.setItem("mono_vault_pp", newKey);
   renderMasterKeyState();
   await loadProviders();
 });
@@ -3026,7 +2989,17 @@ document.getElementById("btn-editor-aip").addEventListener("click", openAIProvid
 const savedModel = localStorage.getItem("mono_model");
 if (savedModel) document.getElementById("model-select").value = savedModel;
 document.getElementById("model-select").addEventListener("change", (e) => {
-  localStorage.setItem("mono_model", e.target.value);
+  const val = e.target.value;
+  localStorage.setItem("mono_model", val);
+  // If a user provider is selected, auto-set as default (when mono-alpha was default)
+  if (val.startsWith("provider:")) {
+    const noUserDefault = !aiProviders.some(p => p.isDefault);
+    if (noUserDefault) {
+      const pid = val.slice(9);
+      aiProviders.forEach(p => p.isDefault = (p.id === pid));
+      saveProviders();
+    }
+  }
 });
 
 // ── Error messages ──
