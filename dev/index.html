@@ -1724,14 +1724,18 @@ onAuthStateChanged(auth, async (user) => {
     const hash = location.hash;
     const editorMatch = hash.match(/^#editor\/([^/]+)$/);
     if (editorMatch) {
-      // Fetch game title from Firestore to open editor
-      const { getDoc } = await import("https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js");
-      const snap = await getDoc(doc(db, "games", editorMatch[1]));
+      const { getDoc: gd } = await import("https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js");
+      const snap = await gd(doc(db, "games", editorMatch[1]));
       if (snap.exists() && snap.data().uid === user.uid) {
         openEditor(editorMatch[1], snap.data().title, snap.data().description);
       } else {
         showView("dashboard");
       }
+    } else if (hash === "#settings/ai") {
+      openDevSettings();
+      openAIProviders();
+    } else if (hash === "#settings") {
+      openDevSettings();
     } else {
       showView("dashboard");
     }
@@ -1810,7 +1814,7 @@ document.getElementById("link-signup").addEventListener("click", (e) => { e.prev
 document.getElementById("link-login").addEventListener("click", (e) => { e.preventDefault(); clearError("signup-error"); showView("login"); });
 
 // ── Dev Settings ──
-document.getElementById("btn-settings").addEventListener("click", () => {
+function openDevSettings() {
   const user = auth.currentUser;
   if (user) {
     document.getElementById("devsettings-name").textContent = user.displayName || "Developer";
@@ -1821,13 +1825,18 @@ document.getElementById("btn-settings").addEventListener("click", () => {
       avatar.style.backgroundSize = "cover";
     }
   }
+  location.hash = "settings";
   showView("devsettings");
-});
-document.getElementById("btn-devsettings-back").addEventListener("click", () => showView("dashboard"));
+}
+document.getElementById("btn-settings").addEventListener("click", openDevSettings);
+document.getElementById("btn-devsettings-back").addEventListener("click", () => { location.hash = ""; showView("dashboard"); });
 document.getElementById("btn-signout").addEventListener("click", () => {
   if (confirm("Sign out?")) signOut(auth);
 });
-document.getElementById("btn-ai-providers").addEventListener("click", openAIProviders);
+document.getElementById("btn-ai-providers").addEventListener("click", () => {
+  location.hash = "settings/ai";
+  openAIProviders();
+});
 
 // ── Vault Encryption (AES-GCM + PBKDF2) ──
 async function deriveKey(passphrase, salt) {
@@ -2003,7 +2012,7 @@ async function openAIProviders() {
   showView("ai-providers");
 }
 
-document.getElementById("btn-aip-back").addEventListener("click", () => showView("devsettings"));
+document.getElementById("btn-aip-back").addEventListener("click", () => { location.hash = "settings"; showView("devsettings"); });
 
 // Master key action button (Save / Unlock / Change)
 document.getElementById("aip-mk-action").addEventListener("click", async () => {
