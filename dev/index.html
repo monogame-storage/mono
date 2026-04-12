@@ -2473,20 +2473,36 @@ async function sendMessage(autoMsg) {
       }
     }
     if (!model) model = selectedValue;
+    const reqBody = {
+      gameId: currentGameId,
+      message: msg,
+      files: currentFiles,
+      history: [],
+      model,
+      byok: byok ? { key: "***", url: byok.url } : undefined,
+    };
+    console.group("[MONO Chat]");
+    console.log("→ model:", model);
+    console.log("→ message:", msg);
+    console.log("→ files:", currentFiles.map(f => f.name));
+    console.groupEnd();
+
     const res = await fetch(`${API_URL}/chat`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        gameId: currentGameId,
-        message: msg,
-        files: currentFiles,
-        history: [],
-        model,
-        byok,
-      }),
+      body: JSON.stringify({ ...reqBody, byok }),
     });
 
     const data = await res.json();
+    console.group("[MONO Response]");
+    console.log("← status:", res.status);
+    console.log("← message:", data.message);
+    console.log("← files:", data.files?.map(f => f.name));
+    console.log("← test:", data.test);
+    console.log("← usage:", data.usage);
+    if (data.error) console.error("← error:", data.error, data.detail);
+    console.groupEnd();
+
     if (!res.ok) throw new Error(data.error || "Request failed");
 
     chatHistory.push({ role: "assistant", content: data.message });
