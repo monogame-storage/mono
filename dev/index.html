@@ -537,6 +537,12 @@
     letter-spacing: 1px;
   }
   .chat-sender.mono { color: #888; }
+  .chat-time {
+    font-size: 9px;
+    color: #444;
+    margin-left: 6px;
+    font-weight: 400;
+  }
   .chat-body {
     font-size: 13px;
     line-height: 1.5;
@@ -2331,7 +2337,7 @@ async function sendMessage(autoMsg) {
   if (!autoMsg) { input.value = ""; input.style.height = "auto"; }
 
   const chat = document.getElementById("editor-chat");
-  chat.innerHTML += `<div class="chat-msg"><span class="chat-sender">YOU</span><span class="chat-body">${esc(msg)}</span><button class="chat-copy" onclick="window._copyChat(this)" title="Copy"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>`;
+  chat.innerHTML += `<div class="chat-msg"><span class="chat-sender">YOU<span class="chat-time">${chatTime()}</span></span><span class="chat-body">${esc(msg)}</span><button class="chat-copy" onclick="window._copyChat(this)" title="Copy"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>`;
   chat.innerHTML += `<div class="chat-msg" id="mono-typing"><span class="chat-sender mono">MONO</span><span class="chat-status">working...</span></div>`;
   chat.scrollTop = chat.scrollHeight;
 
@@ -2382,7 +2388,7 @@ async function sendMessage(autoMsg) {
 
     const typing = document.getElementById("mono-typing");
     if (typing) {
-      let html = `<span class="chat-sender mono">MONO</span><span class="chat-body">${esc(data.message)}</span>`;
+      let html = `<span class="chat-sender mono">MONO<span class="chat-time">${chatTime()}</span></span><span class="chat-body">${esc(data.message)}</span>`;
       if (data.files && data.files.length > 0) {
         html += '<div class="chat-files">';
         for (const f of data.files) {
@@ -2605,10 +2611,15 @@ function resetTestBtn() {
   btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg> Test &amp; Fix';
 }
 
+function chatTime() {
+  const d = new Date();
+  return d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0");
+}
+
 function addChatMsg(sender, body) {
   const chat = document.getElementById("editor-chat");
   const cls = sender === "mono" ? "mono" : "";
-  chat.innerHTML += `<div class="chat-msg"><span class="chat-sender ${cls}">${sender.toUpperCase()}</span><span class="chat-body">${esc(body)}</span><button class="chat-copy" onclick="window._copyChat(this)" title="Copy">
+  chat.innerHTML += `<div class="chat-msg"><span class="chat-sender ${cls}">${sender.toUpperCase()}<span class="chat-time">${chatTime()}</span></span><span class="chat-body">${esc(body)}</span><button class="chat-copy" onclick="window._copyChat(this)" title="Copy">
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
   </button></div>`;
   chat.scrollTop = chat.scrollHeight;
