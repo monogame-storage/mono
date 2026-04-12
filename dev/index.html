@@ -2932,7 +2932,9 @@ function stopGame() {
 document.getElementById("gp-expand").addEventListener("click", () => {
   const panel = document.getElementById("gamepad-panel");
   const btn = document.getElementById("gp-expand");
+  const icon = document.querySelector(".gamepad-bar-icon");
   panel.classList.toggle("show");
+  icon.style.visibility = panel.classList.contains("show") ? "hidden" : "visible";
   btn.innerHTML = panel.classList.contains("show")
     ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>'
     : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
