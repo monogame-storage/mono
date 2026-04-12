@@ -507,7 +507,7 @@
     {
       "type": "frame",
       "id": "1d5dC",
-      "x": 1920,
+      "x": 2400,
       "y": 300,
       "name": "Online Editor",
       "clip": true,
@@ -1206,7 +1206,7 @@
     {
       "type": "frame",
       "id": "eUMiZ",
-      "x": 2360,
+      "x": 3750,
       "y": 300,
       "name": "Game Publishing",
       "clip": true,
@@ -1794,7 +1794,7 @@
     {
       "type": "frame",
       "id": "9A5FL",
-      "x": 600,
+      "x": 1500,
       "y": 300,
       "name": "Developer Home",
       "clip": true,
@@ -2383,10 +2383,10 @@
       "type": "text",
       "id": "aUclE",
       "x": 600,
-      "y": 205,
+      "y": 265,
       "name": "sec-dev",
       "fill": "#ffffff",
-      "content": "DEVELOPER",
+      "content": "Developer Flow",
       "fontFamily": "Inter",
       "fontSize": 24,
       "fontWeight": "700",
@@ -2435,10 +2435,10 @@
       "type": "text",
       "id": "5ypfG",
       "x": 600,
-      "y": 265,
+      "y": 280,
       "name": "lbl-d-home",
       "fill": "#888888",
-      "content": "1. HOME",
+      "content": "1. LOGIN",
       "fontFamily": "Inter",
       "fontSize": 11,
       "fontWeight": "700",
@@ -2447,11 +2447,11 @@
     {
       "type": "text",
       "id": "73dIQ",
-      "x": 1040,
-      "y": 265,
+      "x": 1500,
+      "y": 280,
       "name": "lbl-d-mygames",
       "fill": "#888888",
-      "content": "2. MY GAMES",
+      "content": "3. DASHBOARD",
       "fontFamily": "Inter",
       "fontSize": 11,
       "fontWeight": "700",
@@ -2460,12 +2460,11 @@
     {
       "type": "text",
       "id": "OnV2n",
-      "x": 1919.983652674104,
-      "y": 265.0848256508566,
+      "x": 2850,
+      "y": 280,
       "name": "lbl-d-editor",
-      "rotation": 0.14504369118771313,
       "fill": "#888888",
-      "content": "4. EDITOR",
+      "content": "6. MY GAMES",
       "fontFamily": "Inter",
       "fontSize": 11,
       "fontWeight": "700",
@@ -2474,11 +2473,11 @@
     {
       "type": "text",
       "id": "0bVuF",
-      "x": 2360,
-      "y": 265,
+      "x": 3750,
+      "y": 280,
       "name": "lbl-d-publish",
       "fill": "#888888",
-      "content": "5. PUBLISHING",
+      "content": "8. PUBLISHING",
       "fontFamily": "Inter",
       "fontSize": 11,
       "fontWeight": "700",
@@ -3223,7 +3222,7 @@
     {
       "type": "frame",
       "id": "CV3Sa",
-      "x": 1040,
+      "x": 2850,
       "y": 300,
       "name": "My Games",
       "clip": true,
@@ -4742,11 +4741,11 @@
     {
       "type": "text",
       "id": "vhM8c",
-      "x": 1480,
-      "y": 265,
+      "x": 2400,
+      "y": 280,
       "name": "lbl-d-detail",
       "fill": "#888888",
-      "content": "3. GAME DETAIL",
+      "content": "5. EDITOR",
       "fontFamily": "Inter",
       "fontSize": 11,
       "fontWeight": "700",
@@ -4755,11 +4754,11 @@
     {
       "type": "text",
       "id": "Kz1sH",
-      "x": 2800,
-      "y": 265,
+      "x": 4200,
+      "y": 280,
       "name": "lbl-d-settings",
       "fill": "#888888",
-      "content": "6. SETTINGS",
+      "content": "9. SETTINGS",
       "fontFamily": "Inter",
       "fontSize": 11,
       "fontWeight": "700",
@@ -4768,7 +4767,7 @@
     {
       "type": "frame",
       "id": "Qjo8B",
-      "x": 1480,
+      "x": 3300,
       "y": 300,
       "name": "GameDetail",
       "clip": true,
@@ -5428,7 +5427,7 @@
     {
       "type": "frame",
       "id": "BXSOf",
-      "x": 2800,
+      "x": 4200,
       "y": 300,
       "name": "DevSettings",
       "clip": true,
@@ -7320,7 +7319,7 @@
     {
       "type": "frame",
       "id": "CEDf5",
-      "x": 3250,
+      "x": 600,
       "y": 300,
       "name": "Developer Login",
       "clip": true,
@@ -7657,7 +7656,7 @@
     {
       "type": "frame",
       "id": "pLQOI",
-      "x": 3700,
+      "x": 1050,
       "y": 300,
       "name": "Developer Signup",
       "clip": true,
@@ -8015,6 +8014,226 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "rermP",
+      "x": 1950,
+      "y": 300,
+      "name": "New Game",
+      "clip": true,
+      "width": 390,
+      "height": 900,
+      "fill": "#111111",
+      "cornerRadius": 24,
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "8V1uS",
+          "name": "TopBar",
+          "width": "fill_container",
+          "height": 56,
+          "fill": "#000000",
+          "padding": [
+            0,
+            16
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "IYVxO",
+              "fill": "#eeeeee",
+              "content": "← Back",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "500"
+            },
+            {
+              "type": "text",
+              "id": "AgSG9",
+              "fill": "#eeeeee",
+              "content": "Create",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "C8xMU",
+          "name": "FormArea",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "AVEqG",
+              "name": "titleField",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ikdOA",
+                  "fill": "#666666",
+                  "content": "TITLE",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "600",
+                  "letterSpacing": 2
+                },
+                {
+                  "type": "frame",
+                  "id": "mTOEV",
+                  "name": "titleInput",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "#1a1a1a",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#333333"
+                  },
+                  "padding": [
+                    0,
+                    16
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ix57J",
+                      "fill": "#555555",
+                      "content": "My Awesome Game",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "0MN7N",
+              "name": "descField",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "weeuQ",
+                  "fill": "#666666",
+                  "content": "DESCRIPTION",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "fontWeight": "600",
+                  "letterSpacing": 2
+                },
+                {
+                  "type": "frame",
+                  "id": "uwPe5",
+                  "name": "descInput",
+                  "width": "fill_container",
+                  "height": 80,
+                  "fill": "#1a1a1a",
+                  "cornerRadius": 8,
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "#333333"
+                  },
+                  "layout": "vertical",
+                  "padding": [
+                    12,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "e8PFj",
+                      "fill": "#555555",
+                      "content": "A short description of your game",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "7Zyjf",
+              "name": "createBtn",
+              "width": "fill_container",
+              "height": 56,
+              "fill": "#eeeeee",
+              "cornerRadius": 12,
+              "gap": 8,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "R7F1X",
+                  "fill": "#111111",
+                  "content": "+ Create Game",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "600"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "0ADFg",
+      "x": 1050,
+      "y": 280,
+      "name": "lbl-d-signup",
+      "fill": "#555555",
+      "content": "2. SIGNUP",
+      "fontFamily": "Inter",
+      "fontSize": 11,
+      "fontWeight": "600",
+      "letterSpacing": 1
+    },
+    {
+      "type": "text",
+      "id": "VFgMZ",
+      "x": 1950,
+      "y": 280,
+      "name": "lbl-d-newgame",
+      "fill": "#555555",
+      "content": "4. NEW GAME",
+      "fontFamily": "Inter",
+      "fontSize": 11,
+      "fontWeight": "600",
+      "letterSpacing": 1
+    },
+    {
+      "type": "text",
+      "id": "regKg",
+      "x": 3300,
+      "y": 280,
+      "name": "lbl-d-gamedetail",
+      "fill": "#555555",
+      "content": "7. GAME DETAIL",
+      "fontFamily": "Inter",
+      "fontSize": 11,
+      "fontWeight": "600",
+      "letterSpacing": 1
     }
   ]
 }
