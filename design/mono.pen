@@ -645,7 +645,7 @@
           "id": "my1u7",
           "name": "GamePreview",
           "width": "fill_container",
-          "height": 180,
+          "height": 160,
           "fill": "#000000",
           "padding": [
             10,
@@ -658,8 +658,8 @@
               "type": "frame",
               "id": "jSoND",
               "name": "screen",
-              "width": 178,
-              "height": 160,
+              "width": 180,
+              "height": 135,
               "fill": "#1a1a1a",
               "cornerRadius": 4
             }
@@ -1587,7 +1587,7 @@
                       "id": "2kDX7",
                       "name": "ck2t",
                       "fill": "#bbbbbb",
-                      "content": "Thumbnail 160x144 PNG",
+                      "content": "Thumbnail 160x120 PNG",
                       "fontFamily": "Inter",
                       "fontSize": 11,
                       "fontWeight": "normal"
@@ -2552,7 +2552,7 @@
                   "id": "hAA53",
                   "name": "gpAbSearch",
                   "width": 20,
-                  "height": 20,
+                  "height": 240,
                   "iconFontName": "search",
                   "iconFontFamily": "lucide",
                   "fill": "#cccccc"
@@ -2585,7 +2585,7 @@
               "id": "CbYF6",
               "name": "gpPvInner",
               "width": 320,
-              "height": 288,
+              "height": 240,
               "layout": "none",
               "children": [
                 {
@@ -2595,7 +2595,7 @@
                   "y": 0,
                   "name": "gpPvCanvas",
                   "width": 320,
-                  "height": 288,
+                  "height": 240,
                   "fill": "#1a1a1a",
                   "cornerRadius": 4
                 },
@@ -2603,7 +2603,7 @@
                   "type": "frame",
                   "id": "kNMX2",
                   "x": 128,
-                  "y": 112,
+                  "y": 88,
                   "name": "gpPvBtn",
                   "width": 64,
                   "height": 64,
@@ -2768,7 +2768,7 @@
               "id": "F1gSl",
               "name": "gpyBack",
               "width": 20,
-              "height": 20,
+              "height": 240,
               "iconFontName": "x",
               "iconFontFamily": "lucide",
               "fill": "#cccccc"
@@ -2800,7 +2800,7 @@
               "id": "4sZD5",
               "name": "gpyCanvas",
               "width": 320,
-              "height": 288,
+              "height": 240,
               "fill": "#1a1a1a",
               "cornerRadius": 4,
               "stroke": {
