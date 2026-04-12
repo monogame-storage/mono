@@ -1113,10 +1113,18 @@ end
     }
 
     // Game loop (async setTimeout chain for scene loading support)
-    function stopWithError(msg) { showError(msg); clearTimeout(_loopId); _loopId = null; }
+    function stopWithError(msg) { showError(msg); cancelAnimationFrame(_loopId); _loopId = null; }
     API._showError = (msg) => { stopWithError(msg); };
 
+    let accumulator = 0;
+    let lastTimestamp = performance.now();
+
     async function tick() {
+      const now = performance.now();
+      const dt = now - lastTimestamp;
+      lastTimestamp = now;
+      accumulator += dt;
+
       // Process pending scene transition
       if (scenePending) {
         const name = scenePending;
@@ -1124,10 +1132,20 @@ end
         await activateScene(name);
       }
 
-      if (!paused) {
-        const uf = sceneObj ? sceneObj.update : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_update" : "_update");
-        if (uf) try { uf(); } catch (e) { stopWithError((currentScene || "") + " update: " + (e.message || e)); return; }
+      // Fixed timestep update (30fps logic)
+      let updated = false;
+      while (accumulator >= FRAME_MS) {
+        accumulator -= FRAME_MS;
+        if (!paused) {
+          const uf = sceneObj ? sceneObj.update : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_update" : "_update");
+          if (uf) try { uf(); } catch (e) { stopWithError((currentScene || "") + " update: " + (e.message || e)); return; }
+        }
+        frame++;
+        inputUpdate();
+        updated = true;
       }
+
+      // Render every frame (uncapped)
       // Apply camera shake (save/restore so cam_get() stays clean)
       if (shakeAmount > 0.5) {
         shakeX = Math.floor((Math.random() - 0.5) * shakeAmount * 2);
@@ -1156,17 +1174,15 @@ end
         }
         camX = savedCamX; camY = savedCamY;
       }
-      frame++;
       flushFn();
-      inputUpdate();
-      _loopId = setTimeout(tick, FRAME_MS);
+      _loopId = requestAnimationFrame(tick);
     }
     _tickFn = tick;
-    _loopId = setTimeout(tick, FRAME_MS);
+    _loopId = requestAnimationFrame(tick);
   };
 
   API.suspend = () => {
-    if (_loopId) { clearTimeout(_loopId); _loopId = null; }
+    if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     sfxStop();
   };
 
@@ -1175,7 +1191,7 @@ end
   };
 
   API.stop = () => {
-    if (_loopId) { clearTimeout(_loopId); _loopId = null; }
+    if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     _tickFn = null;
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;

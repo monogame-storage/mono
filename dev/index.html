@@ -446,12 +446,12 @@
   }
   .console-stat {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
-    color: #333;
+    font-size: 10px;
+    color: #444;
     text-align: right;
-    line-height: 1.3;
+    line-height: 1.4;
   }
-  .console-stat .val { color: #666; }
+  .console-stat .val { color: #666; font-size: 11px; }
   .console-stat.active .val { color: #6c6; }
   .console-bezel {
     width: 220px;
@@ -2741,30 +2741,50 @@ let statsInterval = null;
 let lastFrame = 0;
 let lastTime = 0;
 
+let renderFrameCount = 0;
+
 function startStatsLoop() {
   lastFrame = 0;
+  renderFrameCount = 0;
   lastTime = performance.now();
   document.querySelectorAll(".console-stat").forEach(s => s.classList.add("active"));
+
+  // Count render frames via rAF
+  let countingRaf = true;
+  function countFrame() {
+    if (!countingRaf) return;
+    renderFrameCount++;
+    requestAnimationFrame(countFrame);
+  }
+  requestAnimationFrame(countFrame);
+
   statsInterval = setInterval(() => {
     try {
-      const frame = Mono._getFrame?.() || 0;
       const now = performance.now();
       const dt = (now - lastTime) / 1000;
-      const fps = dt > 0 ? Math.round((frame - lastFrame) / dt) : 0;
-      lastFrame = frame;
+      const fps = dt > 0 ? Math.round(renderFrameCount / dt) : 0;
+      renderFrameCount = 0;
       lastTime = now;
       document.getElementById("stat-fps").textContent = fps;
+      const frame = Mono._getFrame?.() || 0;
       document.getElementById("stat-frame").textContent = frame;
       const scene = Mono._internal?.sceneName;
       document.getElementById("stat-scene").textContent = scene || "--";
       const mem = performance.memory?.usedJSHeapSize;
       document.getElementById("stat-mem").textContent = mem ? (mem / 1048576).toFixed(1) + "M" : "--";
     } catch {}
-  }, 500);
+  }, 1000);
+
+  // Store ref to stop counting
+  statsInterval._stopCounting = () => { countingRaf = false; };
 }
 
 function stopStatsLoop() {
-  if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
+  if (statsInterval) {
+    statsInterval._stopCounting?.();
+    clearInterval(statsInterval);
+    statsInterval = null;
+  }
   document.querySelectorAll(".console-stat").forEach(s => s.classList.remove("active"));
   document.getElementById("stat-fps").textContent = "--";
 }
