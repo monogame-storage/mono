@@ -5,127 +5,563 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mono — Developer</title>
 <link rel="icon" href="/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #1a1a1a;
-    color: #e8e8e8;
-    font-family: monospace;
+    background: #111;
+    color: #eee;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 40px 20px;
+    justify-content: center;
   }
-  h1 { font-size: 18px; margin-bottom: 8px; }
-  .subtitle { font-size: 12px; color: #666; margin-bottom: 32px; }
-  nav {
+
+  /* ── Layout ── */
+  .app {
     width: 100%;
-    max-width: 360px;
+    max-width: 390px;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
   }
-  nav a {
-    color: #e8e8e8;
-    text-decoration: none;
-    padding: 14px 16px;
+
+  .view { display: none; flex-direction: column; flex: 1; }
+  .view.active { display: flex; }
+
+  /* ── Auth views (login / signup) ── */
+  .auth-view {
+    justify-content: center;
+    padding: 0 24px;
+    gap: 0;
+  }
+  .auth-logo {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .auth-logo h1 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: 4px;
+  }
+  .auth-logo p {
     font-size: 14px;
-    border-bottom: 1px solid #333;
+    color: #666;
+    letter-spacing: 2px;
+    margin-top: 8px;
+  }
+
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .auth-form label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #666;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .auth-form input {
+    width: 100%;
+    height: 48px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #eee;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    padding: 0 16px;
+    outline: none;
+  }
+  .auth-form input:focus { border-color: #666; }
+  .auth-form input::placeholder { color: #555; }
+
+  .btn-primary {
+    width: 100%;
+    height: 48px;
+    background: #eee;
+    color: #111;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .btn-primary:hover { background: #fff; }
+  .btn-primary:disabled { background: #555; color: #888; cursor: not-allowed; }
+
+  .auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .auth-divider hr {
+    flex: 1;
+    border: none;
+    border-top: 1px solid #333;
+  }
+  .auth-divider span {
+    font-size: 10px;
+    font-weight: 600;
+    color: #666;
+    letter-spacing: 2px;
+  }
+
+  .btn-social {
+    width: 100%;
+    height: 48px;
+    background: transparent;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #eee;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .btn-social:hover { border-color: #555; }
+  .btn-social + .btn-social { margin-top: 12px; }
+  .btn-social .icon { font-weight: 700; font-size: 16px; }
+  .btn-social svg { width: 18px; height: 18px; fill: #eee; }
+
+  .auth-footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 12px;
+    color: #666;
+  }
+  .auth-footer a {
+    color: #eee;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .auth-footer a:hover { text-decoration: underline; }
+
+  .auth-error {
+    background: #331111;
+    border: 1px solid #662222;
+    border-radius: 8px;
+    color: #ff6666;
+    font-size: 12px;
+    padding: 10px 16px;
+    display: none;
+  }
+  .auth-error.show { display: block; }
+
+  /* ── Dashboard view ── */
+  .dash-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    height: 56px;
+    background: #000;
+  }
+  .dash-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dash-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 16px;
+    background: #555;
+  }
+  .dash-name { font-size: 13px; font-weight: 700; }
+  .dash-role { font-size: 9px; color: #666; }
+  .dash-settings {
+    background: none;
+    border: none;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 20px;
+  }
+
+  .dash-content {
+    flex: 1;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .dash-stats {
+    display: flex;
+    gap: 8px;
+  }
+  .dash-stat {
+    flex: 1;
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .dash-stat-value { font-size: 24px; font-weight: 800; }
+  .dash-stat-label { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+  .dash-cta {
+    width: 100%;
+    height: 56px;
+    background: #eee;
+    color: #111;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .dash-cta:hover { background: #fff; }
+
+  .dash-section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  nav a:first-child { border-top: 1px solid #333; }
-  nav a:hover { background: #2a2a2a; }
-  nav a .desc {
-    font-size: 11px;
+  .dash-section-title {
+    font-size: 10px;
+    font-weight: 600;
     color: #666;
-    text-align: right;
-    max-width: 160px;
-  }
-  .section-label {
-    font-size: 11px;
-    color: #555;
-    padding: 20px 16px 6px;
+    letter-spacing: 2px;
     text-transform: uppercase;
-    letter-spacing: 1px;
   }
-  .back {
-    margin-top: 32px;
-    font-size: 12px;
+
+  .dash-games { display: flex; flex-direction: column; gap: 8px; }
+  .dash-game {
+    display: flex;
+    align-items: center;
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 12px 16px;
+    cursor: pointer;
+    gap: 12px;
+  }
+  .dash-game:hover { background: #222; }
+  .dash-game-thumb {
+    width: 40px;
+    height: 30px;
+    background: #333;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .dash-game-info { flex: 1; }
+  .dash-game-title { font-size: 14px; font-weight: 600; }
+  .dash-game-meta { font-size: 11px; color: #666; margin-top: 2px; }
+  .dash-game-arrow { color: #555; font-size: 14px; }
+
+  .dash-empty {
+    text-align: center;
+    padding: 40px 20px;
     color: #555;
-    text-decoration: none;
+    font-size: 13px;
   }
-  .back:hover { color: #999; }
-  .spec {
-    margin-top: 32px;
-    width: 100%;
-    max-width: 360px;
-    border: 1px solid #333;
-    border-radius: 6px;
-    padding: 16px;
-    font-size: 12px;
-    color: #888;
-    line-height: 1.6;
+
+  .dash-bottomnav {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: 56px;
+    border-top: 1px solid #222;
+    background: #111;
   }
-  .spec dt { color: #aaa; display: inline; }
-  .spec dd { display: inline; margin: 0; }
-  .spec dd::after { content: ""; display: block; }
+  .dash-bottomnav button {
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .dash-bottomnav button.active { color: #eee; }
+  .dash-bottomnav button svg { width: 20px; height: 20px; }
+
+  /* ── Responsive ── */
+  @media (min-width: 768px) {
+    .app { max-width: 480px; }
+  }
+  @media (min-width: 1024px) {
+    .app {
+      max-width: 900px;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .auth-view { max-width: 420px; margin: 0 auto; }
+    .dash-content { padding: 24px; }
+  }
 </style>
 </head>
 <body>
-  <h1>Mono Developer</h1>
-  <p class="subtitle">160x120 grayscale fantasy console</p>
 
-  <nav>
-    <div class="section-label">Tools</div>
-    <a href="/editor/">
-      Editor
-      <span class="desc">Code, run, debug</span>
-    </a>
-    <a href="/playground/">
-      Playground
-      <span class="desc">Quick prototyping</span>
-    </a>
+<div class="app">
 
-    <div class="section-label">Reference</div>
-    <a href="/docs/DEV.md">
-      API Docs
-      <span class="desc">Full API reference</span>
-    </a>
-    <a href="/docs/AI-PITFALLS.md">
-      AI Pitfalls
-      <span class="desc">Common mistakes</span>
-    </a>
-
-    <div class="section-label">Examples</div>
-    <a href="/demo/">
-      Demo Games
-      <span class="desc">Playable demos</span>
-    </a>
-    <a href="https://github.com/ssk-play/mono">
-      GitHub
-      <span class="desc">Source code</span>
-    </a>
-    <a href="https://github.com/ssk-play/mono/issues">
-      Issues
-      <span class="desc">Bugs &amp; features</span>
-    </a>
-    <a href="https://github.com/ssk-play/mono/pulls">
-      Pull Requests
-      <span class="desc">Code review</span>
-    </a>
-  </nav>
-
-  <div class="spec">
-    <dl>
-      <dt>Resolution:</dt> <dd>160 x 120</dd>
-      <dt>Colors:</dt> <dd>Grayscale (2/4/16)</dd>
-      <dt>FPS:</dt> <dd>30</dd>
-      <dt>Language:</dt> <dd>Lua 5.4</dd>
-      <dt>Input:</dt> <dd>D-pad + A/B/Start + Touch</dd>
-    </dl>
+  <!-- ── Login View ── -->
+  <div id="view-login" class="view auth-view">
+    <div class="auth-logo">
+      <h1>MONO</h1>
+      <p>Developer</p>
+    </div>
+    <div class="auth-form">
+      <div id="login-error" class="auth-error"></div>
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+      <button class="btn-primary" id="btn-login">Sign In</button>
+    </div>
+    <div class="auth-divider"><hr><span>OR</span><hr></div>
+    <button class="btn-social" id="btn-google-login">
+      <span class="icon">G</span> Continue with Google
+    </button>
+    <button class="btn-social" id="btn-apple-login">
+      <svg viewBox="0 0 24 24"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.51-3.23 0-1.44.64-2.2.45-3.06-.4C3.79 16.17 4.36 9.53 8.7 9.28c1.25.07 2.12.72 2.86.76.99-.2 1.94-.78 3-.72 1.27.1 2.22.58 2.84 1.5-2.6 1.56-1.98 4.97.37 5.93-.47 1.24-.87 2.47-1.72 3.53ZM12.03 9.2C11.88 7.16 13.5 5.5 15.4 5.35c.27 2.33-2.1 4.07-3.37 3.85Z"/></svg>
+      Continue with Apple
+    </button>
+    <div class="auth-footer">
+      Don't have an account? <a href="#" id="link-signup">Sign Up</a>
+    </div>
   </div>
 
-  <a class="back" href="/">&larr; home</a>
+  <!-- ── Signup View ── -->
+  <div id="view-signup" class="view auth-view">
+    <div class="auth-logo">
+      <h1>MONO</h1>
+      <p>Create Account</p>
+    </div>
+    <div class="auth-form">
+      <div id="signup-error" class="auth-error"></div>
+      <label>Name</label>
+      <input type="text" id="signup-name" placeholder="Your name" autocomplete="name">
+      <label>Email</label>
+      <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email">
+      <label>Password</label>
+      <input type="password" id="signup-password" placeholder="••••••••" autocomplete="new-password">
+      <button class="btn-primary" id="btn-signup">Create Account</button>
+    </div>
+    <div class="auth-divider"><hr><span>OR</span><hr></div>
+    <button class="btn-social" id="btn-google-signup">
+      <span class="icon">G</span> Continue with Google
+    </button>
+    <button class="btn-social" id="btn-apple-signup">
+      <svg viewBox="0 0 24 24"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.51-3.23 0-1.44.64-2.2.45-3.06-.4C3.79 16.17 4.36 9.53 8.7 9.28c1.25.07 2.12.72 2.86.76.99-.2 1.94-.78 3-.72 1.27.1 2.22.58 2.84 1.5-2.6 1.56-1.98 4.97.37 5.93-.47 1.24-.87 2.47-1.72 3.53ZM12.03 9.2C11.88 7.16 13.5 5.5 15.4 5.35c.27 2.33-2.1 4.07-3.37 3.85Z"/></svg>
+      Continue with Apple
+    </button>
+    <div class="auth-footer">
+      Already have an account? <a href="#" id="link-login">Sign In</a>
+    </div>
+  </div>
+
+  <!-- ── Dashboard View ── -->
+  <div id="view-dashboard" class="view">
+    <div class="dash-topbar">
+      <div class="dash-topbar-left">
+        <div class="dash-avatar" id="dash-avatar"></div>
+        <div>
+          <div class="dash-name" id="dash-name"></div>
+          <div class="dash-role">developer</div>
+        </div>
+      </div>
+      <button class="dash-settings" id="btn-settings">⚙</button>
+    </div>
+    <div class="dash-content">
+      <div class="dash-stats">
+        <div class="dash-stat">
+          <div class="dash-stat-value" id="stat-games">0</div>
+          <div class="dash-stat-label">Games</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-value" id="stat-plays">0</div>
+          <div class="dash-stat-label">Plays</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-value" id="stat-followers">0</div>
+          <div class="dash-stat-label">Followers</div>
+        </div>
+      </div>
+      <button class="dash-cta" id="btn-new-game">+ New Game</button>
+      <div class="dash-section-header">
+        <span class="dash-section-title">My Games</span>
+      </div>
+      <div class="dash-games" id="dash-games">
+        <div class="dash-empty">No games yet. Create your first game!</div>
+      </div>
+    </div>
+    <nav class="dash-bottomnav">
+      <button class="active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        Home
+      </button>
+      <button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Games
+      </button>
+      <button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+        Stats
+      </button>
+      <button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Profile
+      </button>
+    </nav>
+  </div>
+
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
+  OAuthProvider,
+  signOut
+} from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyAyTiJx_JkVdQoh8b5bDo-ttvp175vy8PM",
+  authDomain: "mono-5b951.firebaseapp.com",
+  projectId: "mono-5b951",
+  storageBucket: "mono-5b951.firebasestorage.app",
+  messagingSenderId: "850069827366",
+  appId: "1:850069827366:web:a196c04bbf4c93bd061be7",
+  measurementId: "G-DD02EX6MWC"
+});
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+const appleProvider = new OAuthProvider("apple.com");
+
+// ── Views ──
+const views = {
+  login: document.getElementById("view-login"),
+  signup: document.getElementById("view-signup"),
+  dashboard: document.getElementById("view-dashboard"),
+};
+
+function showView(name) {
+  Object.values(views).forEach(v => v.classList.remove("active"));
+  views[name].classList.add("active");
+}
+
+// ── Auth state ──
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    renderDashboard(user);
+    showView("dashboard");
+  } else {
+    showView("login");
+  }
+});
+
+function renderDashboard(user) {
+  document.getElementById("dash-name").textContent = user.displayName || user.email;
+  const avatar = document.getElementById("dash-avatar");
+  if (user.photoURL) {
+    avatar.style.backgroundImage = `url(${user.photoURL})`;
+    avatar.style.backgroundSize = "cover";
+  }
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add("show");
+}
+function clearError(id) {
+  const el = document.getElementById(id);
+  el.textContent = "";
+  el.classList.remove("show");
+}
+
+// ── Email/Password Login ──
+document.getElementById("btn-login").addEventListener("click", async () => {
+  clearError("login-error");
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  if (!email || !password) return showError("login-error", "Enter email and password.");
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (e) {
+    showError("login-error", firebaseErrorMessage(e.code));
+  }
+});
+
+// ── Email/Password Signup ──
+document.getElementById("btn-signup").addEventListener("click", async () => {
+  clearError("signup-error");
+  const name = document.getElementById("signup-name").value.trim();
+  const email = document.getElementById("signup-email").value.trim();
+  const password = document.getElementById("signup-password").value;
+  if (!name || !email || !password) return showError("signup-error", "Fill in all fields.");
+  if (password.length < 6) return showError("signup-error", "Password must be at least 6 characters.");
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(cred.user, { displayName: name });
+  } catch (e) {
+    showError("signup-error", firebaseErrorMessage(e.code));
+  }
+});
+
+// ── Social Login ──
+async function socialLogin(provider) {
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (e) {
+    if (e.code !== "auth/popup-closed-by-user") {
+      showError("login-error", firebaseErrorMessage(e.code));
+    }
+  }
+}
+document.getElementById("btn-google-login").addEventListener("click", () => socialLogin(googleProvider));
+document.getElementById("btn-apple-login").addEventListener("click", () => socialLogin(appleProvider));
+document.getElementById("btn-google-signup").addEventListener("click", () => socialLogin(googleProvider));
+document.getElementById("btn-apple-signup").addEventListener("click", () => socialLogin(appleProvider));
+
+// ── Navigation ──
+document.getElementById("link-signup").addEventListener("click", (e) => { e.preventDefault(); clearError("login-error"); showView("signup"); });
+document.getElementById("link-login").addEventListener("click", (e) => { e.preventDefault(); clearError("signup-error"); showView("login"); });
+
+// ── Settings (sign out) ──
+document.getElementById("btn-settings").addEventListener("click", () => {
+  if (confirm("Sign out?")) signOut(auth);
+});
+
+// ── Error messages ──
+function firebaseErrorMessage(code) {
+  const messages = {
+    "auth/invalid-email": "Invalid email address.",
+    "auth/user-disabled": "This account has been disabled.",
+    "auth/user-not-found": "No account with this email.",
+    "auth/wrong-password": "Incorrect password.",
+    "auth/invalid-credential": "Invalid email or password.",
+    "auth/email-already-in-use": "This email is already registered.",
+    "auth/weak-password": "Password must be at least 6 characters.",
+    "auth/too-many-requests": "Too many attempts. Try again later.",
+  };
+  return messages[code] || "Something went wrong. Please try again.";
+}
+</script>
 </body>
 </html>
