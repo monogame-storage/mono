@@ -421,6 +421,19 @@
     align-items: center;
     justify-content: center;
   }
+  .editor-scale-select {
+    background: #333;
+    border: none;
+    border-radius: 16px;
+    color: #eee;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    padding: 6px 10px;
+    outline: none;
+    cursor: pointer;
+    height: 32px;
+  }
+  .editor-scale-select option { background: #1a1a1a; }
   .editor-icon-btn:hover { background: #444; }
   .editor-icon-btn svg { width: 14px; height: 14px; }
 
@@ -454,7 +467,7 @@
   .console-stat .val { color: #666; font-size: 11px; }
   .console-stat.active .val { color: #6c6; }
   .console-bezel {
-    width: 220px;
+    width: 348px;
     background: #1a1a1a;
     border-radius: 12px;
     padding: 8px 8px 12px;
@@ -473,8 +486,8 @@
     justify-content: center;
   }
   #editor-screen {
-    width: 192px;
-    height: 144px;
+    width: 320px;
+    height: 240px;
     background: #111;
     border-radius: 3px;
     image-rendering: pixelated;
@@ -1328,6 +1341,12 @@
         <button class="editor-icon-btn" id="btn-run" title="Run">
           <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
         </button>
+        <select class="editor-scale-select" id="editor-scale">
+          <option value="1">1x</option>
+          <option value="2" selected>2x</option>
+          <option value="3">3x</option>
+          <option value="fit">Fit</option>
+        </select>
         <button class="editor-icon-btn" id="btn-save" title="Save">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>
         </button>
@@ -2734,6 +2753,27 @@ function stopGame() {
   if (window._origConsoleError) {
     console.error = window._origConsoleError;
     window._origConsoleError = null;
+  }
+}
+
+// ── Screen Scale ──
+document.getElementById("editor-scale").addEventListener("change", applyScale);
+function applyScale() {
+  const val = document.getElementById("editor-scale").value;
+  const canvas = document.getElementById("editor-screen");
+  const bezel = document.querySelector(".console-bezel");
+  const screenFrame = document.querySelector(".screen-frame");
+  if (val === "fit") {
+    const maxW = document.querySelector(".editor-preview").clientWidth - 80;
+    const scale = Math.floor(maxW / 160) || 1;
+    canvas.style.width = (160 * scale) + "px";
+    canvas.style.height = (120 * scale) + "px";
+    bezel.style.width = (160 * scale + 28) + "px";
+  } else {
+    const s = parseInt(val);
+    canvas.style.width = (160 * s) + "px";
+    canvas.style.height = (120 * s) + "px";
+    bezel.style.width = (160 * s + 28) + "px";
   }
 }
 
