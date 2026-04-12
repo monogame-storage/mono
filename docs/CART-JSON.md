@@ -25,6 +25,7 @@ cart/
 ```json
 {
   "mono": 1,
+  "engine": "0.4",
   "title": "Pong",
   "description": "Classic paddle game",
   "required": ["dpad"]
@@ -38,6 +39,7 @@ cart/
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | `mono` | number | Y | 매니페스트 포맷 버전. 현재 `1`. |
+| `engine` | string | N | 엔진 버전 (`"major.minor"`). 없으면 `"0.3"` 폴백. |
 | `title` | string | Y | 게임 타이틀. 스토어, 타이틀바 등에 표시. |
 | `description` | string | N | 한 줄 소개. |
 | `required` | string[] | N | 게임에 필수인 입력 장치 목록. |
@@ -67,10 +69,11 @@ Android의 `<uses-feature android:required="true">`와 같은 개념.
 
 ## 레거시 폴백
 
-`cart.json`이 없는 게임:
+`cart.json`이 없거나 `engine` 필드가 없는 게임:
 
 | 항목 | 기본값 |
 |------|--------|
+| 엔진 | `"0.3"` |
 | 해상도 | 160×144 |
 | 필수 입력 | 없음 (모든 환경에서 실행 시도) |
 | 타이틀 | 디렉토리 이름 |
