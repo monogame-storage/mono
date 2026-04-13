@@ -2944,28 +2944,110 @@ document.getElementById("gp-expand").addEventListener("click", () => {
     : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
 });
 
-// Wire gamepad buttons to engine input
+// Wire D-pad (analog + diagonal support, adapted from console-gamepad.js)
+(function setupDpad() {
+  const dpad = document.getElementById("gp-dpad");
+  if (!dpad) return;
+  const DEADZONE_PX = 6;
+  let anchor = null, cellHalf = 0, dragRange = 0;
+  let activeKeys = new Set();
+  let dpadTouchId = null;
+  let mouseDown = false;
+
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  function updateFromDelta(dx, dy) {
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    let ax = 0, ay = 0;
+    if (dist > DEADZONE_PX) {
+      ax = clamp(dx / dragRange, -1, 1);
+      ay = clamp(dy / dragRange, -1, 1);
+    }
+    if (typeof Mono !== "undefined" && Mono.setAxis) Mono.setAxis(ax, ay);
+
+    const newKeys = new Set();
+    if (dist > DEADZONE_PX) {
+      if (dy < -cellHalf) newKeys.add("up");
+      if (dy >  cellHalf) newKeys.add("down");
+      if (dx < -cellHalf) newKeys.add("left");
+      if (dx >  cellHalf) newKeys.add("right");
+    }
+
+    for (const key of activeKeys) {
+      if (!newKeys.has(key) && typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, false);
+    }
+    for (const key of newKeys) {
+      if (!activeKeys.has(key) && typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, true);
+    }
+    activeKeys = newKeys;
+  }
+
+  function releaseAll() {
+    for (const key of activeKeys) {
+      if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, false);
+    }
+    activeKeys = new Set();
+    anchor = null;
+    if (typeof Mono !== "undefined" && Mono.clearAxis) Mono.clearAxis();
+  }
+
+  function startInput(clientX, clientY) {
+    const rect = dpad.getBoundingClientRect();
+    anchor = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    cellHalf = rect.width / 6;
+    dragRange = rect.width / 3;
+    updateFromDelta(clientX - anchor.x, clientY - anchor.y);
+  }
+
+  dpad.style.touchAction = "none";
+  dpad.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    dpadTouchId = t.identifier;
+    startInput(t.clientX, t.clientY);
+  }, {passive: false});
+  document.addEventListener("touchmove", (e) => {
+    if (dpadTouchId == null || !anchor) return;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === dpadTouchId) {
+        updateFromDelta(e.touches[i].clientX - anchor.x, e.touches[i].clientY - anchor.y);
+        return;
+      }
+    }
+  }, {passive: false});
+  document.addEventListener("touchend", (e) => {
+    if (dpadTouchId == null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === dpadTouchId) { dpadTouchId = null; releaseAll(); return; }
+    }
+  });
+  document.addEventListener("touchcancel", (e) => {
+    if (dpadTouchId == null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === dpadTouchId) { dpadTouchId = null; releaseAll(); return; }
+    }
+  });
+  dpad.addEventListener("mousedown", (e) => { e.preventDefault(); mouseDown = true; startInput(e.clientX, e.clientY); });
+  document.addEventListener("mousemove", (e) => { if (mouseDown && anchor) updateFromDelta(e.clientX - anchor.x, e.clientY - anchor.y); });
+  document.addEventListener("mouseup", () => { if (mouseDown) { mouseDown = false; releaseAll(); } });
+})();
+
+// Wire A/B/SELECT/START buttons
 document.querySelectorAll("[data-key]").forEach(btn => {
+  if (btn.closest(".gamepad-dpad")) return; // skip dpad zones
   const key = btn.dataset.key;
   btn.style.touchAction = "none";
   btn.style.userSelect = "none";
-  btn.style.webkitUserSelect = "none";
 
-  function keyDown(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    btn.setPointerCapture(e.pointerId); // keep tracking even if finger moves
-    if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, true);
-  }
-  function keyUp(e) {
-    if (e) e.preventDefault();
-    if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, false);
-  }
+  function down(e) { e.preventDefault(); if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, true); btn.classList.add("pressed"); }
+  function up(e) { if (e) e.preventDefault(); if (typeof Mono !== "undefined" && Mono.setKey) Mono.setKey(key, false); btn.classList.remove("pressed"); }
 
-  btn.addEventListener("pointerdown", keyDown);
-  btn.addEventListener("pointerup", keyUp);
-  btn.addEventListener("pointercancel", keyUp);
-  btn.addEventListener("lostpointercapture", keyUp);
+  btn.addEventListener("mousedown", down);
+  btn.addEventListener("mouseup", up);
+  btn.addEventListener("mouseleave", up);
+  btn.addEventListener("touchstart", down, {passive: false});
+  btn.addEventListener("touchend", up, {passive: false});
+  btn.addEventListener("touchcancel", up);
 });
 
 // ── Screen Scale ──
