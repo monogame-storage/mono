@@ -8,7 +8,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;background:#1a1a1a;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
   display:flex;align-items:center;justify-content:center}
-#console{display:flex;flex-direction:column;align-items:center}
+#console{display:flex;flex-direction:column;align-items:center;width:100%;height:100%}
 #frame{
   background:#111;
   border:3px solid #333;
@@ -64,15 +64,20 @@ html,body{width:100%;height:100%;background:#1a1a1a;overflow:hidden;touch-action
 function fitScreen(){
   var c=document.getElementById('screen');
   var gp=document.getElementById('gamepad');
-  var gpH=Math.floor(window.innerWidth*0.62);
-  gp.style.height=gpH+'px';
   var fr=document.getElementById('frame');
-  var pad=fr.offsetWidth-fr.clientWidth+parseInt(getComputedStyle(fr).paddingLeft)*2;
-  var availW=window.innerWidth-pad*2;
-  var availH=window.innerHeight-gpH-pad*2;
-  var s=Math.max(1,Math.floor(Math.min(availW/160, availH/120)));
-  c.style.width=(160*s)+'px';
-  c.style.height=(120*s)+'px';
+  // Gamepad takes ~55% of viewport width as height
+  var gpH=Math.floor(window.innerWidth*0.55);
+  gp.style.height=gpH+'px';
+  // Frame padding
+  var cs=getComputedStyle(fr);
+  var padX=(parseInt(cs.paddingLeft)||0)*2+(parseInt(cs.borderLeftWidth)||0)*2;
+  var padY=(parseInt(cs.paddingTop)||0)*2+(parseInt(cs.borderTopWidth)||0)*2;
+  // Available space for canvas (fractional scaling for DPI resilience)
+  var availW=window.innerWidth-padX;
+  var availH=window.innerHeight-gpH-padY;
+  var s=Math.max(1,Math.min(availW/160, availH/144));
+  c.style.width=Math.floor(160*s)+'px';
+  c.style.height=Math.floor(144*s)+'px';
 }
 fitScreen();window.addEventListener('resize',fitScreen);
 Mono.boot('screen',{game:'main.lua',noAutoFit:true,externalInput:true}).then(function(){
