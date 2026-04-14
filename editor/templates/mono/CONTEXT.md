@@ -188,7 +188,6 @@ Dependencies: `npm install wasmoon@1.16.0 pngjs@7`
 ```
 
 **Workflow**: Edit code → run mono-test.js → check vdump → fix → repeat (1-2s per cycle).
-**Do NOT use --png for verification** — use --vdump or gpix() assertions instead.
 
 **Fast-forward testing**: Run thousands of frames in ~1 second to verify game outcomes:
 ```bash
