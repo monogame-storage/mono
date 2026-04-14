@@ -165,6 +165,8 @@ LLM can run and verify Lua code without a browser using `mono-test.js`.
 **Setup**: `.mono/mono-test.js` and shell wrappers (`mono-test`, `mono-test.cmd`) are auto-deployed when you open a folder in the editor.
 Dependencies: `npm install wasmoon@1.16.0 pngjs@7`
 
+**Prefer vdump over PNG** — vdump is text (hex 0-f per pixel), directly readable and verifiable. PNG is for human visual checks only.
+
 **Usage**:
 ```bash
 # Run a game file and dump the VRAM (160×120 hex, 0-f per pixel)
@@ -177,15 +179,16 @@ Dependencies: `npm install wasmoon@1.16.0 pngjs@7`
 ./mono-test --source 'cls(0) pix(80,72,1) print(gpix(80,72))' --console --quiet
 # → prints "1" if correct
 
+# Verify specific region (e.g. check top-left 10x5 area)
+./mono-test main.lua --frames 5 --vdump --region 0,0,10,5
+
 # Save and compare snapshots (regression test)
 ./mono-test main.lua --frames 5 --snapshot expected.txt
 ./mono-test main.lua --frames 5 --diff expected.txt
-
-# Export PNG for visual check
-./mono-test main.lua --frames 5 --png screen.png
 ```
 
-**Workflow**: Edit code → run mono-test.js → check ASCII/PNG → fix → repeat (1-2s per cycle).
+**Workflow**: Edit code → run mono-test.js → check vdump → fix → repeat (1-2s per cycle).
+**Do NOT use --png for verification** — use --vdump or gpix() assertions instead.
 
 **Fast-forward testing**: Run thousands of frames in ~1 second to verify game outcomes:
 ```bash
