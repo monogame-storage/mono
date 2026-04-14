@@ -8,7 +8,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;background:#1a1a1a;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
   display:flex;align-items:center;justify-content:center}
-#console{display:flex;flex-direction:column;align-items:center;width:100%;height:100%}
+#console{display:flex;flex-direction:column;align-items:center;width:100%;height:100%;padding:3vw;gap:2vw}
 #frame{
   background:#111;
   border:3px solid #333;
@@ -65,19 +65,26 @@ function fitScreen(){
   var c=document.getElementById('screen');
   var gp=document.getElementById('gamepad');
   var fr=document.getElementById('frame');
-  // Gamepad takes ~55% of viewport width as height
-  var gpH=Math.floor(window.innerWidth*0.55);
+  var con=document.getElementById('console');
+  var vw=window.innerWidth, vh=window.innerHeight;
+  // Console padding + gap from CSS
+  var conCS=getComputedStyle(con);
+  var conPadX=(parseInt(conCS.paddingLeft)||0)*2;
+  var conPadY=(parseInt(conCS.paddingTop)||0)+(parseInt(conCS.paddingBottom)||0);
+  var conGap=parseInt(conCS.gap)||0;
+  // Gamepad height
+  var gpH=Math.floor(vw*0.62);
   gp.style.height=gpH+'px';
-  // Frame padding
-  var cs=getComputedStyle(fr);
-  var padX=(parseInt(cs.paddingLeft)||0)*2+(parseInt(cs.borderLeftWidth)||0)*2;
-  var padY=(parseInt(cs.paddingTop)||0)*2+(parseInt(cs.borderTopWidth)||0)*2;
-  // Available space for canvas (fractional scaling for DPI resilience)
-  var availW=window.innerWidth-padX;
-  var availH=window.innerHeight-gpH-padY;
-  var s=Math.max(1,Math.min(availW/160, availH/144));
+  // Frame border+padding
+  var frCS=getComputedStyle(fr);
+  var frPadX=(parseInt(frCS.paddingLeft)||0)*2+(parseInt(frCS.borderLeftWidth)||0)*2;
+  var frPadY=(parseInt(frCS.paddingTop)||0)*2+(parseInt(frCS.borderTopWidth)||0)*2;
+  // Available space for canvas
+  var availW=vw-conPadX-frPadX;
+  var availH=vh-conPadY-conGap-gpH-frPadY;
+  var s=Math.max(1,Math.min(availW/160,availH/120));
   c.style.width=Math.floor(160*s)+'px';
-  c.style.height=Math.floor(144*s)+'px';
+  c.style.height=Math.floor(120*s)+'px';
 }
 fitScreen();window.addEventListener('resize',fitScreen);
 Mono.boot('screen',{game:'main.lua',noAutoFit:true,externalInput:true}).then(function(){
