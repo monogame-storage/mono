@@ -67,29 +67,15 @@ html,body{width:100%;height:100%;background:#1a1a1a;overflow:hidden;touch-action
 <script>
 function fitScreen(){
   var c=document.getElementById('screen');
-  var fr=document.getElementById('frame');
   var con=document.getElementById('console');
-  var gp=document.getElementById('gamepad');
-  var vw=window.innerWidth,vh=window.innerHeight;
-  // Console padding
-  var conCS=getComputedStyle(con);
-  var conPadX=(parseInt(conCS.paddingLeft)||0)*2;
-  var conPadY=(parseInt(conCS.paddingTop)||0)+(parseInt(conCS.paddingBottom)||0);
-  // Frame border+padding
+  var fr=document.getElementById('frame');
+  var conPadX=(parseInt(getComputedStyle(con).paddingLeft)||0)*2;
   var frCS=getComputedStyle(fr);
   var frPadX=(parseInt(frCS.paddingLeft)||0)*2+(parseInt(frCS.borderLeftWidth)||0)*2;
-  var frPadY=(parseInt(frCS.paddingTop)||0)*2+(parseInt(frCS.borderTopWidth)||0)*2;
-  // Gamepad natural height
-  var gpH=gp.scrollHeight||Math.floor(vw*0.62);
-  // Spacer weight total = 1+1+2 = 4 parts share remaining space with canvas
-  // Canvas gets ~60% of (viewport - gamepad - padding), spacers get ~40%
-  var freeH=vh-conPadY-gpH-frPadY;
-  var canvasShare=0.6;
-  var availW=vw-conPadX-frPadX;
-  var availH=freeH*canvasShare;
-  var s=Math.max(1,Math.floor(Math.min(availW/160,availH/120)));
-  c.style.width=(160*s)+'px';
-  c.style.height=(120*s)+'px';
+  // Canvas fills available width, height follows 160:120 aspect ratio
+  var w=window.innerWidth-conPadX-frPadX;
+  c.style.width=w+'px';
+  c.style.height=Math.floor(w*120/160)+'px';
 }
 fitScreen();window.addEventListener('resize',fitScreen);
 Mono.boot('screen',{game:'main.lua',noAutoFit:true,externalInput:true}).then(function(){
