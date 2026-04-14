@@ -3177,336 +3177,352 @@
               "name": "MainControls",
               "width": "fill_container",
               "height": "fill_container",
-              "justifyContent": "space_between",
+              "layout": "vertical",
+              "padding": [
+                93,
+                0,
+                185,
+                0
+              ],
               "alignItems": "center",
               "children": [
                 {
                   "type": "frame",
-                  "id": "p2kVy",
-                  "name": "DPad",
-                  "width": 148,
-                  "height": 148,
-                  "layout": "none",
+                  "id": "5XCH6",
+                  "name": "ControlsRow",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
                   "children": [
                     {
                       "type": "frame",
-                      "id": "LsRlj",
-                      "x": 0,
-                      "y": 50,
-                      "name": "gpyDpadH",
+                      "id": "p2kVy",
+                      "name": "DPad",
                       "width": 148,
-                      "height": 48,
-                      "fill": "#2a2a2a",
-                      "cornerRadius": 6
-                    },
-                    {
-                      "type": "frame",
-                      "id": "4OMA2",
-                      "x": 50,
-                      "y": 0,
-                      "name": "gpyDpadV",
-                      "width": 48,
                       "height": 148,
-                      "fill": "#2a2a2a",
-                      "cornerRadius": 6
-                    },
-                    {
-                      "type": "frame",
-                      "id": "UIRWX",
-                      "x": 54,
-                      "y": 54,
-                      "name": "gpyDpadC",
-                      "width": 40,
-                      "height": 40,
-                      "fill": "#1a1a1a",
-                      "cornerRadius": 4
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "n2rNG",
-                  "name": "ABButtons",
-                  "width": 148,
-                  "height": 148,
-                  "layout": "none",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "PVGBS",
-                      "x": 4,
-                      "y": 66,
-                      "name": "gpyB",
-                      "width": 58,
-                      "height": 58,
-                      "fill": "#2a2a2a",
-                      "cornerRadius": 29,
-                      "justifyContent": "center",
-                      "alignItems": "center",
+                      "layout": "none",
                       "children": [
                         {
                           "type": "frame",
-                          "id": "cy7Hy",
+                          "id": "LsRlj",
                           "x": 0,
+                          "y": 50,
+                          "name": "gpyDpadH",
+                          "width": 148,
+                          "height": 48,
+                          "fill": "#2a2a2a",
+                          "cornerRadius": 6
+                        },
+                        {
+                          "type": "frame",
+                          "id": "4OMA2",
+                          "x": 50,
                           "y": 0,
-                          "name": "PxB",
-                          "enabled": false,
-                          "width": 16,
-                          "height": 20,
-                          "layout": "none",
-                          "children": [
-                            {
-                              "type": "frame",
-                              "id": "m5aYd",
-                              "x": 0,
-                              "y": 0,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "cAHuJ",
-                              "x": 4,
-                              "y": 0,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "Y8JnG",
-                              "x": 8,
-                              "y": 0,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "MzXkd",
-                              "x": 0,
-                              "y": 4,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "4JLwE",
-                              "x": 12,
-                              "y": 4,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "SpdCY",
-                              "x": 0,
-                              "y": 8,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "YSKGt",
-                              "x": 4,
-                              "y": 8,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "k7HfE",
-                              "x": 8,
-                              "y": 8,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "RTfSm",
-                              "x": 0,
-                              "y": 12,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "hxZUP",
-                              "x": 12,
-                              "y": 12,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "oXhz8",
-                              "x": 0,
-                              "y": 16,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "SDVJv",
-                              "x": 4,
-                              "y": 16,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "mgnNQ",
-                              "x": 8,
-                              "y": 16,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#cccccc"
-                            }
-                          ]
+                          "name": "gpyDpadV",
+                          "width": 48,
+                          "height": 148,
+                          "fill": "#2a2a2a",
+                          "cornerRadius": 6
+                        },
+                        {
+                          "type": "frame",
+                          "id": "UIRWX",
+                          "x": 54,
+                          "y": 54,
+                          "name": "gpyDpadC",
+                          "width": 40,
+                          "height": 40,
+                          "fill": "#1a1a1a",
+                          "cornerRadius": 4
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "SSc6q",
-                      "x": 82,
-                      "y": 24,
-                      "name": "gpyA",
-                      "width": 62,
-                      "height": 62,
-                      "fill": "#eeeeee",
-                      "cornerRadius": 31,
-                      "justifyContent": "center",
-                      "alignItems": "center",
+                      "id": "n2rNG",
+                      "name": "ABButtons",
+                      "width": 148,
+                      "height": 148,
+                      "layout": "none",
                       "children": [
                         {
                           "type": "frame",
-                          "id": "T6msx",
-                          "x": 0,
-                          "y": 0,
-                          "name": "PxA",
-                          "enabled": false,
-                          "width": 16,
-                          "height": 20,
-                          "layout": "none",
+                          "id": "PVGBS",
+                          "x": 4,
+                          "y": 66,
+                          "name": "gpyB",
+                          "width": 58,
+                          "height": 58,
+                          "fill": "#2a2a2a",
+                          "cornerRadius": 29,
+                          "justifyContent": "center",
+                          "alignItems": "center",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "OjMUP",
-                              "x": 4,
+                              "id": "cy7Hy",
+                              "x": 0,
                               "y": 0,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
+                              "name": "PxB",
+                              "enabled": false,
+                              "width": 16,
+                              "height": 20,
+                              "layout": "none",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "m5aYd",
+                                  "x": 0,
+                                  "y": 0,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "cAHuJ",
+                                  "x": 4,
+                                  "y": 0,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Y8JnG",
+                                  "x": 8,
+                                  "y": 0,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "MzXkd",
+                                  "x": 0,
+                                  "y": 4,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "4JLwE",
+                                  "x": 12,
+                                  "y": 4,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "SpdCY",
+                                  "x": 0,
+                                  "y": 8,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "YSKGt",
+                                  "x": 4,
+                                  "y": 8,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "k7HfE",
+                                  "x": 8,
+                                  "y": 8,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "RTfSm",
+                                  "x": 0,
+                                  "y": 12,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "hxZUP",
+                                  "x": 12,
+                                  "y": 12,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "oXhz8",
+                                  "x": 0,
+                                  "y": 16,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "SDVJv",
+                                  "x": 4,
+                                  "y": 16,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "mgnNQ",
+                                  "x": 8,
+                                  "y": 16,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#cccccc"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "SSc6q",
+                          "x": 82,
+                          "y": 24,
+                          "name": "gpyA",
+                          "width": 62,
+                          "height": 62,
+                          "fill": "#eeeeee",
+                          "cornerRadius": 31,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
                             {
                               "type": "frame",
-                              "id": "DFtoA",
-                              "x": 8,
+                              "id": "T6msx",
+                              "x": 0,
                               "y": 0,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "zT9Ac",
-                              "x": 0,
-                              "y": 4,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "DnB4R",
-                              "x": 12,
-                              "y": 4,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "tPABF",
-                              "x": 0,
-                              "y": 8,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "6u5ye",
-                              "x": 4,
-                              "y": 8,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "iksfk",
-                              "x": 8,
-                              "y": 8,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "nLiDi",
-                              "x": 12,
-                              "y": 8,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "YR0db",
-                              "x": 0,
-                              "y": 12,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "EuGXt",
-                              "x": 12,
-                              "y": 12,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "8qJxb",
-                              "x": 0,
-                              "y": 16,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "Rw87G",
-                              "x": 12,
-                              "y": 16,
-                              "width": 4,
-                              "height": 4,
-                              "fill": "#000000"
+                              "name": "PxA",
+                              "enabled": false,
+                              "width": 16,
+                              "height": 20,
+                              "layout": "none",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "OjMUP",
+                                  "x": 4,
+                                  "y": 0,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "DFtoA",
+                                  "x": 8,
+                                  "y": 0,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "zT9Ac",
+                                  "x": 0,
+                                  "y": 4,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "DnB4R",
+                                  "x": 12,
+                                  "y": 4,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "tPABF",
+                                  "x": 0,
+                                  "y": 8,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "6u5ye",
+                                  "x": 4,
+                                  "y": 8,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "iksfk",
+                                  "x": 8,
+                                  "y": 8,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "nLiDi",
+                                  "x": 12,
+                                  "y": 8,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "YR0db",
+                                  "x": 0,
+                                  "y": 12,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "EuGXt",
+                                  "x": 12,
+                                  "y": 12,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "8qJxb",
+                                  "x": 0,
+                                  "y": 16,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Rw87G",
+                                  "x": 12,
+                                  "y": 16,
+                                  "width": 4,
+                                  "height": 4,
+                                  "fill": "#000000"
+                                }
+                              ]
                             }
                           ]
                         }
