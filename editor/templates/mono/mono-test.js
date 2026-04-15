@@ -160,6 +160,7 @@ function requireSurf(name, id) {
 function requireColor(name, c) {
   if (c === undefined || c === null) throw new Error(name + "(): color is undefined, expected number (0-" + (palette.length - 1) + ")");
   if (typeof c !== "number") throw new Error(name + "(): color must be a number, got " + typeof c);
+  if (c !== Math.floor(c)) throw new Error(name + "(): color must be an integer, got " + c);
   if (c < 0 || c >= palette.length) throw new Error(name + "(): color " + c + " out of range (0-" + (palette.length - 1) + ")");
 }
 
