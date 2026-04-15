@@ -632,8 +632,15 @@ static void initLua() {
   // Process the initial go() so the first tick is already in a scene.
   process_scene_transition();
 
+  // Switch Lua GC from generational (default, batchy) to incremental
+  // mode. Generational GC is designed for desktop heaps and doesn't
+  // collect aggressively enough for ESP32's ~300 KB — Lua memory grows
+  // monotonically until malloc returns NULL → crash.
+  // Incremental mode + per-tick GCSTEP keeps allocation in check.
+  lua_gc(L, LUA_GCINC, 200, 100, 13);  // multiplier, stepsize, pause
+
   unsigned memKB = (unsigned)lua_gc(L, LUA_GCCOUNT, 0);
-  Serial.printf("Lua init OK. mem=%u KB\n", memKB);
+  Serial.printf("Lua init OK. mem=%u KB  GC=incremental\n", memKB);
 }
 
 // ---- Touch sampling (2x scale: screen ÷ 2 = canvas) ------------
@@ -662,6 +669,18 @@ void setup() {
   delay(200);
   Serial.println();
   Serial.println("=== CYD Mono — hangman 160x120 @2x ===");
+
+  // Print reset reason — helps diagnose unexpected reboots.
+  const char* rst_reasons[] = {
+    "UNKNOWN","POWERON","SW","OWDT","DEEPSLEEP","SDIO",
+    "TG0WDT","TG1WDT","RTCWDT","INTRUSION","TGWDT_CPU",
+    "SW_CPU","RTCWDT_CPU","EXT_CPU","BROWNOUT","RTCWDT_RTC"
+  };
+  int rst = (int)esp_reset_reason();
+  Serial.printf("Reset reason: %d (%s)\n", rst,
+                (rst >= 0 && rst < 16) ? rst_reasons[rst] : "?");
+  Serial.printf("Free heap: %u bytes  Min ever: %u bytes\n",
+                ESP.getFreeHeap(), ESP.getMinFreeHeap());
   Serial.printf("Panel:  %s  SPI=%d Hz\n", PANEL_NAME, CYD_SPI_FREQ);
 
   tft.init();
@@ -710,14 +729,20 @@ void loop() {
     sampleTouch();
     callSceneOrGlobal("update", "_update");
     process_scene_transition();
+
+    // Force incremental GC to keep up with per-frame string allocation.
+    lua_gc(L, LUA_GCSTEP, 100);
+
     statsUpdate++;
     g_nextUpdateUs += UPDATE_US;
     if ((int32_t)(frameStart - g_nextUpdateUs) > (int32_t)(UPDATE_US * 4))
       g_nextUpdateUs = frameStart + UPDATE_US;
-  }
 
-  // Render (free-running).
-  callSceneOrGlobal("draw", "_draw");
+    // Draw once per logic tick (not free-running). Hangman's draw is
+    // ~24 ms on its own, so free-running render just wastes CPU and
+    // creates extra GC pressure without visual benefit.
+    callSceneOrGlobal("draw", "_draw");
+  }
 
   // 2x blit via pushRotateZoom (pivot at canvas center → screen center).
   int dx = g_dstCx, dy = g_dstCy;
@@ -741,9 +766,12 @@ void loop() {
     float fps    = statsRender * 1000.0f / (float)(nowMs - statsMs);
     float tickHz = statsUpdate * 1000.0f / (float)(nowMs - statsMs);
     float avgMs  = (statsWork / (float)statsRender) / 1000.0f;
-    unsigned mem = (unsigned)lua_gc(L, LUA_GCCOUNT, 0);
-    Serial.printf("[hangman] fps=%5.1f  tick=%4.1fHz  work %4.1f..%4.1f avg %4.1fms  lua=%uKB\n",
-                  fps, tickHz, statsMin/1000.0f, statsMax/1000.0f, avgMs, mem);
+    unsigned luaKB = (unsigned)lua_gc(L, LUA_GCCOUNT, 0);
+    uint32_t freeHeap = ESP.getFreeHeap();
+    uint32_t minHeap  = ESP.getMinFreeHeap();
+    Serial.printf("[hangman] fps=%5.1f tick=%4.1fHz work %4.1f..%4.1f avg %4.1fms  lua=%uKB  heap=%u min=%u\n",
+                  fps, tickHz, statsMin/1000.0f, statsMax/1000.0f, avgMs,
+                  luaKB, freeHeap, minHeap);
     statsMs = nowMs; statsRender = statsUpdate = statsWork = 0;
     statsMin = 0xFFFFFFFFu; statsMax = 0;
   }

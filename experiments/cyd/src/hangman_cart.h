@@ -521,6 +521,9 @@ local function draw_sprite(sprite, x, y)
   end
 end
 
+M.KEY_ICON = KEY_ICON
+M.draw_sprite = draw_sprite
+
 local function text_width(s) return #s * 5 - 1 end
 
 local function draw_header(g, hints, score, lives)
@@ -878,6 +881,8 @@ local state = require("state")
 local t = 0
 local auto_delay = 0
 local input_lock = false
+local menu_sel = 0  -- 0 = START, 1 = CLOCK
+local last_tx, last_ty = nil, nil
 
 local ALL_KEYS = { "a", "b", "start", "select", "up", "down", "left", "right" }
 
@@ -885,21 +890,18 @@ local function any_input_held()
   for _, k in ipairs(ALL_KEYS) do
     if btn(k) then return true end
   end
-  -- Also block on latched touch edge events; a touch_end triggered in the
-  -- previous scene is still reported as true on this frame until the
-  -- engine clears the flag at the end of the tick.
   return touch() or touch_end() or touch_start()
 end
 
 function scene.init()
   t = 0
   input_lock = true
+  last_tx, last_ty = nil, nil
   if state.auto_start then
     state.auto_start = false
     auto_delay = 15
   else
     auto_delay = 0
-    -- Short title jingle (descending three-note chord)
     wave(0, "square")
     note(0, "E5", 0.12)
     note(1, "C5", 0.12)
@@ -919,11 +921,43 @@ function scene.update()
     if any_input_held() then return end
     input_lock = false
   end
-  if btnp("start") or touch_end() then
-    state.demo = false
+
+  -- Menu navigation
+  if btnp("left") or btnp("right") or btnp("select") then
+    menu_sel = 1 - menu_sel
+  end
+
+  -- Touch tracking
+  if touch() then
+    local x, y = touch_pos()
+    if x then last_tx, last_ty = x, y end
+  end
+
+  -- Start game
+  if btnp("start") or btnp("a") then
+    state.demo = (menu_sel == 1)
     go("scenes/play")
-  elseif btnp("select") then
-    state.demo = true
+    return
+  end
+
+  if touch_end() and last_tx then
+    local tx, ty = last_tx, last_ty
+    last_tx, last_ty = nil, nil
+    local bw, bh = 46, 14
+    local bx = (SCREEN_W - bw) // 2
+    local by = 100
+    -- Arrow touch zones
+    if ty >= by - 4 and ty <= by + bh + 4 then
+      if tx < bx then
+        menu_sel = 1 - menu_sel
+        return
+      elseif tx >= bx + bw then
+        menu_sel = 1 - menu_sel
+        return
+      end
+    end
+    -- Any touch: start with current selection
+    state.demo = (menu_sel == 1)
     go("scenes/play")
   end
 end
@@ -954,6 +988,23 @@ local function draw_mini_gallows(ox, oy)
   line(scr, ox + 28, oy + 26, ox + 33, oy + 34, 1)
 end
 
+-- Small pixel arrows for menu navigation
+local function draw_arrow_left(x, y)
+  pix(scr, x + 2, y, 1)
+  pix(scr, x + 1, y + 1, 1); pix(scr, x + 2, y + 1, 1)
+  pix(scr, x, y + 2, 1); pix(scr, x + 1, y + 2, 1); pix(scr, x + 2, y + 2, 1)
+  pix(scr, x + 1, y + 3, 1); pix(scr, x + 2, y + 3, 1)
+  pix(scr, x + 2, y + 4, 1)
+end
+
+local function draw_arrow_right(x, y)
+  pix(scr, x, y, 1)
+  pix(scr, x, y + 1, 1); pix(scr, x + 1, y + 1, 1)
+  pix(scr, x, y + 2, 1); pix(scr, x + 1, y + 2, 1); pix(scr, x + 2, y + 2, 1)
+  pix(scr, x, y + 3, 1); pix(scr, x + 1, y + 3, 1)
+  pix(scr, x, y + 4, 1)
+end
+
 function scene.draw()
   cls(scr, 0)
 
@@ -974,14 +1025,21 @@ function scene.draw()
     text(scr, tostring(state.hi_score), SCREEN_W // 2, 88, 1, ALIGN_HCENTER)
   end
 
-  -- blinking START button
+  -- Menu item with navigation arrows
+  local menu_items = { "START", "CLOCK" }
+  local label = menu_items[menu_sel + 1]
+  local bw, bh = 46, 14
+  local bx = (SCREEN_W - bw) // 2
+  local by = 100
+
   if (t // 15) % 2 == 0 then
-    local bw, bh = 40, 14
-    local bx = (SCREEN_W - bw) // 2
-    local by = 100
     rect(scr, bx, by, bw, bh, 1)
-    text(scr, "START", SCREEN_W // 2, by + 4, 1, ALIGN_HCENTER)
+    text(scr, label, SCREEN_W // 2, by + 4, 1, ALIGN_HCENTER)
   end
+
+  -- Always-visible arrows
+  draw_arrow_left(bx - 9, by + 5)
+  draw_arrow_right(bx + bw + 6, by + 5)
 
   rect(scr, 0, 0, SCREEN_W, SCREEN_H, 1)
 end
@@ -1051,6 +1109,13 @@ local function handle_touch()
   if touch_end() and last_tx then
     local tx, ty = last_tx, last_ty
     last_tx, last_ty = nil, nil
+    -- Touch on header panel → trigger hint
+    if ty < 14 and g.hint_text == "" then
+      if game.use_hint(g, state.hints) then
+        state.hints = state.hints - 1
+      end
+      return
+    end
     local c, r = game.cell_at_point(tx, ty)
     if not c then return end
     local letter = game.letter_at(c, r)
@@ -1261,16 +1326,18 @@ local function draw_tutorial()
   -- Black out the entire game area so no keyboard/gallows bleeds through
   rectf(scr, 1, 1, SCREEN_W - 2, SCREEN_H - 2, 0)
   -- Compact info box, centered
-  local bw, bh = 104, 57
+  local bw, bh = 104, 50
   local bx = (SCREEN_W - bw) // 2
   local by = (SCREEN_H - bh) // 2
   rect(scr, bx, by, bw, bh, 1)
   rect(scr, bx + 2, by + 2, bw - 4, bh - 4, 1)
-  text(scr, "TOUCH TO SELECT", bx + bw // 2, by + 10, 1, ALIGN_HCENTER)
-  text(scr, "A = GUESS", bx + bw // 2, by + 20, 1, ALIGN_HCENTER)
-  text(scr, "B = HINT", bx + bw // 2, by + 28, 1, ALIGN_HCENTER)
+  text(scr, "TOUCH TO GUESS", bx + bw // 2, by + 9, 1, ALIGN_HCENTER)
+  local cx = bx + bw // 2
+  text(scr, "B", cx - 16, by + 20, 1)
+  game.draw_sprite(game.KEY_ICON, cx - 8, by + 21)
+  text(scr, "= HINT", cx + 3, by + 20, 1)
   if (g.timer // 15) % 2 == 0 then
-    text(scr, "PRESS ANY KEY", bx + bw // 2, by + 40, 1, ALIGN_HCENTER)
+    text(scr, "PRESS ANY KEY", bx + bw // 2, by + 34, 1, ALIGN_HCENTER)
   end
   -- Restore outer border
   rect(scr, 0, 0, SCREEN_W, SCREEN_H, 1)
