@@ -785,15 +785,22 @@ void setup() {
   draw_scene();
   Serial.println("Ready.");
 
-  // Auto-run the full self-test once after boot so the results land
-  // in the serial log without requiring the operator to tap through
-  // the UI. Switch to the SELF-TEST scene first so the visible
-  // screen matches what the function prints.
-  current_scene = num_scenes - 1;
+  // Auto-play every audio scene in sequence so the operator just
+  // listens. Each scene's play() blocks via delay() until done.
+  Serial.println("-- auto-play all scenes --");
+  for (int i = 0; i < num_scenes; i++) {
+    if (!scenes[i].play) continue;
+    current_scene = i;
+    draw_scene();
+    Serial.printf(">> playing %d/%d: %s\n", i + 1, num_scenes, scenes[i].name);
+    delay(600);
+    scenes[i].play();
+    delay(400);
+    stop_all();
+  }
+  current_scene = 0;
   draw_scene();
-  delay(300);
-  Serial.println("-- boot diag: scene_selftest --");
-  scene_selftest();
+  Serial.println("-- auto-play done. tap to replay any scene --");
 }
 
 void loop() {

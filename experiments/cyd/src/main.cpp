@@ -1,28 +1,23 @@
-// CYD Mono Phase 3 — bubble via Mono engine API
+// CYD Mono runtime — hangman cart, 160x120 @ 2x, scene system + audio
 // ------------------------------------------------------------------
-// Target: ESP32-2432S028R (Cheap Yellow Display, dual-USB variant)
-// Goal:   run the `bubble` demo (demo/bubble/main.lua) unchanged on
-//         the CYD via native Lua 5.4 + a minimal port of the Mono
-//         engine API to C bindings.
+// Target: ESP32-2432S028R (CYD dual-USB, ST7789)
+// Canvas: 160x120 pushed at 2x via pushRotateZoom = 320x240 full screen
+// Audio:  4-voice I2S+DAC mixer on GPIO 26 (see audio.h/cpp)
+// Touch:  XPT2046, Y-flip + ÷2 for 2x scale mapping
 //
-// What exists here:
-//   - Panel: ST7789 @ 80 MHz SPI, 1:1 centered 160x144 canvas
-//   - Lua 5.4.7 native, ~49 KB VM memory
-//   - Mono engine API subset: cls/pix/rect/rectf/circ/circf/line/text,
-//     cam/cam_get/cam_shake/cam_reset, screen/mode,
-//     touch/touch_start/touch_end/touch_count/touch_pos,
-//     frame/time, btn/btnp (stubs), sound stubs
-//   - 4x7 Mono bitmap font, faithful port of runtime/engine.js FONT
-//   - 16-level grayscale palette (matches buildPalette(4))
-//
-// Not in scope (stubbed or absent):
-//   - Sound (note/tone/noise/wave)
-//   - Image loading / sprite sheets
-//   - Multi-surface canvases
-//   - Physical buttons (CYD has none; touch only)
+// Engine API coverage:
+//   Drawing:  cls pix rect rectf circ circf line text
+//   Camera:   cam cam_reset cam_shake cam_get
+//   Input:    touch touch_start touch_end touch_count touch_pos btn btnp
+//   Audio:    tone note noise wave sfx_stop (real I2S mixer)
+//   Scenes:   go scene_name (table-return pattern from engine.js)
+//   Modules:  require (custom searcher for embedded cart files)
+//   Lifecycle: _init _start _ready → go("scenes/title")
+//   Meta:     screen mode frame time print use_pause
 // ------------------------------------------------------------------
 
 #include <Arduino.h>
+#include <string.h>
 #define LGFX_USE_V1
 #include <LovyanGFX.hpp>
 
@@ -31,6 +26,8 @@ extern "C" {
   #include "lauxlib.h"
   #include "lualib.h"
 }
+
+#include "audio.h"
 
 // ---- ESP32-2432S028R (CYD) pin map ------------------------------
 // TFT:   SCK=14 MOSI=13 MISO=12 CS=15 DC=2  RST=-1 BL=21
@@ -146,23 +143,28 @@ static LGFX_CYD    tft;
 static LGFX_Sprite canvas(&tft);
 static lua_State*  L = nullptr;
 
-// ---- Game state (managed by C, exposed to Lua) ------------------
+// ---- Game state -------------------------------------------------
 static int       g_cam_x = 0, g_cam_y = 0;
 static int       g_shake_frames = 0;
 static uint32_t  g_frame = 0;
 static uint32_t  g_boot_ms = 0;
 static uint16_t  g_palette[16];
 
-// Touch sampled once per frame; Lua reads through bindings.
+// Touch
 static int       g_touch_x = 0, g_touch_y = 0;
-static bool      g_touch_active  = false;   // held this frame
-static bool      g_touch_prev    = false;   // held previous frame
-static bool      g_touch_started = false;   // rising edge
-static bool      g_touch_ended   = false;   // falling edge
+static bool      g_touch_active  = false;
+static bool      g_touch_prev    = false;
+static bool      g_touch_started = false;
+static bool      g_touch_ended   = false;
 
-// Canvas offset on screen (1:1 centered).
-static int16_t   g_dstX = 80;
-static int16_t   g_dstY = 48;
+// 2x scale blit: pivot at canvas center → screen center.
+static int16_t   g_dstCx = 160;
+static int16_t   g_dstCy = 120;
+
+// Scene system (mirrors engine.js go/scene_name/sceneObj pattern).
+static char      g_scene_pending[64]  = "";
+static char      g_scene_current[64]  = "";
+static bool      g_scene_active       = false;
 
 // ---- Mono 4x7 font ---------------------------------------------
 #include "mono_font.h"
@@ -203,7 +205,21 @@ static inline int argi(lua_State* L, int i) { return (int)lua_tonumber(L, i); }
 static inline uint16_t pal(int c) { return g_palette[c & 15]; }
 
 static int l_screen(lua_State* L) { lua_pushinteger(L, 0); return 1; }
-static int l_mode(lua_State* L) { (void)L; return 0; }    // always 16-gray; no-op
+
+// mode(bits): rebuild palette. mode(1)=2 colors, mode(2)=4, mode(4)=16.
+static int l_mode(lua_State* L) {
+  int bits = argi(L, 1);
+  int n = 1 << bits;
+  if (n < 2)  n = 2;
+  if (n > 16) n = 16;
+  for (int i = 0; i < n; i++) {
+    int g = (int)((float)i / (float)(n - 1) * 255.0f + 0.5f);
+    g_palette[i] = canvas.color565(g, g, g);
+  }
+  for (int i = n; i < 16; i++) g_palette[i] = g_palette[n - 1];
+  lua_pushinteger(L, n); lua_setglobal(L, "COLORS");
+  return 0;
+}
 
 static int l_cls(lua_State* L) {
   canvas.fillSprite(pal(argi(L, 2)));
@@ -300,11 +316,66 @@ static int l_print(lua_State* L) {
   return 0;
 }
 
-// Stubs for audio (bubble doesn't actually play sound yet, but some
-// demos may call these).
-static int l_noop(lua_State* L) { (void)L; return 0; }
+// ---- Audio bindings (real I2S mixer, not stubs) -----------------
+static int l_tone(lua_State* L) {
+  int ch = argi(L, 1);
+  float startHz = (float)lua_tonumber(L, 2);
+  float endHz   = (float)lua_tonumber(L, 3);
+  float dur     = lua_isnumber(L, 4) ? (float)lua_tonumber(L, 4) : 0.2f;
+  if (ch < 0 || ch >= NUM_VOICES) return 0;
+  if (startHz < 1) startHz = 200;
+  if (endHz < 1) endHz = startHz;
+  play_sweep(ch, channel_wave[ch], startHz, endHz, dur, 0, 20, 0.15f);
+  return 0;
+}
 
-// ---- Lua prelude (mirrors engine.js wrappers) ------------------
+static int l_note(lua_State* L) {
+  int ch = argi(L, 1);
+  const char* name = lua_tostring(L, 2);
+  float dur = lua_isnumber(L, 3) ? (float)lua_tonumber(L, 3) : 0.1f;
+  if (ch < 0 || ch >= NUM_VOICES) return 0;
+  float freq = note_freq(name);
+  play_note(ch, channel_wave[ch], freq, dur, 0, 20, 0.15f);
+  return 0;
+}
+
+static int l_noise(lua_State* L) {
+  int ch = argi(L, 1);
+  float dur = lua_isnumber(L, 2) ? (float)lua_tonumber(L, 2) : 0.2f;
+  uint8_t ft = FILTER_NONE;
+  float cutoff = 1000;
+  if (lua_isstring(L, 3)) {
+    const char* s = lua_tostring(L, 3);
+    if (s[0] == 'l' || s[0] == 'L') ft = FILTER_LOW;
+    else if (s[0] == 'h' || s[0] == 'H') ft = FILTER_HIGH;
+  }
+  if (lua_isnumber(L, 4)) cutoff = (float)lua_tonumber(L, 4);
+  if (ch < 0 || ch >= NUM_VOICES) return 0;
+  play_noise(ch, dur, ft, cutoff, 0, 20, 0.15f);
+  return 0;
+}
+
+static int l_wave(lua_State* L) {
+  int ch = argi(L, 1);
+  if (ch < 0 || ch >= NUM_VOICES) return 0;
+  const char* t = lua_tostring(L, 2);
+  if (!t) return 0;
+  if      (t[0] == 's' && t[1] == 'q') channel_wave[ch] = WAVE_SQUARE;
+  else if (t[0] == 's' && t[1] == 'a') channel_wave[ch] = WAVE_SAW;
+  else if (t[0] == 's' && t[1] == 'i') channel_wave[ch] = WAVE_SINE;
+  else if (t[0] == 't')                channel_wave[ch] = WAVE_TRIANGLE;
+  return 0;
+}
+
+static int l_sfx_stop(lua_State* L) {
+  if (lua_isnumber(L, 1)) stop_voice(argi(L, 1));
+  else stop_all();
+  return 0;
+}
+
+static int l_noop(lua_State*) { return 0; }
+
+// ---- Lua prelude (mirrors engine.js wrappers) -------------------
 static const char* PRELUDE = R"MLUA(
 function btn(k) return _btn(k) == 1 end
 function btnp(k) return _btnp(k) == 1 end
@@ -321,50 +392,211 @@ end
 function touch_posf(i) return touch_pos(i) end
 )MLUA";
 
-#include "bubble_game.h"
+// ---- Embedded cart files ----------------------------------------
+#include "hangman_cart.h"
 
+// Map module names used by require() to embedded source strings.
+struct EmbedMod { const char* name; const char* src; };
+static const EmbedMod embedded_modules[] = {
+  { "game",   GAME_LUA },
+  { "state",  STATE_LUA },
+  { "words",  WORDS_LUA },
+  { nullptr,  nullptr },
+};
+
+// Scene files (loaded via go()).
+struct EmbedScene { const char* name; const char* src; };
+static const EmbedScene embedded_scenes[] = {
+  { "scenes/title",  SCENE_TITLE_LUA },
+  { "scenes/play",   SCENE_PLAY_LUA },
+  { "scenes/ending", SCENE_ENDING_LUA },
+  { nullptr, nullptr },
+};
+
+// ---- Custom require searcher ------------------------------------
+static int custom_searcher(lua_State* L) {
+  const char* name = luaL_checkstring(L, 1);
+  for (auto* m = embedded_modules; m->name; m++) {
+    if (strcmp(name, m->name) == 0) {
+      if (luaL_loadstring(L, m->src) != LUA_OK) return lua_error(L);
+      return 1;
+    }
+  }
+  lua_pushfstring(L, "\n\tno embedded module '%s'", name);
+  return 1;
+}
+
+static void register_searcher() {
+  lua_getglobal(L, "package");
+  lua_getfield(L, -1, "searchers");
+  lua_Integer n = luaL_len(L, -1);
+  lua_pushcfunction(L, custom_searcher);
+  lua_seti(L, -2, n + 1);
+  lua_pop(L, 2);
+}
+
+// ---- Scene system -----------------------------------------------
+static int l_go(lua_State* L) {
+  const char* name = luaL_checkstring(L, 1);
+  strncpy(g_scene_pending, name, sizeof(g_scene_pending) - 1);
+  return 0;
+}
+
+static int l_scene_name(lua_State* L) {
+  if (g_scene_active) lua_pushstring(L, g_scene_current);
+  else                lua_pushboolean(L, 0);
+  return 1;
+}
+
+// Find the embedded source for a scene name.
+static const char* find_scene_src(const char* name) {
+  for (auto* s = embedded_scenes; s->name; s++)
+    if (strcmp(name, s->name) == 0) return s->src;
+  return nullptr;
+}
+
+// Process pending go() at the end of each tick.
+static void process_scene_transition() {
+  if (g_scene_pending[0] == '\0') return;
+
+  const char* src = find_scene_src(g_scene_pending);
+  if (!src) {
+    Serial.printf("scene '%s' not found\n", g_scene_pending);
+    g_scene_pending[0] = '\0';
+    return;
+  }
+
+  // Load file; if it returns a table, use it as the scene object.
+  if (luaL_loadstring(L, src) != LUA_OK) {
+    Serial.printf("scene load err: %s\n", lua_tostring(L, -1));
+    lua_pop(L, 1);
+    g_scene_pending[0] = '\0';
+    return;
+  }
+  if (lua_pcall(L, 0, 1, 0) != LUA_OK) {
+    Serial.printf("scene exec err: %s\n", lua_tostring(L, -1));
+    lua_pop(L, 1);
+    g_scene_pending[0] = '\0';
+    return;
+  }
+
+  if (lua_istable(L, -1)) {
+    lua_setglobal(L, "_scene_obj");
+  } else {
+    lua_pop(L, 1);
+    lua_pushnil(L); lua_setglobal(L, "_scene_obj");
+  }
+
+  // Call scene.init() if present.
+  lua_getglobal(L, "_scene_obj");
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "init");
+    if (lua_isfunction(L, -1)) {
+      if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+        Serial.printf("scene.init err: %s\n", lua_tostring(L, -1));
+        lua_pop(L, 1);
+      }
+    } else {
+      lua_pop(L, 1);
+    }
+  }
+  lua_pop(L, 1);
+
+  strncpy(g_scene_current, g_scene_pending, sizeof(g_scene_current) - 1);
+  g_scene_active = true;
+  g_scene_pending[0] = '\0';
+  Serial.printf(">> scene: %s\n", g_scene_current);
+}
+
+// Call a method on the active scene table, or fall back to a global.
+static void callSceneOrGlobal(const char* method, const char* global_fn) {
+  if (g_scene_active) {
+    lua_getglobal(L, "_scene_obj");
+    if (lua_istable(L, -1)) {
+      lua_getfield(L, -1, method);
+      if (lua_isfunction(L, -1)) {
+        if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+          Serial.printf("%s.%s err: %s\n", g_scene_current, method,
+                        lua_tostring(L, -1));
+          lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+        return;
+      }
+      lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+  }
+  // Fallback to global _update / _draw.
+  lua_getglobal(L, global_fn);
+  if (lua_isfunction(L, -1)) {
+    if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+      Serial.printf("%s err: %s\n", global_fn, lua_tostring(L, -1));
+      lua_pop(L, 1);
+    }
+  } else {
+    lua_pop(L, 1);
+  }
+}
+
+// ---- Lua fatal + helpers ----------------------------------------
 static void lua_fatal(const char* where) {
   const char* msg = lua_tostring(L, -1);
   Serial.printf("LUA FATAL @ %s: %s\n", where, msg ? msg : "(no msg)");
   while (true) delay(1000);
 }
 
+static void callLua(const char* fn) {
+  lua_getglobal(L, fn);
+  if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return; }
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+    Serial.printf("%s err: %s\n", fn, lua_tostring(L, -1));
+    lua_pop(L, 1);
+  }
+}
+
+// ---- Lua init ---------------------------------------------------
 static void registerAPI() {
-  #define REG(name, fn) lua_pushcfunction(L, fn); lua_setglobal(L, name)
-  REG("screen",      l_screen);
-  REG("mode",        l_mode);
-  REG("cls",         l_cls);
-  REG("pix",         l_pix);
-  REG("rect",        l_rect);
-  REG("rectf",       l_rectf);
-  REG("circ",        l_circ);
-  REG("circf",       l_circf);
-  REG("line",        l_line);
-  REG("text",        l_text);
-  REG("cam",         l_cam);
-  REG("cam_reset",   l_cam_reset);
-  REG("cam_shake",   l_cam_shake);
-  REG("_cam_get_x",  l_cam_get_x);
-  REG("_cam_get_y",  l_cam_get_y);
-  REG("frame",       l_frame);
-  REG("time",        l_time);
-  REG("_touch",      l_touch);
-  REG("_touch_start",l_touch_start);
-  REG("_touch_end",  l_touch_end);
-  REG("touch_count", l_touch_count);
-  REG("_touch_pos_x",l_touch_pos_x);
-  REG("_touch_pos_y",l_touch_pos_y);
-  REG("_touch_posf_x", l_touch_pos_x);
-  REG("_touch_posf_y", l_touch_pos_y);
-  REG("_btn",        l_btn);
-  REG("_btnp",       l_btnp);
-  REG("print",       l_print);
-  // Sound stubs
-  REG("note",        l_noop);
-  REG("tone",        l_noop);
-  REG("noise",       l_noop);
-  REG("wave",        l_noop);
-  REG("sfx_stop",    l_noop);
+  #define REG(n, fn) lua_pushcfunction(L, fn); lua_setglobal(L, n)
+  REG("screen",       l_screen);
+  REG("mode",         l_mode);
+  REG("cls",          l_cls);
+  REG("pix",          l_pix);
+  REG("rect",         l_rect);
+  REG("rectf",        l_rectf);
+  REG("circ",         l_circ);
+  REG("circf",        l_circf);
+  REG("line",         l_line);
+  REG("text",         l_text);
+  REG("cam",          l_cam);
+  REG("cam_reset",    l_cam_reset);
+  REG("cam_shake",    l_cam_shake);
+  REG("_cam_get_x",   l_cam_get_x);
+  REG("_cam_get_y",   l_cam_get_y);
+  REG("frame",        l_frame);
+  REG("time",         l_time);
+  REG("_touch",       l_touch);
+  REG("_touch_start", l_touch_start);
+  REG("_touch_end",   l_touch_end);
+  REG("touch_count",  l_touch_count);
+  REG("_touch_pos_x", l_touch_pos_x);
+  REG("_touch_pos_y", l_touch_pos_y);
+  REG("_touch_posf_x",l_touch_pos_x);
+  REG("_touch_posf_y",l_touch_pos_y);
+  REG("_btn",         l_btn);
+  REG("_btnp",        l_btnp);
+  REG("print",        l_print);
+  // Audio (real mixer)
+  REG("tone",         l_tone);
+  REG("note",         l_note);
+  REG("noise",        l_noise);
+  REG("wave",         l_wave);
+  REG("sfx_stop",     l_sfx_stop);
+  // Scenes
+  REG("go",           l_go);
+  REG("scene_name",   l_scene_name);
+  // Misc stubs
+  REG("use_pause",    l_noop);
   #undef REG
 
   lua_pushinteger(L, MONO_W); lua_setglobal(L, "SCREEN_W");
@@ -382,53 +614,41 @@ static void initLua() {
   if (!L) { Serial.println("newstate failed"); while(1) delay(1000); }
   luaL_openlibs(L);
   registerAPI();
+  register_searcher();
 
+  // Load prelude.
   if (luaL_loadstring(L, PRELUDE) != LUA_OK) lua_fatal("prelude load");
   if (lua_pcall(L, 0, 0, 0) != LUA_OK)       lua_fatal("prelude run");
 
-  if (luaL_loadstring(L, BUBBLE_LUA) != LUA_OK) lua_fatal("bubble load");
-  if (lua_pcall(L, 0, 0, 0) != LUA_OK)          lua_fatal("bubble chunk");
+  // Load main.lua (defines _init, _start, _ready).
+  if (luaL_loadstring(L, MAIN_LUA) != LUA_OK) lua_fatal("main load");
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK)        lua_fatal("main chunk");
 
-  lua_getglobal(L, "_init");
-  if (lua_isfunction(L, -1)) {
-    if (lua_pcall(L, 0, 0, 0) != LUA_OK) lua_fatal("_init");
-  } else {
-    lua_pop(L, 1);
-  }
+  // Lifecycle: _init → _start → _ready (engine.js order).
+  callLua("_init");
+  callLua("_start");
+  callLua("_ready");   // typically calls go("scenes/title")
+
+  // Process the initial go() so the first tick is already in a scene.
+  process_scene_transition();
 
   unsigned memKB = (unsigned)lua_gc(L, LUA_GCCOUNT, 0);
   Serial.printf("Lua init OK. mem=%u KB\n", memKB);
 }
 
-static void callLua(const char* fn) {
-  lua_getglobal(L, fn);
-  if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return; }
-  if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
-    Serial.printf("%s error: %s\n", fn, lua_tostring(L, -1));
-    lua_pop(L, 1);
-  }
-}
-
-// ---- Touch sampling --------------------------------------------
+// ---- Touch sampling (2x scale: screen ÷ 2 = canvas) ------------
 static void sampleTouch() {
   int32_t tx, ty;
   bool touched = tft.getTouch(&tx, &ty);
 
-  // Manual Y-axis flip: LovyanGFX returns correct X for this CYD
-  // variant after setRotation(3), but raw Y is inverted relative to
-  // the display. The "flip y_min/y_max" trick doesn't work because
-  // LovyanGFX defensively normalizes the calibration bounds, so the
-  // inversion must be applied in C. Verified via the 5-point guided
-  // calibration routine (see git history for the calibrateTouch()
-  // implementation if you need to recheck on a new unit).
-  if (touched) {
-    ty = (tft.height() - 1) - ty;
-  }
+  // Y-axis flip (CYD dual-USB ST7789 @ rotation 3).
+  if (touched) ty = (tft.height() - 1) - ty;
 
-  // Canvas-space mapping for the game.
-  int cx = tx - g_dstX;
-  int cy = ty - g_dstY;
+  // 2x scale: screen pixel → canvas pixel = ÷ 2.
+  int cx = touched ? (int)(tx / 2) : 0;
+  int cy = touched ? (int)(ty / 2) : 0;
   bool in = touched && (unsigned)cx < (unsigned)MONO_W && (unsigned)cy < (unsigned)MONO_H;
+
   g_touch_started = in && !g_touch_prev;
   g_touch_ended   = !in && g_touch_prev;
   g_touch_active  = in;
@@ -436,12 +656,12 @@ static void sampleTouch() {
   g_touch_prev = in;
 }
 
-// ---- setup / loop ----------------------------------------------
+// ---- setup / loop -----------------------------------------------
 void setup() {
   Serial.begin(115200);
   delay(200);
   Serial.println();
-  Serial.println("=== CYD Mono Phase 3 — bubble ===");
+  Serial.println("=== CYD Mono — hangman 160x120 @2x ===");
   Serial.printf("Panel:  %s  SPI=%d Hz\n", PANEL_NAME, CYD_SPI_FREQ);
 
   tft.init();
@@ -452,117 +672,79 @@ void setup() {
 
   canvas.setColorDepth(16);
   if (!canvas.createSprite(MONO_W, MONO_H)) {
-    Serial.println("FATAL: createSprite failed"); while (true) delay(1000);
+    Serial.println("FATAL: createSprite"); while (true) delay(1000);
   }
+  canvas.setPivot(MONO_W * 0.5f, MONO_H * 0.5f);
+  g_dstCx = tft.width()  / 2;
+  g_dstCy = tft.height() / 2;
 
-  // Build 16-level grayscale palette (matches engine.js buildPalette(4)).
+  // Default 16-level palette (overridden by mode(1) in hangman's _init).
   for (int i = 0; i < 16; i++) {
     int g = (int)((i / 15.0f) * 255.0f + 0.5f);
     g_palette[i] = canvas.color565(g, g, g);
   }
 
-  g_dstX = (tft.width()  - MONO_W) / 2;
-  g_dstY = (tft.height() - MONO_H) / 2;
-  Serial.printf("Canvas: %dx%d centered at (%d,%d)\n",
-                MONO_W, MONO_H, g_dstX, g_dstY);
+  Serial.printf("Canvas: %dx%d @2x = 320x240 full screen\n", MONO_W, MONO_H);
 
+  audio_init();
   g_boot_ms = millis();
   initLua();
   Serial.println("Entering main loop.");
 }
 
-// Mono targets 30 Hz for its logical tick (see runtime/engine.js
-// FPS/FRAME_MS). Demos use frame-counted timing — e.g. bubble's
-// `spawn_rate = 28` means "one bubble every 28 _update calls" — so
-// _update must run at exactly 30 Hz or game speed scales wrong.
-//
-// Rendering (_draw + pushSprite) runs free, without a cap. That
-// matches ESP32 headroom (160+ fps is typical) and keeps the render
-// path showing real hardware performance in the stats line. Between
-// updates, _draw redraws the same game state, which is cheap on a
-// 160x144 1:1 canvas.
-static constexpr uint32_t UPDATE_US = 1000000 / 30;   // 33,333 µs
+static constexpr uint32_t UPDATE_US = 1000000 / 30;
 static uint32_t g_nextUpdateUs = 0;
 
 void loop() {
   static uint32_t statsMs     = millis();
-  static uint32_t statsRender = 0;  // render frames in this window
-  static uint32_t statsUpdate = 0;  // logic ticks  in this window
+  static uint32_t statsRender = 0;
+  static uint32_t statsUpdate = 0;
   static uint32_t statsMin    = 0xFFFFFFFFu;
   static uint32_t statsMax    = 0;
   static uint32_t statsWork   = 0;
 
   uint32_t frameStart = micros();
 
-  // ---- Logic tick (fixed 30 Hz) ---------------------------------
-  // Use a signed compare so the deadline can stay ahead of `now`
-  // without wraparound drama. If we fall more than 4 frames behind
-  // (rare — a GC stall or flash-induced hitch), reset the deadline
-  // instead of running update multiple times in a row.
+  // Logic tick at fixed 30 Hz.
   if ((int32_t)(frameStart - g_nextUpdateUs) >= 0) {
     sampleTouch();
-    callLua("_update");
+    callSceneOrGlobal("update", "_update");
+    process_scene_transition();
     statsUpdate++;
     g_nextUpdateUs += UPDATE_US;
-    if ((int32_t)(frameStart - g_nextUpdateUs) > (int32_t)(UPDATE_US * 4)) {
+    if ((int32_t)(frameStart - g_nextUpdateUs) > (int32_t)(UPDATE_US * 4))
       g_nextUpdateUs = frameStart + UPDATE_US;
-    }
   }
 
-  // ---- Render (free-running) ------------------------------------
-  callLua("_draw");
+  // Render (free-running).
+  callSceneOrGlobal("draw", "_draw");
 
-  int dx = g_dstX, dy = g_dstY;
+  // 2x blit via pushRotateZoom (pivot at canvas center → screen center).
+  int dx = g_dstCx, dy = g_dstCy;
   if (g_shake_frames > 0) {
     dx += (int)(esp_random() % 7) - 3;
     dy += (int)(esp_random() % 7) - 3;
-    // Decrement on update ticks only so shake duration stays in
-    // frames-of-game-logic, not frames-of-render.
-    // (Actually decrement here is fine because shake_frames is set
-    // by Lua in _update — it'll just decay at render rate. Match
-    // engine.js behavior: keep it simple, decrement once per render.)
     g_shake_frames--;
   }
-  canvas.pushSprite(&tft, dx, dy);
+  canvas.pushRotateZoom(&tft, dx, dy, 0.0f, 2.0f, 2.0f);
 
   g_frame++;
-  uint32_t frameEnd = micros();
-  uint32_t workUs   = frameEnd - frameStart;
+  uint32_t workUs = micros() - frameStart;
 
-  // ---- Stats ----------------------------------------------------
   statsRender++;
   statsWork += workUs;
   if (workUs < statsMin) statsMin = workUs;
   if (workUs > statsMax) statsMax = workUs;
 
   uint32_t nowMs = millis();
-  if (nowMs - statsMs >= 1000) {
-    float fps     = statsRender * 1000.0f / (float)(nowMs - statsMs);
-    float tickHz  = statsUpdate * 1000.0f / (float)(nowMs - statsMs);
-    float avgMs   = (statsWork / (float)statsRender) / 1000.0f;
-    unsigned memKB = (unsigned)lua_gc(L, LUA_GCCOUNT, 0);
-    Serial.printf("[bubble] fps=%5.1f  tick=%4.1fHz  work %4.1f..%4.1f avg %4.1fms  lua=%uKB\n",
-                  fps, tickHz,
-                  statsMin/1000.0f, statsMax/1000.0f, avgMs, memKB);
-
-    // On-screen HUD in the bottom letterbox (screen y 196..239, the
-    // strip under the 160x144 canvas). Drawn straight to tft, not
-    // canvas, so it survives canvas redraws.
-    tft.fillRect(0, 196, tft.width(), tft.height() - 196, TFT_BLACK);
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.setTextSize(1);
-    tft.setCursor(4, 200);
-    tft.printf("fps %5.1f  tick %4.1fHz", fps, tickHz);
-    tft.setCursor(4, 212);
-    tft.printf("work %4.1f-%4.1f avg %4.1fms", statsMin/1000.0f, statsMax/1000.0f, avgMs);
-    tft.setCursor(4, 224);
-    tft.printf("lua %u KB  frm %lu", memKB, (unsigned long)g_frame);
-
-    statsMs     = nowMs;
-    statsRender = 0;
-    statsUpdate = 0;
-    statsWork   = 0;
-    statsMin    = 0xFFFFFFFFu;
-    statsMax    = 0;
+  if (nowMs - statsMs >= 2000) {
+    float fps    = statsRender * 1000.0f / (float)(nowMs - statsMs);
+    float tickHz = statsUpdate * 1000.0f / (float)(nowMs - statsMs);
+    float avgMs  = (statsWork / (float)statsRender) / 1000.0f;
+    unsigned mem = (unsigned)lua_gc(L, LUA_GCCOUNT, 0);
+    Serial.printf("[hangman] fps=%5.1f  tick=%4.1fHz  work %4.1f..%4.1f avg %4.1fms  lua=%uKB\n",
+                  fps, tickHz, statsMin/1000.0f, statsMax/1000.0f, avgMs, mem);
+    statsMs = nowMs; statsRender = statsUpdate = statsWork = 0;
+    statsMin = 0xFFFFFFFFu; statsMax = 0;
   }
 }
