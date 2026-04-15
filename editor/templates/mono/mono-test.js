@@ -19,6 +19,7 @@
  *   --touch "F:A:X,Y" Inject touch events inline or from file
  *                     Inline: "5:start:80,60;7:end:80,60"
  *                     File:   touch-events.txt (one event per line, # comments)
+ *   --motion "F:X,Y,Z" Inject motion values at frame F (e.g., "5:0.5,0.3,0;10:-0.2,0,0")
  *   --snapshot FILE  Save vdump to file
  *   --diff FILE      Compare vdump against expected file
  *   --replay FILE    Load input sequence from file and replay
@@ -56,6 +57,7 @@ Options:
   --suite          Test suite mode (parse PASS/FAIL)
   --input "F:K"    Inject input (e.g., "3:a,5:up")
   --touch "F:A:X,Y" Inject touch inline or from file
+  --motion "F:X,Y,Z" Inject motion values (e.g., "5:0.5,0.3,0;10:-0.2,0,0")
   --snapshot FILE  Save vdump to file
   --diff FILE      Compare vdump against expected file
   --replay FILE    Load input sequence from file and replay
@@ -124,6 +126,7 @@ const goldenFile = getOpt("golden", null);
 const goldenUpdate = hasFlag("golden-update");
 const benchMode = hasFlag("bench");
 const fuzzRuns = parseInt(getOpt("fuzz", "0")) || 0;
+const motionArg = getOpt("motion", null);
 const scanDir = getOpt("scan", null);
 let runSeed = null;
 
@@ -487,6 +490,31 @@ function drawImageRegionFn(s, id, sx, sy, sw, sh, dx, dy) {
   }
 }
 
+// --- Motion simulation ---
+let simMotionX = 0, simMotionY = 0, simMotionZ = 0;
+let simMotionEnabled = false;
+const motionSchedule = {};
+
+if (motionArg) {
+  // Parse "5:0.5,0.3,0" → { 5: { x:0.5, y:0.3, z:0 } }
+  for (const part of motionArg.split(";")) {
+    const [f, vals] = part.trim().split(":");
+    const frame = parseInt(f);
+    const [x, y, z] = (vals || "0,0,0").split(",").map(Number);
+    motionSchedule[frame] = { x: x || 0, y: y || 0, z: z || 0 };
+  }
+  simMotionEnabled = true;
+}
+
+function applyMotion(frame) {
+  if (motionSchedule[frame]) {
+    const m = motionSchedule[frame];
+    simMotionX = Math.max(-1, Math.min(1, m.x));
+    simMotionY = Math.max(-1, Math.min(1, m.y));
+    simMotionZ = Math.max(-1, Math.min(1, m.z));
+  }
+}
+
 // --- Input simulation ---
 const keys = {};
 const keysPrev = {};
@@ -740,14 +768,14 @@ async function main() {
   lua.global.set("cam_reset", () => {});
   lua.global.set("axis_x", () => 0);
   lua.global.set("axis_y", () => 0);
-  // Motion sensor stubs (headless = no motion)
-  lua.global.set("motion_x", () => 0);
-  lua.global.set("motion_y", () => 0);
-  lua.global.set("motion_z", () => 0);
+  // Motion sensor (simulated via --motion or --fuzz)
+  lua.global.set("motion_x", () => simMotionX);
+  lua.global.set("motion_y", () => simMotionY);
+  lua.global.set("motion_z", () => simMotionZ);
   lua.global.set("gyro_alpha", () => 0);
   lua.global.set("gyro_beta", () => 0);
   lua.global.set("gyro_gamma", () => 0);
-  lua.global.set("motion_enabled", () => 0);
+  lua.global.set("motion_enabled", () => simMotionEnabled ? 1 : 0);
   lua.global.set("spr", (id, imgId, x, y) => { const s = requireSurf("spr", id); drawImageFn(s, imgId, x, y); });
   lua.global.set("sspr", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = requireSurf("sspr", id); drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
   lua.global.set("drawImage", (id, imgId, x, y) => { const s = requireSurf("drawImage", id); drawImageFn(s, imgId, x, y); });
@@ -1100,6 +1128,7 @@ end
   for (let f = 1; f <= frameCount; f++) {
     applyInput(f);
     applyTouch(f);
+    applyMotion(f);
 
     // Bot: call _bot() after draw, inject result as input for next frame
     if (botFn && f > 1) {
@@ -1755,6 +1784,20 @@ if (totalRuns > 1) {
         const key = validKeys[Math.floor(rng() * validKeys.length)];
         if (!inputSchedule[frame]) inputSchedule[frame] = [];
         inputSchedule[frame].push(key);
+      }
+
+      // Random motion events for fuzz
+      for (const k of Object.keys(motionSchedule)) delete motionSchedule[k];
+      simMotionX = 0; simMotionY = 0; simMotionZ = 0;
+      simMotionEnabled = true;
+      const numMotion = 1 + Math.floor(rng() * 10);
+      for (let i = 0; i < numMotion; i++) {
+        const frame = 1 + Math.floor(rng() * Math.max(1, frameCount));
+        motionSchedule[frame] = {
+          x: (rng() * 2 - 1),  // -1 to 1
+          y: (rng() * 2 - 1),
+          z: (rng() * 2 - 1),
+        };
       }
 
       // Suppress verbose output during fuzz runs
