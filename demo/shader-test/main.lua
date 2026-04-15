@@ -6,6 +6,10 @@ local scr = screen()
 local W = SCREEN_W
 local H = SCREEN_H
 
+function _init()
+  mode(4)
+end
+
 local boxes = {}
 local NUM_BOXES = 8
 
