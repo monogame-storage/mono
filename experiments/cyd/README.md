@@ -1,9 +1,9 @@
 # CYD Mono runtime
 
 Native-code Mono runtime running on an **ESP32-2432S028R** (Cheap
-Yellow Display, dual-USB variant). Phase-3 snapshot: `demo/bubble`
-runs unchanged via a minimal Mono engine API port, driven by native
-Lua 5.4.7.
+Yellow Display, dual-USB variant). Runs `hangman` cart unchanged at
+160×120 @ 2x = 320×240 full screen, with scene transitions, module
+require, and real I2S audio. Driven by native Lua 5.4.7.
 
 For the story of how this configuration was found (panel discovery,
 SPI clock probing, benchmark numbers), see **EXPERIMENTS.md**.
@@ -12,10 +12,11 @@ SPI clock probing, benchmark numbers), see **EXPERIMENTS.md**.
 
 | Area | State |
 |---|---|
-| Display pipeline | Working — 1:1 centered, 80 MHz SPI |
-| Lua VM | Working — Lua 5.4.7 native, ~65 KB for bubble |
-| Mono engine API subset | Working — enough for `demo/bubble` |
-| Touch input | Working — Y axis flipped manually in `sampleTouch()` |
+| Display pipeline | Working — 160×120 @ 2x, 80 MHz SPI, full screen |
+| Lua VM | Working — Lua 5.4.7 native, ~35 KB for hangman |
+| Engine API | Working — drawing, camera, touch, scenes, require, audio |
+| Touch input | Working — Y flip + ÷2 for 2x scale |
+| Audio | **Working** — 4-voice I2S mixer, speaker confirmed |
 | Sound | Stubs only |
 | Image loading / sprite sheets | Not ported |
 | Multi-surface canvas | Not ported |
