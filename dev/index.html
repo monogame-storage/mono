@@ -1342,6 +1342,56 @@
     color: #888;
     line-height: 1.5;
   }
+
+  /* ── Publish ── */
+  .publish-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .publish-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  .publish-badge.draft {
+    background: #2a2a2a;
+    color: #888;
+  }
+  .publish-badge.published {
+    background: #1a2e1a;
+    color: #6c6;
+  }
+  .publish-version {
+    font-size: 11px;
+    color: #555;
+  }
+  .settings-publish-btn {
+    width: 100%;
+    height: 40px;
+    background: #eee;
+    color: #111;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .settings-publish-btn:hover { background: #fff; }
+  .settings-publish-btn:disabled { background: #555; color: #888; cursor: not-allowed; }
+  .settings-publish-btn.unpublish {
+    background: transparent;
+    border: 1px solid #333;
+    color: #888;
+  }
+  .settings-publish-btn.unpublish:hover { border-color: #555; color: #ccc; }
+
   .btn-delete-game {
     width: 100%;
     height: 48px;
@@ -1736,6 +1786,17 @@
           <textarea class="settings-card-input settings-card-textarea" id="settings-desc" maxlength="120"></textarea>
         </div>
         <button class="settings-save-btn" id="btn-save-info">Save</button>
+      </div>
+      <div class="settings-section">
+        <span class="settings-section-label">Publish</span>
+        <div class="settings-card">
+          <div class="publish-status" id="publish-status">
+            <span class="publish-badge draft" id="publish-badge">Draft</span>
+            <span class="publish-version" id="publish-version"></span>
+          </div>
+          <p class="settings-danger-text" id="publish-desc">Publish this game to make it publicly playable. A snapshot of the current files will be saved.</p>
+          <button class="settings-publish-btn" id="btn-publish">Publish</button>
+        </div>
       </div>
       <div class="settings-section">
         <span class="settings-section-label danger">Danger Zone</span>
@@ -2482,10 +2543,22 @@ async function openEditor(gameId, title, desc) {
   currentGameId = gameId;
   currentGameTitle = title;
   currentGameDesc = desc || "";
+  currentGameStatus = "draft";
+  currentPublishedVersion = 0;
   chatHistory.length = 0;
   currentFiles = [];
   sessionTokens = { prompt: 0, completion: 0, total: 0 };
   document.getElementById("editor-usage").textContent = "";
+
+  // Load game status from Firestore
+  try {
+    const gameSnap = await getDoc(doc(db, "games", gameId));
+    if (gameSnap.exists()) {
+      const gd = gameSnap.data();
+      currentGameStatus = gd.status || "draft";
+      currentPublishedVersion = gd.publishedVersion || 0;
+    }
+  } catch {}
 
   // Load AI providers if not loaded yet
   if (aiProviders.length === 0 && localStorage.getItem("mono_vault_pp")) {
@@ -3182,10 +3255,13 @@ document.getElementById("btn-run").addEventListener("click", () => {
 // ── Game Settings ──
 let currentGameTitle = "";
 let currentGameDesc = "";
+let currentGameStatus = "draft";
+let currentPublishedVersion = 0;
 
 document.getElementById("btn-game-settings").addEventListener("click", () => {
   document.getElementById("settings-title").value = currentGameTitle;
   document.getElementById("settings-desc").value = currentGameDesc || "";
+  updatePublishUI();
   showView("game-settings");
 });
 
@@ -3250,6 +3326,112 @@ document.getElementById("btn-delete-game").addEventListener("click", async () =>
     alert("Failed to delete: " + e.message);
   }
 });
+
+// ── Publish ──
+function updatePublishUI() {
+  const badge = document.getElementById("publish-badge");
+  const version = document.getElementById("publish-version");
+  const desc = document.getElementById("publish-desc");
+  const btn = document.getElementById("btn-publish");
+
+  if (currentGameStatus === "published") {
+    badge.className = "publish-badge published";
+    badge.textContent = "Published";
+    version.textContent = currentPublishedVersion ? `v${currentPublishedVersion}` : "";
+    desc.textContent = "This game is live. You can unpublish to take it offline, or publish again to update.";
+    btn.textContent = "Unpublish";
+    btn.className = "settings-publish-btn unpublish";
+  } else {
+    badge.className = "publish-badge draft";
+    badge.textContent = "Draft";
+    version.textContent = "";
+    desc.textContent = "Publish this game to make it publicly playable. A snapshot of the current files will be saved.";
+    btn.textContent = "Publish";
+    btn.className = "settings-publish-btn";
+  }
+  btn.disabled = false;
+}
+
+document.getElementById("btn-publish").addEventListener("click", async () => {
+  if (currentGameStatus === "published") {
+    await unpublishGame();
+  } else {
+    await publishGame();
+  }
+});
+
+async function publishGame() {
+  const btn = document.getElementById("btn-publish");
+
+  // 1. Check main.lua exists
+  const mainFile = currentFiles.find(f => f.name === "main.lua");
+  if (!mainFile) {
+    alert("Cannot publish: main.lua is required.");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Testing...";
+
+  // 2. Run headless test
+  const result = await runHeadlessTest(currentFiles, 30);
+  if (!result.success) {
+    const errors = (result.errors || []).join("\n");
+    alert("Cannot publish: test failed.\n\n" + errors);
+    btn.disabled = false;
+    btn.textContent = "Publish";
+    return;
+  }
+
+  btn.textContent = "Publishing...";
+
+  // 3. Call publish API
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const res = await fetch(`${API_URL}/games/${currentGameId}/publish`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Publish failed (${res.status})`);
+    }
+    const data = await res.json();
+    currentGameStatus = "published";
+    currentPublishedVersion = data.version || (currentPublishedVersion + 1);
+    updatePublishUI();
+  } catch (e) {
+    alert("Publish failed: " + e.message);
+    btn.disabled = false;
+    btn.textContent = "Publish";
+  }
+}
+
+async function unpublishGame() {
+  if (!confirm("Unpublish this game? It will no longer be publicly playable.")) return;
+
+  const btn = document.getElementById("btn-publish");
+  btn.disabled = true;
+  btn.textContent = "Unpublishing...";
+
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const res = await fetch(`${API_URL}/games/${currentGameId}/unpublish`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Unpublish failed (${res.status})`);
+    }
+    currentGameStatus = "draft";
+    updatePublishUI();
+  } catch (e) {
+    alert("Unpublish failed: " + e.message);
+    btn.disabled = false;
+    btn.textContent = "Unpublish";
+  }
+}
 
 // ── Editor AI shortcut ──
 document.getElementById("btn-editor-aip").addEventListener("click", openAIProviders);
