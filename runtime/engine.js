@@ -499,6 +499,26 @@ var Mono = (() => {
   let axisX = 0, axisY = 0;
   let axisSource = "none"; // "keyboard" | "gamepad" | "none"
 
+  // --- Motion sensor (accelerometer/gyroscope) ---
+  let motionX = 0, motionY = 0, motionZ = 0; // accelerometer (-1 to 1, normalized)
+  let gyroAlpha = 0, gyroBeta = 0, gyroGamma = 0; // gyroscope (degrees)
+  let motionEnabled = false;
+  if (typeof window !== "undefined" && window.DeviceMotionEvent) {
+    window.addEventListener("devicemotion", (e) => {
+      const a = e.accelerationIncludingGravity;
+      if (!a) return;
+      motionEnabled = true;
+      motionX = Math.max(-1, Math.min(1, (a.x || 0) / 9.8)); // W3C spec: tilt right = positive x
+      motionY = Math.max(-1, Math.min(1, (a.y || 0) / 9.8));
+      motionZ = Math.max(-1, Math.min(1, (a.z || 0) / 9.8));
+    });
+    window.addEventListener("deviceorientation", (e) => {
+      gyroAlpha = e.alpha || 0;
+      gyroBeta = e.beta || 0;
+      gyroGamma = e.gamma || 0;
+    });
+  }
+
   // --- Touch / Mouse ---
   let touches = [];           // [{ id, x, y, fx, fy }]
   let touchStartedFlag = false;
@@ -862,6 +882,14 @@ var Mono = (() => {
     });
     lua.global.set("axis_x", () => axisX);
     lua.global.set("axis_y", () => axisY);
+    // Motion sensor APIs (accelerometer + gyroscope)
+    lua.global.set("motion_x", () => motionX);     // -1 to 1 (tilt left/right)
+    lua.global.set("motion_y", () => motionY);     // -1 to 1 (tilt forward/back)
+    lua.global.set("motion_z", () => motionZ);     // -1 to 1 (face up/down)
+    lua.global.set("gyro_alpha", () => gyroAlpha); // 0-360 compass heading
+    lua.global.set("gyro_beta", () => gyroBeta);   // -180 to 180 front/back tilt
+    lua.global.set("gyro_gamma", () => gyroGamma); // -90 to 90 left/right tilt
+    lua.global.set("motion_enabled", () => motionEnabled ? 1 : 0);
     // Check both latched state and raw flag: inputUpdate() runs after _update(),
     // so a fast click (mousedown+mouseup between frames) would be missed without the flag check.
     lua.global.set("_touch", () => touches.length > 0 || touchStartedFlag ? 1 : 0);
