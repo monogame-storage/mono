@@ -209,11 +209,8 @@ var Mono = (() => {
   let palette = null;
   let canvas, ctx, imgData, buf32;
 
-  function checkColor(c, fn) {
-    if (!debugMode) return;
-    if (typeof c !== 'number' || c !== c) throw new Error(fn + '(): color is ' + c + ', expected number (0-' + (palette.length - 1) + ')');
-    if (c < 0 || c >= palette.length) throw new Error(fn + '(): color ' + c + ' out of range (0-' + (palette.length - 1) + ')');
-  }
+  // Color validation removed from engine — handled by headless test runner (mono-test.js)
+  // for zero runtime overhead. See requireColor() in mono-test.js.
 
   function setPix(s, x, y, c) {
     x = Math.floor(x); y = Math.floor(y);
@@ -821,15 +818,15 @@ var Mono = (() => {
     lua.global.set("ALIGN_VCENTER", ALIGN_VCENTER);
     lua.global.set("ALIGN_CENTER", ALIGN_CENTER);
     // Drawing functions — first arg is surface id
-    lua.global.set("cls", (id, c) => { checkColor(c, "cls"); const s = getSurf(id); if (s) cls(s, c); });
-    lua.global.set("pix", (id, x, y, c) => { checkColor(c, "pix"); const s = getSurf(id); if (s) setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
+    lua.global.set("cls", (id, c) => { const s = getSurf(id); if (s) cls(s, c); });
+    lua.global.set("pix", (id, x, y, c) => { const s = getSurf(id); if (s) setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
     lua.global.set("gpix", (id, x, y) => { const s = getSurf(id); return s ? getPix(s, x, y) : 0; });
-    lua.global.set("line", (id, x0, y0, x1, y1, c) => { checkColor(c, "line"); const s = getSurf(id); if (s) line(s, x0, y0, x1, y1, c); });
-    lua.global.set("rect", (id, x, y, w, h, c) => { checkColor(c, "rect"); const s = getSurf(id); if (s) rect(s, x, y, w, h, c); });
-    lua.global.set("rectf", (id, x, y, w, h, c) => { checkColor(c, "rectf"); const s = getSurf(id); if (s) rectf(s, x, y, w, h, c); });
-    lua.global.set("circ", (id, cx, cy, r, c) => { checkColor(c, "circ"); const s = getSurf(id); if (s) circ(s, cx, cy, r, c); });
-    lua.global.set("circf", (id, cx, cy, r, c) => { checkColor(c, "circf"); const s = getSurf(id); if (s) circf(s, cx, cy, r, c); });
-    lua.global.set("text", (id, str, x, y, c, align) => { checkColor(c, "text"); const s = getSurf(id); if (s) drawText(s, str, x, y, c, align); });
+    lua.global.set("line", (id, x0, y0, x1, y1, c) => { const s = getSurf(id); if (s) line(s, x0, y0, x1, y1, c); });
+    lua.global.set("rect", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) rect(s, x, y, w, h, c); });
+    lua.global.set("rectf", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) rectf(s, x, y, w, h, c); });
+    lua.global.set("circ", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circ(s, cx, cy, r, c); });
+    lua.global.set("circf", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circf(s, cx, cy, r, c); });
+    lua.global.set("text", (id, str, x, y, c, align) => { const s = getSurf(id); if (s) drawText(s, str, x, y, c, align); });
     lua.global.set("cam", cam);
     lua.global.set("cam_reset", camReset);
     lua.global.set("cam_shake", camShake);

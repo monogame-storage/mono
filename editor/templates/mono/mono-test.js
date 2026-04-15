@@ -152,6 +152,17 @@ const buf32 = new Uint32Array(W * H);
 surfaces[0] = { w: W, h: H, buf32, colorBuf };
 
 function getSurf(id) { return surfaces[id]; }
+function requireSurf(name, id) {
+  const s = surfaces[id];
+  if (!s) throw new Error(name + "(): first arg must be a valid surface id (got " + id + "). Did you forget screen()?");
+  return s;
+}
+function requireColor(name, c) {
+  if (c === undefined || c === null) throw new Error(name + "(): color is undefined, expected number (0-" + (palette.length - 1) + ")");
+  if (typeof c !== "number") throw new Error(name + "(): color must be a number, got " + typeof c);
+  if (c !== Math.floor(c)) throw new Error(name + "(): color must be an integer, got " + c);
+  if (c < 0 || c >= palette.length) throw new Error(name + "(): color " + c + " out of range (0-" + (palette.length - 1) + ")");
+}
 
 // Images
 let images = [];
@@ -338,8 +349,8 @@ function canvasH(id) {
 }
 
 function blitFn(srcId, dstId, dx, dy, dw, dh, sx, sy, sw, sh) {
-  const src = getSurf(srcId), dst = getSurf(dstId);
-  if (!src || !dst) return;
+  const src = requireSurf("blit", srcId);
+  const dst = requireSurf("blit", dstId);
   sx = sx || 0; sy = sy || 0;
   sw = sw || src.w; sh = sh || src.h;
   dw = dw || sw; dh = dh || sh;
@@ -696,15 +707,15 @@ async function main() {
   lua.global.set("ALIGN_VCENTER", ALIGN_VCENTER);
   lua.global.set("ALIGN_CENTER", ALIGN_CENTER);
   // Drawing functions — first arg is surface id
-  lua.global.set("cls", (id, c) => { const s = getSurf(id); if (s) cls(s, c); });
-  lua.global.set("pix", (id, x, y, c) => { const s = getSurf(id); if (s) setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
-  lua.global.set("gpix", (id, x, y) => { const s = getSurf(id); return s ? getPix(s, x, y) : 0; });
-  lua.global.set("line", (id, x0, y0, x1, y1, c) => { const s = getSurf(id); if (s) line(s, x0, y0, x1, y1, c); });
-  lua.global.set("rect", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) rect(s, x, y, w, h, c); });
-  lua.global.set("rectf", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) rectf(s, x, y, w, h, c); });
-  lua.global.set("circ", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circ(s, cx, cy, r, c); });
-  lua.global.set("circf", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circf(s, cx, cy, r, c); });
-  lua.global.set("text", (id, str, x, y, c, align) => { const s = getSurf(id); if (s) drawText(s, str, x, y, c, align); });
+  lua.global.set("cls", (id, c) => { const s = requireSurf("cls", id); requireColor("cls", c); cls(s, c); });
+  lua.global.set("pix", (id, x, y, c) => { const s = requireSurf("pix", id); requireColor("pix", c); setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
+  lua.global.set("gpix", (id, x, y) => { const s = requireSurf("gpix", id); return getPix(s, x, y); });
+  lua.global.set("line", (id, x0, y0, x1, y1, c) => { const s = requireSurf("line", id); requireColor("line", c); line(s, x0, y0, x1, y1, c); });
+  lua.global.set("rect", (id, x, y, w, h, c) => { const s = requireSurf("rect", id); requireColor("rect", c); rect(s, x, y, w, h, c); });
+  lua.global.set("rectf", (id, x, y, w, h, c) => { const s = requireSurf("rectf", id); requireColor("rectf", c); rectf(s, x, y, w, h, c); });
+  lua.global.set("circ", (id, cx, cy, r, c) => { const s = requireSurf("circ", id); requireColor("circ", c); circ(s, cx, cy, r, c); });
+  lua.global.set("circf", (id, cx, cy, r, c) => { const s = requireSurf("circf", id); requireColor("circf", c); circf(s, cx, cy, r, c); });
+  lua.global.set("text", (id, str, x, y, c, align) => { const s = requireSurf("text", id); requireColor("text", c); drawText(s, str, x, y, c, align); });
   lua.global.set("vrow", (y) => vrow(y));
   lua.global.set("cam", camFn);
   lua.global.set("_cam_get_x", () => camX);
@@ -729,10 +740,10 @@ async function main() {
   lua.global.set("cam_reset", () => {});
   lua.global.set("axis_x", () => 0);
   lua.global.set("axis_y", () => 0);
-  lua.global.set("spr", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
-  lua.global.set("sspr", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = getSurf(id); if (s) drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
-  lua.global.set("drawImage", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
-  lua.global.set("drawImageRegion", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = getSurf(id); if (s) drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
+  lua.global.set("spr", (id, imgId, x, y) => { const s = requireSurf("spr", id); drawImageFn(s, imgId, x, y); });
+  lua.global.set("sspr", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = requireSurf("sspr", id); drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
+  lua.global.set("drawImage", (id, imgId, x, y) => { const s = requireSurf("drawImage", id); drawImageFn(s, imgId, x, y); });
+  lua.global.set("drawImageRegion", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = requireSurf("drawImageRegion", id); drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
   // Surface management
   lua.global.set("screen", screenFn);
   lua.global.set("canvas", canvasFn);
