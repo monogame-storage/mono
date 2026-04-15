@@ -3385,7 +3385,32 @@ async function publishGame() {
 
   btn.textContent = "Publishing...";
 
-  // 3. Call publish API
+  // 3. Generate thumbnail from test screen buffer
+  if (result.screen) {
+    try {
+      const { buf, w, h, palette } = result.screen;
+      const c = new OffscreenCanvas(w, h);
+      const ctx = c.getContext("2d");
+      const img = ctx.createImageData(w, h);
+      for (let i = 0; i < buf.length; i++) {
+        const v = palette[buf[i]] ?? 0;
+        img.data[i * 4] = v;
+        img.data[i * 4 + 1] = v;
+        img.data[i * 4 + 2] = v;
+        img.data[i * 4 + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+      const blob = await c.convertToBlob({ type: "image/png" });
+      const token = await auth.currentUser.getIdToken();
+      await fetch(`${API_URL}/games/${currentGameId}/files/thumbnail.png`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+        body: blob,
+      });
+    } catch {}
+  }
+
+  // 4. Call publish API
   try {
     const token = await auth.currentUser.getIdToken();
     const res = await fetch(`${API_URL}/games/${currentGameId}/publish`, {
