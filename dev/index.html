@@ -436,6 +436,28 @@
   .editor-scale-select option { background: #1a1a1a; }
   .editor-icon-btn:hover { background: #444; }
   .editor-icon-btn svg { width: 14px; height: 14px; }
+  .editor-icon-btn.linked { background: #2a5a2a; }
+
+  .sync-wrap { position: relative; display: inline-block; }
+  .sync-menu {
+    display: none; position: absolute; right: 0; top: 36px; z-index: 100;
+    background: #222; border: 1px solid #444; border-radius: 8px;
+    padding: 4px; min-width: 140px;
+  }
+  .sync-menu.open { display: block; }
+  .sync-menu button {
+    display: block; width: 100%; padding: 8px 12px; border: none;
+    background: none; color: #eee; font-size: 12px; text-align: left;
+    cursor: pointer; border-radius: 4px; font-family: 'Inter', sans-serif;
+  }
+  .sync-menu button:hover { background: #333; }
+  .sync-menu button:disabled { color: #666; cursor: default; }
+  .sync-menu button:disabled:hover { background: none; }
+  .sync-menu .sync-folder-name {
+    padding: 4px 12px; font-size: 10px; color: #888;
+    border-bottom: 1px solid #333; margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
 
   .editor-preview {
     background: #000;
@@ -1450,6 +1472,17 @@
         <button class="editor-icon-btn" id="btn-share" title="Share">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
         </button>
+        <div class="sync-wrap">
+          <button class="editor-icon-btn" id="btn-sync" title="Local Sync">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+          </button>
+          <div class="sync-menu" id="sync-menu">
+            <div class="sync-folder-name" id="sync-folder-name" style="display:none"></div>
+            <button id="btn-sync-link">Link Folder…</button>
+            <button id="btn-sync-push" disabled>Push to Local</button>
+            <button id="btn-sync-pull" disabled>Pull from Local</button>
+          </div>
+        </div>
         <button class="editor-icon-btn" id="btn-game-settings" title="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         </button>
@@ -3235,6 +3268,74 @@ document.getElementById("model-select").addEventListener("change", (e) => {
       aiProviders.forEach(p => p.isDefault = (p.id === pid));
       saveProviders();
     }
+  }
+});
+
+// ── Local Sync ──
+let linkedDirHandle = null;
+
+document.getElementById("btn-sync").addEventListener("click", (e) => {
+  e.stopPropagation();
+  document.getElementById("sync-menu").classList.toggle("open");
+});
+document.addEventListener("click", () => document.getElementById("sync-menu").classList.remove("open"));
+document.getElementById("sync-menu").addEventListener("click", (e) => e.stopPropagation());
+
+document.getElementById("btn-sync-link").addEventListener("click", async () => {
+  if (!window.showDirectoryPicker) { alert("This browser does not support folder access."); return; }
+  try {
+    linkedDirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+    document.getElementById("btn-sync").classList.add("linked");
+    document.getElementById("btn-sync-push").disabled = false;
+    document.getElementById("btn-sync-pull").disabled = false;
+    const el = document.getElementById("sync-folder-name");
+    el.textContent = linkedDirHandle.name;
+    el.style.display = "block";
+    document.getElementById("btn-sync-link").textContent = "Change Folder…";
+  } catch {}
+});
+
+document.getElementById("btn-sync-push").addEventListener("click", async () => {
+  if (!linkedDirHandle) return;
+  const btn = document.getElementById("btn-sync-push");
+  btn.disabled = true; btn.textContent = "Pushing…";
+  try {
+    const gameFiles = currentFiles.filter(f => !f.name.startsWith("_"));
+    for (const f of gameFiles) {
+      const fh = await linkedDirHandle.getFileHandle(f.name, { create: true });
+      const w = await fh.createWritable();
+      await w.write(f.content);
+      await w.close();
+    }
+    btn.textContent = `Pushed ${gameFiles.length} files`;
+    setTimeout(() => { btn.textContent = "Push to Local"; btn.disabled = false; }, 1500);
+  } catch (e) {
+    alert("Push failed: " + e.message);
+    btn.textContent = "Push to Local"; btn.disabled = false;
+  }
+});
+
+document.getElementById("btn-sync-pull").addEventListener("click", async () => {
+  if (!linkedDirHandle) return;
+  const btn = document.getElementById("btn-sync-pull");
+  btn.disabled = true; btn.textContent = "Pulling…";
+  try {
+    let count = 0;
+    for await (const [name, handle] of linkedDirHandle) {
+      if (handle.kind !== "file" || name.startsWith("_") || name.startsWith(".")) continue;
+      const file = await handle.getFile();
+      const content = await file.text();
+      const idx = currentFiles.findIndex(f => f.name === name);
+      if (idx >= 0) currentFiles[idx].content = content;
+      else currentFiles.push({ name, content });
+      await saveFile(name, content);
+      count++;
+    }
+    btn.textContent = `Pulled ${count} files`;
+    setTimeout(() => { btn.textContent = "Pull from Local"; btn.disabled = false; }, 1500);
+  } catch (e) {
+    alert("Pull failed: " + e.message);
+    btn.textContent = "Pull from Local"; btn.disabled = false;
   }
 });
 
