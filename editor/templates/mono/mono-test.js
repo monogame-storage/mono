@@ -512,6 +512,7 @@ function applyMotion(frame) {
     simMotionX = Math.max(-1, Math.min(1, m.x));
     simMotionY = Math.max(-1, Math.min(1, m.y));
     simMotionZ = Math.max(-1, Math.min(1, m.z));
+    simMotionEnabled = true; // activate on first injection
   }
 }
 
@@ -1786,10 +1787,10 @@ if (totalRuns > 1) {
         inputSchedule[frame].push(key);
       }
 
-      // Random motion events for fuzz
+      // Random motion events for fuzz (motion_enabled stays false unless game reads it)
       for (const k of Object.keys(motionSchedule)) delete motionSchedule[k];
       simMotionX = 0; simMotionY = 0; simMotionZ = 0;
-      simMotionEnabled = true;
+      simMotionEnabled = false;
       const numMotion = 1 + Math.floor(rng() * 10);
       for (let i = 0; i < numMotion; i++) {
         const frame = 1 + Math.floor(rng() * Math.max(1, frameCount));

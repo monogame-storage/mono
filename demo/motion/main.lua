@@ -9,6 +9,9 @@ end
 local ball_x, ball_y
 local trail = {}
 local MAX_TRAIL = 20
+local mx, my, mz = 0, 0, 0
+local ga, gb, gg = 0, 0, 0
+local enabled = false
 
 function _start()
   ball_x = SCREEN_W / 2
@@ -16,9 +19,16 @@ function _start()
 end
 
 function _update()
+  -- Read sensors once per frame
+  mx = motion_x()
+  my = motion_y()
+  mz = motion_z()
+  ga = gyro_alpha()
+  gb = gyro_beta()
+  gg = gyro_gamma()
+  enabled = motion_enabled() == 1
+
   -- Move ball with accelerometer tilt
-  local mx = motion_x()
-  local my = motion_y()
   ball_x = ball_x + mx * 3
   ball_y = ball_y + my * 3
 
@@ -51,26 +61,21 @@ function _draw()
   -- Ball
   circf(scr, math.floor(ball_x), math.floor(ball_y), 3, 15)
 
-  -- Data overlay
-  local mx = motion_x()
-  local my = motion_y()
-  local mz = motion_z()
+  -- Accelerometer
+  local col = enabled and 15 or 5
   text(scr, "MOTION", 2, 2, 8)
-  text(scr, "X:" .. string.format("%.2f", mx), 2, 12, motion_enabled() == 1 and 15 or 5)
-  text(scr, "Y:" .. string.format("%.2f", my), 2, 20, motion_enabled() == 1 and 15 or 5)
-  text(scr, "Z:" .. string.format("%.2f", mz), 2, 28, motion_enabled() == 1 and 15 or 5)
+  text(scr, "X:" .. string.format("%.2f", mx), 2, 12, col)
+  text(scr, "Y:" .. string.format("%.2f", my), 2, 20, col)
+  text(scr, "Z:" .. string.format("%.2f", mz), 2, 28, col)
 
   -- Gyroscope
-  local ga = gyro_alpha()
-  local gb = gyro_beta()
-  local gg = gyro_gamma()
   text(scr, "GYRO", 2, 40, 8)
   text(scr, "A:" .. math.floor(ga), 2, 50, 11)
   text(scr, "B:" .. math.floor(gb), 2, 58, 11)
   text(scr, "G:" .. math.floor(gg), 2, 66, 11)
 
   -- Status
-  if motion_enabled() == 0 then
+  if not enabled then
     text(scr, "TILT DEVICE", 0, SCREEN_H - 10, 5, ALIGN_HCENTER)
   end
 end
