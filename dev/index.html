@@ -3273,13 +3273,36 @@ document.getElementById("model-select").addEventListener("change", (e) => {
 
 // ── Local Sync ──
 let linkedDirHandle = null;
+let syncBusy = false;
 
 document.getElementById("btn-sync").addEventListener("click", (e) => {
   e.stopPropagation();
-  document.getElementById("sync-menu").classList.toggle("open");
+  if (!syncBusy) document.getElementById("sync-menu").classList.toggle("open");
 });
-document.addEventListener("click", () => document.getElementById("sync-menu").classList.remove("open"));
+document.addEventListener("click", () => {
+  if (!syncBusy) document.getElementById("sync-menu").classList.remove("open");
+});
 document.getElementById("sync-menu").addEventListener("click", (e) => e.stopPropagation());
+
+function syncLog(msg, files) {
+  const chat = document.getElementById("editor-chat");
+  let html = `<div class="chat-msg"><span class="chat-sender mono">SYNC</span><span class="chat-body">${esc(msg)}</span>`;
+  if (files && files.length) {
+    html += '<div class="chat-files">';
+    for (const f of files) html += `<span class="chat-file">${esc(f)}</span>`;
+    html += '</div>';
+  }
+  html += '</div>';
+  chat.innerHTML += html;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function deleteR2File(name) {
+  const token = await auth.currentUser.getIdToken();
+  await fetch(`${API_URL}/games/${currentGameId}/files/${name}`, {
+    method: "DELETE", headers: { Authorization: `Bearer ${token}` },
+  });
+}
 
 document.getElementById("btn-sync-link").addEventListener("click", async () => {
   if (!window.showDirectoryPicker) { alert("This browser does not support folder access."); return; }
@@ -3292,51 +3315,99 @@ document.getElementById("btn-sync-link").addEventListener("click", async () => {
     el.textContent = linkedDirHandle.name;
     el.style.display = "block";
     document.getElementById("btn-sync-link").textContent = "Change Folder…";
+    syncLog(`Linked to folder: ${linkedDirHandle.name}`);
   } catch {}
 });
 
 document.getElementById("btn-sync-push").addEventListener("click", async () => {
-  if (!linkedDirHandle) return;
+  if (!linkedDirHandle || syncBusy) return;
   const btn = document.getElementById("btn-sync-push");
-  btn.disabled = true; btn.textContent = "Pushing…";
+  syncBusy = true; btn.disabled = true; btn.textContent = "Pushing…";
   try {
     const gameFiles = currentFiles.filter(f => !f.name.startsWith("_"));
-    for (const f of gameFiles) {
+
+    // Collect local file names for delete detection
+    const localNames = new Set();
+    for await (const [name, handle] of linkedDirHandle) {
+      if (handle.kind === "file" && !name.startsWith("_") && !name.startsWith(".")) localNames.add(name);
+    }
+
+    // Write all game files in parallel
+    await Promise.all(gameFiles.map(async (f) => {
       const fh = await linkedDirHandle.getFileHandle(f.name, { create: true });
       const w = await fh.createWritable();
       await w.write(f.content);
       await w.close();
+    }));
+
+    // Detect local files not in R2
+    const r2Names = new Set(gameFiles.map(f => f.name));
+    const orphanLocal = [...localNames].filter(n => !r2Names.has(n));
+    let deleted = [];
+    if (orphanLocal.length > 0) {
+      if (confirm(`These local files are not in the cloud and will be deleted:\n\n${orphanLocal.join("\n")}\n\nDelete them?`)) {
+        await Promise.all(orphanLocal.map(async (name) => {
+          await linkedDirHandle.removeEntry(name);
+        }));
+        deleted = orphanLocal;
+      }
     }
-    btn.textContent = `Pushed ${gameFiles.length} files`;
+
+    syncLog(`Pushed ${gameFiles.length} files to local`, gameFiles.map(f => f.name));
+    if (deleted.length) syncLog(`Deleted ${deleted.length} local files`, deleted);
+    btn.textContent = `Pushed ${gameFiles.length}`;
     setTimeout(() => { btn.textContent = "Push to Local"; btn.disabled = false; }, 1500);
   } catch (e) {
     alert("Push failed: " + e.message);
     btn.textContent = "Push to Local"; btn.disabled = false;
   }
+  syncBusy = false;
 });
 
 document.getElementById("btn-sync-pull").addEventListener("click", async () => {
-  if (!linkedDirHandle) return;
+  if (!linkedDirHandle || syncBusy) return;
   const btn = document.getElementById("btn-sync-pull");
-  btn.disabled = true; btn.textContent = "Pulling…";
+  syncBusy = true; btn.disabled = true; btn.textContent = "Pulling…";
   try {
-    let count = 0;
+    // Read all local files
+    const localFiles = [];
     for await (const [name, handle] of linkedDirHandle) {
       if (handle.kind !== "file" || name.startsWith("_") || name.startsWith(".")) continue;
       const file = await handle.getFile();
       const content = await file.text();
-      const idx = currentFiles.findIndex(f => f.name === name);
-      if (idx >= 0) currentFiles[idx].content = content;
-      else currentFiles.push({ name, content });
-      await saveFile(name, content);
-      count++;
+      localFiles.push({ name, content });
     }
-    btn.textContent = `Pulled ${count} files`;
+
+    // Update currentFiles + save to R2 in parallel
+    for (const f of localFiles) {
+      const idx = currentFiles.findIndex(c => c.name === f.name);
+      if (idx >= 0) currentFiles[idx].content = f.content;
+      else currentFiles.push(f);
+    }
+    await Promise.all(localFiles.map(f => saveFile(f.name, f.content)));
+
+    // Detect R2 files not in local
+    const localNames = new Set(localFiles.map(f => f.name));
+    const gameFiles = currentFiles.filter(f => !f.name.startsWith("_"));
+    const orphanR2 = gameFiles.filter(f => !localNames.has(f.name)).map(f => f.name);
+    let deleted = [];
+    if (orphanR2.length > 0) {
+      if (confirm(`These cloud files are not in the local folder and will be deleted:\n\n${orphanR2.join("\n")}\n\nDelete them?`)) {
+        await Promise.all(orphanR2.map(name => deleteR2File(name)));
+        currentFiles = currentFiles.filter(f => !orphanR2.includes(f.name));
+        deleted = orphanR2;
+      }
+    }
+
+    syncLog(`Pulled ${localFiles.length} files from local`, localFiles.map(f => f.name));
+    if (deleted.length) syncLog(`Deleted ${deleted.length} cloud files`, deleted);
+    btn.textContent = `Pulled ${localFiles.length}`;
     setTimeout(() => { btn.textContent = "Pull from Local"; btn.disabled = false; }, 1500);
   } catch (e) {
     alert("Pull failed: " + e.message);
     btn.textContent = "Pull from Local"; btn.disabled = false;
   }
+  syncBusy = false;
 });
 
 // ── Error messages ──
