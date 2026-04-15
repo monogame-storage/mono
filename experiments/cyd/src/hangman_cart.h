@@ -57,22 +57,22 @@ end
 -- No pre_guessed letters: the player always starts with every word letter
 -- hidden. Difficulty comes from how much of the alphabet is masked.
 --
--- Curve tuned for monkey win rate:
---   LV  1-5  easy   (~50% monkey win)
---   LV  6-15 normal (~30% monkey win)
---   LV 16-25 hard   (~10% monkey win)
---   LV 26+   full keyboard, no masking
-local LEVEL_CONFIG = {
-  9, 10, 10, 11, 11,         -- LV 1-5 easy
-  12, 12, 13, 13, 14,        -- LV 6-10
-  14, 15, 15, 16, 16,        -- LV 11-15 normal
-  17, 17, 18, 19, 20,        -- LV 16-20 hard
-  20, 21, 22, 23, 24,        -- LV 21-25
+-- Difficulty is controlled by the number of WRONG (decoy) keys shown.
+-- More decoys = more chances to pick a wrong letter = harder.
+-- This is independent of word length, so a 1-letter word and an 8-letter
+-- word at the same level have the same number of traps.
+-- Minimum 6 decoys so the player can always lose (6 wrong = death).
+local DECOY_BY_LEVEL = {
+  6, 6, 7, 7, 8,          -- LV 1-5
+  8, 9, 9, 10, 10,        -- LV 6-10
+  11, 11, 12, 12, 13,     -- LV 11-15
+  13, 14, 14, 15, 16,     -- LV 16-20
+  16, 17, 18, 19, 20,     -- LV 21-25
 }
 
-local function level_config(level)
-  if level >= 26 then return 26 end
-  return LEVEL_CONFIG[level]
+local function level_decoys(level)
+  if level > 25 then return 99 end  -- LV26+: all remaining letters
+  return DECOY_BY_LEVEL[level]
 end
 
 ------------------------------------------------------------
@@ -84,9 +84,9 @@ local QWERTY = {
   { "Z", "X", "C", "V", "B", "N", "M" },
 }
 local ROW_OFFSET = { 0, 7, 21 }  -- px offset of each row relative to grid x0
-local CELL_W, CELL_H = 14, 17
+local CELL_W, CELL_H = 14, 14
 local GRID_X0 = 10
-local GRID_Y0 = 85
+local GRID_Y0 = 68
 
 function M.letter_at(col, row)
   local rd = QWERTY[row + 1]
@@ -206,7 +206,7 @@ end
 ------------------------------------------------------------
 function M.new_game(level)
   level = level or 1
-  local unmasked_total = level_config(level)
+  local n_decoys = level_decoys(level)
 
   local entry = pop_word()
   local word      = entry[1]
@@ -214,14 +214,12 @@ function M.new_game(level)
   local clues     = entry[3]
   local _, word_set = unique_letters(word)
 
-  -- Selectable set: all word letters (they must be reachable) + random decoys
-  -- to fill up to unmasked_total. No pre-guessed letters — every slot in the
-  -- word starts hidden.
+  -- Selectable set: all word letters + N decoy (wrong) letters.
+  -- The decoy count is controlled by level, not by word length, so difficulty
+  -- is consistent regardless of whether the word is 1 or 8 letters long.
   local selectable = {}
-  local n_word_letters = 0
   for c, _ in pairs(word_set) do
     selectable[c] = true
-    n_word_letters = n_word_letters + 1
   end
 
   local decoy_pool = {}
@@ -231,9 +229,9 @@ function M.new_game(level)
   end
   shuffle(decoy_pool)
 
-  local need = math.max(0, unmasked_total - n_word_letters)
+  local need = math.min(n_decoys, #decoy_pool)
   for i = 1, need do
-    if decoy_pool[i] then selectable[decoy_pool[i]] = true end
+    selectable[decoy_pool[i]] = true
   end
 
   local g = {
@@ -342,30 +340,32 @@ end
 -- drawing
 ------------------------------------------------------------
 
+-- Gallows + word layout scaled for 160×120 resolution.
+-- Gallows area: x=2-54, y=16-62.  Word area: x=58-155, y=34-48.
 local function draw_gallows_frame()
-  line(scr, 2, 75, 54, 75, 1)
-  for i = 0, 5 do pix(scr, 4 + i * 10, 77, 1) end
-  line(scr, 14, 75, 14, 18, 1)
-  line(scr, 14, 18, 48, 18, 1)
-  line(scr, 14, 26, 22, 18, 1)
-  line(scr, 48, 18, 48, 26, 1)
+  line(scr, 2, 62, 54, 62, 1)       -- ground
+  for i = 0, 5 do pix(scr, 4 + i * 10, 64, 1) end  -- ticks
+  line(scr, 14, 62, 14, 16, 1)      -- post
+  line(scr, 14, 16, 44, 16, 1)      -- beam
+  line(scr, 14, 22, 20, 16, 1)      -- brace
+  line(scr, 44, 16, 44, 22, 1)      -- rope
 end
 
 local function draw_body_parts(wrong)
   if wrong >= 1 then
-    circ(scr, 48, 30, 3, 1)
+    circ(scr, 44, 26, 3, 1)         -- head
     if wrong >= 6 then
-      pix(scr, 47, 29, 1); pix(scr, 49, 29, 1)
-      pix(scr, 47, 31, 1); pix(scr, 49, 31, 1)
+      pix(scr, 43, 25, 1); pix(scr, 45, 25, 1)  -- X eyes
+      pix(scr, 43, 27, 1); pix(scr, 45, 27, 1)
     else
-      pix(scr, 47, 29, 1); pix(scr, 49, 29, 1)
+      pix(scr, 43, 25, 1); pix(scr, 45, 25, 1)  -- eyes
     end
   end
-  if wrong >= 2 then line(scr, 48, 34, 48, 49, 1) end
-  if wrong >= 3 then line(scr, 48, 37, 42, 44, 1) end
-  if wrong >= 4 then line(scr, 48, 37, 54, 44, 1) end
-  if wrong >= 5 then line(scr, 48, 49, 42, 58, 1) end
-  if wrong >= 6 then line(scr, 48, 49, 54, 58, 1) end
+  if wrong >= 2 then line(scr, 44, 30, 44, 42, 1) end  -- body
+  if wrong >= 3 then line(scr, 44, 33, 39, 38, 1) end  -- left arm
+  if wrong >= 4 then line(scr, 44, 33, 49, 38, 1) end  -- right arm
+  if wrong >= 5 then line(scr, 44, 42, 39, 50, 1) end  -- left leg
+  if wrong >= 6 then line(scr, 44, 42, 49, 50, 1) end  -- right leg
 end
 
 local function draw_word(g)
@@ -375,7 +375,7 @@ local function draw_word(g)
   local total = wlen * slot_w
   local area_x, area_w = 58, 98
   local start_x = area_x + (area_w - total) // 2
-  local y = 46
+  local y = 36
   for i = 1, wlen do
     local c = g.word:sub(i, i)
     local cx = start_x + (i - 1) * slot_w
@@ -409,6 +409,52 @@ local function draw_wrong_cell(x, y)
   end
 end
 
+-- Custom 5x7 glyphs for letters that are hard to distinguish in the
+-- engine's 4px-wide font (M and N look nearly identical at FONT_W=4).
+-- Only used inside the QWERTY keyboard grid; everything else keeps
+-- the engine font.
+local CUSTOM_GLYPHS = {
+  M = {
+    {1,0,0,0,1},
+    {1,1,0,1,1},
+    {1,0,1,0,1},
+    {1,0,0,0,1},
+    {1,0,0,0,1},
+    {1,0,0,0,1},
+    {1,0,0,0,1},
+  },
+  N = {
+    {1,0,0,0,1},
+    {1,1,0,0,1},
+    {1,0,1,0,1},
+    {1,0,1,0,1},
+    {1,0,1,0,1},
+    {1,0,0,1,1},
+    {1,0,0,0,1},
+  },
+}
+
+-- Draw a keyboard letter — uses custom glyph when available, engine text otherwise.
+local function draw_key_letter(x, y, letter, col)
+  local glyph = CUSTOM_GLYPHS[letter]
+  if glyph then
+    local gw = #glyph[1]
+    local gh = #glyph
+    local gx = x + (CELL_W - gw) // 2
+    local gy = y + (CELL_H - gh) // 2
+    for py = 0, gh - 1 do
+      local row = glyph[py + 1]
+      for px = 0, gw - 1 do
+        if row[px + 1] == 1 then pix(scr, gx + px, gy + py, col) end
+      end
+    end
+  else
+    local cx = x + CELL_W // 2
+    local cy = y + CELL_H // 2
+    text(scr, letter, cx, cy - 3, col, ALIGN_HCENTER)
+  end
+end
+
 local function draw_alphabet(g)
   local blink = (g.timer // 8) % 2 == 0
   for r = 0, #QWERTY - 1 do
@@ -416,20 +462,17 @@ local function draw_alphabet(g)
     for c = 0, rl - 1 do
       local letter = M.letter_at(c, r)
       local x, y = M.cell_xy(c, r)
-      local cx = x + CELL_W // 2
-      local cy = y + CELL_H // 2
       local status = g.guessed[letter]
 
       if not g.selectable[letter] then
         draw_masked_cell(x, y)
       elseif status == "right" then
-        -- correct: solid invert with letter visible
         rectf(scr, x + 1, y + 1, CELL_W - 2, CELL_H - 2, 1)
-        text(scr, letter, cx, cy - 3, 0, ALIGN_HCENTER)
+        draw_key_letter(x, y, letter, 0)
       elseif status == "wrong" then
         draw_wrong_cell(x, y)
       else
-        text(scr, letter, cx, cy - 3, 1, ALIGN_HCENTER)
+        draw_key_letter(x, y, letter, 1)
       end
 
       if g.state == "play" and c == g.cursor_c and r == g.cursor_r then
@@ -480,7 +523,7 @@ end
 
 local function text_width(s) return #s * 5 - 1 end
 
-local function draw_header(g, hints, score)
+local function draw_header(g, hints, score, lives)
   if g.hint_text ~= "" then
     rectf(scr, 1, 1, SCREEN_W - 2, 11, 0)
     text(scr, "> " .. g.hint_text, g.hint_x, 4, 1)
@@ -488,10 +531,10 @@ local function draw_header(g, hints, score)
     return
   end
 
-  -- Hearts on the left
-  local lives = 6 - g.wrong
-  for i = 0, 5 do
-    draw_sprite(i < lives and HEART_FILL or HEART_OUTLINE, 3 + i * 6, 3)
+  -- Hearts = lives (continues), filled only
+  local n = lives or 0
+  for i = 0, n - 1 do
+    draw_sprite(HEART_FILL, 3 + i * 6, 3)
   end
 
   -- Right-aligned: LV<n>   [key]<hints>
@@ -499,39 +542,51 @@ local function draw_header(g, hints, score)
   local hint_str = tostring(hints)
   local hint_w = text_width(hint_str)
   text(scr, hint_str, right, 3, 1, ALIGN_RIGHT)
-  local key_x = right - hint_w - 10      -- 2px gap + 8px icon
+  local key_x = right - hint_w - 10
   draw_sprite(KEY_ICON, key_x, 3)
   local lv_right = key_x - 3
   text(scr, "LV" .. g.level, lv_right, 3, 1, ALIGN_RIGHT)
 
   line(scr, 2, 12, 157, 12, 1)
 
-  -- Score on a secondary line, right-aligned, just below the header rule.
   if score and score > 0 then
     text(scr, tostring(score), 156, 14, 1, ALIGN_RIGHT)
   end
 end
 
-local function draw_end_overlay(g)
-  local bx, by, bw, bh
+local function draw_end_overlay(g, lives)
   if g.state == "win" then
-    bx, by, bw, bh = 40, 30, 80, 38
-  else
-    bx, by, bw, bh = 50, 34, 60, 28
-  end
-  rectf(scr, bx, by, bw, bh, 0)
-  rect(scr, bx, by, bw, bh, 1)
-  for i = 0, bw // 4 do
-    pix(scr, bx + i * 4, by + 2, 1)
-    pix(scr, bx + i * 4, by + bh - 3, 1)
-  end
-  if g.state == "win" then
+    local bx, by, bw, bh = 30, 22, 100, 38
+    rectf(scr, bx, by, bw, bh, 0)
+    rect(scr, bx, by, bw, bh, 1)
+    for i = 0, bw // 4 do
+      pix(scr, bx + i * 4, by + 2, 1)
+      pix(scr, bx + i * 4, by + bh - 3, 1)
+    end
     text(scr, "YOU WIN!", bx + bw // 2, by + 6, 1, ALIGN_HCENTER)
     if (g.timer // 15) % 2 == 0 then
       text(scr, g.word, bx + bw // 2, by + 15, 1, ALIGN_HCENTER)
     end
-    text(scr, "+" .. g.score_gain, bx + bw // 2, by + 25, 1, ALIGN_HCENTER)
+    local tag = "+" .. g.score_gain
+    if g.score_perfect and g.score_perfect > 0 then tag = tag .. " PERFECT" end
+    text(scr, tag, bx + bw // 2, by + 25, 1, ALIGN_HCENTER)
+  elseif lives and lives > 1 then
+    -- Word lost but lives remain: compact reveal, no GAME OVER text
+    local bx, by, bw, bh = 50, 30, 60, 18
+    rectf(scr, bx, by, bw, bh, 0)
+    rect(scr, bx, by, bw, bh, 1)
+    if (g.timer // 15) % 2 == 0 then
+      text(scr, g.word, bx + bw // 2, by + 6, 1, ALIGN_HCENTER)
+    end
   else
+    -- Last life gone: actual game over
+    local bx, by, bw, bh = 50, 26, 60, 28
+    rectf(scr, bx, by, bw, bh, 0)
+    rect(scr, bx, by, bw, bh, 1)
+    for i = 0, bw // 4 do
+      pix(scr, bx + i * 4, by + 2, 1)
+      pix(scr, bx + i * 4, by + bh - 3, 1)
+    end
     text(scr, "GAME OVER", bx + bw // 2, by + 7, 1, ALIGN_HCENTER)
     if (g.timer // 15) % 2 == 0 then
       text(scr, g.word, bx + bw // 2, by + 17, 1, ALIGN_HCENTER)
@@ -539,7 +594,7 @@ local function draw_end_overlay(g)
   end
 end
 
-function M.draw(g, hints, score)
+function M.draw(g, hints, score, lives)
   cls(scr, 0)
 
   if g.shake > 0 then
@@ -548,7 +603,7 @@ function M.draw(g, hints, score)
     cam(sx, sy)
   end
 
-  draw_header(g, hints, score)
+  draw_header(g, hints, score, lives)
   draw_gallows_frame()
   draw_body_parts(g.wrong)
   draw_word(g)
@@ -564,7 +619,7 @@ function M.draw(g, hints, score)
   end
 
   if g.state ~= "play" and g.end_timer > 8 then
-    draw_end_overlay(g)
+    draw_end_overlay(g, lives)
   end
 end
 
@@ -588,7 +643,8 @@ static const char* STATE_LUA = R"SL(
 local S = {
   level = 1,
   hints = 3,
-  MAX_HINTS = 10,
+  lives = 3,
+  MAX_HINTS = 999,
   MAX_LEVEL = 50,
   score = 0,
   hi_score = 0,
@@ -610,9 +666,9 @@ static const char* WORDS_LUA = R"WL(
 -- Clues are ordered vague → decisive. The earlier ones barely help;
 -- the later ones practically give it away.
 return {
-  { "A", "ONE LETTER", {
-    "PRECEDES A NOUN", "OPENS THE ALPHABET", "A SINGLE VOWEL",
-    "FIRST LETTER OF ENGLISH", "PAIRS WITH NOUNS", "AN ARTICLE",
+  { "A", "BEFORE A NOUN", {
+    "PRECEDES A NOUN", "OPENS THE ALPHABET", "A COMMON VOWEL",
+    "STARTS THE ALPHABET", "PAIRS WITH NOUNS", "AN ARTICLE",
     "INDEFINITE ARTICLE", } },
   { "AM", "A LINKING VERB", {
     "A GRAMMAR GLUE", "A FORM OF BE", "PRESENT TENSE",
@@ -840,9 +896,13 @@ function scene.init()
   input_lock = true
   if state.auto_start then
     state.auto_start = false
-    auto_delay = 15  -- ~0.5s title flash before jumping back into play
+    auto_delay = 15
   else
     auto_delay = 0
+    -- Short title jingle (descending three-note chord)
+    wave(0, "square")
+    note(0, "E5", 0.12)
+    note(1, "C5", 0.12)
   end
 end
 
@@ -906,19 +966,19 @@ function scene.draw()
   text(scr, "MONO  HANGMAN", SCREEN_W // 2, 17, 1, ALIGN_HCENTER)
 
   -- gallows illustration
-  draw_mini_gallows(64, 42)
+  draw_mini_gallows(64, 34)
 
   -- Hi score
   if state.hi_score > 0 then
-    text(scr, "HI SCORE", SCREEN_W // 2, 90, 1, ALIGN_HCENTER)
-    text(scr, tostring(state.hi_score), SCREEN_W // 2, 98, 1, ALIGN_HCENTER)
+    text(scr, "HI SCORE", SCREEN_W // 2, 80, 1, ALIGN_HCENTER)
+    text(scr, tostring(state.hi_score), SCREEN_W // 2, 88, 1, ALIGN_HCENTER)
   end
 
   -- blinking START button
   if (t // 15) % 2 == 0 then
     local bw, bh = 40, 14
     local bx = (SCREEN_W - bw) // 2
-    local by = 115
+    local by = 100
     rect(scr, bx, by, bw, bh, 1)
     text(scr, "START", SCREEN_W // 2, by + 4, 1, ALIGN_HCENTER)
   end
@@ -940,6 +1000,8 @@ local g
 local paused = false
 local last_tx, last_ty = nil, nil
 local input_lock = false
+local tutorial_shown = false  -- persists for the entire session (module cache)
+local show_tutorial = false
 
 local ALL_KEYS = { "a", "b", "start", "select", "up", "down", "left", "right" }
 
@@ -963,6 +1025,9 @@ function scene.init()
   paused = false
   last_tx, last_ty = nil, nil
   input_lock = true
+  if not tutorial_shown and not state.demo then
+    show_tutorial = true
+  end
 end
 
 ------------------------------------------------------------
@@ -1025,7 +1090,11 @@ local function handle_end_input()
   if g.state == "win" then
     state.score = state.score + (g.score_gain or 0)
     if state.score > state.hi_score then state.hi_score = state.score end
-    state.hints = math.min(state.hints + 1, state.MAX_HINTS)
+    state.hints = state.hints + 1
+    -- Bonus life every 10 stages cleared
+    if state.level % 10 == 0 then
+      state.lives = state.lives + 1
+    end
     if state.level >= state.MAX_LEVEL then
       go("scenes/ending")
       return
@@ -1035,13 +1104,34 @@ local function handle_end_input()
     paused = false
     input_lock = true
   else
-    if state.score > state.hi_score then state.hi_score = state.score end
-    state.level = 1
-    state.hints = 3
-    state.score = 0
-    state.auto_start = false
-    game.reset_deck()
-    go("scenes/title")
+    -- Word lost: spend a life
+    state.lives = state.lives - 1
+    if state.lives > 0 then
+      -- Still alive: next word, same level
+      g = game.new_game(state.level)
+      paused = false
+      input_lock = true
+    else
+      -- All lives gone: game over → checkpoint or title
+      if state.score > state.hi_score then state.hi_score = state.score end
+      local checkpoint = ((state.level - 1) // 10) * 10 + 1
+      if checkpoint <= 1 then
+        state.level = 1
+        state.hints = 3
+        state.lives = 3
+        state.score = 0
+        state.auto_start = false
+        game.reset_deck()
+        go("scenes/title")
+      else
+        state.level = checkpoint
+        state.hints = 3
+        state.lives = 3
+        g = game.new_game(state.level)
+        paused = false
+        input_lock = true
+      end
+    end
   end
 end
 
@@ -1091,10 +1181,17 @@ end
 -- scene callbacks
 ------------------------------------------------------------
 function scene.update()
-  if not paused then game.tick(g) end
+  if not paused and not show_tutorial then game.tick(g) end
   if input_lock then
     if any_input_held() then return end
     input_lock = false
+  end
+  if show_tutorial then
+    if any_key_pressed() or touch_end() then
+      show_tutorial = false
+      tutorial_shown = true
+    end
+    return
   end
   if state.demo then
     handle_demo()
@@ -1160,8 +1257,28 @@ local function draw_clock()
   draw_seg_digit(cx + 17, cy, m % 10, 1)
 end
 
+local function draw_tutorial()
+  -- Black out the entire game area so no keyboard/gallows bleeds through
+  rectf(scr, 1, 1, SCREEN_W - 2, SCREEN_H - 2, 0)
+  -- Compact info box, centered
+  local bw, bh = 104, 57
+  local bx = (SCREEN_W - bw) // 2
+  local by = (SCREEN_H - bh) // 2
+  rect(scr, bx, by, bw, bh, 1)
+  rect(scr, bx + 2, by + 2, bw - 4, bh - 4, 1)
+  text(scr, "TOUCH TO SELECT", bx + bw // 2, by + 10, 1, ALIGN_HCENTER)
+  text(scr, "A = GUESS", bx + bw // 2, by + 20, 1, ALIGN_HCENTER)
+  text(scr, "B = HINT", bx + bw // 2, by + 28, 1, ALIGN_HCENTER)
+  if (g.timer // 15) % 2 == 0 then
+    text(scr, "PRESS ANY KEY", bx + bw // 2, by + 40, 1, ALIGN_HCENTER)
+  end
+  -- Restore outer border
+  rect(scr, 0, 0, SCREEN_W, SCREEN_H, 1)
+end
+
 function scene.draw()
-  game.draw(g, state.demo and 0 or state.hints, state.demo and 0 or state.score)
+  game.draw(g, state.demo and 0 or state.hints, state.demo and 0 or state.score, state.demo and 0 or state.lives)
+  if show_tutorial then draw_tutorial() end
   if state.demo then draw_clock() end
   if paused then draw_pause_overlay() end
 end
@@ -1284,7 +1401,12 @@ function scene.update()
       if last_line_y() < -LINE_HEIGHT then
         phase = PHASE_FINALE
         finale_timer = 0
-        input_lock = true  -- fresh release requirement for the finale
+        input_lock = true
+        -- Victory arpeggio
+        wave(0, "triangle")
+        wave(1, "triangle")
+        note(0, "C5", 0.15)
+        note(1, "E5", 0.15)
       end
     end
     return
