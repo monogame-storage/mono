@@ -134,11 +134,17 @@
         document.title = "Mono \u2014 " + (data.title || "Game");
         document.getElementById("back-btn").href = "/";
 
-        var files = {};
+        var mainSrc = "";
+        var modules = {};
         for (var f of data.files) {
-          files[f.name] = f.content;
+          if (f.name === "main.lua") {
+            mainSrc = f.content;
+          } else if (f.name.endsWith(".lua")) {
+            modules[f.name] = f.content;
+          }
         }
-        await Mono.boot("screen", { files: files, colors: 4 });
+        if (!mainSrc) throw new Error("No main.lua in published files");
+        await Mono.boot("screen", { source: mainSrc, modules: modules, colors: 4 });
         if (Mono.shader && Mono.shader.preset) Mono.shader.preset();
       } catch(e) {
         console.error("Boot failed:", e);
