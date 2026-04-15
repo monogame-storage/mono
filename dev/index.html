@@ -436,6 +436,28 @@
   .editor-scale-select option { background: #1a1a1a; }
   .editor-icon-btn:hover { background: #444; }
   .editor-icon-btn svg { width: 14px; height: 14px; }
+  .editor-icon-btn.linked { background: #2a5a2a; }
+
+  .sync-wrap { position: relative; display: inline-block; }
+  .sync-menu {
+    display: none; position: absolute; right: 0; top: 36px; z-index: 100;
+    background: #222; border: 1px solid #444; border-radius: 8px;
+    padding: 4px; min-width: 140px;
+  }
+  .sync-menu.open { display: block; }
+  .sync-menu button {
+    display: block; width: 100%; padding: 8px 12px; border: none;
+    background: none; color: #eee; font-size: 12px; text-align: left;
+    cursor: pointer; border-radius: 4px; font-family: 'Inter', sans-serif;
+  }
+  .sync-menu button:hover { background: #333; }
+  .sync-menu button:disabled { color: #666; cursor: default; }
+  .sync-menu button:disabled:hover { background: none; }
+  .sync-menu .sync-folder-name {
+    padding: 4px 12px; font-size: 10px; color: #888;
+    border-bottom: 1px solid #333; margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
 
   .editor-preview {
     background: #000;
@@ -1450,6 +1472,17 @@
         <button class="editor-icon-btn" id="btn-share" title="Share">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
         </button>
+        <div class="sync-wrap">
+          <button class="editor-icon-btn" id="btn-sync" title="Local Sync">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+          </button>
+          <div class="sync-menu" id="sync-menu">
+            <div class="sync-folder-name" id="sync-folder-name" style="display:none"></div>
+            <button id="btn-sync-link">Link Folder…</button>
+            <button id="btn-sync-push" disabled>Push to Local</button>
+            <button id="btn-sync-pull" disabled>Pull from Local</button>
+          </div>
+        </div>
         <button class="editor-icon-btn" id="btn-game-settings" title="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         </button>
@@ -3236,6 +3269,145 @@ document.getElementById("model-select").addEventListener("change", (e) => {
       saveProviders();
     }
   }
+});
+
+// ── Local Sync ──
+let linkedDirHandle = null;
+let syncBusy = false;
+
+document.getElementById("btn-sync").addEventListener("click", (e) => {
+  e.stopPropagation();
+  if (!syncBusy) document.getElementById("sync-menu").classList.toggle("open");
+});
+document.addEventListener("click", () => {
+  if (!syncBusy) document.getElementById("sync-menu").classList.remove("open");
+});
+document.getElementById("sync-menu").addEventListener("click", (e) => e.stopPropagation());
+
+function syncLog(msg, files) {
+  const chat = document.getElementById("editor-chat");
+  let html = `<div class="chat-msg"><span class="chat-sender mono">SYNC</span><span class="chat-body">${esc(msg)}</span>`;
+  if (files && files.length) {
+    html += '<div class="chat-files">';
+    for (const f of files) html += `<span class="chat-file">${esc(f)}</span>`;
+    html += '</div>';
+  }
+  html += '</div>';
+  chat.innerHTML += html;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function deleteR2File(name) {
+  const token = await auth.currentUser.getIdToken();
+  await fetch(`${API_URL}/games/${currentGameId}/files/${name}`, {
+    method: "DELETE", headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+document.getElementById("btn-sync-link").addEventListener("click", async () => {
+  if (!window.showDirectoryPicker) { alert("This browser does not support folder access."); return; }
+  try {
+    linkedDirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+    document.getElementById("btn-sync").classList.add("linked");
+    document.getElementById("btn-sync-push").disabled = false;
+    document.getElementById("btn-sync-pull").disabled = false;
+    const el = document.getElementById("sync-folder-name");
+    el.textContent = linkedDirHandle.name;
+    el.style.display = "block";
+    document.getElementById("btn-sync-link").textContent = "Change Folder…";
+    syncLog(`Linked to folder: ${linkedDirHandle.name}`);
+  } catch {}
+});
+
+document.getElementById("btn-sync-push").addEventListener("click", async () => {
+  if (!linkedDirHandle || syncBusy) return;
+  const btn = document.getElementById("btn-sync-push");
+  syncBusy = true; btn.disabled = true; btn.textContent = "Pushing…";
+  try {
+    const gameFiles = currentFiles.filter(f => !f.name.startsWith("_"));
+
+    // Collect local file names for delete detection
+    const localNames = new Set();
+    for await (const [name, handle] of linkedDirHandle) {
+      if (handle.kind === "file" && !name.startsWith("_") && !name.startsWith(".")) localNames.add(name);
+    }
+
+    // Write all game files in parallel
+    await Promise.all(gameFiles.map(async (f) => {
+      const fh = await linkedDirHandle.getFileHandle(f.name, { create: true });
+      const w = await fh.createWritable();
+      await w.write(f.content);
+      await w.close();
+    }));
+
+    // Detect local files not in R2
+    const r2Names = new Set(gameFiles.map(f => f.name));
+    const orphanLocal = [...localNames].filter(n => !r2Names.has(n));
+    let deleted = [];
+    if (orphanLocal.length > 0) {
+      if (confirm(`These local files are not in the cloud and will be deleted:\n\n${orphanLocal.join("\n")}\n\nDelete them?`)) {
+        await Promise.all(orphanLocal.map(async (name) => {
+          await linkedDirHandle.removeEntry(name);
+        }));
+        deleted = orphanLocal;
+      }
+    }
+
+    syncLog(`Pushed ${gameFiles.length} files to local`, gameFiles.map(f => f.name));
+    if (deleted.length) syncLog(`Deleted ${deleted.length} local files`, deleted);
+    btn.textContent = `Pushed ${gameFiles.length}`;
+    setTimeout(() => { btn.textContent = "Push to Local"; btn.disabled = false; }, 1500);
+  } catch (e) {
+    alert("Push failed: " + e.message);
+    btn.textContent = "Push to Local"; btn.disabled = false;
+  }
+  syncBusy = false;
+});
+
+document.getElementById("btn-sync-pull").addEventListener("click", async () => {
+  if (!linkedDirHandle || syncBusy) return;
+  const btn = document.getElementById("btn-sync-pull");
+  syncBusy = true; btn.disabled = true; btn.textContent = "Pulling…";
+  try {
+    // Read all local files
+    const localFiles = [];
+    for await (const [name, handle] of linkedDirHandle) {
+      if (handle.kind !== "file" || name.startsWith("_") || name.startsWith(".")) continue;
+      const file = await handle.getFile();
+      const content = await file.text();
+      localFiles.push({ name, content });
+    }
+
+    // Update currentFiles + save to R2 in parallel
+    for (const f of localFiles) {
+      const idx = currentFiles.findIndex(c => c.name === f.name);
+      if (idx >= 0) currentFiles[idx].content = f.content;
+      else currentFiles.push(f);
+    }
+    await Promise.all(localFiles.map(f => saveFile(f.name, f.content)));
+
+    // Detect R2 files not in local
+    const localNames = new Set(localFiles.map(f => f.name));
+    const gameFiles = currentFiles.filter(f => !f.name.startsWith("_"));
+    const orphanR2 = gameFiles.filter(f => !localNames.has(f.name)).map(f => f.name);
+    let deleted = [];
+    if (orphanR2.length > 0) {
+      if (confirm(`These cloud files are not in the local folder and will be deleted:\n\n${orphanR2.join("\n")}\n\nDelete them?`)) {
+        await Promise.all(orphanR2.map(name => deleteR2File(name)));
+        currentFiles = currentFiles.filter(f => !orphanR2.includes(f.name));
+        deleted = orphanR2;
+      }
+    }
+
+    syncLog(`Pulled ${localFiles.length} files from local`, localFiles.map(f => f.name));
+    if (deleted.length) syncLog(`Deleted ${deleted.length} cloud files`, deleted);
+    btn.textContent = `Pulled ${localFiles.length}`;
+    setTimeout(() => { btn.textContent = "Pull from Local"; btn.disabled = false; }, 1500);
+  } catch (e) {
+    alert("Pull failed: " + e.message);
+    btn.textContent = "Pull from Local"; btn.disabled = false;
+  }
+  syncBusy = false;
 });
 
 // ── Error messages ──
