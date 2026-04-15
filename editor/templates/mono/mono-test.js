@@ -740,6 +740,14 @@ async function main() {
   lua.global.set("cam_reset", () => {});
   lua.global.set("axis_x", () => 0);
   lua.global.set("axis_y", () => 0);
+  // Motion sensor stubs (headless = no motion)
+  lua.global.set("motion_x", () => 0);
+  lua.global.set("motion_y", () => 0);
+  lua.global.set("motion_z", () => 0);
+  lua.global.set("gyro_alpha", () => 0);
+  lua.global.set("gyro_beta", () => 0);
+  lua.global.set("gyro_gamma", () => 0);
+  lua.global.set("motion_enabled", () => 0);
   lua.global.set("spr", (id, imgId, x, y) => { const s = requireSurf("spr", id); drawImageFn(s, imgId, x, y); });
   lua.global.set("sspr", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = requireSurf("sspr", id); drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
   lua.global.set("drawImage", (id, imgId, x, y) => { const s = requireSurf("drawImage", id); drawImageFn(s, imgId, x, y); });
