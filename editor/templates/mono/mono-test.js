@@ -160,6 +160,7 @@ function requireSurf(name, id) {
 function requireColor(name, c) {
   if (c === undefined || c === null) throw new Error(name + "(): color is undefined, expected number (0-" + (palette.length - 1) + ")");
   if (typeof c !== "number") throw new Error(name + "(): color must be a number, got " + typeof c);
+  if (c < 0 || c >= palette.length) throw new Error(name + "(): color " + c + " out of range (0-" + (palette.length - 1) + ")");
 }
 
 // Images
@@ -347,8 +348,8 @@ function canvasH(id) {
 }
 
 function blitFn(srcId, dstId, dx, dy, dw, dh, sx, sy, sw, sh) {
-  const src = getSurf(srcId), dst = getSurf(dstId);
-  if (!src || !dst) return;
+  const src = requireSurf("blit", srcId);
+  const dst = requireSurf("blit", dstId);
   sx = sx || 0; sy = sy || 0;
   sw = sw || src.w; sh = sh || src.h;
   dw = dw || sw; dh = dh || sh;
