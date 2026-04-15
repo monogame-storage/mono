@@ -62,10 +62,12 @@ static inline int16_t voice_sample(Voice& v) {
     uint16_t bit = ((lfsr >> 0) ^ (lfsr >> 2) ^ (lfsr >> 3) ^ (lfsr >> 5)) & 1;
     v.lfsr = (lfsr >> 1) | (bit << 15);
     s = (int8_t)((v.lfsr & 0xFF) - 128);
-  } else {
+  } else if (v.wave < 4) {
     s = wave_table[v.wave][((int)(v.phase * 256.0f)) & 0xFF];
     v.phase += v.phase_inc;
     if (v.phase >= 1.0f) v.phase -= 1.0f;
+  } else {
+    s = 0;  // unknown wave type — silence, don't index out of bounds
   }
 
   if (v.phase_inc_delta != 0.0f) {
