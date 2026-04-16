@@ -144,7 +144,12 @@
           }
         }
         if (!mainSrc) throw new Error("No main.lua in published files");
-        await Mono.boot("screen", { source: mainSrc, modules: modules, colors: 4 });
+        await Mono.boot("screen", {
+          source: mainSrc,
+          modules: modules,
+          colors: 4,
+          readFile: function(name) { return modules[name] || null; },
+        });
         if (Mono.shader && Mono.shader.preset) Mono.shader.preset();
       } catch(e) {
         console.error("Boot failed:", e);
