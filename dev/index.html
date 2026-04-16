@@ -3504,6 +3504,31 @@ function syncLog(msg, files) {
   chat.scrollTop = chat.scrollHeight;
 }
 
+// Recursively read all files from a directory handle
+async function readDirRecursive(dirHandle, prefix = "") {
+  const entries = [];
+  for await (const [name, handle] of dirHandle) {
+    if (name.startsWith("_") || name.startsWith(".")) continue;
+    const path = prefix ? prefix + "/" + name : name;
+    if (handle.kind === "file") {
+      entries.push({ path, handle, dirHandle });
+    } else if (handle.kind === "directory") {
+      entries.push(...await readDirRecursive(handle, path));
+    }
+  }
+  return entries;
+}
+
+// Get or create a file handle for a path with subdirectories
+async function getFileHandleDeep(rootHandle, path, create = false) {
+  const parts = path.split("/");
+  let dir = rootHandle;
+  for (let i = 0; i < parts.length - 1; i++) {
+    dir = await dir.getDirectoryHandle(parts[i], { create });
+  }
+  return await dir.getFileHandle(parts[parts.length - 1], { create });
+}
+
 async function deleteR2File(name) {
   const token = await auth.currentUser.getIdToken();
   await fetch(`${API_URL}/games/${currentGameId}/files/${name}`, {
@@ -3533,15 +3558,13 @@ document.getElementById("btn-sync-push").addEventListener("click", async () => {
   try {
     const gameFiles = currentFiles.filter(f => !f.name.startsWith("_"));
 
-    // Collect local file names for delete detection
-    const localNames = new Set();
-    for await (const [name, handle] of linkedDirHandle) {
-      if (handle.kind === "file" && !name.startsWith("_") && !name.startsWith(".")) localNames.add(name);
-    }
+    // Collect local file paths (recursive) for delete detection
+    const localEntries = await readDirRecursive(linkedDirHandle);
+    const localNames = new Set(localEntries.map(e => e.path));
 
-    // Write all game files in parallel
+    // Write all game files in parallel (create subdirs as needed)
     await Promise.all(gameFiles.map(async (f) => {
-      const fh = await linkedDirHandle.getFileHandle(f.name, { create: true });
+      const fh = await getFileHandleDeep(linkedDirHandle, f.name, true);
       const w = await fh.createWritable();
       await w.write(f.content);
       await w.close();
@@ -3553,9 +3576,12 @@ document.getElementById("btn-sync-push").addEventListener("click", async () => {
     let deleted = [];
     if (orphanLocal.length > 0) {
       if (confirm(`These local files are not in the cloud and will be deleted:\n\n${orphanLocal.join("\n")}\n\nDelete them?`)) {
-        await Promise.all(orphanLocal.map(async (name) => {
-          await linkedDirHandle.removeEntry(name);
-        }));
+        for (const path of orphanLocal) {
+          const parts = path.split("/");
+          let dir = linkedDirHandle;
+          for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i]);
+          await dir.removeEntry(parts[parts.length - 1]);
+        }
         deleted = orphanLocal;
       }
     }
@@ -3576,13 +3602,13 @@ document.getElementById("btn-sync-pull").addEventListener("click", async () => {
   const btn = document.getElementById("btn-sync-pull");
   syncBusy = true; btn.disabled = true; btn.textContent = "Pulling…";
   try {
-    // Read all local files
+    // Read all local files (recursive)
     const localFiles = [];
-    for await (const [name, handle] of linkedDirHandle) {
-      if (handle.kind !== "file" || name.startsWith("_") || name.startsWith(".")) continue;
-      const file = await handle.getFile();
+    const entries = await readDirRecursive(linkedDirHandle);
+    for (const entry of entries) {
+      const file = await entry.handle.getFile();
       const content = await file.text();
-      localFiles.push({ name, content });
+      localFiles.push({ name: entry.path, content });
     }
 
     // Update currentFiles + save to R2 in parallel
