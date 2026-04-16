@@ -150,7 +150,7 @@
           colors: 4,
           readFile: function(name) { return modules[name] || null; },
         });
-        if (Mono.shader && Mono.shader.preset) Mono.shader.preset();
+        Mono.shader.preset();
       } catch(e) {
         console.error("Boot failed:", e);
         document.getElementById("error").style.display = "block";
@@ -167,7 +167,7 @@
   } else {
     document.title = "Mono \u2014 " + gameName.charAt(0).toUpperCase() + gameName.slice(1);
     Mono.boot("screen", { game: entry.path, colors: entry.colors }).then(function() {
-      if (Mono.shader && Mono.shader.preset) Mono.shader.preset();
+      Mono.shader.preset();
     }).catch(function(e) {
       console.error("Boot failed:", e);
       document.getElementById("error").style.display = "block";
