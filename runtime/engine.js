@@ -10,6 +10,27 @@ var Mono = (() => {
 
   const W = 160, H = 120, FPS = 30, FRAME_MS = 1000 / FPS;
 
+  // --- Wake Lock (prevent screen sleep during gameplay) ---
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if (typeof navigator !== "undefined" && navigator.wakeLock)
+        wakeLock = await navigator.wakeLock.request("screen");
+    } catch {}
+  }
+  async function releaseWakeLock() {
+    try {
+      if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+    } catch {}
+  }
+  // Re-acquire wake lock when tab becomes visible (browser releases it on hide)
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && wakeLock === null && _loopId)
+        requestWakeLock();
+    });
+  }
+
   // --- Color palette ---
   function buildPalette(bits) {
     const n = 1 << bits;  // 2, 4, or 16
@@ -1204,20 +1225,23 @@ end
     }
     _tickFn = tick;
     _loopId = requestAnimationFrame(tick);
+    requestWakeLock();
   };
 
   API.suspend = () => {
     if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     sfxStop();
+    releaseWakeLock();
   };
 
   API.resume = () => {
-    if (!_loopId && _tickFn && _lua) { _tickFn(); }
+    if (!_loopId && _tickFn && _lua) { _tickFn(); requestWakeLock(); }
   };
 
   API.stop = () => {
     if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     _tickFn = null;
+    releaseWakeLock();
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;
     pauseEnabled = true;
