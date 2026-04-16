@@ -3407,7 +3407,9 @@ async function publishGame() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
         body: blob,
       });
-    } catch {}
+    } catch (e) {
+      console.warn("Thumbnail generation failed:", e);
+    }
   }
 
   // 4. Call publish API
