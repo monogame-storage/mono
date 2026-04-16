@@ -240,7 +240,12 @@ onmessage = async (e) => {
     }
 
     lua.global.close();
-    postMessage({ success: true, frames: frameNum, errors: [], output });
+
+    // Return screen buffer for thumbnail generation
+    const screenBuf = surfaces[0]?.buf;
+    const screenData = screenBuf ? { buf: Array.from(screenBuf), w: W, h: H, palette } : null;
+
+    postMessage({ success: true, frames: frameNum, errors: [], output, screen: screenData });
   } catch (e) {
     errors.push(e.message || String(e));
     postMessage({ success: false, errors, output });

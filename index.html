@@ -3,36 +3,255 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mono</title>
+<title>Mono — Games</title>
 <link rel="icon" href="/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #1a1a1a;
-    color: #e8e8e8;
-    font-family: monospace;
+    background: #111;
+    color: #eee;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid #222;
+    position: sticky;
+    top: 0;
+    background: #111;
+    z-index: 10;
+  }
+  .header-logo {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #eee;
+    text-decoration: none;
+  }
+  .header-nav {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+  .header-nav a {
+    font-size: 13px;
+    color: #888;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .header-nav a:hover { color: #eee; }
+
+  /* ── Main content ── */
+  .main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+
+  /* ── Section ── */
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  /* ── Game Grid ── */
+  .game-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 640px) {
+    .game-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+  }
+
+  /* ── Game Card ── */
+  .game-card {
+    background: #1a1a1a;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .game-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .game-thumb {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #222;
+    display: flex;
     align-items: center;
     justify-content: center;
-    height: 100vh;
-    gap: 12px;
+    overflow: hidden;
   }
-  a {
-    color: #e8e8e8;
-    text-decoration: none;
-    border: 1px solid #6b6b6b;
-    padding: 12px 24px;
+  .game-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: pixelated;
+  }
+  .game-thumb-placeholder {
+    font-size: 32px;
+    color: #333;
+    font-weight: 800;
+    letter-spacing: 2px;
+    user-select: none;
+  }
+  .game-info {
+    padding: 10px 12px;
+  }
+  .game-title {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .game-meta {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+  }
+
+  /* ── Loading / Empty ── */
+  .loading, .empty {
+    text-align: center;
+    padding: 64px 0;
+    color: #555;
     font-size: 14px;
   }
-  a:hover { border-color: #e8e8e8; }
+  .loading::after {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #333;
+    border-top-color: #888;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    padding: 32px;
+    color: #333;
+    font-size: 11px;
+    border-top: 1px solid #1a1a1a;
+  }
+  .footer a { color: #555; text-decoration: none; }
+  .footer a:hover { color: #888; }
 </style>
 </head>
 <body>
-  <a href="/engine-test/">engine-test</a>
-  <a href="/demo/">demo</a>
-  <a href="/playground/">playground</a>
-  <a href="/editor/">editor</a>
-  <a href="/tools/">tools</a>
+
+<div class="header">
+  <a href="/" class="header-logo">MONO</a>
+  <div class="header-nav">
+    <a href="/demo/">Demos</a>
+    <a href="/dev/">Developer</a>
+  </div>
+</div>
+
+<div class="main">
+  <h2 class="section-title">Games</h2>
+  <div id="game-grid" class="game-grid">
+    <div class="loading" id="loading">Loading</div>
+  </div>
+  <div class="empty" id="empty" style="display:none">No published games yet.</div>
+</div>
+
+<div class="footer">
+  <a href="/">MONO</a> — constraint-driven fantasy console
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyAyTiJx_JkVdQoh8b5bDo-ttvp175vy8PM",
+  authDomain: "mono-5b951.firebaseapp.com",
+  projectId: "mono-5b951",
+  storageBucket: "mono-5b951.firebasestorage.app",
+  messagingSenderId: "850069827366",
+  appId: "1:850069827366:web:a196c04bbf4c93bd061be7"
+});
+const db = getFirestore(app);
+
+const API_URL = "https://api.monogame.cc";
+const grid = document.getElementById("game-grid");
+const loading = document.getElementById("loading");
+const empty = document.getElementById("empty");
+
+async function loadGames() {
+  try {
+    const q = query(
+      collection(db, "games"),
+      where("status", "==", "published"),
+      orderBy("publishedAt", "desc")
+    );
+    const snap = await getDocs(q);
+
+    loading.style.display = "none";
+
+    if (snap.empty) {
+      empty.style.display = "block";
+      return;
+    }
+
+    grid.innerHTML = snap.docs.map(doc => {
+      const g = doc.data();
+      const id = doc.id;
+      const title = esc(g.title || "Untitled");
+      const plays = g.plays || 0;
+      const thumbUrl = `${API_URL}/games/${id}/thumbnail`;
+      return `<div class="game-card" onclick="location.href='/play.html?id=${id}'">
+        <div class="game-thumb">
+          <img src="${thumbUrl}" alt="${title}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'game-thumb-placeholder',textContent:'M'}))">
+        </div>
+        <div class="game-info">
+          <div class="game-title">${title}</div>
+          <div class="game-meta">${plays} plays</div>
+        </div>
+      </div>`;
+    }).join("");
+  } catch (e) {
+    loading.style.display = "none";
+    grid.innerHTML = `<div class="empty">Failed to load games.</div>`;
+    console.error("Failed to load games:", e);
+  }
+}
+
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML.replace(/"/g, "&quot;");
+}
+
+loadGames();
+</script>
 </body>
 </html>

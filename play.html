@@ -118,20 +118,56 @@
     motion:      { path: "/demo/motion/main.lua",      colors: 4 }
   };
 
+  var API_URL = "https://api.monogame.cc";
   var params = new URLSearchParams(location.search);
   var gameName = params.get("game");
+  var gameId = params.get("id");
   var entry = gameName && GAMES[gameName];
 
-  if (!entry) {
+  if (gameId) {
+    // Published game: load files from R2
+    (async function() {
+      try {
+        var res = await fetch(API_URL + "/games/" + gameId + "/published");
+        if (!res.ok) throw new Error("Game not found");
+        var data = await res.json();
+        document.title = "Mono \u2014 " + (data.title || "Game");
+        document.getElementById("back-btn").href = "/";
+
+        var mainSrc = "";
+        var modules = {};
+        for (var f of data.files) {
+          if (f.name === "main.lua") {
+            mainSrc = f.content;
+          } else if (f.name.endsWith(".lua")) {
+            modules[f.name] = f.content;
+          }
+        }
+        if (!mainSrc) throw new Error("No main.lua in published files");
+        await Mono.boot("screen", {
+          source: mainSrc,
+          modules: modules,
+          colors: 4,
+          readFile: function(name) { return modules[name] || null; },
+        });
+        Mono.shader.preset();
+      } catch(e) {
+        console.error("Boot failed:", e);
+        document.getElementById("error").style.display = "block";
+        document.getElementById("error").textContent = "Failed to load game: " + e.message;
+        document.getElementById("console").style.display = "none";
+      }
+    })();
+  } else if (!entry) {
     document.getElementById("error").style.display = "block";
     document.getElementById("error").textContent = gameName
       ? 'Unknown game: "' + gameName + '". Available: ' + Object.keys(GAMES).join(", ")
-      : "No game specified. Use ?game=bounce";
+      : "No game specified. Use ?game=bounce or ?id=gameId";
     document.getElementById("console").style.display = "none";
   } else {
     document.title = "Mono \u2014 " + gameName.charAt(0).toUpperCase() + gameName.slice(1);
     Mono.boot("screen", { game: entry.path, colors: entry.colors }).then(function() {
-      if (Mono.shader && Mono.shader.preset) Mono.shader.preset();
+      Mono.shader.preset();
     }).catch(function(e) {
       console.error("Boot failed:", e);
       document.getElementById("error").style.display = "block";
