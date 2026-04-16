@@ -10,6 +10,19 @@ var Mono = (() => {
 
   const W = 160, H = 120, FPS = 30, FRAME_MS = 1000 / FPS;
 
+  // --- Wake Lock (prevent screen sleep during gameplay) ---
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+    } catch {}
+  }
+  async function releaseWakeLock() {
+    try {
+      if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+    } catch {}
+  }
+
   // --- Color palette ---
   function buildPalette(bits) {
     const n = 1 << bits;  // 2, 4, or 16
@@ -1204,20 +1217,26 @@ end
     }
     _tickFn = tick;
     _loopId = requestAnimationFrame(tick);
+    requestWakeLock();
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && _loopId) requestWakeLock();
+    });
   };
 
   API.suspend = () => {
     if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     sfxStop();
+    releaseWakeLock();
   };
 
   API.resume = () => {
-    if (!_loopId && _tickFn && _lua) { _tickFn(); }
+    if (!_loopId && _tickFn && _lua) { _tickFn(); requestWakeLock(); }
   };
 
   API.stop = () => {
     if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     _tickFn = null;
+    releaseWakeLock();
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;
     pauseEnabled = true;
