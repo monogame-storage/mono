@@ -14,13 +14,21 @@ var Mono = (() => {
   let wakeLock = null;
   async function requestWakeLock() {
     try {
-      if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen");
+      if (typeof navigator !== "undefined" && navigator.wakeLock)
+        wakeLock = await navigator.wakeLock.request("screen");
     } catch {}
   }
   async function releaseWakeLock() {
     try {
       if (wakeLock) { await wakeLock.release(); wakeLock = null; }
     } catch {}
+  }
+  // Re-acquire wake lock when tab becomes visible (browser releases it on hide)
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && wakeLock === null && _loopId)
+        requestWakeLock();
+    });
   }
 
   // --- Color palette ---
@@ -1218,9 +1226,6 @@ end
     _tickFn = tick;
     _loopId = requestAnimationFrame(tick);
     requestWakeLock();
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && _loopId) requestWakeLock();
-    });
   };
 
   API.suspend = () => {
