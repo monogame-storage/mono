@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mono — Candidates</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0e0e0e;
+    color: #eee;
+    font-family: -apple-system, 'Helvetica Neue', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid #1e1e1e;
+    position: sticky;
+    top: 0;
+    background: #0e0e0eee;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10;
+  }
+  .header-logo {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #eee;
+    text-decoration: none;
+  }
+  .header-logo span { color: #555; font-weight: 400; font-size: 13px; letter-spacing: 1px; margin-left: 8px; }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-count {
+    font-size: 12px;
+    color: #555;
+    font-weight: 500;
+  }
+
+  /* Controls bar */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 24px;
+    border-bottom: 1px solid #1a1a1a;
+    flex-wrap: wrap;
+  }
+  .search-input {
+    background: #1a1a1a;
+    border: 1px solid #252525;
+    color: #eee;
+    font-size: 13px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    outline: none;
+    width: 220px;
+  }
+  .search-input:focus { border-color: #444; }
+  .search-input::placeholder { color: #444; }
+  .filter-btn {
+    background: #1a1a1a;
+    border: 1px solid #252525;
+    color: #888;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { color: #ccc; border-color: #444; }
+  .filter-btn.active { background: #fff; color: #000; border-color: #fff; }
+
+  /* Grid */
+  .grid-wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 24px 64px;
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #444;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 16px 0 12px;
+  }
+  .game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  @media (max-width: 540px) {
+    .game-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  }
+
+  /* Card */
+  .card {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #181818;
+    cursor: pointer;
+    transition: transform 0.18s, box-shadow 0.18s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  }
+
+  /* Thumbnail */
+  .card-thumb {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #111;
+    position: relative;
+    overflow: hidden;
+  }
+  .card-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    display: block;
+  }
+
+  /* Play overlay */
+  .card-play {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.0);
+    transition: background 0.2s;
+  }
+  .card:hover .card-play {
+    background: rgba(0,0,0,0.45);
+  }
+  .card-play-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.2s, transform 0.2s;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .card:hover .card-play-icon {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .card-play-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: #111;
+    margin-left: 2px;
+  }
+
+  /* Info */
+  .card-info {
+    padding: 10px 12px 12px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }
+  .card-id {
+    font-size: 11px;
+    color: #555;
+    margin-top: 2px;
+    font-family: monospace;
+  }
+  .card-stats {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+    font-size: 10px;
+    color: #555;
+    font-family: monospace;
+  }
+  .card-stats span {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .card-stats svg {
+    width: 10px;
+    height: 10px;
+    fill: #444;
+    flex-shrink: 0;
+  }
+  /* Vote buttons */
+  .card-votes {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .vote-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: #222;
+    border: 1px solid #2a2a2a;
+    color: #666;
+    font-size: 11px;
+    font-family: monospace;
+    padding: 3px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .vote-btn:hover { border-color: #444; color: #aaa; }
+  .vote-btn.like:hover { border-color: #4ade80; color: #4ade80; background: #4ade8018; }
+  .vote-btn.dislike:hover { border-color: #f87171; color: #f87171; background: #f8717118; }
+  .vote-btn svg { width: 12px; height: 12px; fill: currentColor; }
+  .vote-btn .vote-count { min-width: 8px; text-align: center; }
+
+  .card-tag {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    z-index: 2;
+  }
+  .card-tag.agent { background: rgba(139,92,246,0.85); color: #fff; }
+  .card-tag.original { background: rgba(56,189,248,0.85); color: #fff; }
+
+  .empty-msg {
+    text-align: center;
+    color: #444;
+    font-size: 13px;
+    padding: 48px 0;
+    grid-column: 1 / -1;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a href="." class="header-logo">MONO <span>candidates</span></a>
+  <div class="header-right">
+    <div class="header-count" id="count"></div>
+  </div>
+</div>
+
+<div class="controls" id="controls">
+  <input class="search-input" id="search" type="text" placeholder="Search games...">
+  <button class="filter-btn active" data-filter="all">All</button>
+  <button class="filter-btn" data-filter="originals">Originals</button>
+  <button class="filter-btn" data-filter="agents">Agents</button>
+</div>
+
+<div class="grid-wrap" id="grid-wrap"></div>
+
+<script src="stats.js"></script>
+<script>
+const GAMES = [
+  { id:"agent-01", title:"THE DARK ROOM", desc:"Mystery text adventure", tag:"agent" },
+  { id:"agent-02", title:"THE DARK ROOM", desc:"Text adventure variant", tag:"agent" },
+  { id:"agent-03", title:"THE DARK ROOM: PUZZLES", desc:"Puzzle-driven escape room", tag:"agent" },
+  { id:"agent-04", title:"THE DARK ROOM", desc:"Horror / Survival", tag:"agent" },
+  { id:"agent-05", title:"THE DARK ROOM", desc:"Inventory & Crafting", tag:"agent" },
+  { id:"agent-06", title:"THE DARK ROOM", desc:"Visual exploration", tag:"agent" },
+  { id:"agent-07", title:"THE DARK ROOM: Fractured Memories", desc:"Multiple endings mystery", tag:"agent" },
+  { id:"agent-08", title:"THE DARK ROOM", desc:"Sound Navigator", tag:"agent" },
+  { id:"agent-09", title:"THE DARK ROOM", desc:"Action variant", tag:"agent" },
+  { id:"agent-10", title:"THE DARK ROOM", desc:"Procedural generation", tag:"agent" },
+  { id:"agent-11", title:"THE DARK ROOM: Whispers in the Dark", desc:"Horror + narrative", tag:"agent" },
+  { id:"agent-12", title:"THE DARK ROOM: Survival Craft", desc:"Horror + crafting", tag:"agent" },
+  { id:"agent-13", title:"ECHOLOCATION", desc:"Sonar horror in total darkness", tag:"agent" },
+  { id:"agent-14", title:"ECHO LABYRINTH", desc:"Procedural sonar navigator", tag:"agent" },
+  { id:"agent-15", title:"FRACTURED MEMORIES", desc:"Puzzle edition", tag:"agent" },
+  { id:"agent-16", title:"FRACTURED MEMORIES", desc:"Visual exploration edition", tag:"agent" },
+  { id:"agent-17", title:"THE DARK ROOM: HAUNTED", desc:"Haunted edition", tag:"agent" },
+  { id:"agent-18", title:"THE DARK ROOM: Forgotten", desc:"Forgotten memories", tag:"agent" },
+  { id:"agent-19", title:"IT APPROACHES", desc:"Tension horror", tag:"agent" },
+  { id:"agent-20", title:"PRESSURE PROTOCOL", desc:"Pressure-based horror", tag:"agent" },
+  { id:"agent-21", title:"THE DARK ROOM: RESONANCE", desc:"Sound-based exploration", tag:"agent" },
+  { id:"agent-22", title:"ABYSSAL STATION", desc:"Deep space horror", tag:"agent" },
+  { id:"agent-23", title:"CONTAINMENT BREACH", desc:"Facility escape", tag:"agent" },
+  { id:"agent-24", title:"ECHO CHAMBERS", desc:"Echo-based puzzles", tag:"agent" },
+  { id:"agent-25", title:"ABYSSAL PING", desc:"Deep sea sonar", tag:"agent" },
+  { id:"agent-26", title:"THE DARK ROOM: WITNESS", desc:"Witness narrative", tag:"agent" },
+  { id:"agent-27", title:"THE DARK ROOM: ECHOLOCATION", desc:"Echolocation mechanics", tag:"agent" },
+  { id:"agent-28", title:"DARK ROOM", desc:"Classic dark room", tag:"agent" },
+  { id:"agent-29", title:"THE DARK ROOM: LETHE", desc:"Memory loss horror", tag:"agent" },
+  { id:"agent-30", title:"Sonic Abyss", desc:"Sound-driven abyss", tag:"agent" },
+  { id:"agent-31", title:"LETHE: Sonar Edition", desc:"Sonar + memory loss", tag:"agent" },
+  { id:"agent-32", title:"LETHE: Sound Design Polish", desc:"Wave 4 sound polish", tag:"agent" },
+  { id:"agent-33", title:"LETHE: Entity AI", desc:"Wave 4 AI behaviors", tag:"agent" },
+  { id:"agent-34", title:"LETHE: Visual Polish", desc:"Wave 4 visual polish", tag:"agent" },
+  { id:"agent-35", title:"LETHE: NARRATIVE", desc:"Wave 4 narrative expansion", tag:"agent" },
+  { id:"agent-36", title:"LETHE: PUZZLES", desc:"Wave 4 puzzle mechanics", tag:"agent" },
+  { id:"agent-37", title:"LETHE: REPLAY VALUE", desc:"Wave 4 replay systems", tag:"agent" },
+  { id:"agent-38", title:"LETHE: UX/UI Polish", desc:"Wave 4 UX polish", tag:"agent" },
+  { id:"agent-39", title:"LETHE: TECHNICAL", desc:"Wave 4 technical robustness", tag:"agent" },
+  { id:"agent-40", title:"LETHE: FINAL", desc:"Final agent - complete build", tag:"agent" },
+  { id:"agent-alpha", title:"ALPHA", desc:"Alpha prototype", tag:"agent" },
+  { id:"agent-beta", title:"BETA", desc:"Beta prototype", tag:"agent" },
+  { id:"agent-delta", title:"NITRO DASH", desc:"Speed runner", tag:"agent" },
+  { id:"agent-epsilon", title:"MONO BEAT", desc:"Rhythm game", tag:"agent" },
+  { id:"agent-eta", title:"GREY BASTION", desc:"Tower defense", tag:"agent" },
+  { id:"agent-gamma", title:"GAMMA", desc:"Gamma prototype", tag:"agent" },
+  { id:"agent-theta", title:"KNOCKOUT!", desc:"Boxing game", tag:"agent" },
+  { id:"agent-zeta", title:"DUSKHOLD", desc:"Dark adventure", tag:"agent" },
+  { id:"balance-tower", title:"BALANCE TOWER", desc:"Tilt-controlled block stacking", tag:"original" },
+  { id:"bishop-sniper", title:"BISHOP SNIPER", desc:"Chess-themed sniper", tag:"original" },
+  { id:"castle-defense", title:"CASTLE DEFENSE", desc:"Castle defense strategy", tag:"original" },
+  { id:"check-rhythm", title:"CHECK RHYTHM", desc:"Chess + rhythm", tag:"original" },
+  { id:"gravity-ball", title:"GRAVITY BALL", desc:"Gravity-based ball game", tag:"original" },
+  { id:"gyro-racer", title:"GYRO RACER", desc:"Gyroscope racing", tag:"original" },
+  { id:"king-escape", title:"KING ESCAPE", desc:"Chess king escape", tag:"original" },
+  { id:"knight-hop", title:"KNIGHT HOP", desc:"Knight movement platformer", tag:"original" },
+  { id:"motion-music", title:"MOTION MUSIC", desc:"Motion-controlled music", tag:"original" },
+  { id:"pawn-rush", title:"PAWN RUSH", desc:"Pawn advance strategy", tag:"original" },
+  { id:"queen-conquest", title:"QUEEN CONQUEST", desc:"Queen-based strategy", tag:"original" },
+  { id:"rook-tower", title:"ROOK TOWER", desc:"Rook tower defense", tag:"original" },
+  { id:"shake-dice", title:"SHAKE DICE", desc:"Shake to roll dice", tag:"original" },
+  { id:"shake-fighter", title:"SHAKE FIGHTER", desc:"Shake-controlled fighting", tag:"original" },
+  { id:"tilt-maze", title:"TILT MAZE", desc:"Tilt-controlled maze", tag:"original" },
+  { id:"tilt-pinball", title:"TILT PINBALL", desc:"Tilt-controlled pinball", tag:"original" },
+];
+
+var allStats = GameStats.getAll();
+let currentFilter = "all";
+const wrapEl = document.getElementById("grid-wrap");
+const countEl = document.getElementById("count");
+const searchEl = document.getElementById("search");
+
+function render() {
+  const q = searchEl.value.toLowerCase().trim();
+  const filtered = GAMES.filter(g => {
+    if (currentFilter === "agents" && g.tag !== "agent") return false;
+    if (currentFilter === "originals" && g.tag !== "original") return false;
+    if (q && !g.title.toLowerCase().includes(q) && !g.id.toLowerCase().includes(q) && !g.desc.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  countEl.textContent = filtered.length + " games";
+
+  if (!filtered.length) {
+    wrapEl.innerHTML = '<div class="empty-msg">No games found.</div>';
+    return;
+  }
+
+  const originals = filtered.filter(g => g.tag === "original");
+  const agents = filtered.filter(g => g.tag === "agent");
+
+  let html = "";
+
+  if (originals.length && currentFilter !== "agents") {
+    html += '<div class="section-label">Originals \u2014 ' + originals.length + '</div>';
+    html += '<div class="game-grid">' + originals.map(card).join("") + '</div>';
+  }
+  if (agents.length && currentFilter !== "originals") {
+    html += '<div class="section-label">Agents \u2014 ' + agents.length + '</div>';
+    html += '<div class="game-grid">' + agents.map(card).join("") + '</div>';
+  }
+
+  wrapEl.innerHTML = html;
+}
+
+function card(g) {
+  var s = allStats[g.id] || { plays: 0, lastPlayed: 0, totalTime: 0, likes: 0, dislikes: 0 };
+  var likes = s.likes || 0;
+  var dislikes = s.dislikes || 0;
+
+  var statsHtml = '';
+  if (s.plays > 0) {
+    statsHtml = '<div class="card-stats">' +
+      '<span><svg viewBox="0 0 16 16"><path d="M8 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM8 0a8 8 0 100 16A8 8 0 008 0zm.5 4H7v5l4.3 2.5.7-1.2-3.5-2V4z"/></svg>' + GameStats.formatTime(s.totalTime) + '</span>' +
+      '<span><svg viewBox="0 0 16 16"><polygon points="6,2 14,8 6,14"/></svg>' + s.plays + 'x</span>' +
+      '<span>' + GameStats.formatAgo(s.lastPlayed) + '</span>' +
+    '</div>';
+  }
+
+  var votesHtml = '<div class="card-votes">' +
+    '<button class="vote-btn like" data-game="' + g.id + '" data-vote="like">' +
+      '<svg viewBox="0 0 24 24"><path d="M2 20h2V10H2v10zm20-9a2 2 0 00-2-2h-6.31l.95-4.57.03-.32a1.49 1.49 0 00-.44-1.06L13.17 2 7.59 7.59A1.98 1.98 0 007 9v10a2 2 0 002 2h9a2 2 0 001.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>' +
+      '<span class="vote-count" id="like-' + g.id + '">' + likes + '</span>' +
+    '</button>' +
+    '<button class="vote-btn dislike" data-game="' + g.id + '" data-vote="dislike">' +
+      '<svg viewBox="0 0 24 24"><path d="M22 4h-2v10h2V4zM2 13a2 2 0 002 2h6.31l-.95 4.57-.03.32c0 .4.17.78.44 1.06L10.83 22l5.58-5.59A1.98 1.98 0 0017 15V5a2 2 0 00-2-2H6a2 2 0 00-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2z"/></svg>' +
+      '<span class="vote-count" id="dislike-' + g.id + '">' + dislikes + '</span>' +
+    '</button>' +
+  '</div>';
+
+  return '<a class="card" href="play.html?game=' + g.id + '">' +
+    '<div class="card-thumb">' +
+      '<img src="thumbs/' + g.id + '.png" alt="' + esc(g.title) + '" loading="lazy">' +
+      '<div class="card-play"><div class="card-play-icon"><svg viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21"/></svg></div></div>' +
+    '</div>' +
+    '<span class="card-tag ' + g.tag + '">' + g.tag + '</span>' +
+    '<div class="card-info">' +
+      '<div class="card-title">' + esc(g.title) + '</div>' +
+      '<div class="card-id">' + g.id + '</div>' +
+      statsHtml +
+      votesHtml +
+    '</div>' +
+  '</a>';
+}
+
+function esc(s) {
+  var d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Filters
+document.getElementById("controls").addEventListener("click", function(e) {
+  if (!e.target.classList.contains("filter-btn")) return;
+  document.querySelectorAll(".filter-btn").forEach(function(b) { b.classList.remove("active"); });
+  e.target.classList.add("active");
+  currentFilter = e.target.dataset.filter;
+  render();
+});
+
+searchEl.addEventListener("input", render);
+
+// Vote button handler (event delegation)
+document.addEventListener("click", function(e) {
+  var btn = e.target.closest(".vote-btn");
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  var gameId = btn.dataset.game;
+  var vote = btn.dataset.vote;
+  var updated;
+  if (vote === "like") {
+    updated = GameStats.like(gameId);
+    document.getElementById("like-" + gameId).textContent = updated.likes;
+  } else {
+    updated = GameStats.dislike(gameId);
+    document.getElementById("dislike-" + gameId).textContent = updated.dislikes;
+  }
+  // refresh cached stats
+  allStats = GameStats.getAll();
+});
+
+render();
+
+// Restore scroll position after returning from play page
+var SCROLL_KEY = "mono-scroll";
+var saved = sessionStorage.getItem(SCROLL_KEY);
+if (saved) {
+  window.scrollTo(0, parseInt(saved, 10));
+  sessionStorage.removeItem(SCROLL_KEY);
+}
+// Save scroll position when navigating away
+window.addEventListener("beforeunload", function() {
+  sessionStorage.setItem(SCROLL_KEY, window.scrollY);
+});
+</script>
+</body>
+</html>
