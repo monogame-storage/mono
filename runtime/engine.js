@@ -540,6 +540,37 @@ var Mono = (() => {
     });
   }
 
+  // --- GPS / Geolocation ---
+  let gpsLat = 0, gpsLon = 0;
+  let gpsSpeed = 0;       // m/s from GPS
+  let gpsHeading = NaN;   // degrees from north (NaN if unavailable)
+  let gpsAccuracy = 0;    // meters
+  let gpsEnabled = false;
+  let gpsWatchId = null;
+  function gpsStart() {
+    if (gpsWatchId !== null) return;
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      gpsWatchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          gpsEnabled = true;
+          gpsLat = pos.coords.latitude;
+          gpsLon = pos.coords.longitude;
+          gpsSpeed = pos.coords.speed !== null ? pos.coords.speed : 0;
+          gpsHeading = pos.coords.heading !== null ? pos.coords.heading : NaN;
+          gpsAccuracy = pos.coords.accuracy || 0;
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 1000 }
+      );
+    }
+  }
+  function gpsStop() {
+    if (gpsWatchId !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(gpsWatchId);
+      gpsWatchId = null;
+    }
+  }
+
   // --- Touch / Mouse ---
   let touches = [];           // [{ id, x, y, fx, fy }]
   let touchStartedFlag = false;
@@ -911,6 +942,15 @@ var Mono = (() => {
     lua.global.set("gyro_beta", () => gyroBeta);   // -180 to 180 front/back tilt
     lua.global.set("gyro_gamma", () => gyroGamma); // -90 to 90 left/right tilt
     lua.global.set("motion_enabled", () => motionEnabled ? 1 : 0);
+    // GPS / Geolocation APIs
+    lua.global.set("gps_start", () => { gpsStart(); });
+    lua.global.set("gps_stop", () => { gpsStop(); });
+    lua.global.set("gps_lat", () => gpsLat);
+    lua.global.set("gps_lon", () => gpsLon);
+    lua.global.set("gps_speed", () => gpsSpeed);
+    lua.global.set("gps_heading", () => isNaN(gpsHeading) ? false : gpsHeading);
+    lua.global.set("gps_accuracy", () => gpsAccuracy);
+    lua.global.set("gps_enabled", () => gpsEnabled ? 1 : 0);
     // Check both latched state and raw flag: inputUpdate() runs after _update(),
     // so a fast click (mousedown+mouseup between frames) would be missed without the flag check.
     lua.global.set("_touch", () => touches.length > 0 || touchStartedFlag ? 1 : 0);
