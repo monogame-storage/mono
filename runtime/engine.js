@@ -529,7 +529,7 @@ var Mono = (() => {
       const a = e.accelerationIncludingGravity;
       if (!a) return;
       motionEnabled = true;
-      motionX = Math.max(-1, Math.min(1, (a.x || 0) / 9.8)); // W3C spec: tilt right = positive x
+      motionX = Math.max(-1, Math.min(1, -(a.x || 0) / 9.8)); // negated: tilt right = positive screen x
       motionY = Math.max(-1, Math.min(1, (a.y || 0) / 9.8));
       motionZ = Math.max(-1, Math.min(1, (a.z || 0) / 9.8));
     });
