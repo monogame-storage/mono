@@ -559,7 +559,7 @@ var Mono = (() => {
           gpsHeading = pos.coords.heading !== null ? pos.coords.heading : NaN;
           gpsAccuracy = pos.coords.accuracy || 0;
         },
-        () => {},
+        () => { gpsEnabled = false; },
         { enableHighAccuracy: true, maximumAge: 1000 }
       );
     }
@@ -568,6 +568,7 @@ var Mono = (() => {
     if (gpsWatchId !== null && navigator.geolocation) {
       navigator.geolocation.clearWatch(gpsWatchId);
       gpsWatchId = null;
+      gpsEnabled = false;
     }
   }
 
