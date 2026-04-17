@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mono — Play</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    font-family: monospace;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #back-btn {
+    flex-shrink: 0;
+    align-self: flex-start;
+    color: #777;
+    font-size: 11px;
+    text-decoration: none;
+    background: #2a2a2a;
+    padding: 4px 10px;
+    border-radius: 5px;
+    margin: 8px;
+  }
+  #back-btn:hover { color: #e8e8e8; background: #3a3a3a; }
+  #console {
+    background: #2a2a2a;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    max-width: 480px;
+    width: 100%;
+  }
+  #frame {
+    background: #111;
+    border: 3px solid #333;
+    border-radius: 6px;
+    padding: 8px;
+    margin: 12px 12px 0;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    aspect-ratio: 160 / 120;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  #gamepad {
+    padding: 24px 32px 48px;
+    border-top: 2px solid #3a3a3a;
+    margin-top: 12px;
+    flex-shrink: 0;
+  }
+  #error {
+    display: none;
+    color: #f66;
+    font-size: 13px;
+    padding: 20px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<a href="index.html" id="back-btn">&larr; back to list</a>
+<div id="console">
+  <div id="frame">
+    <canvas id="screen"></canvas>
+    <div id="screen-panel"></div>
+  </div>
+  <div id="gamepad" data-gamepad-mode="event"></div>
+  <div id="log-panel"></div>
+  <div id="accel-panel"></div>
+</div>
+<div id="error"></div>
+
+<script src="stats.js"></script>
+<script src="/runtime/engine.js"></script>
+<script src="/runtime/shader.js"></script>
+<script src="/runtime/shaders/tint.js"></script>
+<script src="/runtime/shaders/scanlines.js"></script>
+<script src="/runtime/shaders/lcd.js"></script>
+<script src="/runtime/shaders/lcd3d.js"></script>
+<script src="/runtime/shaders/crt.js"></script>
+<script src="/runtime/console-gamepad.js"></script>
+<script src="/runtime/console-screen.js"></script>
+<script src="/runtime/console-log.js"></script>
+<script src="/runtime/console-accel.js"></script>
+<script>
+  var params = new URLSearchParams(location.search);
+  var gameName = params.get("game");
+
+  if (!gameName) {
+    document.getElementById("error").style.display = "block";
+    document.getElementById("error").textContent = "No game specified. Go back to the list.";
+    document.getElementById("console").style.display = "none";
+  } else {
+    document.title = "Mono \u2014 " + gameName;
+
+    // --- Stats tracking ---
+    GameStats.recordStart(gameName);
+    var _playStart = Date.now();
+    var _flushInterval = setInterval(function() {
+      var now = Date.now();
+      var elapsed = now - _playStart;
+      _playStart = now;
+      GameStats.addTime(gameName, elapsed);
+    }, 10000); // flush every 10s
+
+    // Flush on leave
+    function _flushOnExit() {
+      clearInterval(_flushInterval);
+      GameStats.addTime(gameName, Date.now() - _playStart);
+    }
+    window.addEventListener("pagehide", _flushOnExit);
+    window.addEventListener("beforeunload", _flushOnExit);
+    document.addEventListener("visibilitychange", function() {
+      if (document.visibilityState === "hidden") _flushOnExit();
+    });
+
+    var gamePath = "/candidates/" + gameName + "/main.lua";
+
+    Mono.boot("screen", {
+      game: gamePath,
+      colors: 4
+    }).then(function() {
+      Mono.shader.preset();
+    }).catch(function(e) {
+      console.error("Boot failed:", e);
+      document.getElementById("error").style.display = "block";
+      document.getElementById("error").textContent = "Failed to load: " + gameName + " \u2014 " + e.message;
+    });
+  }
+</script>
+</body>
+</html>
