@@ -904,6 +904,10 @@ async function main() {
     if (typeof k !== "string" || !validKeys[k]) throw new Error('btnp() invalid key "' + k + '"');
     return (keys[k] && !keysPrev[k]) ? 1 : 0;
   });
+  lua.global.set("_btnr", (k) => {
+    if (typeof k !== "string" || !validKeys[k]) throw new Error('btnr() invalid key "' + k + '"');
+    return (!keys[k] && keysPrev[k]) ? 1 : 0;
+  });
 
   // Touch simulation (matches engine.js semantics)
   lua.global.set("_touch", () => touches.length > 0 || touchStartedFlag ? 1 : 0);
@@ -945,6 +949,9 @@ function btn(k)
 end
 function btnp(k)
   return _btnp(k) == 1
+end
+function btnr(k)
+  return _btnr(k) == 1
 end
 function cam_get()
   return _cam_get_x(), _cam_get_y()
