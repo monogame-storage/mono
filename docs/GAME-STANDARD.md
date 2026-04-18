@@ -54,7 +54,7 @@ Two rules are universal across every standard-conforming Mono game:
 
 ### 1. START begins the game
 
-On the title scene, pressing START must start the game. Games read `btnp("start")` themselves in the title scene's `_update` and call `go("<gameplay-scene>")`.
+On the title scene, pressing START must start the game. Games read `btnr("start")` themselves in the title scene's `_update` and call `go("<gameplay-scene>")`.
 
 Games may use START for additional actions in other scenes (retry on game over, next level on clear, etc.), but the **begin** role on the title scene is fixed.
 
@@ -80,7 +80,7 @@ end
 
 ## Conventions
 
-- **Use `btnp()` (press edge) for all scene transitions.** Never `btn()` (hold) — input from a scene's final frame would bleed into the next scene's first frame and trigger immediate re-transition.
+- **Use `btnr()` (release edge) for all scene transitions.** A press that spans a scene change won't re-trigger in the new scene because the key is already held. `btnp()` can cause double-transitions when the player holds the button across scene boundaries.
 - **Touch input is a valid scene transition signal.** A tap on the title screen is equivalent to pressing START if the game wants to support touch-only devices.
 - **A may be an optional alternate start** on the title screen (some players prefer the A button). START must still work.
 

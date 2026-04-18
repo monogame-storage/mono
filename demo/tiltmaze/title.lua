@@ -23,7 +23,7 @@ function title_update()
   if preview_y < 71 then preview_y = 71 end
   if preview_y > SCREEN_H - 15 then preview_y = SCREEN_H - 15 end
 
-  if btnp("a") or btnp("start") or title_t >= 30 then
+  if btnr("a") or btnr("start") or title_t >= 30 then
     go("level1")
   end
 end

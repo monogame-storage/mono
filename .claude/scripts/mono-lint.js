@@ -328,6 +328,25 @@ rule("standard-structure", ({ file, content }) => {
   return out;
 });
 
+// btnp() before go() — should use btnr() for scene transitions.
+// btnr() is safer because a held key won't re-trigger in the new scene.
+rule("btnp-scene-transition", ({ lines }) => {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    if (/\bbtnp\s*\(/.test(ln) && /\bgo\s*\(/.test(ln)) {
+      out.push({ line: i + 1, severity: "warn", rule: "btnp-scene-transition",
+        msg: `btnp() + go() on same line — use btnr() for scene transitions (safer across scene boundaries)` });
+    }
+    // Also check if btnp is in the condition and go() is on the next line
+    if (/\bbtnp\s*\(/.test(ln) && i + 1 < lines.length && /\bgo\s*\(/.test(lines[i + 1])) {
+      out.push({ line: i + 1, severity: "warn", rule: "btnp-scene-transition",
+        msg: `btnp() followed by go() — use btnr() for scene transitions (safer across scene boundaries)` });
+    }
+  }
+  return out;
+});
+
 // --- Runner ---
 function lintFile(file) {
   const content = fs.readFileSync(file, "utf8");

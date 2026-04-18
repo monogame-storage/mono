@@ -58,7 +58,7 @@ end
 
 function title_update()
   -- START (or touch) begins the game
-  if btnp("start") or touch_start() then
+  if btnr("start") or touch_start() then
     go("game")
   end
 end
@@ -97,7 +97,7 @@ function game_update()
   if btn("down")  then player_y = player_y + 1 end
 
   -- Example: A triggers "hit" → go to gameover
-  if btnp("a") then
+  if btnr("a") then
     go("gameover")
   end
 end
@@ -114,9 +114,9 @@ cat > "$DEMO_DIR/gameover.lua" <<'LUA'
 -- Game over scene. Any input returns to the title.
 local scr = screen()
 
-local function any_input_pressed()
-  return btnp("start") or btnp("select") or btnp("a") or btnp("b")
-      or btnp("up") or btnp("down") or btnp("left") or btnp("right")
+local function any_input_released()
+  return btnr("start") or btnr("select") or btnr("a") or btnr("b")
+      or btnr("up") or btnr("down") or btnr("left") or btnr("right")
       or touch_start()
 end
 
@@ -124,7 +124,7 @@ function gameover_init()
 end
 
 function gameover_update()
-  if any_input_pressed() then
+  if any_input_released() then
     go("title")
   end
 end

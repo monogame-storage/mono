@@ -84,6 +84,7 @@ function _ready() go("scenes/title") end
 - `require("config")` — load non-scene modules (config.lua, lib/utils.lua)
 - Folder structure is free: `scenes/`, `src/`, or flat — any path works
 - `require()` for data/utilities, `go()` for scene transitions
+- Use `btnr()` (release) for scene transitions — `btnp()` can double-trigger across scenes
 
 ## Globals
 - `COLORS` — number of palette colors (e.g. 16 in mode 4). Use `COLORS - 1` for max color index.
