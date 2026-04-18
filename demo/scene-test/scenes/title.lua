@@ -9,7 +9,7 @@ end
 
 function scene.update()
   blink = blink + 1
-  if btnp("start") then
+  if btnr("start") then
     go("scenes/play")
   end
 end

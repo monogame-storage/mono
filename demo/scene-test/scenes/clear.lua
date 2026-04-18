@@ -9,7 +9,7 @@ end
 
 function scene.update()
   wait = wait + 1
-  if btnp("start") or wait >= 90 then
+  if btnr("start") or wait >= 90 then
     go("scenes/title")
   end
 end

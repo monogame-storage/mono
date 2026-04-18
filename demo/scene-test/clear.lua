@@ -7,7 +7,7 @@ end
 
 function clear_update()
   wait = wait + 1
-  if btnp("start") or wait >= 90 then
+  if btnr("start") or wait >= 90 then
     go("title")
   end
 end

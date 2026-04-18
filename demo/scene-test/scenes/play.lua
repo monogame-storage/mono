@@ -16,7 +16,7 @@ function scene.update()
   if btn("right") then px = px + 1 end
   if btn("up") then py = py - 1 end
   if btn("down") then py = py + 1 end
-  if btnp("b") then
+  if btnr("b") then
     go("scenes/title")
   end
   if timer >= 300 then

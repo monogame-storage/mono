@@ -9,7 +9,7 @@ end
 
 function clear_update()
   t = t + 1
-  if btnp("a") or btnp("start") then
+  if btnr("a") or btnr("start") then
     go("title")
   end
 end

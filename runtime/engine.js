@@ -611,6 +611,7 @@ var Mono = (() => {
 
   function btn(k) { return keys[k] ? true : false; }
   function btnp(k) { return (keys[k] && !keysPrev[k]) ? true : false; }
+  function btnr(k) { return (!keys[k] && keysPrev[k]) ? true : false; }
 
   // --- Hardware gamepad (Bluetooth / USB) ---
   const hwPrev = {};
@@ -901,6 +902,10 @@ var Mono = (() => {
       if (typeof k !== "string" || !validKeys[k]) throw new Error('btnp() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
       return (keys[k] && !keysPrev[k]) ? 1 : 0;
     });
+    lua.global.set("_btnr", (k) => {
+      if (typeof k !== "string" || !validKeys[k]) throw new Error('btnr() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
+      return (!keys[k] && keysPrev[k]) ? 1 : 0;
+    });
     lua.global.set("axis_x", () => axisX);
     lua.global.set("axis_y", () => axisY);
     // Motion sensor APIs (accelerometer + gyroscope)
@@ -977,6 +982,9 @@ function btn(k)
 end
 function btnp(k)
   return _btnp(k) == 1
+end
+function btnr(k)
+  return _btnr(k) == 1
 end
 function cam_get()
   return _cam_get_x(), _cam_get_y()

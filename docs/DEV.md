@@ -534,7 +534,10 @@ sfx_stop()           -- stop all channels
 ```lua
 btn(key)     -- returns true while the button is held down
 btnp(key)    -- returns true only on the first frame the button is pressed
+btnr(key)    -- returns true only on the first frame the button is released
 ```
+
+`btnr()` is safer than `btnp()` for scene transitions — a press that spans a scene change won't re-trigger in the new scene because the key is already held.
 
 ### Valid Keys
 

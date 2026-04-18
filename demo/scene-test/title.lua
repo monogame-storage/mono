@@ -7,7 +7,7 @@ end
 
 function title_update()
   blink = blink + 1
-  if btnp("start") then
+  if btnr("start") then
     go("play")
   end
 end
