@@ -752,7 +752,7 @@ var Mono = (() => {
     if (!opts.externalInput) {
       document.addEventListener("keydown", e => {
         if (e.key === "1") { debugMode = !debugMode; return; }
-        if (e.key === " ") { paused = !paused; e.preventDefault(); return; }
+        if (e.key === " " && pauseEnabled) { paused = !paused; e.preventDefault(); return; }
         const k = keyMap[e.key] || keyCodeMap[e.keyCode];
         if (k) { keys[k] = true; e.preventDefault(); }
       });
