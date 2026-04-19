@@ -461,10 +461,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 270px;
+  padding: 8px 16px;
   flex-shrink: 0;
 }
-#editor-screen {
+.play-screen {
   width: 320px;
   height: 240px;
   background: #1a1a1a;
@@ -478,10 +478,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: #050505;
-  padding: 12px 24px 16px;
-  height: 220px;
+  padding: 10px 24px 14px;
   flex-shrink: 0;
 }
 .play-select-start {
