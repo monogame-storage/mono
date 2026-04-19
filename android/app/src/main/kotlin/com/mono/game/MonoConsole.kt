@@ -2,6 +2,7 @@ package com.mono.game
 
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
+import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -67,6 +68,16 @@ fun MonoConsole(modifier: Modifier = Modifier) {
                             Log.d("MonoWebView", "${it.messageLevel()}: ${it.message()} [${it.sourceId()}:${it.lineNumber()}]")
                         }
                         return true
+                    }
+                    override fun onPermissionRequest(request: PermissionRequest?) {
+                        request?.let { req ->
+                            val denied = setOf(
+                                PermissionRequest.RESOURCE_VIDEO_CAPTURE,
+                                PermissionRequest.RESOURCE_AUDIO_CAPTURE
+                            )
+                            val allowed = req.resources.filter { it !in denied }.toTypedArray()
+                            if (allowed.isNotEmpty()) req.grant(allowed) else req.deny()
+                        }
                     }
                 }
 
