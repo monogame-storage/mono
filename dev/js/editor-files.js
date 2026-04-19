@@ -325,46 +325,150 @@ async function ensureLinked() {
   } catch { return false; }
 }
 
+// ── Sync confirmation sheet ──
+
+function showSyncConfirm(title, changes, onConfirm) {
+  const sheet = document.getElementById("file-sheet");
+  const added = changes.filter(c => c.action === "add");
+  const modified = changes.filter(c => c.action === "modify");
+  const deleted = changes.filter(c => c.action === "delete");
+  const unchanged = changes.filter(c => c.action === "unchanged");
+
+  let listHtml = '';
+  if (added.length) {
+    listHtml += `<div class="sync-group-label">+ ${added.length} new</div>`;
+    for (const c of added) listHtml += `<div class="sync-item add">+ ${esc(c.name)}</div>`;
+  }
+  if (modified.length) {
+    listHtml += `<div class="sync-group-label">~ ${modified.length} modified</div>`;
+    for (const c of modified) listHtml += `<div class="sync-item modify">~ ${esc(c.name)}</div>`;
+  }
+  if (deleted.length) {
+    listHtml += `<div class="sync-group-label">- ${deleted.length} deleted</div>`;
+    for (const c of deleted) listHtml += `<div class="sync-item delete">- ${esc(c.name)}</div>`;
+  }
+  if (unchanged.length) {
+    listHtml += `<div class="sync-group-label">${unchanged.length} unchanged</div>`;
+  }
+
+  if (!added.length && !modified.length && !deleted.length) {
+    listHtml = '<div class="sync-item" style="color:#888;text-align:center;padding:20px 0">No changes to sync.</div>';
+  }
+
+  sheet.innerHTML = `
+    <div class="file-sheet-dim"></div>
+    <div class="file-sheet-panel">
+      <div class="file-sheet-handle"><div class="file-sheet-handle-bar"></div></div>
+      <div class="file-sheet-header">
+        <div class="file-sheet-left">
+          <span class="file-sheet-name">${esc(title)}</span>
+        </div>
+      </div>
+      <div class="sync-list">${listHtml}</div>
+      <div class="sync-actions">
+        <button class="sync-cancel" id="btn-sync-cancel">Cancel</button>
+        <button class="sync-confirm" id="btn-sync-confirm" ${(!added.length && !modified.length && !deleted.length) ? 'disabled' : ''}>Confirm</button>
+      </div>
+    </div>`;
+
+  sheet.classList.add("open");
+
+  sheet.querySelector(".file-sheet-dim").addEventListener("click", () => sheet.classList.remove("open"), { once: true });
+  document.getElementById("btn-sync-cancel").addEventListener("click", () => sheet.classList.remove("open"));
+  document.getElementById("btn-sync-confirm").addEventListener("click", async () => {
+    const btn = document.getElementById("btn-sync-confirm");
+    btn.disabled = true;
+    btn.textContent = "Syncing…";
+    try {
+      await onConfirm(changes);
+    } catch (e) {
+      alert("Sync failed: " + e.message);
+    }
+    sheet.classList.remove("open");
+  });
+}
+
+// ── Push: compute diff then confirm ──
+
 async function doPush() {
   if (state.syncBusy) return;
   if (!await ensureLinked()) return;
   state.syncBusy = true;
   const btn = document.getElementById("btn-push");
   if (btn) btn.style.opacity = "0.5";
+
   try {
     const gameFiles = state.currentFiles.filter(f => !f.name.startsWith("_"));
+    const cloudNames = new Set([...gameFiles.map(f => f.name), ...Object.keys(state.currentAssets)]);
     const localEntries = await readDirRecursive(state.linkedDirHandle);
-    const localNames = new Set(localEntries.map(e => e.path));
+    const localMap = new Map();
+    const isImage = (n) => /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(n);
 
-    await Promise.all(gameFiles.map(async (f) => {
-      const fh = await getFileHandleDeep(state.linkedDirHandle, f.name, true);
-      const w = await fh.createWritable();
-      await w.write(f.content);
-      await w.close();
-    }));
-    await Promise.all(Object.entries(state.currentAssets).map(async ([name, blobUrl]) => {
-      const fh = await getFileHandleDeep(state.linkedDirHandle, name, true);
-      const w = await fh.createWritable();
-      const res = await fetch(blobUrl);
-      await w.write(await res.blob());
-      await w.close();
-    }));
+    for (const entry of localEntries) {
+      if (!isImage(entry.path)) {
+        const file = await entry.handle.getFile();
+        localMap.set(entry.path, await file.text());
+      } else {
+        localMap.set(entry.path, null); // binary — can't diff content
+      }
+    }
 
-    const allR2 = new Set([...gameFiles.map(f => f.name), ...Object.keys(state.currentAssets)]);
-    const orphan = [...localNames].filter(n => !allR2.has(n));
-    if (orphan.length > 0 && confirm(`Delete ${orphan.length} local files not in cloud?\n\n${orphan.join("\n")}`)) {
-      for (const path of orphan) {
-        const parts = path.split("/");
+    const changes = [];
+    // Cloud files → write to local
+    for (const f of gameFiles) {
+      const localContent = localMap.get(f.name);
+      if (localContent === undefined) {
+        changes.push({ name: f.name, action: "add" });
+      } else if (localContent !== null && localContent !== f.content) {
+        changes.push({ name: f.name, action: "modify" });
+      } else {
+        changes.push({ name: f.name, action: "unchanged" });
+      }
+    }
+    for (const name of Object.keys(state.currentAssets)) {
+      if (!localMap.has(name)) changes.push({ name, action: "add" });
+      else changes.push({ name, action: "unchanged" });
+    }
+    // Local files not in cloud → delete
+    for (const [path] of localMap) {
+      if (!cloudNames.has(path)) changes.push({ name: path, action: "delete" });
+    }
+
+    showSyncConfirm("Push to Local", changes, async (ch) => {
+      const toWrite = ch.filter(c => c.action === "add" || c.action === "modify");
+      const toDelete = ch.filter(c => c.action === "delete");
+
+      for (const c of toWrite) {
+        const file = gameFiles.find(f => f.name === c.name);
+        if (file) {
+          const fh = await getFileHandleDeep(state.linkedDirHandle, c.name, true);
+          const w = await fh.createWritable();
+          await w.write(file.content);
+          await w.close();
+        } else if (state.currentAssets[c.name]) {
+          const fh = await getFileHandleDeep(state.linkedDirHandle, c.name, true);
+          const w = await fh.createWritable();
+          const res = await fetch(state.currentAssets[c.name]);
+          await w.write(await res.blob());
+          await w.close();
+        }
+      }
+      for (const c of toDelete) {
+        const parts = c.name.split("/");
         let dir = state.linkedDirHandle;
         for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i]);
         await dir.removeEntry(parts[parts.length - 1]);
       }
-    }
-    syncLog(`Pushed ${gameFiles.length} files to local`, gameFiles.map(f => f.name));
+      syncLog(`Pushed ${toWrite.length} files`, toWrite.map(c => c.name));
+      if (toDelete.length) syncLog(`Deleted ${toDelete.length} local files`, toDelete.map(c => c.name));
+    });
   } catch (e) { alert("Push failed: " + e.message); }
+
   state.syncBusy = false;
   if (btn) btn.style.opacity = "1";
 }
+
+// ── Pull: compute diff then confirm ──
 
 async function doPull() {
   if (state.syncBusy) return;
@@ -372,49 +476,91 @@ async function doPull() {
   state.syncBusy = true;
   const btn = document.getElementById("btn-pull");
   if (btn) btn.style.opacity = "0.5";
+
   try {
-    const localFiles = [];
-    const localBinaries = [];
     const isImage = (n) => /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(n);
     const entries = await readDirRecursive(state.linkedDirHandle);
+    const localFiles = [];
+    const localBinaries = [];
     for (const entry of entries) {
       const file = await entry.handle.getFile();
       if (isImage(entry.path)) localBinaries.push({ name: entry.path, file });
       else { const content = await file.text(); localFiles.push({ name: entry.path, content }); }
     }
 
-    for (const f of localFiles) {
-      const idx = state.currentFiles.findIndex(c => c.name === f.name);
-      if (idx >= 0) state.currentFiles[idx].content = f.content;
-      else state.currentFiles.push(f);
-    }
-    await Promise.all(localFiles.map(f => saveFile(f.name, f.content)));
-
-    if (localBinaries.length > 0) {
-      await Promise.all(localBinaries.map(async (f) => {
-        const buf = await f.file.arrayBuffer();
-        await apiFetch(`/games/${state.currentGameId}/files/${f.name}`, {
-          method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: buf,
-        });
-        if (state.currentAssets[f.name]) { try { URL.revokeObjectURL(state.currentAssets[f.name]); } catch {} }
-        state.currentAssets[f.name] = URL.createObjectURL(f.file);
-      }));
-    }
-
     const localNames = new Set([...localFiles.map(f => f.name), ...localBinaries.map(f => f.name)]);
-    const allR2 = [...state.currentFiles.filter(f => !f.name.startsWith("_")).map(f => f.name), ...Object.keys(state.currentAssets)];
-    const orphan = allR2.filter(n => !localNames.has(n));
-    if (orphan.length > 0 && confirm(`Delete ${orphan.length} cloud files not in local?\n\n${orphan.join("\n")}`)) {
-      await Promise.all(orphan.map(name => deleteR2File(name)));
-      state.currentFiles = state.currentFiles.filter(f => !orphan.includes(f.name));
-      for (const name of orphan) {
-        if (state.currentAssets[name]) { try { URL.revokeObjectURL(state.currentAssets[name]); } catch {} delete state.currentAssets[name]; }
+    const cloudFileNames = state.currentFiles.filter(f => !f.name.startsWith("_")).map(f => f.name);
+    const allCloudNames = [...cloudFileNames, ...Object.keys(state.currentAssets)];
+
+    const changes = [];
+    // Local text files → cloud
+    for (const f of localFiles) {
+      const existing = state.currentFiles.find(c => c.name === f.name);
+      if (!existing) {
+        changes.push({ name: f.name, action: "add", type: "text" });
+      } else if (existing.content !== f.content) {
+        changes.push({ name: f.name, action: "modify", type: "text" });
+      } else {
+        changes.push({ name: f.name, action: "unchanged" });
       }
     }
+    // Local binaries → cloud
+    for (const f of localBinaries) {
+      if (!state.currentAssets[f.name]) changes.push({ name: f.name, action: "add", type: "binary" });
+      else changes.push({ name: f.name, action: "unchanged" });
+    }
+    // Cloud files not in local → delete
+    for (const name of allCloudNames) {
+      if (!localNames.has(name)) changes.push({ name, action: "delete" });
+    }
 
-    syncLog(`Pulled ${localFiles.length} files from local`, localFiles.map(f => f.name));
-    renderFileTree();
+    showSyncConfirm("Pull from Local", changes, async (ch) => {
+      const toAdd = ch.filter(c => (c.action === "add" || c.action === "modify") && c.type === "text");
+      const toBinary = ch.filter(c => (c.action === "add" || c.action === "modify") && c.type === "binary");
+      const toDelete = ch.filter(c => c.action === "delete");
+
+      // Text files
+      for (const c of toAdd) {
+        const f = localFiles.find(l => l.name === c.name);
+        if (!f) continue;
+        const idx = state.currentFiles.findIndex(cf => cf.name === f.name);
+        if (idx >= 0) state.currentFiles[idx].content = f.content;
+        else state.currentFiles.push(f);
+      }
+      await Promise.all(toAdd.map(c => {
+        const f = localFiles.find(l => l.name === c.name);
+        return f ? saveFile(f.name, f.content) : null;
+      }));
+
+      // Binary files
+      if (toBinary.length) {
+        await Promise.all(toBinary.map(async (c) => {
+          const f = localBinaries.find(l => l.name === c.name);
+          if (!f) return;
+          const buf = await f.file.arrayBuffer();
+          await apiFetch(`/games/${state.currentGameId}/files/${f.name}`, {
+            method: "PUT", headers: { "Content-Type": "application/octet-stream" }, body: buf,
+          });
+          if (state.currentAssets[f.name]) { try { URL.revokeObjectURL(state.currentAssets[f.name]); } catch {} }
+          state.currentAssets[f.name] = URL.createObjectURL(f.file);
+        }));
+      }
+
+      // Delete
+      if (toDelete.length) {
+        await Promise.all(toDelete.map(c => deleteR2File(c.name)));
+        state.currentFiles = state.currentFiles.filter(f => !toDelete.some(d => d.name === f.name));
+        for (const c of toDelete) {
+          if (state.currentAssets[c.name]) { try { URL.revokeObjectURL(state.currentAssets[c.name]); } catch {} delete state.currentAssets[c.name]; }
+        }
+      }
+
+      syncLog(`Pulled ${toAdd.length + toBinary.length} files`, [...toAdd, ...toBinary].map(c => c.name));
+      if (toDelete.length) syncLog(`Deleted ${toDelete.length} cloud files`, toDelete.map(c => c.name));
+      renderFileTree();
+    });
   } catch (e) { alert("Pull failed: " + e.message); }
+
   state.syncBusy = false;
   if (btn) btn.style.opacity = "1";
 }
