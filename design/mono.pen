@@ -9711,6 +9711,209 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "iurpq",
+      "x": 544,
+      "y": -1976,
+      "name": "Game Play (Landscape)",
+      "clip": true,
+      "width": 900,
+      "height": 390,
+      "fill": "#050505",
+      "children": [
+        {
+          "type": "frame",
+          "id": "u9LMk",
+          "name": "LeftControls",
+          "width": 184,
+          "height": "fill_container",
+          "layout": "none",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "8lVYl",
+              "x": 8,
+              "y": 8,
+              "name": "closeBtn",
+              "width": 16,
+              "height": 16,
+              "iconFontName": "x",
+              "iconFontFamily": "lucide",
+              "fill": "#444444"
+            },
+            {
+              "type": "frame",
+              "id": "nkzR3",
+              "x": 112,
+              "y": 8,
+              "name": "selectBtn",
+              "width": 64,
+              "height": 22,
+              "fill": "#1a1a1a",
+              "cornerRadius": 11,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#2a2a2a"
+              },
+              "padding": [
+                0,
+                14
+              ],
+              "justifyContent": "center",
+              "alignItems": "center"
+            },
+            {
+              "type": "frame",
+              "id": "vzqDm",
+              "x": 32,
+              "y": 135,
+              "name": "DPad",
+              "width": 120,
+              "height": 120,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Ug5Qn",
+                  "x": 0,
+                  "y": 40,
+                  "name": "dpadH",
+                  "width": 120,
+                  "height": 40,
+                  "fill": "#2a2a2a",
+                  "cornerRadius": 6
+                },
+                {
+                  "type": "frame",
+                  "id": "AfocV",
+                  "x": 40,
+                  "y": 0,
+                  "name": "dpadV",
+                  "width": 40,
+                  "height": 120,
+                  "fill": "#2a2a2a",
+                  "cornerRadius": 6
+                },
+                {
+                  "type": "frame",
+                  "id": "nOGeh",
+                  "x": 44,
+                  "y": 44,
+                  "name": "dpadC",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "#1a1a1a",
+                  "cornerRadius": 4
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "KstP7",
+          "name": "CenterArea",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "padding": [
+            8,
+            4
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "OnW2m",
+              "name": "ScreenFrame",
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "#0a0a0a",
+              "cornerRadius": 4,
+              "padding": 3,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ejGy8",
+                  "name": "screen",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "#111111",
+                  "cornerRadius": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "98k3R",
+          "name": "RightControls",
+          "width": 184,
+          "height": "fill_container",
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "XK0es",
+              "x": 8,
+              "y": 8,
+              "name": "startBtn",
+              "width": 60,
+              "height": 22,
+              "fill": "#1a1a1a",
+              "cornerRadius": 11,
+              "stroke": {
+                "thickness": 1,
+                "fill": "#2a2a2a"
+              },
+              "padding": [
+                0,
+                14
+              ],
+              "justifyContent": "center",
+              "alignItems": "center"
+            },
+            {
+              "type": "frame",
+              "id": "8bRan",
+              "x": 32,
+              "y": 150,
+              "name": "ABButtons",
+              "width": 120,
+              "height": 100,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "7jvYD",
+                  "x": 0,
+                  "y": 48,
+                  "name": "btnB",
+                  "fill": "#2a2a2a",
+                  "width": 52,
+                  "height": 52
+                },
+                {
+                  "type": "ellipse",
+                  "id": "PdThM",
+                  "x": 64,
+                  "y": 0,
+                  "name": "btnA",
+                  "fill": "#eeeeee",
+                  "width": 56,
+                  "height": 56
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
