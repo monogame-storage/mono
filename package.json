@@ -22,7 +22,9 @@
   "dependencies": {
     "luau-web": "^1.4.0",
     "pngjs": "^7.0.0",
-    "puppeteer": "^24.41.0",
     "wasmoon": "^1.16.0"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.41.0"
   }
 }

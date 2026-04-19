@@ -2609,19 +2609,21 @@ async function openEditor(gameId, title, desc) {
     if (files && files.length > 0) {
       const gameFiles = files.filter(f => !f.name.startsWith("_"));
       const isImage = (n) => /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(n);
-      const loaded = await Promise.all(gameFiles.map(async (f) => {
+      const results = await Promise.allSettled(gameFiles.map(async (f) => {
         const r = await fetch(`${API_URL}/games/${gameId}/files/${f.name}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!r.ok) throw new Error(`${f.name}: ${r.status}`);
         if (isImage(f.name)) {
-          // Binary — store blob URL for engine assets
           const blob = await r.blob();
           return { name: f.name, blobUrl: URL.createObjectURL(blob) };
         }
         const { content } = await r.json();
         return { name: f.name, content };
       }));
-      for (const f of loaded) {
+      for (const r of results) {
+        if (r.status !== "fulfilled") continue;
+        const f = r.value;
         if (f.blobUrl) {
           currentAssets[f.name] = f.blobUrl;
         } else {
@@ -3708,19 +3710,24 @@ document.getElementById("btn-sync-pull").addEventListener("click", async () => {
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
           body: buf,
         });
+        // Revoke old blob URL before overwriting
+        if (currentAssets[f.name]) { try { URL.revokeObjectURL(currentAssets[f.name]); } catch {} }
         currentAssets[f.name] = URL.createObjectURL(f.file);
       }));
     }
 
-    // Detect R2 files not in local
+    // Detect R2 files (text + images) not in local
     const localNames = new Set([...localFiles.map(f => f.name), ...localBinaries.map(f => f.name)]);
-    const gameFiles = currentFiles.filter(f => !f.name.startsWith("_"));
-    const orphanR2 = gameFiles.filter(f => !localNames.has(f.name)).map(f => f.name);
+    const allR2Names = [...currentFiles.filter(f => !f.name.startsWith("_")).map(f => f.name), ...Object.keys(currentAssets)];
+    const orphanR2 = allR2Names.filter(n => !localNames.has(n));
     let deleted = [];
     if (orphanR2.length > 0) {
       if (confirm(`These cloud files are not in the local folder and will be deleted:\n\n${orphanR2.join("\n")}\n\nDelete them?`)) {
         await Promise.all(orphanR2.map(name => deleteR2File(name)));
         currentFiles = currentFiles.filter(f => !orphanR2.includes(f.name));
+        for (const name of orphanR2) {
+          if (currentAssets[name]) { try { URL.revokeObjectURL(currentAssets[name]); } catch {} delete currentAssets[name]; }
+        }
         deleted = orphanR2;
       }
     }
