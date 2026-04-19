@@ -1391,6 +1391,11 @@
     color: #888;
   }
   .settings-publish-btn.unpublish:hover { border-color: #555; color: #ccc; }
+  .settings-publish-btn.update {
+    background: #2a5a2a;
+    color: #eee;
+  }
+  .settings-publish-btn.update:hover { background: #3a7a3a; }
 
   .btn-delete-game {
     width: 100%;
@@ -1795,7 +1800,10 @@
             <span class="publish-version" id="publish-version"></span>
           </div>
           <p class="settings-danger-text" id="publish-desc">Publish this game to make it publicly playable. A snapshot of the current files will be saved.</p>
-          <button class="settings-publish-btn" id="btn-publish">Publish</button>
+          <div style="display:flex;gap:8px" id="publish-btns">
+            <button class="settings-publish-btn" id="btn-publish">Publish</button>
+            <button class="settings-publish-btn" id="btn-update" style="display:none">Update</button>
+          </div>
         </div>
       </div>
       <div class="settings-section">
@@ -2540,6 +2548,14 @@ async function createGame() {
 let currentGameId = null;
 
 async function openEditor(gameId, title, desc) {
+  // Stop any running game and clear canvas
+  if (gameRunning) stopGame();
+  try { Mono.stop(); } catch {}
+  const canvas = document.getElementById("editor-screen");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  clearEngineError();
+
   currentGameId = gameId;
   currentGameTitle = title;
   currentGameDesc = desc || "";
@@ -3333,14 +3349,19 @@ function updatePublishUI() {
   const version = document.getElementById("publish-version");
   const desc = document.getElementById("publish-desc");
   const btn = document.getElementById("btn-publish");
+  const btnUpdate = document.getElementById("btn-update");
 
   if (currentGameStatus === "published") {
     badge.className = "publish-badge published";
     badge.textContent = "Published";
     version.textContent = currentPublishedVersion ? `v${currentPublishedVersion}` : "";
-    desc.textContent = "This game is live. You can unpublish to take it offline, or publish again to update.";
+    desc.textContent = "This game is live. Update to push latest changes, or unpublish to take it offline.";
     btn.textContent = "Unpublish";
     btn.className = "settings-publish-btn unpublish";
+    btnUpdate.style.display = "";
+    btnUpdate.className = "settings-publish-btn update";
+    btnUpdate.textContent = "Update";
+    btnUpdate.disabled = false;
   } else {
     badge.className = "publish-badge draft";
     badge.textContent = "Draft";
@@ -3348,6 +3369,7 @@ function updatePublishUI() {
     desc.textContent = "Publish this game to make it publicly playable. A snapshot of the current files will be saved.";
     btn.textContent = "Publish";
     btn.className = "settings-publish-btn";
+    btnUpdate.style.display = "none";
   }
   btn.disabled = false;
 }
@@ -3358,6 +3380,10 @@ document.getElementById("btn-publish").addEventListener("click", async () => {
   } else {
     await publishGame();
   }
+});
+
+document.getElementById("btn-update").addEventListener("click", async () => {
+  await publishGame(); // re-publish creates a new version snapshot
 });
 
 async function publishGame() {
