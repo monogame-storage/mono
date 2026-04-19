@@ -74,7 +74,36 @@ const TAB_TOPBAR_BUTTONS = {
     if (initSyncHandlers) initSyncHandlers();
   },
   ai: (nav) => {
-    nav.innerHTML = '';
+    // Provider pill — shows current model name
+    const sel = document.getElementById("model-select");
+    const label = sel ? sel.options[sel.selectedIndex]?.textContent || "Model" : "Model";
+    nav.innerHTML = `
+      <button class="ai-provider-pill" id="btn-provider-pill">
+        <span class="pill-icon"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/></svg></span>
+        <span class="pill-label">${label}</span>
+        <span class="pill-chev"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </button>`;
+    // Click pill → open hidden <select>
+    nav.querySelector("#btn-provider-pill")?.addEventListener("click", () => {
+      const select = document.getElementById("model-select");
+      if (select) {
+        select.style.display = "block";
+        select.style.position = "fixed";
+        select.style.opacity = "0";
+        select.focus();
+        select.click();
+        // On change/blur, re-hide and update pill label
+        const hide = () => {
+          select.style.display = "none";
+          const newLabel = select.options[select.selectedIndex]?.textContent || "Model";
+          const pillLabel = nav.querySelector(".pill-label");
+          if (pillLabel) pillLabel.textContent = newLabel;
+          select.removeEventListener("blur", hide);
+        };
+        select.addEventListener("change", hide, { once: true });
+        select.addEventListener("blur", hide, { once: true });
+      }
+    });
   },
   play: (nav) => {
     nav.innerHTML = `
@@ -147,7 +176,7 @@ export async function openEditor(gameId, title, desc) {
 
   // Clear UI from previous session
   document.getElementById("editor-msg").value = "";
-  document.getElementById("editor-usage").textContent = "";
+  // (usage display removed — tracked in state only)
 
   // Load game status
   try {
@@ -264,8 +293,7 @@ export function initEditor() {
     }
   });
 
-  // AI shortcut
-  document.getElementById("btn-editor-aip").addEventListener("click", openAIProviders);
+  // (AI provider shortcut moved to topbar provider pill)
 
   // Key interception: only forward to engine when game running and no input focused
   document.addEventListener("keydown", (e) => {

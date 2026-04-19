@@ -113,54 +113,36 @@
 
     <!-- AI Tab -->
     <div class="editor-tab-panel" id="tab-ai">
-      <div class="editor-chat" id="editor-chat">
-        <div class="chat-msg">
-          <span class="chat-sender mono">MONO</span>
-          <span class="chat-body">Game created. Describe what you want to build!</span>
+      <div class="ai-chat" id="editor-chat"></div>
+      <div class="ai-input-bar">
+        <div class="ai-input-field">
+          <textarea id="editor-msg" placeholder="Describe the next change…" rows="1"></textarea>
         </div>
-      </div>
-      <div class="editor-error-bar" id="editor-error-bar">
-        <div class="editor-error-bar-inner">
-          <span class="editor-error-msg" id="editor-error-msg"></span>
-          <button class="editor-error-fix" id="btn-error-fix">Fix</button>
-        </div>
-      </div>
-      <div class="editor-model-bar">
-        <select class="editor-model-select" id="model-select">
-          <option value="kimi-latest">mono-alpha</option>
-          <optgroup label="Anthropic">
-            <option value="claude-opus-4">Claude Opus 4</option>
-            <option value="claude-sonnet-4">Claude Sonnet 4</option>
-            <option value="claude-haiku-3">Claude Haiku 3</option>
-          </optgroup>
-          <optgroup label="Google">
-            <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
-            <option value="gemini-3-pro">Gemini 3 Pro</option>
-            <option value="gemini-3-flash">Gemini 3 Flash</option>
-            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-          </optgroup>
-          <optgroup label="OpenAI">
-            <option value="gpt-5.3-codex">GPT-5.3 Codex</option>
-            <option value="o3">o3</option>
-            <option value="gpt-4.1">GPT-4.1</option>
-          </optgroup>
-        </select>
-        <span class="editor-usage" id="editor-usage"></span>
-        <button class="editor-byok-btn" id="btn-editor-aip">AI</button>
-      </div>
-      <div class="editor-test-bar">
-        <button class="editor-test-btn" id="btn-test-fix">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
-          Test &amp; Fix
+        <button class="ai-send" id="btn-send">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
         </button>
       </div>
-      <div class="editor-input">
-        <textarea id="editor-msg" placeholder="Describe the next change..." rows="1"></textarea>
-        <button class="editor-send" id="btn-send">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-        </button>
-      </div>
+      <!-- Hidden model selector (opened via topbar provider pill) -->
+      <select class="ai-model-select" id="model-select" style="display:none">
+        <option value="kimi-latest">mono-alpha</option>
+        <optgroup label="Anthropic">
+          <option value="claude-opus-4">Claude Opus 4</option>
+          <option value="claude-sonnet-4">Claude Sonnet 4</option>
+          <option value="claude-haiku-3">Claude Haiku 3</option>
+        </optgroup>
+        <optgroup label="Google">
+          <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
+          <option value="gemini-3-pro">Gemini 3 Pro</option>
+          <option value="gemini-3-flash">Gemini 3 Flash</option>
+          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+        </optgroup>
+        <optgroup label="OpenAI">
+          <option value="gpt-5.3-codex">GPT-5.3 Codex</option>
+          <option value="o3">o3</option>
+          <option value="gpt-4.1">GPT-4.1</option>
+        </optgroup>
+      </select>
     </div>
 
     <!-- Play Tab -->
