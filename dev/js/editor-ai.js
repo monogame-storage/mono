@@ -1,6 +1,6 @@
 // ── AI Tab: Chat, send message, test & fix ──
 
-import { state, esc, chatTime, MAX_FIX_RETRIES } from './state.js';
+import { state, esc, chatTime } from './state.js';
 import { apiFetch, saveChatHistory } from './api.js';
 import { runHeadlessTest } from './editor-play.js';
 
@@ -56,11 +56,11 @@ function monoTypingCard() {
   </div>`;
 }
 
-function errorCard(msg) {
+function errorCard(msg, label = "ERROR") {
   return `<div class="ai-card-error">
-    <div class="ai-card-status">ERROR</div>
+    <div class="ai-card-status">${esc(label)}</div>
     <div class="ai-card-response">${esc(msg)}</div>
-    <button class="ai-card-fix" data-error="${esc(msg)}">Fix</button>
+    <button class="ai-card-fix">Fix with AI</button>
   </div>`;
 }
 
@@ -110,8 +110,56 @@ export function renderChatHistory() {
 export function showEngineError(msg) {
   state.lastEngineError = msg;
   const chat = document.getElementById("editor-chat");
-  chat.innerHTML += errorCard(msg);
+  chat.innerHTML += errorCard(msg, "RUNTIME ERROR");
   chat.scrollTop = chat.scrollHeight;
+}
+
+// ── Fix confirmation popup ──
+
+function showFixConfirm(errorText, label) {
+  const sheet = document.getElementById("file-sheet");
+  if (!sheet) return;
+
+  const defaultPrompt = `Fix this ${label === "TEST FAILED" ? "test failure" : "runtime error"}:\n${errorText}`;
+
+  sheet.innerHTML = `
+    <div class="file-sheet-dim"></div>
+    <div class="file-sheet-panel">
+      <div class="file-sheet-handle"><div class="file-sheet-handle-bar"></div></div>
+      <div class="file-sheet-header">
+        <div class="file-sheet-left">
+          <span class="file-sheet-name">Send fix request to AI?</span>
+        </div>
+      </div>
+      <div class="fix-confirm-body">
+        <div class="fix-confirm-label">Prompt (editable)</div>
+        <textarea class="fix-confirm-textarea" id="fix-confirm-text" spellcheck="false">${esc(defaultPrompt)}</textarea>
+      </div>
+      <div class="sync-actions">
+        <button class="sync-cancel" id="btn-fix-cancel">Cancel</button>
+        <button class="sync-confirm" id="btn-fix-send">Send</button>
+      </div>
+    </div>`;
+
+  sheet.classList.add("open");
+
+  const ta = document.getElementById("fix-confirm-text");
+  ta.focus();
+  ta.addEventListener("keydown", (e) => e.stopPropagation());
+  ta.addEventListener("keyup", (e) => e.stopPropagation());
+  ta.addEventListener("keypress", (e) => e.stopPropagation());
+
+  const close = () => sheet.classList.remove("open");
+  sheet.querySelector(".file-sheet-dim").addEventListener("click", close, { once: true });
+  document.getElementById("btn-fix-cancel").addEventListener("click", close);
+  document.getElementById("btn-fix-send").addEventListener("click", () => {
+    const prompt = ta.value.trim();
+    close();
+    if (prompt) {
+      clearEngineError();
+      sendMessage(prompt);
+    }
+  });
 }
 
 export function clearEngineError() {
@@ -201,21 +249,16 @@ export async function sendMessage(autoMsg) {
       typing.outerHTML = monoCard(data.message, changedFiles, "completed");
     }
 
-    // Auto headless test
+    // Auto headless test (no auto-retry: user must confirm fix via Fix button)
     if (state.autoFixEnabled && data.files && data.files.length > 0) {
-      if (!autoMsg) state.currentFixAttempt = 0;
       addChatMsg("mono", "Running test…");
       const testResult = await runHeadlessTest(state.currentFiles, 30);
       if (testResult.success) {
         addChatMsg("mono", "✓ Test passed (" + (testResult.frames || 30) + " frames)");
       } else {
         const testErrors = (testResult.errors || []).join("\n");
-        addChatMsg("mono", "✗ Test failed:\n" + testErrors);
-        if (state.currentFixAttempt < MAX_FIX_RETRIES) {
-          state.currentFixAttempt++;
-          addChatMsg("mono", "Auto-fixing… (" + state.currentFixAttempt + "/" + MAX_FIX_RETRIES + ")");
-          await sendMessage("Fix these runtime errors:\n" + testErrors);
-        }
+        chat.innerHTML += errorCard(testErrors, "TEST FAILED");
+        chat.scrollTop = chat.scrollHeight;
       }
     }
   } catch (e) {
@@ -255,14 +298,13 @@ export function initEditorAI() {
       if (body) sendMessage(body.textContent);
       return;
     }
-    // Fix button on error card
+    // Fix button on error card → show prompt confirmation popup
     const fixBtn = e.target.closest(".ai-card-fix");
     if (fixBtn) {
-      const errMsg = fixBtn.dataset.error;
-      if (errMsg) {
-        clearEngineError();
-        sendMessage("Fix this runtime error:\n" + errMsg);
-      }
+      const card = fixBtn.closest(".ai-card-error");
+      const errText = card?.querySelector(".ai-card-response")?.textContent || "";
+      const label = card?.querySelector(".ai-card-status")?.textContent || "ERROR";
+      if (errText) showFixConfirm(errText, label);
       return;
     }
   });

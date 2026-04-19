@@ -29,9 +29,8 @@ export const state = {
   linkedDirHandle: null,
   syncBusy: false,
 
-  // Auto-fix
+  // Auto-fix (runs headless test only; fix request requires user confirmation)
   autoFixEnabled: true,
-  currentFixAttempt: 0,
 
   // Engine
   lastEngineError: null,
@@ -41,7 +40,6 @@ export const state = {
 };
 
 export const API_URL = "https://api.monogame.cc";
-export const MAX_FIX_RETRIES = 3;
 
 // ── Utilities ──
 

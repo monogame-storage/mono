@@ -776,6 +776,41 @@
 }
 .ai-card-error .ai-card-fix:hover { background: #ff8888; }
 
+/* Fix confirmation popup (reuses file-sheet panel) */
+.fix-confirm-body {
+  padding: 8px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+}
+.fix-confirm-label {
+  color: #888;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.fix-confirm-textarea {
+  flex: 1;
+  min-height: 140px;
+  background: #0f0f0f;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #ddd;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  white-space: pre-wrap;
+}
+.fix-confirm-textarea:focus {
+  border-color: #555;
+}
+
 /* ── AI tab: TopBar provider pill ── */
 .ai-provider-pill {
   display: flex;
