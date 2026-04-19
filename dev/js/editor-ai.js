@@ -9,6 +9,17 @@ import { runHeadlessTest } from './editor-play.js';
 const RETRY_SVG = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>';
 const STOP_SVG = '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>';
 
+// Strip fenced code blocks and collapse whitespace so the chat card
+// shows only the explanation — code lives in the file list below.
+function cleanMessage(s) {
+  if (!s) return s;
+  return s
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`\n]+)`/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function userCard(msg) {
   return `<div class="ai-card-user">
     <div class="ai-card-head">
@@ -23,7 +34,8 @@ function monoCard(message, files, status = "completed") {
   const statusCls = status === "working" ? " working" : "";
   let html = `<div class="ai-card-mono${statusCls}">
     <div class="ai-card-status${statusCls}">MONO · ${status}</div>`;
-  if (message) html += `<div class="ai-card-response">${esc(message)}</div>`;
+  const cleaned = cleanMessage(message);
+  if (cleaned) html += `<div class="ai-card-response">${esc(cleaned)}</div>`;
   if (files && files.length > 0) {
     for (const f of files) {
       const action = f._action || "edited";
