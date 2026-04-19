@@ -136,9 +136,11 @@ export async function openEditor(gameId, title, desc) {
   state.lastEngineError = null;
   clearEngineError();
 
-  // Clear UI from previous session
+  // Clear ALL tab content immediately (prevents stale flash)
   document.getElementById("editor-msg").value = "";
-  // (usage display removed — tracked in state only)
+  document.getElementById("editor-chat").innerHTML = "";
+  document.getElementById("file-tree").innerHTML = '<div class="ft-empty">Loading…</div>';
+  document.getElementById("console-lines").innerHTML = "";
 
   // Load game status
   try {
@@ -165,9 +167,9 @@ export async function openEditor(gameId, title, desc) {
   document.getElementById("editor-title").textContent = title;
   location.hash = `editor/${gameId}/files`;
 
-  // Show loading state
+  // Show loading state in AI chat
   document.getElementById("editor-chat").innerHTML =
-    '<div class="chat-msg"><span class="chat-sender mono">MONO</span><span class="chat-status">Loading...</span></div>';
+    '<div class="ai-card-mono working"><div class="ai-card-status working">MONO · loading…</div></div>';
 
   showView("editor");
 
