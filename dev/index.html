@@ -2629,7 +2629,7 @@ async function openEditor(gameId, title, desc) {
         }
       }
     }
-  } catch (e) { console.error("[openEditor] file load failed:", e); }
+  } catch {}
 
   // Load chat history from R2
   try {
@@ -3062,10 +3062,6 @@ async function runGame() {
       moduleMap[f.name] = f.content;
     }
   }
-
-  console.log("[runGame] files:", currentFiles.map(f => f.name));
-  console.log("[runGame] modules:", Object.keys(moduleMap));
-  console.log("[runGame] assets:", Object.keys(currentAssets));
 
   Mono.boot("editor-screen", {
     source: mainFile.content,
