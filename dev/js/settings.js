@@ -235,6 +235,28 @@ export function initSettings() {
     openAIProviders();
   });
 
+  // Dev-only: Copy JWT button — shown only on localhost/127.0.0.1
+  const host = location.hostname;
+  const isLocal = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
+  const copyBtn = document.getElementById("btn-copy-token");
+  if (isLocal && copyBtn) {
+    copyBtn.style.display = "";
+    const status = document.getElementById("copy-token-status");
+    copyBtn.addEventListener("click", async () => {
+      try {
+        const user = state.auth?.currentUser;
+        if (!user) { status.textContent = "Not signed in"; return; }
+        const token = await user.getIdToken();
+        await navigator.clipboard.writeText(token);
+        status.textContent = "Copied!";
+      } catch (e) {
+        status.textContent = "Failed";
+        console.error("Copy token failed:", e);
+      }
+      setTimeout(() => { status.textContent = "›"; }, 2000);
+    });
+  }
+
   // AI Providers view
   document.getElementById("btn-aip-back").addEventListener("click", () => { location.hash = "settings"; showView("devsettings"); });
   document.getElementById("aip-list").addEventListener("click", onProviderListClick);
