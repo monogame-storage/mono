@@ -2563,6 +2563,9 @@ async function openEditor(gameId, title, desc) {
   currentPublishedVersion = 0;
   chatHistory.length = 0;
   currentFiles = [];
+  // Revoke old blob URLs
+  for (const url of Object.values(currentAssets)) { try { URL.revokeObjectURL(url); } catch {} }
+  currentAssets = {};
   sessionTokens = { prompt: 0, completion: 0, total: 0 };
   document.getElementById("editor-usage").textContent = "";
 
@@ -2605,14 +2608,26 @@ async function openEditor(gameId, title, desc) {
     const { files } = await listRes.json();
     if (files && files.length > 0) {
       const gameFiles = files.filter(f => !f.name.startsWith("_"));
+      const isImage = (n) => /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(n);
       const loaded = await Promise.all(gameFiles.map(async (f) => {
         const r = await fetch(`${API_URL}/games/${gameId}/files/${f.name}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (isImage(f.name)) {
+          // Binary — store blob URL for engine assets
+          const blob = await r.blob();
+          return { name: f.name, blobUrl: URL.createObjectURL(blob) };
+        }
         const { content } = await r.json();
         return { name: f.name, content };
       }));
-      currentFiles.push(...loaded);
+      for (const f of loaded) {
+        if (f.blobUrl) {
+          currentAssets[f.name] = f.blobUrl;
+        } else {
+          currentFiles.push(f);
+        }
+      }
     }
   } catch {}
 
@@ -2692,6 +2707,7 @@ editorMsg.addEventListener("input", () => {
 
 const chatHistory = [];
 let currentFiles = [];
+let currentAssets = {}; // { "images/bg.png": "blob:..." }
 
 const MAX_FIX_RETRIES = 3;
 let autoFixEnabled = true;
@@ -3047,41 +3063,13 @@ async function runGame() {
     }
   }
 
-  // Build assets map for loadImage() — fetch binary files from R2 as blob URLs
-  const assetMap = {};
-  const token = await auth.currentUser.getIdToken();
-  const imageFiles = currentFiles.filter(f => /\.(png|jpg|jpeg|gif|bmp)$/i.test(f.name));
-  if (imageFiles.length === 0) {
-    // Check R2 for image files not yet in currentFiles
-    try {
-      const listRes = await fetch(`${API_URL}/games/${currentGameId}/files`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const { files } = await listRes.json();
-      if (files) {
-        const imgEntries = files.filter(f => /\.(png|jpg|jpeg|gif|bmp)$/i.test(f.name));
-        await Promise.all(imgEntries.map(async (f) => {
-          try {
-            const res = await fetch(`${API_URL}/games/${currentGameId}/files/${f.name}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-              const blob = await res.blob();
-              assetMap[f.name] = URL.createObjectURL(blob);
-            }
-          } catch {}
-        }));
-      }
-    } catch {}
-  }
-
   Mono.boot("editor-screen", {
     source: mainFile.content,
     colors: 4,
     noAutoFit: true,
     readFile: async (name) => fileMap[name] || "",
     modules: moduleMap,
-    assets: assetMap,
+    assets: currentAssets,
   }).catch((e) => {
     showEngineError(e.message || String(e));
     stopGame();
