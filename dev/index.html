@@ -165,56 +165,36 @@
 
     <!-- Play Tab -->
     <div class="editor-tab-panel" id="tab-play">
-      <div class="editor-preview">
-        <div class="console-wrapper">
-          <div class="console-stats" id="console-stats">
-            <div class="console-stat">FPS<br><span class="val" id="stat-fps">--</span></div>
-            <div class="console-stat">FRM<br><span class="val" id="stat-frame">0</span></div>
-            <div class="console-stat">MEM<br><span class="val" id="stat-mem">--</span></div>
-            <div class="console-stat">SCN<br><span class="val" id="stat-scene">--</span></div>
+      <div class="play-stage">
+        <canvas id="editor-screen" width="160" height="120"></canvas>
+      </div>
+      <div class="play-gamepad">
+        <div class="play-select-start">
+          <button class="play-pill" data-key="select">SELECT</button>
+          <button class="play-pill" data-key="start">START</button>
+        </div>
+        <div class="play-controls">
+          <div class="play-dpad" id="gp-dpad">
+            <div class="play-dpad-c"></div>
+            <button class="play-dpad-btn play-dpad-up" data-key="up"></button>
+            <button class="play-dpad-btn play-dpad-down" data-key="down"></button>
+            <button class="play-dpad-btn play-dpad-left" data-key="left"></button>
+            <button class="play-dpad-btn play-dpad-right" data-key="right"></button>
           </div>
-          <div class="console-bezel">
-            <div class="screen-frame">
-              <canvas id="editor-screen" width="160" height="120"></canvas>
-            </div>
-            <div class="console-status">
-              <span class="console-logo">MONO</span>
-              <div class="console-dots">
-                <span class="console-dot off"></span>
-                <span class="console-dot on" id="console-led"></span>
-              </div>
-            </div>
+          <div class="play-ab">
+            <button class="play-btn-b" data-key="b"></button>
+            <button class="play-btn-a" data-key="a"></button>
           </div>
         </div>
       </div>
-      <div class="gamepad-bar">
-        <span class="gamepad-bar-icon">✚ ·•</span>
-        <div class="gamepad-bar-btns">
-          <button class="gamepad-btn" id="gp-select" data-key="select">SELECT</button>
-          <button class="gamepad-btn" id="gp-start" data-key="start">START</button>
+      <div class="play-console" id="play-console">
+        <div class="play-console-head">
+          <span class="play-console-label">CONSOLE</span>
+          <button class="play-console-clear" id="btn-console-clear">Clear</button>
         </div>
-        <button class="gamepad-expand" id="gp-expand">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
+        <div class="play-console-divider"></div>
+        <div class="play-console-lines" id="console-lines"></div>
       </div>
-      <div class="gamepad-panel" id="gamepad-panel">
-        <div class="gamepad-controls">
-          <div class="gamepad-dpad" id="gp-dpad">
-            <div class="gamepad-dpad-h"></div>
-            <div class="gamepad-dpad-v"></div>
-            <div class="gamepad-dpad-c"></div>
-            <button class="gamepad-dpad-zone gamepad-dpad-up" data-key="up"></button>
-            <button class="gamepad-dpad-zone gamepad-dpad-down" data-key="down"></button>
-            <button class="gamepad-dpad-zone gamepad-dpad-left" data-key="left"></button>
-            <button class="gamepad-dpad-zone gamepad-dpad-right" data-key="right"></button>
-          </div>
-          <div class="gamepad-ab">
-            <button class="gamepad-btn-b" id="gp-b" data-key="b"></button>
-            <button class="gamepad-btn-a" id="gp-a" data-key="a"></button>
-          </div>
-        </div>
-      </div>
-      <div class="console-log" id="console-log"></div>
     </div>
 
     <!-- Game Tab -->

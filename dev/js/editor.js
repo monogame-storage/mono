@@ -9,7 +9,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 import { decryptData, updateModelSelector, saveProviders, openAIProviders } from './settings.js';
 import { initEditorAI, renderChatHistory, clearEngineError } from './editor-ai.js';
-import { initEditorPlay, stopGame, buildScaleOptions, applyScale } from './editor-play.js';
+import { initEditorPlay, stopGame } from './editor-play.js';
 import { initEditorFiles } from './editor-files.js';
 import { initEditorGame } from './editor-game.js';
 
@@ -78,18 +78,12 @@ const TAB_TOPBAR_BUTTONS = {
   },
   play: (nav) => {
     nav.innerHTML = `
-      <button class="editor-icon-btn" id="btn-run" title="Run">
-        <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-      </button>
-      <select class="editor-scale-select" id="editor-scale"></select>`;
+      <button class="editor-icon-btn" id="btn-reset" title="Reset">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+      </button>`;
     // Re-init play handlers after DOM rebuild
     const { initPlayTopbarHandlers } = window._editorPlay || {};
     if (initPlayTopbarHandlers) initPlayTopbarHandlers();
-    // Restore run button state
-    if (state.gameRunning) {
-      const btn = nav.querySelector("#btn-run");
-      if (btn) btn.style.background = "#ff4444";
-    }
   },
   game: (nav) => {
     nav.innerHTML = '';
@@ -97,7 +91,9 @@ const TAB_TOPBAR_BUTTONS = {
 };
 
 export function switchTab(name) {
+  const prevTab = currentTab;
   currentTab = name;
+
   // Toggle panels
   document.querySelectorAll(".editor-tab-panel").forEach(p => p.classList.remove("active"));
   const panel = document.getElementById(`tab-${name}`);
@@ -110,6 +106,14 @@ export function switchTab(name) {
   const nav = document.getElementById("editor-nav-right");
   const builder = TAB_TOPBAR_BUTTONS[name];
   if (builder) builder(nav);
+
+  // Auto-run game when entering Play tab, stop when leaving
+  if (name === "play" && prevTab !== "play") {
+    const { runGame } = window._editorPlay || {};
+    if (runGame && !state.gameRunning) runGame();
+  } else if (name !== "play" && prevTab === "play" && state.gameRunning) {
+    stopGame();
+  }
 }
 
 // ── openEditor ──
@@ -220,11 +224,6 @@ export async function openEditor(gameId, title, desc) {
   const { renderFileTree } = window._editorFiles || {};
   if (renderFileTree) renderFileTree();
 
-  // Scale setup after layout settles
-  setTimeout(() => {
-    buildScaleOptions();
-    applyScale();
-  }, 0);
 }
 
 // ── Init ──

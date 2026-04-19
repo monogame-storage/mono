@@ -1,4 +1,4 @@
-// ── Play Tab: Engine, gamepad, scaling, stats ──
+// ── Play Tab: Engine, gamepad, console ──
 
 import { state } from './state.js';
 import { showEngineError, clearEngineError } from './editor-ai.js';
@@ -15,6 +15,23 @@ export function runHeadlessTest(files, frames = 30) {
   });
 }
 
+// ── Console log ──
+
+function consolePrint(text, cls = "") {
+  const lines = document.getElementById("console-lines");
+  if (!lines) return;
+  const el = document.createElement("div");
+  el.className = "play-console-line" + (cls ? " " + cls : "");
+  el.textContent = text;
+  lines.appendChild(el);
+  lines.scrollTop = lines.scrollHeight;
+}
+
+function clearConsole() {
+  const lines = document.getElementById("console-lines");
+  if (lines) lines.innerHTML = "";
+}
+
 // ── Run / Stop ──
 
 export async function runGame() {
@@ -27,10 +44,7 @@ export async function runGame() {
   for (const f of state.currentFiles) fileMap[f.name] = f.content;
 
   state.gameRunning = true;
-  const runBtn = document.getElementById("btn-run");
-  if (runBtn) runBtn.style.background = "#ff4444";
-  document.getElementById("console-led").style.background = "#6f6";
-  startStatsLoop();
+  consolePrint("[engine] running...", "success");
 
   // Patch console.error to catch engine errors
   window._origConsoleError = console.error;
@@ -38,13 +52,36 @@ export async function runGame() {
   console.error = (...args) => {
     const msg = args.join(" ");
     if (msg.startsWith("Mono:")) {
-      setTimeout(() => showEngineError(msg.slice(6)), 0);
+      const errMsg = msg.slice(6);
+      setTimeout(() => showEngineError(errMsg), 0);
+      consolePrint("[error] " + errMsg, "error");
     }
     origConsoleError.apply(console, args);
   };
 
+  // Patch console.log/warn for console output
+  window._origConsoleLog = console.log;
+  window._origConsoleWarn = console.warn;
+  const origLog = console.log;
+  const origWarn = console.warn;
+  console.log = (...args) => {
+    const msg = args.join(" ");
+    if (msg.startsWith("Mono:") || msg.startsWith("[")) {
+      consolePrint(msg, "");
+    }
+    origLog.apply(console, args);
+  };
+  console.warn = (...args) => {
+    const msg = args.join(" ");
+    consolePrint("[warn] " + msg, "warn");
+    origWarn.apply(console, args);
+  };
+
   const onUnhandled = (e) => {
-    if (e.reason?.message) setTimeout(() => showEngineError(e.reason.message), 0);
+    if (e.reason?.message) {
+      setTimeout(() => showEngineError(e.reason.message), 0);
+      consolePrint("[error] " + e.reason.message, "error");
+    }
   };
   window.addEventListener("unhandledrejection", onUnhandled, { once: true });
 
@@ -63,6 +100,7 @@ export async function runGame() {
     assets: state.currentAssets,
   }).catch((e) => {
     showEngineError(e.message || String(e));
+    consolePrint("[error] " + (e.message || String(e)), "error");
     stopGame();
   });
 }
@@ -71,110 +109,25 @@ export function stopGame() {
   if (!state.gameRunning) return;
   try { Mono.stop(); } catch {}
   state.gameRunning = false;
-  const runBtn = document.getElementById("btn-run");
-  if (runBtn) runBtn.style.background = "#333";
-  document.getElementById("console-led").style.background = "#2a2a2a";
-  stopStatsLoop();
+  // Restore patched console methods
   if (window._origConsoleError) {
     console.error = window._origConsoleError;
     window._origConsoleError = null;
   }
-}
-
-// ── Screen Scale ──
-
-export function buildScaleOptions() {
-  const sel = document.getElementById("editor-scale");
-  if (!sel) return;
-  const preview = document.querySelector(".editor-preview");
-  if (!preview) return;
-  const maxW = preview.clientWidth - 80;
-  const maxScale = Math.floor(maxW / 160) || 1;
-  sel.innerHTML = "";
-  for (let s = 1; s <= maxScale; s++) {
-    const opt = document.createElement("option");
-    opt.value = String(s);
-    opt.textContent = s + "x";
-    sel.appendChild(opt);
+  if (window._origConsoleLog) {
+    console.log = window._origConsoleLog;
+    window._origConsoleLog = null;
   }
-  const fitOpt = document.createElement("option");
-  fitOpt.value = "fit";
-  fitOpt.textContent = "Fit";
-  sel.appendChild(fitOpt);
-  sel.value = maxScale >= 2 ? "2" : "fit";
-}
-
-export function applyScale() {
-  const sel = document.getElementById("editor-scale");
-  if (!sel) return;
-  const val = sel.value;
-  const canvas = document.getElementById("editor-screen");
-  const bezel = document.querySelector(".console-bezel");
-  const preview = document.querySelector(".editor-preview");
-  if (!preview || !bezel) return;
-  const maxW = preview.clientWidth - 80;
-  let w, h;
-  if (val === "fit") {
-    const scale = maxW / 160;
-    w = Math.floor(160 * scale);
-    h = Math.floor(120 * scale);
-  } else {
-    const s = parseInt(val);
-    w = 160 * s;
-    h = 120 * s;
+  if (window._origConsoleWarn) {
+    console.warn = window._origConsoleWarn;
+    window._origConsoleWarn = null;
   }
-  canvas.style.width = w + "px";
-  canvas.style.height = h + "px";
-  bezel.style.width = (w + 28) + "px";
 }
 
-// ── Stats loop ──
+// ── Screen Scale (auto-fit to stage) ──
 
-let statsInterval = null;
-let statsRafActive = false;
-let lastTime = 0;
-let renderFrameCount = 0;
-
-function startStatsLoop() {
-  renderFrameCount = 0;
-  lastTime = performance.now();
-  document.querySelectorAll(".console-stat").forEach(s => s.classList.add("active"));
-
-  statsRafActive = true;
-  function countFrame() {
-    if (!statsRafActive) return;
-    renderFrameCount++;
-    requestAnimationFrame(countFrame);
-  }
-  requestAnimationFrame(countFrame);
-
-  statsInterval = setInterval(() => {
-    try {
-      const now = performance.now();
-      const dt = (now - lastTime) / 1000;
-      const fps = dt > 0 ? Math.round(renderFrameCount / dt) : 0;
-      renderFrameCount = 0;
-      lastTime = now;
-      document.getElementById("stat-fps").textContent = fps;
-      const frame = Mono._getFrame?.() || 0;
-      document.getElementById("stat-frame").textContent = frame;
-      const scene = Mono._internal?.sceneName;
-      document.getElementById("stat-scene").textContent = scene || "--";
-      const mem = performance.memory?.usedJSHeapSize;
-      document.getElementById("stat-mem").textContent = mem ? (mem / 1048576).toFixed(1) + "M" : "--";
-    } catch {}
-  }, 1000);
-}
-
-function stopStatsLoop() {
-  statsRafActive = false;
-  if (statsInterval) {
-    clearInterval(statsInterval);
-    statsInterval = null;
-  }
-  document.querySelectorAll(".console-stat").forEach(s => s.classList.remove("active"));
-  document.getElementById("stat-fps").textContent = "--";
-}
+export function buildScaleOptions() { /* no-op: auto-fit only */ }
+export function applyScale() { /* no-op: fixed 320x240 per design */ }
 
 // ── Gamepad ──
 
@@ -232,7 +185,6 @@ function setupDpad() {
     updateFromDelta(clientX - anchor.x, clientY - anchor.y);
   }
 
-  dpad.style.touchAction = "none";
   dpad.addEventListener("touchstart", (e) => {
     e.preventDefault();
     const t = e.changedTouches[0];
@@ -267,7 +219,7 @@ function setupDpad() {
 
 function setupButtons() {
   document.querySelectorAll("[data-key]").forEach(btn => {
-    if (btn.closest(".gamepad-dpad")) return;
+    if (btn.closest(".play-dpad")) return; // skip dpad zone buttons
     const key = btn.dataset.key;
     btn.style.touchAction = "none";
     btn.style.userSelect = "none";
@@ -287,43 +239,26 @@ function setupButtons() {
 // ── Topbar handlers (re-called when tab switches) ──
 
 function initPlayTopbarHandlers() {
-  const runBtn = document.getElementById("btn-run");
-  if (runBtn) {
-    runBtn.addEventListener("click", () => {
-      if (state.gameRunning) stopGame();
-      else runGame();
+  const resetBtn = document.getElementById("btn-reset");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      stopGame();
+      clearConsole();
+      runGame();
     });
-  }
-  const scaleSelect = document.getElementById("editor-scale");
-  if (scaleSelect) {
-    scaleSelect.addEventListener("change", applyScale);
-    buildScaleOptions();
-    applyScale();
   }
 }
 
 // ── Init ──
 
 export function initEditorPlay() {
-  // Expose for dynamic topbar rebuild
-  window._editorPlay = { initPlayTopbarHandlers };
+  // Expose for dynamic topbar rebuild and tab auto-run
+  window._editorPlay = { initPlayTopbarHandlers, runGame };
 
-  // Gamepad expand
-  document.getElementById("gp-expand").addEventListener("click", () => {
-    const panel = document.getElementById("gamepad-panel");
-    const btn = document.getElementById("gp-expand");
-    const icon = document.querySelector(".gamepad-bar-icon");
-    panel.classList.toggle("show");
-    icon.style.visibility = panel.classList.contains("show") ? "hidden" : "visible";
-    btn.innerHTML = panel.classList.contains("show")
-      ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>'
-      : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
-  });
+  // Console clear button
+  document.getElementById("btn-console-clear").addEventListener("click", clearConsole);
 
   // D-pad + buttons
   setupDpad();
   setupButtons();
-
-  // Resize
-  window.addEventListener("resize", () => { buildScaleOptions(); applyScale(); });
 }
