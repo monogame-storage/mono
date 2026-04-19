@@ -103,11 +103,11 @@ function monoTypingCard() {
   </div>`;
 }
 
-function errorCard(msg, label = "ERROR") {
+function errorCard(msg, label = "ERROR", showFix = true) {
   return `<div class="ai-card-error">
     <div class="ai-card-status">${esc(label)}</div>
     <div class="ai-card-response">${esc(msg)}</div>
-    <button class="ai-card-fix">Fix with AI</button>
+    ${showFix ? `<button class="ai-card-fix">Fix with AI</button>` : ``}
   </div>`;
 }
 
@@ -196,7 +196,15 @@ function showFixConfirm(errorText, label) {
   ta.addEventListener("keyup", (e) => e.stopPropagation());
   ta.addEventListener("keypress", (e) => e.stopPropagation());
 
-  const close = () => sheet.classList.remove("open");
+  let onEsc;
+  const close = () => {
+    sheet.classList.remove("open");
+    document.removeEventListener("keydown", onEsc, true);
+  };
+  onEsc = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); close(); }
+  };
+  document.addEventListener("keydown", onEsc, true);
   sheet.querySelector(".file-sheet-dim").addEventListener("click", close, { once: true });
   document.getElementById("btn-fix-cancel").addEventListener("click", close);
   document.getElementById("btn-fix-send").addEventListener("click", () => {
@@ -318,7 +326,7 @@ export async function sendMessage(autoMsg) {
   } catch (e) {
     const typing = document.getElementById("mono-typing");
     if (typing) {
-      typing.outerHTML = errorCard(e.message);
+      typing.outerHTML = errorCard(e.message, "API ERROR", false);
     }
   }
   chat.scrollTop = chat.scrollHeight;
