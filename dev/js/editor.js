@@ -7,7 +7,7 @@ import {
   doc,
   getDoc,
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
-import { decryptData, updateModelSelector, saveProviders, openAIProviders } from './settings.js';
+import { decryptData, updateModelSelector, saveProviders, openAIProviders, getVaultPp } from './settings.js';
 import { initEditorAI, renderChatHistory, clearEngineError } from './editor-ai.js';
 import { initEditorPlay, stopGame } from './editor-play.js';
 import { initEditorFiles } from './editor-files.js';
@@ -153,12 +153,13 @@ export async function openEditor(gameId, title, desc) {
   } catch {}
 
   // Load AI providers if needed
-  if (state.aiProviders.length === 0 && localStorage.getItem("mono_vault_pp")) {
+  const vaultPp = getVaultPp();
+  if (state.aiProviders.length === 0 && vaultPp) {
     try {
       const uid = state.auth.currentUser.uid;
       const snap = await getDoc(doc(state.db, "users", uid, "settings", "ai"));
       if (snap.exists() && snap.data().encrypted) {
-        state.aiProviders = await decryptData(localStorage.getItem("mono_vault_pp"), snap.data().encrypted);
+        state.aiProviders = await decryptData(vaultPp, snap.data().encrypted);
         updateModelSelector();
       }
     } catch {}

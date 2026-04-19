@@ -42,10 +42,40 @@ export async function decryptData(passphrase, b64) {
   return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
+// ── Master key persistence ──
+// If "save on this device" is enabled, pp is kept in localStorage.
+// If disabled, pp lives only in state.vaultPp (lost on reload / tab close).
+
+function getSaveLocalPref() {
+  return localStorage.getItem("mono_vault_save_local") !== "0";
+}
+
+function setSaveLocalPref(enabled) {
+  localStorage.setItem("mono_vault_save_local", enabled ? "1" : "0");
+}
+
+export function getVaultPp() {
+  return state.vaultPp || localStorage.getItem("mono_vault_pp") || "";
+}
+
+function setVaultPp(pp) {
+  state.vaultPp = pp;
+  if (getSaveLocalPref()) {
+    localStorage.setItem("mono_vault_pp", pp);
+  } else {
+    localStorage.removeItem("mono_vault_pp");
+  }
+}
+
+function clearVaultPp() {
+  state.vaultPp = null;
+  localStorage.removeItem("mono_vault_pp");
+}
+
 // ── Provider Storage ──
 
 export async function loadProviders() {
-  const pp = document.getElementById("aip-passphrase").value;
+  const pp = getVaultPp() || document.getElementById("aip-passphrase").value;
   if (!pp) { renderProviderList(); return; }
   try {
     const uid = state.auth.currentUser.uid;
@@ -62,7 +92,7 @@ export async function loadProviders() {
 }
 
 export async function saveProviders() {
-  const pp = localStorage.getItem("mono_vault_pp") || document.getElementById("aip-passphrase").value;
+  const pp = getVaultPp() || document.getElementById("aip-passphrase").value;
   if (!pp) { alert("Set a vault passphrase first"); return; }
   const encrypted = await encryptData(pp, state.aiProviders);
   const uid = state.auth.currentUser.uid;
@@ -120,13 +150,15 @@ async function checkOnlineProviders() {
 }
 
 function renderMasterKeyState() {
-  const pp = localStorage.getItem("mono_vault_pp") || "";
+  const pp = getVaultPp();
   const input = document.getElementById("aip-passphrase");
   const actionBtn = document.getElementById("aip-mk-action");
   const resetBtn = document.getElementById("aip-mk-reset");
   const status = document.getElementById("aip-mk-status");
   const subtitle = document.getElementById("aip-mk-subtitle");
   const strength = document.getElementById("aip-strength");
+  const saveLocal = document.getElementById("aip-mk-save-local");
+  if (saveLocal) saveLocal.checked = getSaveLocalPref();
 
   strength.textContent = "";
   strength.className = "aip-strength";
@@ -159,7 +191,7 @@ function renderMasterKeyState() {
     input.disabled = false;
     input.dataset.masked = "";
     input.placeholder = "Enter master key";
-    actionBtn.textContent = "Save";
+    actionBtn.textContent = "Set";
     actionBtn.style.display = "block";
     subtitle.textContent = "Required — set a master key to encrypt your API keys.";
     subtitle.style.color = "#ff6666";
@@ -171,8 +203,7 @@ function renderMasterKeyState() {
 export async function openAIProviders() {
   await checkOnlineProviders();
   renderMasterKeyState();
-  const pp = localStorage.getItem("mono_vault_pp");
-  if (pp) {
+  if (getVaultPp()) {
     await loadProviders();
   } else {
     state.aiProviders = [];
@@ -255,12 +286,24 @@ export function initSettings() {
   document.getElementById("btn-aip-back").addEventListener("click", () => { location.hash = "settings"; showView("devsettings"); });
   document.getElementById("aip-list").addEventListener("click", onProviderListClick);
 
+  // Save-local checkbox
+  document.getElementById("aip-mk-save-local").addEventListener("change", (e) => {
+    const enabled = e.target.checked;
+    setSaveLocalPref(enabled);
+    const pp = getVaultPp();
+    if (enabled && pp) {
+      localStorage.setItem("mono_vault_pp", pp);
+    } else if (!enabled) {
+      localStorage.removeItem("mono_vault_pp");
+    }
+  });
+
   // Master key action
   document.getElementById("aip-mk-action").addEventListener("click", async () => {
     const input = document.getElementById("aip-passphrase");
     const status = document.getElementById("aip-mk-status");
     const resetBtn = document.getElementById("aip-mk-reset");
-    const pp = localStorage.getItem("mono_vault_pp") || "";
+    const pp = getVaultPp();
 
     if (pp && input.dataset.masked === "1") {
       input.value = "";
@@ -286,7 +329,7 @@ export function initSettings() {
       input.dataset.verifying = "";
       input.placeholder = "Enter new master key";
       input.focus();
-      document.getElementById("aip-mk-action").textContent = "Save";
+      document.getElementById("aip-mk-action").textContent = "Set";
       status.textContent = "✓ Verified. Enter new key.";
       status.className = "aip-mk-status success";
       return;
@@ -301,7 +344,7 @@ export function initSettings() {
         const snap = await getDoc(doc(state.db, "users", uid, "settings", "ai"));
         const encrypted = snap.data().encrypted;
         state.aiProviders = await decryptData(newKey, encrypted);
-        localStorage.setItem("mono_vault_pp", newKey);
+        setVaultPp(newKey);
         status.textContent = "✓ Unlocked";
         status.className = "aip-mk-status success";
         resetBtn.style.display = "none";
@@ -326,7 +369,7 @@ export function initSettings() {
           state.aiProviders = await decryptData(oldKey, snap.data().encrypted);
         }
       } catch {}
-      localStorage.setItem("mono_vault_pp", newKey);
+      setVaultPp(newKey);
       await saveProviders();
       status.textContent = "✓ Master key changed and providers re-encrypted";
       status.className = "aip-mk-status success";
@@ -334,7 +377,7 @@ export function initSettings() {
       return;
     }
 
-    localStorage.setItem("mono_vault_pp", newKey);
+    setVaultPp(newKey);
     renderMasterKeyState();
     await loadProviders();
   });
@@ -347,6 +390,7 @@ export function initSettings() {
       await setDoc(doc(state.db, "users", uid, "settings", "ai"), { encrypted: null });
       state.hasOnlineProviders = false;
       state.aiProviders = [];
+      clearVaultPp();
       renderProviderList();
       renderMasterKeyState();
       document.getElementById("aip-mk-status").textContent = "Providers cleared";
