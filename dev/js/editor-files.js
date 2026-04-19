@@ -54,6 +54,7 @@ function renderFileTree() {
   }
 
   const folderCount = Object.keys(folders).length;
+  const totalSize = allFiles.reduce((s, f) => s + (f.content?.length || 0), 0);
   let html = '';
 
   // Header
@@ -61,7 +62,7 @@ function renderFileTree() {
     <span class="ft-header-icon">📁</span>
     <span class="ft-header-label">PROJECT FILES</span>
     <span class="ft-header-spacer"></span>
-    <span class="ft-header-count">${folderCount ? folderCount + ' folders · ' : ''}${totalFiles} files</span>
+    <span class="ft-header-count">${folderCount ? folderCount + ' folders · ' : ''}${totalFiles} files · ${formatSize(totalSize)}</span>
   </div>`;
 
   // Root files
