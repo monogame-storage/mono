@@ -94,136 +94,231 @@
 }
 .editor-bottomnav button.active { color: #eee; }
 
-/* ── Files tab ── */
+/* ── Files tab: Tree ── */
 .file-tree {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 8px 0;
-}
-.file-item {
+  background: #111;
+  padding: 10px 12px;
   display: flex;
-  align-items: center;
-  padding: 10px 16px;
-  cursor: pointer;
-  gap: 10px;
-  font-size: 13px;
+  flex-direction: column;
+  gap: 2px;
 }
-.file-item:hover { background: #1a1a1a; }
-.file-item .file-icon { color: #666; font-size: 14px; width: 20px; text-align: center; }
-.file-item .file-name { flex: 1; }
-.file-item .file-size { color: #555; font-size: 11px; }
 
-.file-folder {
+/* Header row */
+.ft-header {
   display: flex;
   align-items: center;
-  padding: 10px 16px;
-  gap: 10px;
-  font-size: 12px;
-  color: #666;
+  padding: 4px 4px 10px;
+  gap: 6px;
+}
+.ft-header-icon { color: #888; font-size: 14px; }
+.ft-header-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #888;
+  letter-spacing: 1.2px;
+}
+.ft-header-spacer { flex: 1; }
+.ft-header-count {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  color: #444;
 }
 
-.file-empty {
+/* Root file row */
+.ft-file {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  gap: 0;
+}
+.ft-file:hover { background: #1a1a1a; }
+.ft-file.active { background: #1e1e1e; }
+.ft-file-icon { width: 16px; height: 16px; flex-shrink: 0; color: #555; font-size: 16px; }
+.ft-file-icon.main { color: #6c6; }
+.ft-file-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 8px;
+}
+.ft-file-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #eee;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ft-file .ft-file-name { font-weight: 600; }
+.ft-file-desc {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ft-file-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: #6c6;
+  flex-shrink: 0;
+}
+
+/* Sub-file row (inside open folder) */
+.ft-subfile {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 10px 0 34px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ft-subfile:hover { background: #1a1a1a; }
+.ft-subfile .ft-file-icon { width: 14px; height: 14px; font-size: 14px; }
+.ft-subfile .ft-file-name {
+  font-size: 11px;
+  font-weight: 400;
+  color: #ccc;
+}
+
+/* Folder row */
+.ft-folder {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  gap: 6px;
+}
+.ft-folder:hover { background: #1a1a1a; }
+.ft-folder-chev { color: #666; font-size: 14px; width: 14px; text-align: center; }
+.ft-folder-icon { color: #c9a0dc; font-size: 16px; }
+.ft-folder-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #c9a0dc;
+}
+.ft-folder.closed .ft-folder-name { color: #999; }
+.ft-folder-count {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  color: #444;
+}
+
+/* Empty state */
+.ft-empty {
   text-align: center;
   padding: 40px 20px;
   color: #555;
+  font-family: 'Inter', sans-serif;
   font-size: 13px;
 }
 
+/* ── Files tab: Bottom sheet ── */
 .file-sheet {
   display: none;
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  top: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   z-index: 200;
-  background: rgba(0,0,0,0.5);
+  flex-direction: column;
 }
-.file-sheet.open { display: flex; flex-direction: column; }
-.file-sheet-content {
-  margin-top: auto;
+.file-sheet.open { display: flex; }
+.file-sheet-dim {
+  flex: 1;
+  background: rgba(0,0,0,0.53);
+}
+.file-sheet-panel {
   background: #1a1a1a;
-  border-radius: 12px 12px 0 0;
-  max-height: 80vh;
+  border-radius: 16px 16px 0 0;
+  height: 70vh;
   display: flex;
   flex-direction: column;
+}
+.file-sheet-handle {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 24px;
+  flex-shrink: 0;
+}
+.file-sheet-handle-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: #444;
 }
 .file-sheet-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
-  border-bottom: 1px solid #333;
+  padding: 0 16px 12px;
+  flex-shrink: 0;
 }
-.file-sheet-title { font-size: 14px; font-weight: 600; }
-.file-sheet-close {
-  background: none; border: none; color: #888; cursor: pointer; font-size: 18px;
+.file-sheet-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.file-sheet-body {
+.file-sheet-icon { color: #6c6; font-size: 16px; }
+.file-sheet-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #eee;
+}
+.file-sheet-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: #ccc;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.file-sheet-edit:hover { background: #333; }
+.file-sheet-edit svg { width: 12px; height: 12px; }
+.file-sheet-code {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px;
+  background: #111;
+  border-radius: 8px;
+  margin: 0 12px 12px;
+  padding: 12px 14px;
 }
-.file-sheet-code {
+.file-sheet-code pre {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.6;
   color: #ccc;
+  margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
 }
-.file-sheet-actions {
-  display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid #333;
-}
-.file-sheet-actions button {
-  flex: 1;
-  height: 40px;
-  border-radius: 8px;
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-}
-.file-sheet-actions .btn-edit {
-  background: #eee;
-  color: #111;
-}
-.file-sheet-actions .btn-edit:hover { background: #fff; }
-.file-sheet-actions .btn-close-sheet {
-  background: #333;
-  color: #eee;
-}
-
-/* ── Sync ── */
-.sync-wrap { position: relative; display: inline-block; }
-.sync-menu {
-  display: none; position: absolute; right: 0; top: 36px; z-index: 100;
-  background: #222; border: 1px solid #444; border-radius: 8px;
-  padding: 4px; min-width: 140px;
-}
-.sync-menu.open { display: block; }
-.sync-menu button {
-  display: block; width: 100%; padding: 8px 12px; border: none;
-  background: none; color: #eee; font-size: 12px; text-align: left;
-  cursor: pointer; border-radius: 4px; font-family: 'Inter', sans-serif;
-}
-.sync-menu button:hover { background: #333; }
-.sync-menu button:disabled { color: #666; cursor: default; }
-.sync-menu button:disabled:hover { background: none; }
-.sync-menu .sync-folder-name {
-  padding: 4px 12px; font-size: 10px; color: #888;
-  border-bottom: 1px solid #333; margin-bottom: 4px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+/* Basic syntax highlight classes */
+.sh-kw { color: #c9a0dc; }
+.sh-cm { color: #555; }
+.sh-str { color: #a8d8a8; }
 
 /* ── Play tab: Canvas stage ── */
 .play-stage {

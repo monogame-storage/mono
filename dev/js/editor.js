@@ -19,59 +19,17 @@ let currentTab = "files";
 
 const TAB_TOPBAR_BUTTONS = {
   files: (nav) => {
-    // Sync button + Save
+    // Push (upload) + Pull (download) buttons per design
     nav.innerHTML = `
-      <button class="editor-icon-btn" id="btn-save" title="Save">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>
+      <button class="editor-icon-btn" id="btn-push" title="Push to Local">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       </button>
-      <div class="sync-wrap">
-        <button class="editor-icon-btn" id="btn-sync" title="Local Sync">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-        </button>
-        <div class="sync-menu" id="sync-menu">
-          <div class="sync-folder-name" id="sync-folder-name" style="display:none"></div>
-          <button id="btn-sync-link">Link Folder…</button>
-          <button id="btn-sync-push" disabled>Push to Local</button>
-          <button id="btn-sync-pull" disabled>Pull from Local</button>
-        </div>
-      </div>`;
-    // Restore linked state
-    if (state.linkedDirHandle) {
-      const syncBtn = nav.querySelector("#btn-sync");
-      if (syncBtn) syncBtn.classList.add("linked");
-      const pushBtn = nav.querySelector("#btn-sync-push");
-      const pullBtn = nav.querySelector("#btn-sync-pull");
-      if (pushBtn) pushBtn.disabled = false;
-      if (pullBtn) pullBtn.disabled = false;
-      const folderName = nav.querySelector("#sync-folder-name");
-      if (folderName) {
-        folderName.textContent = state.linkedDirHandle.name;
-        folderName.style.display = "block";
-      }
-      const linkBtn = nav.querySelector("#btn-sync-link");
-      if (linkBtn) linkBtn.textContent = "Change Folder…";
-    }
-    // Save button handler
-    const saveBtn = nav.querySelector("#btn-save");
-    if (saveBtn) {
-      saveBtn.addEventListener("click", async () => {
-        const { saveFile } = await import('./api.js');
-        saveBtn.style.background = "#555";
-        try {
-          for (const f of state.currentFiles) {
-            if (!f.name.startsWith("_")) await saveFile(f.name, f.content);
-          }
-          saveBtn.style.background = "#2a5a2a";
-          setTimeout(() => { saveBtn.style.background = "#333"; }, 1500);
-        } catch (e) {
-          alert("Save failed: " + e.message);
-          saveBtn.style.background = "#333";
-        }
-      });
-    }
+      <button class="editor-icon-btn" id="btn-pull" title="Pull from Local">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>`;
     // Re-init sync handlers after DOM rebuild
-    const { initSyncHandlers } = window._editorFiles || {};
-    if (initSyncHandlers) initSyncHandlers();
+    const { initTopbarHandlers } = window._editorFiles || {};
+    if (initTopbarHandlers) initTopbarHandlers();
   },
   ai: (nav) => {
     // Provider pill — shows current model name
