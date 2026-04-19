@@ -191,6 +191,88 @@ function openFileSheet(name) {
   // Close on dim click
   const dim = sheet.querySelector(".file-sheet-dim");
   if (dim) dim.addEventListener("click", () => sheet.classList.remove("open"), { once: true });
+
+  // Edit button
+  const editBtn = sheet.querySelector("#btn-sheet-edit");
+  if (editBtn) editBtn.addEventListener("click", () => openEditMode(name));
+}
+
+// ── Edit mode (fullscreen editor) ──
+
+function openEditMode(name) {
+  const file = state.currentFiles.find(f => f.name === name);
+  if (!file) return;
+
+  const sheet = document.getElementById("file-sheet");
+  const originalContent = file.content;
+  const shortName = name.split('/').pop();
+
+  sheet.innerHTML = `
+    <div class="file-edit-full">
+      <div class="file-sheet-handle"><div class="file-sheet-handle-bar"></div></div>
+      <div class="file-edit-header">
+        <div class="file-edit-left">
+          <span class="file-sheet-icon" style="color:#c9a0dc">${fileIcon(name)}</span>
+          <span class="file-sheet-name">${esc(shortName)}</span>
+          <span class="file-edit-badge">EDITING</span>
+        </div>
+        <div class="file-edit-actions">
+          <button class="file-edit-btn" id="btn-edit-reset" title="Reset">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+            Reset
+          </button>
+          <button class="file-edit-btn" id="btn-edit-done" title="Done">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Done
+          </button>
+        </div>
+      </div>
+      <div class="file-edit-area">
+        <textarea id="file-edit-textarea" spellcheck="false">${esc(file.content)}</textarea>
+      </div>
+    </div>`;
+
+  sheet.classList.add("open");
+
+  const textarea = document.getElementById("file-edit-textarea");
+  textarea.focus();
+
+  // Prevent engine key interception while editing
+  textarea.addEventListener("keydown", (e) => e.stopPropagation());
+  textarea.addEventListener("keyup", (e) => e.stopPropagation());
+  textarea.addEventListener("keypress", (e) => e.stopPropagation());
+
+  // Tab key inserts 2 spaces
+  textarea.addEventListener("keydown", (e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      textarea.value = textarea.value.substring(0, start) + "  " + textarea.value.substring(end);
+      textarea.selectionStart = textarea.selectionEnd = start + 2;
+    }
+  });
+
+  // Reset button
+  document.getElementById("btn-edit-reset").addEventListener("click", () => {
+    if (confirm("Reset to original? Unsaved changes will be lost.")) {
+      textarea.value = originalContent;
+    }
+  });
+
+  // Done button → save & close
+  document.getElementById("btn-edit-done").addEventListener("click", async () => {
+    file.content = textarea.value;
+    // Save to R2
+    try {
+      const { saveFile } = await import('./api.js');
+      await saveFile(name, file.content);
+    } catch (e) {
+      console.warn("Auto-save failed:", e);
+    }
+    sheet.classList.remove("open");
+    renderFileTree();
+  });
 }
 
 // ── Local Sync ──
