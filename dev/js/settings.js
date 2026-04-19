@@ -62,9 +62,8 @@ export async function loadProviders() {
 }
 
 export async function saveProviders() {
-  const pp = document.getElementById("aip-passphrase").value;
+  const pp = localStorage.getItem("mono_vault_pp") || document.getElementById("aip-passphrase").value;
   if (!pp) { alert("Set a vault passphrase first"); return; }
-  localStorage.setItem("mono_vault_pp", pp);
   const encrypted = await encryptData(pp, state.aiProviders);
   const uid = state.auth.currentUser.uid;
   await setDoc(doc(state.db, "users", uid, "settings", "ai"), { encrypted });

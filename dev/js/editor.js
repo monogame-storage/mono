@@ -8,7 +8,7 @@ import {
   getDoc,
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 import { decryptData, updateModelSelector, saveProviders, openAIProviders } from './settings.js';
-import { initEditorAI, renderChatHistory } from './editor-ai.js';
+import { initEditorAI, renderChatHistory, clearEngineError } from './editor-ai.js';
 import { initEditorPlay, stopGame, buildScaleOptions, applyScale } from './editor-play.js';
 import { initEditorFiles } from './editor-files.js';
 import { initEditorGame } from './editor-game.js';
@@ -134,6 +134,11 @@ export async function openEditor(gameId, title, desc) {
   state.currentAssets = {};
   state.sessionTokens = { prompt: 0, completion: 0, total: 0 };
   state.lastEngineError = null;
+  clearEngineError();
+
+  // Clear UI from previous session
+  document.getElementById("editor-msg").value = "";
+  document.getElementById("editor-usage").textContent = "";
 
   // Load game status
   try {
@@ -159,6 +164,11 @@ export async function openEditor(gameId, title, desc) {
 
   document.getElementById("editor-title").textContent = title;
   location.hash = `editor/${gameId}`;
+
+  // Show loading state
+  document.getElementById("editor-chat").innerHTML =
+    '<div class="chat-msg"><span class="chat-sender mono">MONO</span><span class="chat-status">Loading...</span></div>';
+
   showView("editor");
 
   // Default to Files tab
