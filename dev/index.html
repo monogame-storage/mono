@@ -2664,12 +2664,14 @@ document.getElementById("btn-editor-back").addEventListener("click", () => {
 });
 
 // Send message
-// Prevent engine from capturing keys when typing in any input/textarea
+// Only forward keys to engine when game is running AND no input is focused
 document.addEventListener("keydown", (e) => {
-  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") e.stopPropagation();
+  const focused = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT";
+  if (focused || !gameRunning) e.stopPropagation();
 }, true);
 document.addEventListener("keyup", (e) => {
-  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") e.stopPropagation();
+  const focused = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT";
+  if (focused || !gameRunning) e.stopPropagation();
 }, true);
 
 document.getElementById("btn-send").addEventListener("click", () => sendMessage());
