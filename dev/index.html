@@ -2664,6 +2664,14 @@ document.getElementById("btn-editor-back").addEventListener("click", () => {
 });
 
 // Send message
+// Prevent engine from capturing keys when typing in any input/textarea
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") e.stopPropagation();
+}, true);
+document.addEventListener("keyup", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") e.stopPropagation();
+}, true);
+
 document.getElementById("btn-send").addEventListener("click", () => sendMessage());
 const editorMsg = document.getElementById("editor-msg");
 let isComposing = false;
