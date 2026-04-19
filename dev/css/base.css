@@ -1,0 +1,53 @@
+/* ── Reset & Layout ── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #111;
+  color: #eee;
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+}
+
+.app {
+  width: 100%;
+  max-width: 390px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.view { display: none; flex-direction: column; flex: 1; min-height: 0; max-height: 100vh; }
+.view.active { display: flex; }
+
+/* ── Shared buttons ── */
+.btn-primary {
+  width: 100%;
+  height: 48px;
+  background: #eee;
+  color: #111;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+}
+.btn-primary:hover { background: #fff; }
+.btn-primary:disabled { background: #555; color: #888; cursor: not-allowed; }
+
+/* ── Responsive ── */
+@media (min-width: 768px) {
+  .app { max-width: 480px; }
+}
+@media (min-width: 1024px) {
+  .app {
+    max-width: 900px;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .auth-view { max-width: 420px; margin: 0 auto; }
+  .dash-content { padding: 24px; }
+}
