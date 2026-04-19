@@ -57,7 +57,20 @@ initEditor();
 
 // ── Auth state → routing ──
 
+// One-time cleanup of pre-uid-scoped vault keys (ALPHA, no migration).
+localStorage.removeItem("mono_vault_pp");
+localStorage.removeItem("mono_vault_save_local");
+
+let lastUid = null;
 onAuthStateChanged(state.auth, async (user) => {
+  const newUid = user?.uid || null;
+  if (newUid !== lastUid) {
+    state.vaultPp = null;
+    state.aiProviders = [];
+    state.hasOnlineProviders = false;
+  }
+  lastUid = newUid;
+
   if (user) {
     renderDashboard(user);
     listenGames(user.uid);
