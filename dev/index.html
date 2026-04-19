@@ -3634,9 +3634,18 @@ document.getElementById("btn-sync-push").addEventListener("click", async () => {
       await w.close();
     }));
 
+    // Write image assets to local
+    await Promise.all(Object.entries(currentAssets).map(async ([name, blobUrl]) => {
+      const fh = await getFileHandleDeep(linkedDirHandle, name, true);
+      const w = await fh.createWritable();
+      const res = await fetch(blobUrl);
+      await w.write(await res.blob());
+      await w.close();
+    }));
+
     // Detect local files not in R2
-    const r2Names = new Set(gameFiles.map(f => f.name));
-    const orphanLocal = [...localNames].filter(n => !r2Names.has(n));
+    const allR2Names = new Set([...gameFiles.map(f => f.name), ...Object.keys(currentAssets)]);
+    const orphanLocal = [...localNames].filter(n => !allR2Names.has(n));
     let deleted = [];
     if (orphanLocal.length > 0) {
       if (confirm(`These local files are not in the cloud and will be deleted:\n\n${orphanLocal.join("\n")}\n\nDelete them?`)) {
@@ -3666,16 +3675,22 @@ document.getElementById("btn-sync-pull").addEventListener("click", async () => {
   const btn = document.getElementById("btn-sync-pull");
   syncBusy = true; btn.disabled = true; btn.textContent = "Pulling…";
   try {
-    // Read all local files (recursive)
+    // Read all local files (recursive, binary-aware)
     const localFiles = [];
+    const localBinaries = [];
+    const isImage = (n) => /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(n);
     const entries = await readDirRecursive(linkedDirHandle);
     for (const entry of entries) {
       const file = await entry.handle.getFile();
-      const content = await file.text();
-      localFiles.push({ name: entry.path, content });
+      if (isImage(entry.path)) {
+        localBinaries.push({ name: entry.path, file });
+      } else {
+        const content = await file.text();
+        localFiles.push({ name: entry.path, content });
+      }
     }
 
-    // Update currentFiles + save to R2 in parallel
+    // Update currentFiles + save text files to R2
     for (const f of localFiles) {
       const idx = currentFiles.findIndex(c => c.name === f.name);
       if (idx >= 0) currentFiles[idx].content = f.content;
@@ -3683,8 +3698,22 @@ document.getElementById("btn-sync-pull").addEventListener("click", async () => {
     }
     await Promise.all(localFiles.map(f => saveFile(f.name, f.content)));
 
+    // Upload binary files (images) to R2 as octet-stream
+    if (localBinaries.length > 0) {
+      const token = await auth.currentUser.getIdToken();
+      await Promise.all(localBinaries.map(async (f) => {
+        const buf = await f.file.arrayBuffer();
+        await fetch(`${API_URL}/games/${currentGameId}/files/${f.name}`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+          body: buf,
+        });
+        currentAssets[f.name] = URL.createObjectURL(f.file);
+      }));
+    }
+
     // Detect R2 files not in local
-    const localNames = new Set(localFiles.map(f => f.name));
+    const localNames = new Set([...localFiles.map(f => f.name), ...localBinaries.map(f => f.name)]);
     const gameFiles = currentFiles.filter(f => !f.name.startsWith("_"));
     const orphanR2 = gameFiles.filter(f => !localNames.has(f.name)).map(f => f.name);
     let deleted = [];
