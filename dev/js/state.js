@@ -24,6 +24,7 @@ export const state = {
   aiProviders: [],       // { id, alias, model, key, url, isDefault }
   hasOnlineProviders: false,
   editingProviderIdx: -1,
+  vaultPp: null,         // in-memory master key when local-save is disabled
 
   // Local sync
   linkedDirHandle: null,
