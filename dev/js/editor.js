@@ -259,14 +259,18 @@ export function initEditor() {
 
   // (AI provider shortcut moved to topbar provider pill)
 
-  // Key interception: only forward to engine when game running and no input focused
+  // Key interception: only forward to engine when game running and no input focused.
+  // When an input is focused, let the event reach the target — the input's own
+  // handler stops bubble-phase propagation so the engine still doesn't see it.
   document.addEventListener("keydown", (e) => {
     const focused = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT";
-    if (focused || !state.gameRunning) e.stopPropagation();
+    if (focused) return;
+    if (!state.gameRunning) e.stopPropagation();
   }, true);
   document.addEventListener("keyup", (e) => {
     const focused = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT";
-    if (focused || !state.gameRunning) e.stopPropagation();
+    if (focused) return;
+    if (!state.gameRunning) e.stopPropagation();
   }, true);
 
   // Init sub-modules
