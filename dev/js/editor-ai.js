@@ -156,7 +156,7 @@ export async function sendMessage(autoMsg) {
         gameId: state.currentGameId,
         message: msg,
         files: state.currentFiles,
-        history: [],
+        history: state.chatHistory,
         model,
         byok,
       }),

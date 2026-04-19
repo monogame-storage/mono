@@ -187,7 +187,7 @@ function openFileSheet(name) {
   }
 
   sheet.classList.add("open");
-  if (state.currentGameId) location.hash = `editor/${state.currentGameId}/files/view/${name}`;
+  if (state.currentGameId) location.hash = `editor/${state.currentGameId}/files/view/${encodeURIComponent(name)}`;
 
   const closeSheet = () => {
     sheet.classList.remove("open");
@@ -245,7 +245,7 @@ function openEditMode(name) {
     </div>`;
 
   sheet.classList.add("open");
-  if (state.currentGameId) location.hash = `editor/${state.currentGameId}/files/edit/${name}`;
+  if (state.currentGameId) location.hash = `editor/${state.currentGameId}/files/edit/${encodeURIComponent(name)}`;
 
   const textarea = document.getElementById("file-edit-textarea");
   textarea.focus();
