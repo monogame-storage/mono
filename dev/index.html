@@ -1391,6 +1391,11 @@
     color: #888;
   }
   .settings-publish-btn.unpublish:hover { border-color: #555; color: #ccc; }
+  .settings-publish-btn.update {
+    background: #2a5a2a;
+    color: #eee;
+  }
+  .settings-publish-btn.update:hover { background: #3a7a3a; }
 
   .btn-delete-game {
     width: 100%;
@@ -1795,7 +1800,10 @@
             <span class="publish-version" id="publish-version"></span>
           </div>
           <p class="settings-danger-text" id="publish-desc">Publish this game to make it publicly playable. A snapshot of the current files will be saved.</p>
-          <button class="settings-publish-btn" id="btn-publish">Publish</button>
+          <div style="display:flex;gap:8px" id="publish-btns">
+            <button class="settings-publish-btn" id="btn-publish">Publish</button>
+            <button class="settings-publish-btn" id="btn-update" style="display:none">Update</button>
+          </div>
         </div>
       </div>
       <div class="settings-section">
@@ -2540,6 +2548,14 @@ async function createGame() {
 let currentGameId = null;
 
 async function openEditor(gameId, title, desc) {
+  // Stop any running game and clear canvas
+  if (gameRunning) stopGame();
+  try { Mono.stop(); } catch {}
+  const canvas = document.getElementById("editor-screen");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  clearEngineError();
+
   currentGameId = gameId;
   currentGameTitle = title;
   currentGameDesc = desc || "";
@@ -2547,6 +2563,9 @@ async function openEditor(gameId, title, desc) {
   currentPublishedVersion = 0;
   chatHistory.length = 0;
   currentFiles = [];
+  // Revoke old blob URLs
+  for (const url of Object.values(currentAssets)) { try { URL.revokeObjectURL(url); } catch {} }
+  currentAssets = {};
   sessionTokens = { prompt: 0, completion: 0, total: 0 };
   document.getElementById("editor-usage").textContent = "";
 
@@ -2589,14 +2608,28 @@ async function openEditor(gameId, title, desc) {
     const { files } = await listRes.json();
     if (files && files.length > 0) {
       const gameFiles = files.filter(f => !f.name.startsWith("_"));
-      const loaded = await Promise.all(gameFiles.map(async (f) => {
+      const isImage = (n) => /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(n);
+      const results = await Promise.allSettled(gameFiles.map(async (f) => {
         const r = await fetch(`${API_URL}/games/${gameId}/files/${f.name}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!r.ok) throw new Error(`${f.name}: ${r.status}`);
+        if (isImage(f.name)) {
+          const blob = await r.blob();
+          return { name: f.name, blobUrl: URL.createObjectURL(blob) };
+        }
         const { content } = await r.json();
         return { name: f.name, content };
       }));
-      currentFiles.push(...loaded);
+      for (const r of results) {
+        if (r.status !== "fulfilled") continue;
+        const f = r.value;
+        if (f.blobUrl) {
+          currentAssets[f.name] = f.blobUrl;
+        } else {
+          currentFiles.push(f);
+        }
+      }
     }
   } catch {}
 
@@ -2648,6 +2681,16 @@ document.getElementById("btn-editor-back").addEventListener("click", () => {
 });
 
 // Send message
+// Only forward keys to engine when game is running AND no input is focused
+document.addEventListener("keydown", (e) => {
+  const focused = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT";
+  if (focused || !gameRunning) e.stopPropagation();
+}, true);
+document.addEventListener("keyup", (e) => {
+  const focused = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT";
+  if (focused || !gameRunning) e.stopPropagation();
+}, true);
+
 document.getElementById("btn-send").addEventListener("click", () => sendMessage());
 const editorMsg = document.getElementById("editor-msg");
 let isComposing = false;
@@ -2666,6 +2709,7 @@ editorMsg.addEventListener("input", () => {
 
 const chatHistory = [];
 let currentFiles = [];
+let currentAssets = {}; // { "images/bg.png": "blob:..." }
 
 const MAX_FIX_RETRIES = 3;
 let autoFixEnabled = true;
@@ -2978,7 +3022,7 @@ document.getElementById("btn-error-fix").addEventListener("click", () => {
   sendMessage();
 });
 
-function runGame() {
+async function runGame() {
   if (gameRunning) stopGame();
   clearEngineError();
   const mainFile = currentFiles.find(f => f.name === "main.lua");
@@ -3012,12 +3056,22 @@ function runGame() {
   };
   window.addEventListener("unhandledrejection", onUnhandled, { once: true });
 
+  // Build modules map for require()
+  const moduleMap = {};
+  for (const f of currentFiles) {
+    if (f.name === "main.lua") continue;
+    if (f.name.endsWith(".lua")) {
+      moduleMap[f.name] = f.content;
+    }
+  }
+
   Mono.boot("editor-screen", {
     source: mainFile.content,
     colors: 4,
     noAutoFit: true,
     readFile: async (name) => fileMap[name] || "",
-    modules: {},
+    modules: moduleMap,
+    assets: currentAssets,
   }).catch((e) => {
     showEngineError(e.message || String(e));
     stopGame();
@@ -3333,14 +3387,19 @@ function updatePublishUI() {
   const version = document.getElementById("publish-version");
   const desc = document.getElementById("publish-desc");
   const btn = document.getElementById("btn-publish");
+  const btnUpdate = document.getElementById("btn-update");
 
   if (currentGameStatus === "published") {
     badge.className = "publish-badge published";
     badge.textContent = "Published";
     version.textContent = currentPublishedVersion ? `v${currentPublishedVersion}` : "";
-    desc.textContent = "This game is live. You can unpublish to take it offline, or publish again to update.";
+    desc.textContent = "This game is live. Update to push latest changes, or unpublish to take it offline.";
     btn.textContent = "Unpublish";
     btn.className = "settings-publish-btn unpublish";
+    btnUpdate.style.display = "";
+    btnUpdate.className = "settings-publish-btn update";
+    btnUpdate.textContent = "Update";
+    btnUpdate.disabled = false;
   } else {
     badge.className = "publish-badge draft";
     badge.textContent = "Draft";
@@ -3348,6 +3407,7 @@ function updatePublishUI() {
     desc.textContent = "Publish this game to make it publicly playable. A snapshot of the current files will be saved.";
     btn.textContent = "Publish";
     btn.className = "settings-publish-btn";
+    btnUpdate.style.display = "none";
   }
   btn.disabled = false;
 }
@@ -3358,6 +3418,10 @@ document.getElementById("btn-publish").addEventListener("click", async () => {
   } else {
     await publishGame();
   }
+});
+
+document.getElementById("btn-update").addEventListener("click", async () => {
+  await publishGame(); // re-publish creates a new version snapshot
 });
 
 async function publishGame() {
@@ -3572,9 +3636,18 @@ document.getElementById("btn-sync-push").addEventListener("click", async () => {
       await w.close();
     }));
 
+    // Write image assets to local
+    await Promise.all(Object.entries(currentAssets).map(async ([name, blobUrl]) => {
+      const fh = await getFileHandleDeep(linkedDirHandle, name, true);
+      const w = await fh.createWritable();
+      const res = await fetch(blobUrl);
+      await w.write(await res.blob());
+      await w.close();
+    }));
+
     // Detect local files not in R2
-    const r2Names = new Set(gameFiles.map(f => f.name));
-    const orphanLocal = [...localNames].filter(n => !r2Names.has(n));
+    const allR2Names = new Set([...gameFiles.map(f => f.name), ...Object.keys(currentAssets)]);
+    const orphanLocal = [...localNames].filter(n => !allR2Names.has(n));
     let deleted = [];
     if (orphanLocal.length > 0) {
       if (confirm(`These local files are not in the cloud and will be deleted:\n\n${orphanLocal.join("\n")}\n\nDelete them?`)) {
@@ -3604,16 +3677,22 @@ document.getElementById("btn-sync-pull").addEventListener("click", async () => {
   const btn = document.getElementById("btn-sync-pull");
   syncBusy = true; btn.disabled = true; btn.textContent = "Pulling…";
   try {
-    // Read all local files (recursive)
+    // Read all local files (recursive, binary-aware)
     const localFiles = [];
+    const localBinaries = [];
+    const isImage = (n) => /\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(n);
     const entries = await readDirRecursive(linkedDirHandle);
     for (const entry of entries) {
       const file = await entry.handle.getFile();
-      const content = await file.text();
-      localFiles.push({ name: entry.path, content });
+      if (isImage(entry.path)) {
+        localBinaries.push({ name: entry.path, file });
+      } else {
+        const content = await file.text();
+        localFiles.push({ name: entry.path, content });
+      }
     }
 
-    // Update currentFiles + save to R2 in parallel
+    // Update currentFiles + save text files to R2
     for (const f of localFiles) {
       const idx = currentFiles.findIndex(c => c.name === f.name);
       if (idx >= 0) currentFiles[idx].content = f.content;
@@ -3621,15 +3700,34 @@ document.getElementById("btn-sync-pull").addEventListener("click", async () => {
     }
     await Promise.all(localFiles.map(f => saveFile(f.name, f.content)));
 
-    // Detect R2 files not in local
-    const localNames = new Set(localFiles.map(f => f.name));
-    const gameFiles = currentFiles.filter(f => !f.name.startsWith("_"));
-    const orphanR2 = gameFiles.filter(f => !localNames.has(f.name)).map(f => f.name);
+    // Upload binary files (images) to R2 as octet-stream
+    if (localBinaries.length > 0) {
+      const token = await auth.currentUser.getIdToken();
+      await Promise.all(localBinaries.map(async (f) => {
+        const buf = await f.file.arrayBuffer();
+        await fetch(`${API_URL}/games/${currentGameId}/files/${f.name}`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+          body: buf,
+        });
+        // Revoke old blob URL before overwriting
+        if (currentAssets[f.name]) { try { URL.revokeObjectURL(currentAssets[f.name]); } catch {} }
+        currentAssets[f.name] = URL.createObjectURL(f.file);
+      }));
+    }
+
+    // Detect R2 files (text + images) not in local
+    const localNames = new Set([...localFiles.map(f => f.name), ...localBinaries.map(f => f.name)]);
+    const allR2Names = [...currentFiles.filter(f => !f.name.startsWith("_")).map(f => f.name), ...Object.keys(currentAssets)];
+    const orphanR2 = allR2Names.filter(n => !localNames.has(n));
     let deleted = [];
     if (orphanR2.length > 0) {
       if (confirm(`These cloud files are not in the local folder and will be deleted:\n\n${orphanR2.join("\n")}\n\nDelete them?`)) {
         await Promise.all(orphanR2.map(name => deleteR2File(name)));
         currentFiles = currentFiles.filter(f => !orphanR2.includes(f.name));
+        for (const name of orphanR2) {
+          if (currentAssets[name]) { try { URL.revokeObjectURL(currentAssets[name]); } catch {} delete currentAssets[name]; }
+        }
         deleted = orphanR2;
       }
     }
