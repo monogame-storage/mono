@@ -6,24 +6,17 @@
 <title>Mono</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;background:#1a1a1a;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
+html,body{width:100%;height:100%;background:#050505;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
   display:flex;align-items:center;justify-content:center}
-#console{display:flex;flex-direction:column;align-items:center;width:100%;height:100%;padding:3vw}
-.sp{flex-shrink:0}
-#frame{
-  background:#111;
-  border:3px solid #333;
-  border-radius:8px;
-  padding:8px;
-}
 #screen{display:block;image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
-#gamepad{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 20px}
+.sp{flex-shrink:0}
 
-/* Scale gamepad proportionally with viewport width (overrides console-gamepad.js base) */
+/* ── Portrait (default) ── */
+#console{display:flex;flex-direction:column;align-items:center;width:100%;height:100%;padding:3vw}
+#frame{background:#111;border:3px solid #333;border-radius:8px;padding:8px}
+#gamepad{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 20px}
 .mono-gp{gap:3vw!important;width:100%!important;flex-direction:column!important}
 .mono-gp-row{padding:0 .5vw;justify-content:space-between!important}
-
-/* D-pad: 3x3 grid at 34vw total, cell 11.33vw */
 .mono-dpad{width:34vw!important;height:34vw!important}
 .mono-dpad-btn{width:11.33vw!important;height:11.33vw!important}
 .mono-dpad-up    {left:11.33vw!important;top:0!important}
@@ -31,28 +24,57 @@ html,body{width:100%;height:100%;background:#1a1a1a;overflow:hidden;touch-action
 .mono-dpad-left  {left:0!important;top:11.33vw!important}
 .mono-dpad-right {left:22.67vw!important;top:11.33vw!important}
 .mono-dpad-center{left:11.33vw!important;top:11.33vw!important;width:11.33vw!important;height:11.33vw!important}
-
-/* A/B: B smaller/dark on left, A bigger/bright top-right */
 .mono-ab{width:34vw!important;height:26vw!important}
 .mono-ab .btn-b{left:0!important;top:11vw!important;width:13.5vw!important;height:13.5vw!important}
 .mono-ab .btn-a{left:19vw!important;top:3vw!important;width:14.5vw!important;height:14.5vw!important}
-
-/* SELECT / START: empty pill buttons scaled to viewport */
 .mono-gp-meta{gap:7vw!important;margin-bottom:2vw!important}
 .mono-gp-meta button{height:5vw!important;padding:0!important;border-radius:2.5vw!important}
 .mono-gp-meta .btn-select{width:16vw!important}
 .mono-gp-meta .btn-start{width:15vw!important}
+
+/* ── Landscape ── */
+@media (orientation:landscape){
+  #console{flex-direction:row;padding:0}
+  #frame{border:2px solid #333;border-radius:6px;padding:4px;flex:1;display:flex;align-items:center;justify-content:center}
+  #gamepad{display:none!important}
+  .land-left,.land-right{position:relative;width:20vw;height:100%;flex-shrink:0}
+  .land-left .mono-dpad{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%);
+    width:26vh!important;height:26vh!important}
+  .land-left .mono-dpad-btn{width:8.67vh!important;height:8.67vh!important}
+  .land-left .mono-dpad-up   {left:8.67vh!important;top:0!important}
+  .land-left .mono-dpad-down {left:8.67vh!important;top:17.33vh!important}
+  .land-left .mono-dpad-left {left:0!important;top:8.67vh!important}
+  .land-left .mono-dpad-right{left:17.33vh!important;top:8.67vh!important}
+  .land-left .mono-dpad-center{left:8.67vh!important;top:8.67vh!important;width:8.67vh!important;height:8.67vh!important}
+  .land-right .mono-ab{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%);
+    width:26vh!important;height:20vh!important}
+  .land-right .mono-ab .btn-b{left:0!important;top:9vh!important;width:10vh!important;height:10vh!important}
+  .land-right .mono-ab .btn-a{left:14vh!important;top:2vh!important;width:11vh!important;height:11vh!important}
+  .land-sel,.land-sta{position:absolute;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:2.5vw;
+    height:5vw;padding:0;color:transparent;font-size:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .land-sel{width:16vw;top:2vw;right:2vw}
+  .land-sta{width:15vw;top:2vw;left:2vw}
+}
 </style>
 </head>
 <body>
 <div id="console">
+  <!-- Landscape: left controls -->
+  <div class="land-left" id="land-left">
+    <button class="land-sel" data-key=" ">SELECT</button>
+  </div>
   <div class="sp" style="flex:1"></div>
   <div id="frame">
     <canvas id="screen"></canvas>
   </div>
   <div class="sp" style="flex:1"></div>
+  <!-- Portrait: gamepad below screen -->
   <div id="gamepad" data-gamepad-mode="setKey"></div>
   <div class="sp" style="flex:2"></div>
+  <!-- Landscape: right controls -->
+  <div class="land-right" id="land-right">
+    <button class="land-sta" data-key="Enter">START</button>
+  </div>
 </div>
 <script src="engine/engine.js"></script>
 <!-- Shader scripts — keep in sync with build.gradle.kts syncCart + create-android.sh -->
@@ -67,15 +89,44 @@ html,body{width:100%;height:100%;background:#1a1a1a;overflow:hidden;touch-action
 <script>
 function fitScreen(){
   var c=document.getElementById('screen');
-  var con=document.getElementById('console');
   var fr=document.getElementById('frame');
-  var conPadX=(parseInt(getComputedStyle(con).paddingLeft)||0)*2;
-  var frCS=getComputedStyle(fr);
-  var frPadX=(parseInt(frCS.paddingLeft)||0)*2+(parseInt(frCS.borderLeftWidth)||0)*2;
-  // Canvas fills available width, height follows 160:120 aspect ratio
-  var w=window.innerWidth-conPadX-frPadX;
-  c.style.width=w+'px';
-  c.style.height=Math.floor(w*120/160)+'px';
+  var isLand=window.innerWidth>window.innerHeight;
+  var ll=document.getElementById('land-left');
+  var lr=document.getElementById('land-right');
+
+  if(isLand){
+    // Landscape: screen fills center, controls on sides
+    ll.style.display='';lr.style.display='';
+    var sideW=ll.offsetWidth*2;
+    var frCS=getComputedStyle(fr);
+    var frPad=(parseInt(frCS.paddingLeft)||0)*2+(parseInt(frCS.borderLeftWidth)||0)*2;
+    var availW=window.innerWidth-sideW-frPad;
+    var availH=window.innerHeight-frPad;
+    var scale=Math.min(availW/160,availH/120);
+    c.style.width=Math.floor(160*scale)+'px';
+    c.style.height=Math.floor(120*scale)+'px';
+    // Move dpad/ab to landscape panels
+    var dpad=document.querySelector('.mono-dpad');
+    var ab=document.querySelector('.mono-ab');
+    if(dpad&&dpad.parentNode!==ll)ll.appendChild(dpad);
+    if(ab&&ab.parentNode!==lr)lr.appendChild(ab);
+  }else{
+    // Portrait: screen fills width
+    ll.style.display='none';lr.style.display='none';
+    var con=document.getElementById('console');
+    var conPadX=(parseInt(getComputedStyle(con).paddingLeft)||0)*2;
+    var frCS=getComputedStyle(fr);
+    var frPad=(parseInt(frCS.paddingLeft)||0)*2+(parseInt(frCS.borderLeftWidth)||0)*2;
+    var w=window.innerWidth-conPadX-frPad;
+    c.style.width=w+'px';
+    c.style.height=Math.floor(w*120/160)+'px';
+    // Move dpad/ab back to gamepad
+    var row=document.querySelector('.mono-gp-row');
+    var dpad=document.querySelector('.mono-dpad');
+    var ab=document.querySelector('.mono-ab');
+    if(row&&dpad&&dpad.parentNode!==row)row.insertBefore(dpad,row.firstChild);
+    if(row&&ab&&ab.parentNode!==row)row.appendChild(ab);
+  }
 }
 fitScreen();window.addEventListener('resize',fitScreen);
 Mono.boot('screen',{game:'main.lua',noAutoFit:true,externalInput:true}).then(function(){
