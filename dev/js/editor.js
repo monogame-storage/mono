@@ -107,6 +107,11 @@ export function switchTab(name) {
   const builder = TAB_TOPBAR_BUTTONS[name];
   if (builder) builder(nav);
 
+  // Update URL hash to reflect tab
+  if (state.currentGameId) {
+    location.hash = `editor/${state.currentGameId}/${name}`;
+  }
+
   // Auto-run game when entering Play tab, stop when leaving
   if (name === "play" && prevTab !== "play") {
     const { runGame } = window._editorPlay || {};
@@ -167,7 +172,7 @@ export async function openEditor(gameId, title, desc) {
   }
 
   document.getElementById("editor-title").textContent = title;
-  location.hash = `editor/${gameId}`;
+  location.hash = `editor/${gameId}/files`;
 
   // Show loading state
   document.getElementById("editor-chat").innerHTML =

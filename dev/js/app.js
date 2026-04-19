@@ -5,7 +5,7 @@ import { state, views, showView } from './state.js';
 import { initAuth } from './auth.js';
 import { renderDashboard, listenGames, initDashboard } from './dashboard.js';
 import { initSettings, openDevSettings, openAIProviders } from './settings.js';
-import { initEditor, openEditor } from './editor.js';
+import { initEditor, openEditor, switchTab } from './editor.js';
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
 import {
@@ -63,11 +63,12 @@ onAuthStateChanged(state.auth, async (user) => {
     listenGames(user.uid);
 
     const hash = location.hash;
-    const editorMatch = hash.match(/^#editor\/([^/]+)$/);
+    const editorMatch = hash.match(/^#editor\/([^/]+)(?:\/(files|ai|play|game))?$/);
     if (editorMatch) {
       const snap = await getDoc(doc(state.db, "games", editorMatch[1]));
       if (snap.exists() && snap.data().uid === user.uid) {
-        openEditor(editorMatch[1], snap.data().title, snap.data().description);
+        await openEditor(editorMatch[1], snap.data().title, snap.data().description);
+        if (editorMatch[2]) switchTab(editorMatch[2]);
       } else {
         showView("dashboard");
       }
