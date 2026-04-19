@@ -64,7 +64,11 @@ const TAB_TOPBAR_BUTTONS = {
     });
   },
   play: (nav) => {
+    const shaderOn = state._shaderEnabled;
     nav.innerHTML = `
+      <button class="editor-icon-btn${shaderOn ? ' active-toggle' : ''}" id="btn-shader" title="Shader">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>
+      </button>
       <button class="editor-icon-btn" id="btn-reset" title="Reset">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
       </button>`;

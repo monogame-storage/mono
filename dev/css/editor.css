@@ -58,6 +58,8 @@
 .editor-icon-btn:hover { background: #444; }
 .editor-icon-btn svg { width: 14px; height: 14px; }
 .editor-icon-btn.linked { background: #2a5a2a; }
+.editor-icon-btn.active-toggle { background: #c9a0dc; color: #111; }
+.editor-icon-btn.active-toggle:hover { background: #d4b3e6; }
 
 /* ── Tab layout ── */
 .editor-tab-panel {

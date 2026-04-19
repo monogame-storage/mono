@@ -98,6 +98,9 @@ export async function runGame() {
     readFile: async (name) => fileMap[name] || "",
     modules: moduleMap,
     assets: state.currentAssets,
+  }).then(() => {
+    // Apply shader config after engine is ready
+    applyShaderConfig();
   }).catch((e) => {
     showEngineError(e.message || String(e));
     consolePrint("[error] " + (e.message || String(e)), "error");
@@ -107,8 +110,10 @@ export async function runGame() {
 
 export function stopGame() {
   if (!state.gameRunning) return;
+  try { if (Mono.shader) Mono.shader.off(); } catch {}
   try { Mono.stop(); } catch {}
   state.gameRunning = false;
+  state._shaderEnabled = false;
   // Restore patched console methods
   if (window._origConsoleError) {
     console.error = window._origConsoleError;
@@ -122,6 +127,50 @@ export function stopGame() {
     console.warn = window._origConsoleWarn;
     window._origConsoleWarn = null;
   }
+}
+
+// ── Shader support ──
+
+function applyShaderConfig() {
+  if (typeof Mono === "undefined" || !Mono.shader) return;
+  const shaderFile = state.currentFiles.find(f => f.name === "shader.json");
+  if (!shaderFile) {
+    // No shader.json → use preset
+    Mono.shader.preset();
+    state._shaderEnabled = true;
+    consolePrint("[shader] preset applied (tint + lcd)", "success");
+    return;
+  }
+  try {
+    const config = JSON.parse(shaderFile.content);
+    // config format: { "chain": ["tint","lcd3d"], "params": { "tint": { "tint": [1,0.75,0.3] } } }
+    if (config.chain && Array.isArray(config.chain)) {
+      Mono.shader.off();
+      for (const name of config.chain) {
+        const params = config.params?.[name];
+        Mono.shader.enable(name, params || undefined);
+      }
+      Mono.shader.order(config.chain);
+      state._shaderEnabled = true;
+      consolePrint("[shader] " + config.chain.join(" → "), "success");
+    }
+  } catch (e) {
+    consolePrint("[shader] invalid shader.json: " + e.message, "warn");
+  }
+}
+
+function toggleShader() {
+  if (typeof Mono === "undefined" || !Mono.shader) return;
+  if (state._shaderEnabled) {
+    Mono.shader.off();
+    state._shaderEnabled = false;
+    consolePrint("[shader] off", "");
+  } else {
+    applyShaderConfig();
+  }
+  // Update button visual
+  const btn = document.getElementById("btn-shader");
+  if (btn) btn.classList.toggle("active-toggle", state._shaderEnabled);
 }
 
 // ── Screen Scale (auto-fit to stage) ──
@@ -246,6 +295,10 @@ function initPlayTopbarHandlers() {
       clearConsole();
       runGame();
     });
+  }
+  const shaderBtn = document.getElementById("btn-shader");
+  if (shaderBtn) {
+    shaderBtn.addEventListener("click", toggleShader);
   }
 }
 
