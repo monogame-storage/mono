@@ -3038,13 +3038,41 @@ function runGame() {
   };
   window.addEventListener("unhandledrejection", onUnhandled, { once: true });
 
-  // Build modules map for require() — maps "lib/terrain" to lib/terrain.lua content
+  // Build modules map for require()
   const moduleMap = {};
   for (const f of currentFiles) {
     if (f.name === "main.lua") continue;
     if (f.name.endsWith(".lua")) {
-      moduleMap[f.name] = f.content; // "lib/terrain.lua" → content
+      moduleMap[f.name] = f.content;
     }
+  }
+
+  // Build assets map for loadImage() — fetch binary files from R2 as blob URLs
+  const assetMap = {};
+  const token = await auth.currentUser.getIdToken();
+  const imageFiles = currentFiles.filter(f => /\.(png|jpg|jpeg|gif|bmp)$/i.test(f.name));
+  if (imageFiles.length === 0) {
+    // Check R2 for image files not yet in currentFiles
+    try {
+      const listRes = await fetch(`${API_URL}/games/${currentGameId}/files`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const { files } = await listRes.json();
+      if (files) {
+        const imgEntries = files.filter(f => /\.(png|jpg|jpeg|gif|bmp)$/i.test(f.name));
+        await Promise.all(imgEntries.map(async (f) => {
+          try {
+            const res = await fetch(`${API_URL}/games/${currentGameId}/files/${f.name}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+              const blob = await res.blob();
+              assetMap[f.name] = URL.createObjectURL(blob);
+            }
+          } catch {}
+        }));
+      }
+    } catch {}
   }
 
   Mono.boot("editor-screen", {
@@ -3053,6 +3081,7 @@ function runGame() {
     noAutoFit: true,
     readFile: async (name) => fileMap[name] || "",
     modules: moduleMap,
+    assets: assetMap,
   }).catch((e) => {
     showEngineError(e.message || String(e));
     stopGame();
