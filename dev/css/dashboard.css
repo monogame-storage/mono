@@ -1,0 +1,217 @@
+/* ── Dashboard view ── */
+.dash-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  height: 56px;
+  background: #000;
+}
+.dash-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dash-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  background: #555;
+}
+.dash-name { font-size: 13px; font-weight: 700; }
+.dash-role { font-size: 9px; color: #666; }
+.dash-settings {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.dash-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dash-stats {
+  display: flex;
+  gap: 8px;
+}
+.dash-stat {
+  flex: 1;
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+.dash-stat-value { font-size: 24px; font-weight: 800; }
+.dash-stat-label { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+.dash-cta {
+  width: 100%;
+  height: 56px;
+  background: #eee;
+  color: #111;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.dash-cta:hover { background: #fff; }
+
+.dash-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dash-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: #666;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.dash-games { display: flex; flex-direction: column; gap: 8px; }
+.dash-game {
+  display: flex;
+  align-items: center;
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  gap: 12px;
+}
+.dash-game:hover { background: #222; }
+.dash-game-thumb {
+  width: 40px;
+  height: 30px;
+  background: #333;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.dash-game-info { flex: 1; }
+.dash-game-title { font-size: 14px; font-weight: 600; }
+.dash-game-meta { font-size: 11px; color: #666; margin-top: 2px; }
+.dash-game-arrow { color: #555; font-size: 14px; }
+
+.dash-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #555;
+  font-size: 13px;
+}
+
+.dash-bottomnav {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 56px;
+  border-top: 1px solid #222;
+  background: #111;
+}
+.dash-bottomnav button {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.dash-bottomnav button.active { color: #eee; }
+.dash-bottomnav button svg { width: 20px; height: 20px; }
+
+/* ── New Game view ── */
+.newgame-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 56px;
+  background: #000;
+}
+.newgame-topbar button {
+  background: none;
+  border: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+.newgame-back { color: #eee; font-weight: 500; }
+.newgame-create { color: #eee; font-weight: 600; }
+.newgame-create:disabled { color: #555; cursor: not-allowed; }
+
+.newgame-form {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.newgame-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.newgame-field label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #666;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.newgame-field input,
+.newgame-field textarea {
+  width: 100%;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #eee;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 0 16px;
+  outline: none;
+}
+.newgame-field input { height: 48px; }
+.newgame-field textarea {
+  height: 80px;
+  padding: 12px 16px;
+  resize: none;
+}
+.newgame-field input:focus,
+.newgame-field textarea:focus { border-color: #666; }
+.newgame-field input::placeholder,
+.newgame-field textarea::placeholder { color: #555; }
+
+.newgame-submit {
+  width: 100%;
+  height: 56px;
+  background: #eee;
+  color: #111;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.newgame-submit:hover { background: #fff; }
+.newgame-submit:disabled { background: #555; color: #888; cursor: not-allowed; }
