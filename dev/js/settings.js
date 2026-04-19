@@ -43,33 +43,51 @@ export async function decryptData(passphrase, b64) {
 }
 
 // ── Master key persistence ──
-// If "save on this device" is enabled, pp is kept in localStorage.
-// If disabled, pp lives only in state.vaultPp (lost on reload / tab close).
+// Keys are scoped per-uid so multiple accounts on the same browser
+// don't collide. If "save on this device" is enabled, pp is kept in
+// localStorage; otherwise pp lives only in state.vaultPp (lost on
+// reload / tab close).
+
+function currentUid() {
+  return state.auth?.currentUser?.uid || null;
+}
+
+function ppKey(uid) { return `mono_vault_pp_${uid}`; }
+function savePrefKey(uid) { return `mono_vault_save_local_${uid}`; }
 
 function getSaveLocalPref() {
-  return localStorage.getItem("mono_vault_save_local") !== "0";
+  const uid = currentUid();
+  if (!uid) return true;
+  return localStorage.getItem(savePrefKey(uid)) !== "0";
 }
 
 function setSaveLocalPref(enabled) {
-  localStorage.setItem("mono_vault_save_local", enabled ? "1" : "0");
+  const uid = currentUid();
+  if (!uid) return;
+  localStorage.setItem(savePrefKey(uid), enabled ? "1" : "0");
 }
 
 export function getVaultPp() {
-  return state.vaultPp || localStorage.getItem("mono_vault_pp") || "";
+  const uid = currentUid();
+  if (!uid) return "";
+  return state.vaultPp || localStorage.getItem(ppKey(uid)) || "";
 }
 
 function setVaultPp(pp) {
+  const uid = currentUid();
+  if (!uid) return;
   state.vaultPp = pp;
   if (getSaveLocalPref()) {
-    localStorage.setItem("mono_vault_pp", pp);
+    localStorage.setItem(ppKey(uid), pp);
   } else {
-    localStorage.removeItem("mono_vault_pp");
+    localStorage.removeItem(ppKey(uid));
   }
 }
 
 function clearVaultPp() {
+  const uid = currentUid();
   state.vaultPp = null;
-  localStorage.removeItem("mono_vault_pp");
+  if (uid) localStorage.removeItem(ppKey(uid));
 }
 
 // ── Provider Storage ──
@@ -290,7 +308,10 @@ export function initSettings() {
     setSaveLocalPref(e.target.checked);
     const pp = getVaultPp();
     if (pp) setVaultPp(pp);
-    else localStorage.removeItem("mono_vault_pp");
+    else {
+      const uid = currentUid();
+      if (uid) localStorage.removeItem(ppKey(uid));
+    }
   });
 
   // Master key action
