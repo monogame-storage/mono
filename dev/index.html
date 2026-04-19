@@ -3038,12 +3038,21 @@ function runGame() {
   };
   window.addEventListener("unhandledrejection", onUnhandled, { once: true });
 
+  // Build modules map for require() — maps "lib/terrain" to lib/terrain.lua content
+  const moduleMap = {};
+  for (const f of currentFiles) {
+    if (f.name === "main.lua") continue;
+    if (f.name.endsWith(".lua")) {
+      moduleMap[f.name] = f.content; // "lib/terrain.lua" → content
+    }
+  }
+
   Mono.boot("editor-screen", {
     source: mainFile.content,
     colors: 4,
     noAutoFit: true,
     readFile: async (name) => fileMap[name] || "",
-    modules: {},
+    modules: moduleMap,
   }).catch((e) => {
     showEngineError(e.message || String(e));
     stopGame();
