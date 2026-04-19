@@ -187,10 +187,16 @@ function openFileSheet(name) {
   }
 
   sheet.classList.add("open");
+  if (state.currentGameId) location.hash = `editor/${state.currentGameId}/files/view/${name}`;
+
+  const closeSheet = () => {
+    sheet.classList.remove("open");
+    if (state.currentGameId) location.hash = `editor/${state.currentGameId}/files`;
+  };
 
   // Close on dim click
   const dim = sheet.querySelector(".file-sheet-dim");
-  if (dim) dim.addEventListener("click", () => sheet.classList.remove("open"), { once: true });
+  if (dim) dim.addEventListener("click", closeSheet, { once: true });
 
   // Edit button
   const editBtn = sheet.querySelector("#btn-sheet-edit");
@@ -239,6 +245,7 @@ function openEditMode(name) {
     </div>`;
 
   sheet.classList.add("open");
+  if (state.currentGameId) location.hash = `editor/${state.currentGameId}/files/edit/${name}`;
 
   const textarea = document.getElementById("file-edit-textarea");
   textarea.focus();
@@ -339,6 +346,7 @@ function openEditMode(name) {
       console.warn("Auto-save failed:", e);
     }
     sheet.classList.remove("open");
+    if (state.currentGameId) location.hash = `editor/${state.currentGameId}/files`;
     renderFileTree();
   });
 }
@@ -647,7 +655,7 @@ export function initEditorFiles() {
   if (!state._openFolders) state._openFolders = {};
 
   // Expose for external use
-  window._editorFiles = { initTopbarHandlers, renderFileTree };
+  window._editorFiles = { initTopbarHandlers, renderFileTree, openFileSheet, openEditMode };
 
   // File tree click delegation
   document.getElementById("file-tree").addEventListener("click", (e) => {

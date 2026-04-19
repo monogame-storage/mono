@@ -63,12 +63,19 @@ onAuthStateChanged(state.auth, async (user) => {
     listenGames(user.uid);
 
     const hash = location.hash;
-    const editorMatch = hash.match(/^#editor\/([^/]+)(?:\/(files|ai|play|game))?$/);
+    const editorMatch = hash.match(/^#editor\/([^/]+)(?:\/(files|ai|play|game))?(?:\/(view|edit)\/(.+))?$/);
     if (editorMatch) {
       const snap = await getDoc(doc(state.db, "games", editorMatch[1]));
       if (snap.exists() && snap.data().uid === user.uid) {
         await openEditor(editorMatch[1], snap.data().title, snap.data().description);
         if (editorMatch[2]) switchTab(editorMatch[2]);
+        // Restore file view/edit state
+        if (editorMatch[3] && editorMatch[4]) {
+          const fileName = decodeURIComponent(editorMatch[4]);
+          const { openFileSheet, openEditMode } = window._editorFiles || {};
+          if (editorMatch[3] === "edit" && openEditMode) openEditMode(fileName);
+          else if (editorMatch[3] === "view" && openFileSheet) openFileSheet(fileName);
+        }
       } else {
         showView("dashboard");
       }
