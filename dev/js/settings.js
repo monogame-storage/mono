@@ -157,8 +157,7 @@ function renderMasterKeyState() {
   const status = document.getElementById("aip-mk-status");
   const subtitle = document.getElementById("aip-mk-subtitle");
   const strength = document.getElementById("aip-strength");
-  const saveLocal = document.getElementById("aip-mk-save-local");
-  if (saveLocal) saveLocal.checked = getSaveLocalPref();
+  document.getElementById("aip-mk-save-local").checked = getSaveLocalPref();
 
   strength.textContent = "";
   strength.className = "aip-strength";
@@ -288,14 +287,10 @@ export function initSettings() {
 
   // Save-local checkbox
   document.getElementById("aip-mk-save-local").addEventListener("change", (e) => {
-    const enabled = e.target.checked;
-    setSaveLocalPref(enabled);
+    setSaveLocalPref(e.target.checked);
     const pp = getVaultPp();
-    if (enabled && pp) {
-      localStorage.setItem("mono_vault_pp", pp);
-    } else if (!enabled) {
-      localStorage.removeItem("mono_vault_pp");
-    }
+    if (pp) setVaultPp(pp);
+    else localStorage.removeItem("mono_vault_pp");
   });
 
   // Master key action
