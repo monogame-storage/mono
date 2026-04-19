@@ -372,6 +372,21 @@
   cursor: pointer;
 }
 .file-edit-btn:hover { background: #333; }
+.file-edit-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #ccc;
+  cursor: pointer;
+}
+.file-edit-icon-btn:hover { background: #333; }
+.file-edit-icon-btn:disabled { color: #555; cursor: default; }
+.file-edit-icon-btn:disabled:hover { background: #2a2a2a; }
 .file-edit-area {
   flex: 1;
   min-height: 0;

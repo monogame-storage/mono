@@ -221,6 +221,12 @@ function openEditMode(name) {
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
             Reset
           </button>
+          <button class="file-edit-icon-btn" id="btn-edit-undo" title="Undo" disabled>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6.69 3L3 13"/></svg>
+          </button>
+          <button class="file-edit-icon-btn" id="btn-edit-redo" title="Redo" disabled>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016.69 3L21 13"/></svg>
+          </button>
           <button class="file-edit-btn" id="btn-edit-done" title="Done">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
             Done
@@ -242,6 +248,53 @@ function openEditMode(name) {
   textarea.addEventListener("keyup", (e) => e.stopPropagation());
   textarea.addEventListener("keypress", (e) => e.stopPropagation());
 
+  // Undo/Redo stack
+  const undoStack = [file.content];
+  let redoStack = [];
+  let lastSnapshot = file.content;
+  let snapshotTimer = null;
+  const undoBtn = document.getElementById("btn-edit-undo");
+  const redoBtn = document.getElementById("btn-edit-redo");
+
+  function updateUndoRedoState() {
+    undoBtn.disabled = undoStack.length <= 1;
+    redoBtn.disabled = redoStack.length === 0;
+  }
+
+  function pushSnapshot() {
+    const val = textarea.value;
+    if (val === lastSnapshot) return;
+    undoStack.push(val);
+    if (undoStack.length > 100) undoStack.shift();
+    redoStack = [];
+    lastSnapshot = val;
+    updateUndoRedoState();
+  }
+
+  textarea.addEventListener("input", () => {
+    clearTimeout(snapshotTimer);
+    snapshotTimer = setTimeout(pushSnapshot, 400);
+  });
+
+  undoBtn.addEventListener("click", () => {
+    pushSnapshot(); // flush pending
+    if (undoStack.length <= 1) return;
+    redoStack.push(undoStack.pop());
+    const prev = undoStack[undoStack.length - 1];
+    textarea.value = prev;
+    lastSnapshot = prev;
+    updateUndoRedoState();
+  });
+
+  redoBtn.addEventListener("click", () => {
+    if (redoStack.length === 0) return;
+    const next = redoStack.pop();
+    undoStack.push(next);
+    textarea.value = next;
+    lastSnapshot = next;
+    updateUndoRedoState();
+  });
+
   // Tab key inserts 2 spaces
   textarea.addEventListener("keydown", (e) => {
     if (e.key === "Tab") {
@@ -250,6 +303,16 @@ function openEditMode(name) {
       const end = textarea.selectionEnd;
       textarea.value = textarea.value.substring(0, start) + "  " + textarea.value.substring(end);
       textarea.selectionStart = textarea.selectionEnd = start + 2;
+      pushSnapshot();
+    }
+    // Ctrl/Cmd+Z → undo, Ctrl/Cmd+Shift+Z → redo
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      undoBtn.click();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && e.shiftKey) {
+      e.preventDefault();
+      redoBtn.click();
     }
   });
 
@@ -257,6 +320,11 @@ function openEditMode(name) {
   document.getElementById("btn-edit-reset").addEventListener("click", () => {
     if (confirm("Reset to original? Unsaved changes will be lost.")) {
       textarea.value = originalContent;
+      undoStack.length = 0;
+      undoStack.push(originalContent);
+      redoStack = [];
+      lastSnapshot = originalContent;
+      updateUndoRedoState();
     }
   });
 
