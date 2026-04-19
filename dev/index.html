@@ -3004,7 +3004,7 @@ document.getElementById("btn-error-fix").addEventListener("click", () => {
   sendMessage();
 });
 
-function runGame() {
+async function runGame() {
   if (gameRunning) stopGame();
   clearEngineError();
   const mainFile = currentFiles.find(f => f.name === "main.lua");
