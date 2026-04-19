@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Mono</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -34,26 +34,41 @@ html,body{width:100%;height:100%;background:#050505;overflow:hidden;touch-action
 
 /* ── Landscape ── */
 @media (orientation:landscape){
-  #console{flex-direction:row;padding:0}
-  #frame{border:2px solid #333;border-radius:6px;padding:4px;flex:1;display:flex;align-items:center;justify-content:center}
+  #console{flex-direction:row;padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left);align-items:center}
+  .sp{display:none!important}
+
+  /* Left panel: select top, dpad center (1fr) */
+  .land-left{display:flex!important;flex-direction:column;align-items:center;
+    flex:1;height:100%;position:relative}
+  .land-sel{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:2.5vh;
+    width:14vh;height:4.5vh;margin-top:5vh;align-self:flex-end;margin-right:2vh;padding:0;color:transparent;font-size:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+
+  /* Center: frame wraps canvas tightly (3fr), height from content */
+  #frame{border:1px solid #333;border-radius:4px;padding:2px;flex:3;display:flex;align-items:center;justify-content:center;
+    align-self:center;height:auto}
+
+  /* Right panel: start top, ab center (1fr) */
+  .land-right{display:flex!important;flex-direction:column;align-items:center;
+    flex:1;height:100%;position:relative}
+  .land-sta{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:2.5vh;
+    width:14vh;height:4.5vh;margin-top:5vh;align-self:flex-start;margin-left:2vh;padding:0;color:transparent;font-size:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+
+  /* Hide portrait gamepad, move controls to panels via JS */
   #gamepad{display:none!important}
-  .land-left,.land-right{position:relative;width:20vw;height:100%;flex-shrink:0}
-  .land-left .mono-dpad{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%);
-    width:26vh!important;height:26vh!important}
+
+  /* Dpad in left panel — vertically centered */
+  .land-left .mono-dpad{width:26vh!important;height:26vh!important;margin:auto 0}
   .land-left .mono-dpad-btn{width:8.67vh!important;height:8.67vh!important}
   .land-left .mono-dpad-up   {left:8.67vh!important;top:0!important}
   .land-left .mono-dpad-down {left:8.67vh!important;top:17.33vh!important}
   .land-left .mono-dpad-left {left:0!important;top:8.67vh!important}
   .land-left .mono-dpad-right{left:17.33vh!important;top:8.67vh!important}
   .land-left .mono-dpad-center{left:8.67vh!important;top:8.67vh!important;width:8.67vh!important;height:8.67vh!important}
-  .land-right .mono-ab{position:absolute!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%);
-    width:26vh!important;height:20vh!important}
+
+  /* AB in right panel — vertically centered */
+  .land-right .mono-ab{width:26vh!important;height:20vh!important;margin:auto 0}
   .land-right .mono-ab .btn-b{left:0!important;top:9vh!important;width:10vh!important;height:10vh!important}
   .land-right .mono-ab .btn-a{left:14vh!important;top:2vh!important;width:11vh!important;height:11vh!important}
-  .land-sel,.land-sta{position:absolute;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:2.5vw;
-    height:5vw;padding:0;color:transparent;font-size:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-  .land-sel{width:16vw;top:2vw;right:2vw}
-  .land-sta{width:15vw;top:2vw;left:2vw}
 }
 </style>
 </head>
@@ -94,25 +109,31 @@ function fitScreen(){
   var ll=document.getElementById('land-left');
   var lr=document.getElementById('land-right');
 
+  var dpad=document.querySelector('.mono-dpad');
+  var ab=document.querySelector('.mono-ab');
+
   if(isLand){
-    // Landscape: screen fills center, controls on sides
     ll.style.display='';lr.style.display='';
-    var sideW=ll.offsetWidth*2;
+    // Move dpad to left panel, ab to right panel
+    if(dpad&&dpad.parentNode!==ll)ll.appendChild(dpad);
+    if(ab&&ab.parentNode!==lr)lr.appendChild(ab);
+    // Size canvas: width from frame's flex width, height from viewport
+    c.style.width='0';c.style.height='0'; // reset to let flex recalculate
     var frCS=getComputedStyle(fr);
-    var frPad=(parseInt(frCS.paddingLeft)||0)*2+(parseInt(frCS.borderLeftWidth)||0)*2;
-    var availW=window.innerWidth-sideW-frPad;
-    var availH=window.innerHeight-frPad;
+    var frPadX=(parseInt(frCS.paddingLeft)||0)*2+(parseInt(frCS.borderLeftWidth)||0)*2;
+    var frPadY=(parseInt(frCS.paddingTop)||0)*2+(parseInt(frCS.borderTopWidth)||0)*2;
+    var availW=fr.offsetWidth-frPadX;
+    var availH=window.innerHeight-frPadY;
     var scale=Math.min(availW/160,availH/120);
     c.style.width=Math.floor(160*scale)+'px';
     c.style.height=Math.floor(120*scale)+'px';
-    // Move dpad/ab to landscape panels
-    var dpad=document.querySelector('.mono-dpad');
-    var ab=document.querySelector('.mono-ab');
-    if(dpad&&dpad.parentNode!==ll)ll.appendChild(dpad);
-    if(ab&&ab.parentNode!==lr)lr.appendChild(ab);
   }else{
-    // Portrait: screen fills width
     ll.style.display='none';lr.style.display='none';
+    // Move dpad/ab back to gamepad row
+    var row=document.querySelector('.mono-gp-row');
+    if(row&&dpad&&dpad.parentNode!==row)row.insertBefore(dpad,row.firstChild);
+    if(row&&ab&&ab.parentNode!==row)row.appendChild(ab);
+    // Size canvas to fill width
     var con=document.getElementById('console');
     var conPadX=(parseInt(getComputedStyle(con).paddingLeft)||0)*2;
     var frCS=getComputedStyle(fr);
@@ -120,15 +141,25 @@ function fitScreen(){
     var w=window.innerWidth-conPadX-frPad;
     c.style.width=w+'px';
     c.style.height=Math.floor(w*120/160)+'px';
-    // Move dpad/ab back to gamepad
-    var row=document.querySelector('.mono-gp-row');
-    var dpad=document.querySelector('.mono-dpad');
-    var ab=document.querySelector('.mono-ab');
-    if(row&&dpad&&dpad.parentNode!==row)row.insertBefore(dpad,row.firstChild);
-    if(row&&ab&&ab.parentNode!==row)row.appendChild(ab);
   }
 }
-fitScreen();window.addEventListener('resize',fitScreen);
+window.addEventListener('resize',fitScreen);
+document.addEventListener('DOMContentLoaded',function(){
+  setTimeout(fitScreen,50);
+  // Wire up landscape SELECT/START buttons to Mono.setKey
+  document.querySelectorAll('.land-sel,.land-sta').forEach(function(btn){
+    var key=btn.getAttribute('data-key');
+    if(!key)return;
+    var name=key==='Enter'?'start':key===' '?'select':key;
+    function down(e){e.preventDefault();if(Mono.setKey)Mono.setKey(name,true);btn.classList.add('pressed')}
+    function up(e){e.preventDefault();if(Mono.setKey)Mono.setKey(name,false);btn.classList.remove('pressed')}
+    btn.addEventListener('touchstart',down);
+    btn.addEventListener('touchend',up);
+    btn.addEventListener('touchcancel',up);
+    btn.addEventListener('mousedown',down);
+    btn.addEventListener('mouseup',up);
+  });
+});
 Mono.boot('screen',{game:'main.lua',noAutoFit:true,externalInput:true}).then(function(){
   if(!Mono.shader)return;
   fetch('shader.json').then(function(r){
