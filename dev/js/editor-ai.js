@@ -15,9 +15,56 @@ function cleanMessage(s) {
   if (!s) return s;
   return s
     .replace(/```[\s\S]*?```/g, '')
-    .replace(/`([^`\n]+)`/g, '$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+// Minimal markdown → HTML for chat rendering.
+// Supports: # / ## / ### headers, **bold**, `inline code`, - bullets,
+// blank-line paragraph breaks. Escapes first so user input is safe.
+function renderMarkdown(s) {
+  if (!s) return '';
+  const lines = esc(s).split('\n');
+  const out = [];
+  let inList = false;
+  let para = [];
+
+  const flushPara = () => {
+    if (para.length) { out.push(`<p>${para.join(' ')}</p>`); para = []; }
+  };
+  const closeList = () => {
+    if (inList) { out.push('</ul>'); inList = false; }
+  };
+  const inline = (t) =>
+    t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+     .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { flushPara(); closeList(); continue; }
+    let m;
+    if ((m = line.match(/^###\s+(.+)$/))) {
+      flushPara(); closeList();
+      out.push(`<h4 class="md-h">${inline(m[1])}</h4>`); continue;
+    }
+    if ((m = line.match(/^##\s+(.+)$/))) {
+      flushPara(); closeList();
+      out.push(`<h3 class="md-h">${inline(m[1])}</h3>`); continue;
+    }
+    if ((m = line.match(/^#\s+(.+)$/))) {
+      flushPara(); closeList();
+      out.push(`<h2 class="md-h">${inline(m[1])}</h2>`); continue;
+    }
+    if ((m = line.match(/^[-*]\s+(.+)$/))) {
+      flushPara();
+      if (!inList) { out.push('<ul class="md-ul">'); inList = true; }
+      out.push(`<li>${inline(m[1])}</li>`); continue;
+    }
+    closeList();
+    para.push(inline(line));
+  }
+  flushPara(); closeList();
+  return out.join('');
 }
 
 function userCard(msg) {
@@ -35,7 +82,7 @@ function monoCard(message, files, status = "completed") {
   let html = `<div class="ai-card-mono${statusCls}">
     <div class="ai-card-status${statusCls}">MONO · ${status}</div>`;
   const cleaned = cleanMessage(message);
-  if (cleaned) html += `<div class="ai-card-response">${esc(cleaned)}</div>`;
+  if (cleaned) html += `<div class="ai-card-response">${renderMarkdown(cleaned)}</div>`;
   if (files && files.length > 0) {
     for (const f of files) {
       const action = f._action || "edited";
@@ -224,6 +271,13 @@ export async function sendMessage(autoMsg) {
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
+
+    console.group("[MONO Response]");
+    console.log("← status:", res.status);
+    console.log("← message:", data.message);
+    console.log("← files:", data.files?.map(f => ({ name: f.name, size: f.content?.length || 0 })) || []);
+    if (data.usage) console.log("← usage:", data.usage);
+    console.groupEnd();
 
     state.chatHistory.push({ role: "assistant", content: data.message });
     updateUsageDisplay(data);

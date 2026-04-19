@@ -712,7 +712,43 @@
   font-family: 'Inter', sans-serif;
   font-size: 12px;
   color: #ccc;
-  line-height: 1.4;
+  line-height: 1.5;
+}
+.ai-card-response p {
+  margin: 0 0 6px;
+}
+.ai-card-response p:last-child { margin-bottom: 0; }
+.ai-card-response .md-h {
+  font-family: 'Inter', sans-serif;
+  color: #eee;
+  font-weight: 700;
+  margin: 8px 0 3px;
+  letter-spacing: 0.2px;
+}
+.ai-card-response h2.md-h { font-size: 14px; }
+.ai-card-response h3.md-h { font-size: 13px; }
+.ai-card-response h4.md-h { font-size: 12px; color: #bbb; }
+.ai-card-response .md-h:first-child { margin-top: 0; }
+.ai-card-response .md-ul {
+  margin: 3px 0 6px;
+  padding-left: 16px;
+  list-style: disc;
+}
+.ai-card-response .md-ul li {
+  margin: 2px 0;
+}
+.ai-card-response strong {
+  color: #eee;
+  font-weight: 600;
+}
+.ai-card-response code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  background: #1e1e1e;
+  border: 1px solid #2a2a2a;
+  border-radius: 3px;
+  padding: 0 4px;
+  color: #c9a0dc;
 }
 .ai-card-file {
   font-family: 'JetBrains Mono', monospace;
