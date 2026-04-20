@@ -2,9 +2,14 @@
  * Headless Mono test runner — Web Worker
  * Runs Lua game code without DOM/canvas in a separate thread.
  * Posts back { success, errors, frames, output }.
+ *
+ * Shared Lua API surface comes from /runtime/engine-bindings.js
+ * (see MonoBindings.bind). Everything else — drawing, audio, timing,
+ * scene activation — is stubbed or minimally implemented here.
  */
 
 importScripts("https://cdn.jsdelivr.net/npm/wasmoon@1.16.0/dist/index.js");
+importScripts("/runtime/engine-bindings.js");
 
 const W = 160, H = 120;
 
@@ -36,17 +41,38 @@ onmessage = async (e) => {
     const factory = new wasmoon.LuaFactory();
     const lua = await factory.createEngine();
 
-    // Constants
+    // Shared Lua API via MonoBindings — handles constants, input primitives
+    // with validation, Lua wrappers (btn/btnp/btnr/touch/touch_*/cam_get),
+    // package.preload, and go()/scene_name().
+    const sceneRef = { current: null, pending: null };
+    const modules = {};
+    for (const f of files) {
+      if (f.name === "main.lua" || !f.name.endsWith(".lua")) continue;
+      modules[f.name] = f.content;
+    }
+    await self.MonoBindings.bind(lua, {
+      input: {
+        btn: () => false, btnp: () => false, btnr: () => false,
+        touch: () => false, touchStart: () => false, touchEnd: () => false,
+        touchCount: () => 0,
+        touchPosX: () => false, touchPosY: () => false,
+        touchPosfX: () => false, touchPosfY: () => false,
+        swipe: () => false,
+        axisX: () => 0, axisY: () => 0,
+      },
+      cam: { getX: () => camX, getY: () => camY },
+      scene: sceneRef,
+      modules,
+    });
+
+    // Non-shared environment: runtime-only constants + stubs for drawing,
+    // audio, mode, frame/time, images, print, collision.
+
     lua.global.set("SCREEN_W", W);
     lua.global.set("SCREEN_H", H);
     lua.global.set("COLORS", palette.length);
-    lua.global.set("ALIGN_LEFT", 0);
-    lua.global.set("ALIGN_HCENTER", 1);
-    lua.global.set("ALIGN_RIGHT", 2);
-    lua.global.set("ALIGN_VCENTER", 4);
-    lua.global.set("ALIGN_CENTER", 5);
 
-    // Drawing stubs
+    // Drawing stubs (Phase 4 will share real algorithms)
     lua.global.set("cls", (id, c) => { const s = getSurf(id); if (s) cls(s, c); });
     lua.global.set("pix", (id, x, y, c) => {
       const s = getSurf(id); if (!s) return;
@@ -79,10 +105,8 @@ onmessage = async (e) => {
     lua.global.set("vrow", () => "");
     lua.global.set("blit", () => {});
 
-    // Camera
+    // Camera setters
     lua.global.set("cam", (x, y) => { if (x !== undefined) { camX = x; camY = y || 0; } });
-    lua.global.set("_cam_get_x", () => camX);
-    lua.global.set("_cam_get_y", () => camY);
     lua.global.set("cam_shake", () => {});
     lua.global.set("cam_reset", () => { camX = 0; camY = 0; });
 
@@ -109,58 +133,6 @@ onmessage = async (e) => {
     lua.global.set("noise", () => {});
     lua.global.set("wave", () => {});
     lua.global.set("sfx_stop", () => {});
-
-    // Input stubs
-    const validKeys = { up:1, down:1, left:1, right:1, a:1, b:1, start:1, select:1 };
-    lua.global.set("_btn", (k) => {
-      if (typeof k !== "string" || !validKeys[k])
-        throw new Error('btn() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
-      return 0;
-    });
-    lua.global.set("_btnp", (k) => {
-      if (typeof k !== "string" || !validKeys[k])
-        throw new Error('btnp() invalid key "' + k + '"');
-      return 0;
-    });
-    lua.global.set("_btnr", (k) => {
-      if (typeof k !== "string" || !validKeys[k])
-        throw new Error('btnr() invalid key "' + k + '"');
-      return 0;
-    });
-    lua.global.set("_touch", () => 0);
-    lua.global.set("_touch_start", () => 0);
-    lua.global.set("_touch_end", () => 0);
-    lua.global.set("touch_count", () => 0);
-    lua.global.set("_touch_pos_x", () => false);
-    lua.global.set("_touch_pos_y", () => false);
-    lua.global.set("_touch_posf_x", () => false);
-    lua.global.set("_touch_posf_y", () => false);
-    lua.global.set("swipe", () => false);
-    lua.global.set("axis_x", () => 0);
-    lua.global.set("axis_y", () => 0);
-
-    // Lua wrappers — mirror runtime/engine.js so scripts see the same API.
-    await lua.doString(`
-function btn(k)  return _btn(k) == 1 end
-function btnp(k) return _btnp(k) == 1 end
-function btnr(k) return _btnr(k) == 1 end
-function touch() return _touch() == 1 end
-function touch_start() return _touch_start() == 1 end
-function touch_end()   return _touch_end() == 1 end
-function touch_pos(i)
-  i = i or 1
-  local x = _touch_pos_x(i)
-  if x == false then return false end
-  return x, _touch_pos_y(i)
-end
-function touch_posf(i)
-  i = i or 1
-  local x = _touch_posf_x(i)
-  if x == false then return false end
-  return x, _touch_posf_y(i)
-end
-function cam_get() return _cam_get_x(), _cam_get_y() end
-`);
 
     // Frame / time
     let frameNum = 0;
@@ -194,12 +166,10 @@ function cam_get() return _cam_get_x(), _cam_get_y() end
     lua.global.set("hitbox", () => {});
     lua.global.set("pollCollision", () => false);
 
-    // Scene system
-    let currentScene = null;
-    let scenePending = null;
+    // Scene activation — bindings set sceneRef.pending via go(); we activate
+    // after each frame in the loop below.
     let sceneObj = null;
     const loadedScenes = {};
-
     const fileMap = {};
     for (const f of files) fileMap[f.name] = f.content;
 
@@ -213,7 +183,7 @@ function cam_get() return _cam_get_x(), _cam_get_y() end
           loadedScenes[name] = true;
         }
       }
-      currentScene = name;
+      sceneRef.current = name;
       const cached = loadedScenes[name];
       if (cached && typeof cached === "object") {
         sceneObj = cached;
@@ -226,24 +196,9 @@ function cam_get() return _cam_get_x(), _cam_get_y() end
       }
     }
 
-    lua.global.set("go", (name) => { scenePending = name; });
-    lua.global.set("scene_name", () => currentScene || false);
-
     // --- Run ---
     const mainFile = files.find(f => f.name === "main.lua");
     if (!mainFile) { postMessage({ success: false, errors: ["No main.lua"], output }); return; }
-
-    // Preload non-entry .lua files as require()-able modules — mirrors
-    // runtime/engine.js so "require('lib.terrain')" works the same way
-    // in the headless test as it does in the real engine.
-    for (const f of files) {
-      if (f.name === "main.lua" || !f.name.endsWith(".lua")) continue;
-      const modName = f.name.replace(/\.lua$/, "").replace(/\//g, ".").replace(/"/g, "");
-      lua.global.set("_tmp_mod_src", f.content);
-      lua.global.set("_tmp_mod_name", modName);
-      await lua.doString(`package.preload[_tmp_mod_name] = load(_tmp_mod_src, "@" .. _tmp_mod_name .. ".lua")`);
-    }
-    await lua.doString("_tmp_mod_src = nil; _tmp_mod_name = nil");
 
     await lua.doString(mainFile.content);
 
@@ -254,16 +209,16 @@ function cam_get() return _cam_get_x(), _cam_get_y() end
     const readyFn = lua.global.get("_ready");
     if (readyFn) readyFn();
 
-    if (scenePending) { await activateScene(scenePending); scenePending = null; }
+    if (sceneRef.pending) { await activateScene(sceneRef.pending); sceneRef.pending = null; }
 
     for (let i = 0; i < frames; i++) {
-      if (scenePending) { await activateScene(scenePending); scenePending = null; }
+      if (sceneRef.pending) { await activateScene(sceneRef.pending); sceneRef.pending = null; }
 
       if (sceneObj?.update) { sceneObj.update(); }
       else {
         const uf = lua.global.get("_update"); if (uf) uf();
-        if (currentScene) {
-          const bn = currentScene.includes("/") ? currentScene.split("/").pop() : currentScene;
+        if (sceneRef.current) {
+          const bn = sceneRef.current.includes("/") ? sceneRef.current.split("/").pop() : sceneRef.current;
           const sf = lua.global.get(bn + "_update"); if (sf) sf();
         }
       }
@@ -271,8 +226,8 @@ function cam_get() return _cam_get_x(), _cam_get_y() end
       if (sceneObj?.draw) { sceneObj.draw(); }
       else {
         const df = lua.global.get("_draw"); if (df) df();
-        if (currentScene) {
-          const bn = currentScene.includes("/") ? currentScene.split("/").pop() : currentScene;
+        if (sceneRef.current) {
+          const bn = sceneRef.current.includes("/") ? sceneRef.current.split("/").pop() : sceneRef.current;
           const sf = lua.global.get(bn + "_draw"); if (sf) sf();
         }
       }
