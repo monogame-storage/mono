@@ -14,6 +14,19 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 import { openEditor } from './editor.js';
 
+const TEMPLATE_FILES = ["main.lua", "title.lua", "game.lua", "gameover.lua"];
+
+function escapeLuaString(s) {
+  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
+}
+
+async function fetchTemplate(name, title) {
+  const res = await fetch(`/templates/game/${name}`);
+  if (!res.ok) throw new Error(`template fetch failed: ${name} (${res.status})`);
+  const body = await res.text();
+  return body.replaceAll("%TITLE%", escapeLuaString(title));
+}
+
 export function renderDashboard(user) {
   document.getElementById("dash-name").textContent = user.displayName || user.email;
   const avatar = document.getElementById("dash-avatar");
@@ -71,12 +84,24 @@ async function createGame() {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    // Create empty chat history
-    await apiFetch(`/games/${docRef.id}/files/_chat.json`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: JSON.stringify({ history: [] }) }),
-    });
+    // Seed default scene files (templates/game/) + empty chat history in parallel
+    const templates = await Promise.all(
+      TEMPLATE_FILES.map(async name => ({ name, content: await fetchTemplate(name, title) }))
+    );
+    await Promise.all([
+      ...templates.map(f =>
+        apiFetch(`/games/${docRef.id}/files/${f.name}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: f.content }),
+        })
+      ),
+      apiFetch(`/games/${docRef.id}/files/_chat.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: JSON.stringify({ history: [] }) }),
+      }),
+    ]);
     openEditor(docRef.id, title);
   } catch (e) {
     alert("Failed to create game: " + e.message);

@@ -250,7 +250,7 @@ local function update_title()
       b.mob = math.random(1, 3)
     end
   end
-  if touch_start() or btnp("start") then
+  if touch_end() or btnr("start") then
     start_game()
   end
 end
@@ -420,7 +420,7 @@ local function update_over()
   end
   if over_cooldown > 0 then
     over_cooldown = over_cooldown - 1
-  elseif touch_start() or btnp("start") then
+  elseif touch_end() or btnr("start") then
     start_game()
   end
 end
