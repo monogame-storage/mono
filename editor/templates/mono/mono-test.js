@@ -43,6 +43,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const MonoBindings = require(path.resolve(__dirname, "../../../runtime/engine-bindings.js"));
 
 // --- Parse arguments ---
 const args = process.argv.slice(2);
@@ -730,11 +731,7 @@ async function main() {
   lua.global.set("SCREEN_W", W);
   lua.global.set("SCREEN_H", H);
   lua.global.set("COLORS", palette.length);
-  lua.global.set("ALIGN_LEFT", ALIGN_LEFT);
-  lua.global.set("ALIGN_HCENTER", ALIGN_HCENTER);
-  lua.global.set("ALIGN_RIGHT", ALIGN_RIGHT);
-  lua.global.set("ALIGN_VCENTER", ALIGN_VCENTER);
-  lua.global.set("ALIGN_CENTER", ALIGN_CENTER);
+  // ALIGN_* constants are installed by MonoBindings.bind() below.
   // Drawing functions — first arg is surface id
   lua.global.set("cls", (id, c) => { const s = requireSurf("cls", id); requireColor("cls", c); cls(s, c); });
   lua.global.set("pix", (id, x, y, c) => { const s = requireSurf("pix", id); requireColor("pix", c); setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
@@ -747,8 +744,6 @@ async function main() {
   lua.global.set("text", (id, str, x, y, c, align) => { const s = requireSurf("text", id); requireColor("text", c); drawText(s, str, x, y, c, align); });
   lua.global.set("vrow", (y) => vrow(y));
   lua.global.set("cam", camFn);
-  lua.global.set("_cam_get_x", () => camX);
-  lua.global.set("_cam_get_y", () => camY);
   // Audio stubs (headless — no sound, but validate args)
   const NOTE_NAMES = new Set();
   (() => {
@@ -767,8 +762,6 @@ async function main() {
   lua.global.set("sfx_stop", () => {});
   lua.global.set("cam_shake", () => {});
   lua.global.set("cam_reset", () => {});
-  lua.global.set("axis_x", () => 0);
-  lua.global.set("axis_y", () => 0);
   // Motion sensor (simulated via --motion or --fuzz)
   lua.global.set("motion_x", () => simMotionX);
   lua.global.set("motion_y", () => simMotionY);
@@ -833,9 +826,9 @@ async function main() {
   // Benchmark state (for --bench)
   const frameTimesNs = [];
 
-  // Scene system
-  let currentScene = null;
-  let scenePending = null;
+  // Scene system — bindings own `go()` + `scene_name()` and mutate sceneRef.
+  // The runner reads sceneRef.pending to decide when to activateScene().
+  const sceneRef = { current: null, pending: null };
   const loadedSceneFiles = {};
 
   let sceneObj = null; // state pattern: table returned by scene file
@@ -855,7 +848,7 @@ async function main() {
         loadedSceneFiles[name] = true;
       }
     }
-    currentScene = name;
+    sceneRef.current = name;
     const cached = loadedSceneFiles[name];
     if (cached && typeof cached === "object") {
       sceneObj = cached;
@@ -867,9 +860,6 @@ async function main() {
       if (initFn) initFn();
     }
   }
-
-  lua.global.set("go", (name) => { scenePending = name; });
-  lua.global.set("scene_name", () => currentScene || false);
 
 
 
@@ -894,31 +884,8 @@ async function main() {
     lua.global.set("COLORS", palette.length);
   });
 
-  // Input stubs
-  const validKeys = {"up":1,"down":1,"left":1,"right":1,"a":1,"b":1,"start":1,"select":1};
-  lua.global.set("_btn", (k) => {
-    if (typeof k !== "string" || !validKeys[k]) throw new Error('btn() invalid key "' + k + '"');
-    return keys[k] ? 1 : 0;
-  });
-  lua.global.set("_btnp", (k) => {
-    if (typeof k !== "string" || !validKeys[k]) throw new Error('btnp() invalid key "' + k + '"');
-    return (keys[k] && !keysPrev[k]) ? 1 : 0;
-  });
-  lua.global.set("_btnr", (k) => {
-    if (typeof k !== "string" || !validKeys[k]) throw new Error('btnr() invalid key "' + k + '"');
-    return (!keys[k] && keysPrev[k]) ? 1 : 0;
-  });
-
-  // Touch simulation (matches engine.js semantics)
-  lua.global.set("_touch", () => touches.length > 0 || touchStartedFlag ? 1 : 0);
-  lua.global.set("_touch_start", () => touchStarted || touchStartedFlag ? 1 : 0);
-  lua.global.set("_touch_end", () => touchEnded || touchEndedFlag ? 1 : 0);
-  lua.global.set("touch_count", () => touches.length);
-  lua.global.set("_touch_pos_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.x : false; });
-  lua.global.set("_touch_pos_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.y : false; });
-  lua.global.set("_touch_posf_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fx : false; });
-  lua.global.set("_touch_posf_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; });
-  lua.global.set("swipe", () => false);
+  // Input + touch primitives + Lua wrappers are installed by
+  // MonoBindings.bind() below; the runner just provides the state hooks.
 
   // loadImage — Node.js version using PNG decoder
   let pendingLoads = [];
@@ -942,42 +909,8 @@ async function main() {
     return id;
   });
 
-  // Lua wrappers
-  await lua.doString(`
-function btn(k)
-  return _btn(k) == 1
-end
-function btnp(k)
-  return _btnp(k) == 1
-end
-function btnr(k)
-  return _btnr(k) == 1
-end
-function cam_get()
-  return _cam_get_x(), _cam_get_y()
-end
-function touch()
-  return _touch() == 1
-end
-function touch_start()
-  return _touch_start() == 1
-end
-function touch_end()
-  return _touch_end() == 1
-end
-function touch_pos(i)
-  i = i or 1
-  local x = _touch_pos_x(i)
-  if x == false then return false end
-  return x, _touch_pos_y(i)
-end
-function touch_posf(i)
-  i = i or 1
-  local x = _touch_posf_x(i)
-  if x == false then return false end
-  return x, _touch_posf_y(i)
-end
-  `);
+  // Lua wrappers (btn/btnp/btnr/touch/touch_*/cam_get) are installed by
+  // MonoBindings.bind() below.
 
   // --- Execute game ---
   let hasError = false;
@@ -1003,14 +936,34 @@ end
     }
     return result;
   }
+  const modules = {};
   for (const f of collectLuaFiles(gameDirAbs, "")) {
-    const modName = f.replace(/\.lua$/, "").replace(/\//g, ".");
-    const src = fs.readFileSync(path.join(gameDirAbs, f), "utf8");
-    lua.global.set("_tmp_mod_src", src);
-    lua.global.set("_tmp_mod_name", modName);
-    await lua.doString(`package.preload[_tmp_mod_name] = load(_tmp_mod_src, "@" .. _tmp_mod_name .. ".lua")`);
+    modules[f] = fs.readFileSync(path.join(gameDirAbs, f), "utf8");
   }
-  await lua.doString("_tmp_mod_src = nil; _tmp_mod_name = nil");
+
+  // Install the shared Lua API surface (input primitives, wrappers,
+  // package.preload, scene glue, ALIGN_* constants).
+  await MonoBindings.bind(lua, {
+    input: {
+      btn:  (k) => !!keys[k],
+      btnp: (k) => !!(keys[k] && !keysPrev[k]),
+      btnr: (k) => !!(!keys[k] && keysPrev[k]),
+      touch:      () => touches.length > 0 || touchStartedFlag,
+      touchStart: () => touchStarted || touchStartedFlag,
+      touchEnd:   () => touchEnded || touchEndedFlag,
+      touchCount: () => touches.length,
+      touchPosX:  (i) => { const t = touches[(i || 1) - 1]; return t ? t.x  : false; },
+      touchPosY:  (i) => { const t = touches[(i || 1) - 1]; return t ? t.y  : false; },
+      touchPosfX: (i) => { const t = touches[(i || 1) - 1]; return t ? t.fx : false; },
+      touchPosfY: (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; },
+      swipe: () => false,
+      axisX: () => 0,
+      axisY: () => 0,
+    },
+    cam: { getX: () => camX, getY: () => camY },
+    scene: sceneRef,
+    modules,
+  });
 
   // Run main script
   try {
@@ -1063,9 +1016,9 @@ end
   }
 
   // Process boot-time go() (e.g. go("title") in _ready)
-  if (scenePending) {
-    await activateScene(scenePending);
-    scenePending = null;
+  if (sceneRef.pending) {
+    await activateScene(sceneRef.pending);
+    sceneRef.pending = null;
   }
 
   // Run frames
@@ -1161,22 +1114,22 @@ end
     }
 
     // Process pending scene transition
-    if (scenePending) {
-      await activateScene(scenePending);
-      scenePending = null;
+    if (sceneRef.pending) {
+      await activateScene(sceneRef.pending);
+      sceneRef.pending = null;
     }
 
-    const basename = currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) : null;
+    const basename = sceneRef.current ? (sceneRef.current.includes("/") ? sceneRef.current.split("/").pop() : sceneRef.current) : null;
     const frameStart = benchMode ? process.hrtime.bigint() : 0n;
     const uf = sceneObj ? sceneObj.update : lua.global.get(basename ? basename + "_update" : "_update");
     if (uf) {
       try { uf(); }
-      catch (e) { console.error(`${currentScene || ""} update error (frame ${f}):`, e.message || e); hasError = true; break; }
+      catch (e) { console.error(`${sceneRef.current || ""} update error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
     const df = sceneObj ? sceneObj.draw : lua.global.get(basename ? basename + "_draw" : "_draw");
     if (df) {
       try { df(); }
-      catch (e) { console.error(`${currentScene || ""} draw error (frame ${f}):`, e.message || e); hasError = true; break; }
+      catch (e) { console.error(`${sceneRef.current || ""} draw error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
     if (benchMode) {
       const elapsedNs = Number(process.hrtime.bigint() - frameStart);
