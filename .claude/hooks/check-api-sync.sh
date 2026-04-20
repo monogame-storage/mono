@@ -1,43 +1,65 @@
 #!/bin/bash
-# PostToolUse hook: check lua.global.set API sync between engine.js and mono-test.js
-# Triggered when runtime/engine.js or editor/templates/mono/mono-test.js is edited
+# PostToolUse hook: detect API drift between the three Mono runners.
+#
+# After the engine-bindings.js refactor most Lua globals are registered
+# in a single shared file, so this hook narrowed its job to the remaining
+# env-specific surface (drawing / audio / images / motion). Triggered by
+# edits to any of the runner files.
 
 INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_response.filePath // ""')
 
-# Only check if the edited file is engine.js or mono-test.js
 case "$FILE" in
-  */runtime/engine.js|*/editor/templates/mono/mono-test.js) ;;
+  */runtime/engine.js|*/runtime/engine-bindings.js|*/runtime/engine-draw.js|*/editor/templates/mono/mono-test.js|*/dev/test-worker.js) ;;
   *) exit 0 ;;
 esac
 
-REPO=$(echo "$FILE" | sed 's|/runtime/engine.js||;s|/editor/templates/mono/mono-test.js||')
+REPO=$(echo "$FILE" | sed -e 's|/runtime/engine\.js||' \
+                          -e 's|/runtime/engine-bindings\.js||' \
+                          -e 's|/runtime/engine-draw\.js||' \
+                          -e 's|/editor/templates/mono/mono-test\.js||' \
+                          -e 's|/dev/test-worker\.js||')
+
 ENGINE="$REPO/runtime/engine.js"
+BINDINGS="$REPO/runtime/engine-bindings.js"
 TEST="$REPO/editor/templates/mono/mono-test.js"
+WORKER="$REPO/dev/test-worker.js"
 
-if [ ! -f "$ENGINE" ] || [ ! -f "$TEST" ]; then
-  exit 0
-fi
+[ -f "$ENGINE" ] && [ -f "$BINDINGS" ] && [ -f "$TEST" ] && [ -f "$WORKER" ] || exit 0
 
-# Extract lua.global.set("name" calls from both files (macOS compatible)
-ENGINE_APIS=$(grep -oE 'lua\.global\.set\("[^"]+"' "$ENGINE" | sed 's/lua\.global\.set("//;s/"//' | sort -u)
-TEST_APIS=$(grep -oE 'lua\.global\.set\("[^"]+"' "$TEST" | sed 's/lua\.global\.set("//;s/"//' | sort -u)
+# Collect lua.global.set("name"…) entries from each file.
+api_names() {
+  grep -oE 'lua\.global\.set\("[^"]+"' "$1" 2>/dev/null | sed 's/lua\.global\.set("//;s/"$//' | sort -u
+}
 
-# APIs that should be in both (game-facing APIs only, exclude internal helpers)
-GAME_APIS="btn btnp cls text rectf rect circ circf line cam _cam_get_x _cam_get_y rnd frame go scene_name print palt"
+ENGINE_APIS=$(api_names "$ENGINE")
+BINDINGS_APIS=$(api_names "$BINDINGS")
+TEST_APIS=$(api_names "$TEST")
+WORKER_APIS=$(api_names "$WORKER")
+
+# An API is "provided" to a runner if it shows up either directly in that
+# runner's file or in the shared bindings module (which every runner calls).
+provided_by_test()   { printf '%s\n%s\n' "$TEST_APIS"   "$BINDINGS_APIS" | sort -u; }
+provided_by_worker() { printf '%s\n%s\n' "$WORKER_APIS" "$BINDINGS_APIS" | sort -u; }
+
+TEST_PROVIDED=$(provided_by_test)
+WORKER_PROVIDED=$(provided_by_worker)
 
 MISSING=""
-for api in $GAME_APIS; do
-  IN_ENGINE=$(echo "$ENGINE_APIS" | grep -x "$api" || true)
-  IN_TEST=$(echo "$TEST_APIS" | grep -x "$api" || true)
-  if [ -n "$IN_ENGINE" ] && [ -z "$IN_TEST" ]; then
-    MISSING="$MISSING  - $api (in engine.js but NOT in mono-test.js)\n"
-  fi
+note_missing() {
+  local api="$1" runner="$2"
+  MISSING="$MISSING  - $api (in engine.js, missing from $runner)\n"
+}
+
+for api in $ENGINE_APIS; do
+  # Skip helpers not meant for game code.
+  case "$api" in _*|SCREEN_W|SCREEN_H|COLORS) continue ;; esac
+  echo "$TEST_PROVIDED"   | grep -qx "$api" || note_missing "$api" "mono-test.js"
+  echo "$WORKER_PROVIDED" | grep -qx "$api" || note_missing "$api" "test-worker.js"
 done
 
 if [ -n "$MISSING" ]; then
-  MSG=$(printf "⚠️ API sync gap detected:\\n%bCheck editor/templates/mono/mono-test.js" "$MISSING")
+  MSG=$(printf "⚠️ API sync gap detected:\\n%bAdd the missing stub or move it into runtime/engine-bindings.js." "$MISSING")
   echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"$MSG\"}}"
-else
-  exit 0
 fi
+exit 0

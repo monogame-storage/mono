@@ -158,6 +158,15 @@ onmessage = async (e) => {
     lua.global.set("imageWidth", (id) => images[id]?.w || 0);
     lua.global.set("imageHeight", (id) => images[id]?.h || 0);
 
+    // Motion / gyro sensors (stub — headless tests don't simulate tilt)
+    lua.global.set("motion_x", () => 0);
+    lua.global.set("motion_y", () => 0);
+    lua.global.set("motion_z", () => 0);
+    lua.global.set("gyro_alpha", () => 0);
+    lua.global.set("gyro_beta", () => 0);
+    lua.global.set("gyro_gamma", () => 0);
+    lua.global.set("motion_enabled", () => 0);
+
     // Print
     lua.global.set("print", (...a) => { output.push(a.map(x => String(x)).join("\t")); });
 
