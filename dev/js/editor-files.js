@@ -367,10 +367,15 @@ function syncLog(msg, files) {
   chat.scrollTop = chat.scrollHeight;
 }
 
+// Names excluded from local → cloud sync. `.mono/` and any `_*`/`.*` entry
+// are engine-managed or editor-managed metadata, not game source.
+const SYNC_IGNORE_NAMES = new Set(["mono-test", "mono-test.cmd"]);
+
 async function readDirRecursive(dirHandle, prefix = "") {
   const entries = [];
   for await (const [name, handle] of dirHandle) {
     if (name.startsWith("_") || name.startsWith(".")) continue;
+    if (SYNC_IGNORE_NAMES.has(name)) continue;
     const path = prefix ? prefix + "/" + name : name;
     if (handle.kind === "file") {
       entries.push({ path, handle, dirHandle });
@@ -379,6 +384,55 @@ async function readDirRecursive(dirHandle, prefix = "") {
     }
   }
   return entries;
+}
+
+// ── .mono/ bundle planting (push-time only) ──
+// Mirrors the engine-deploy path that editor/index.html uses when it
+// takes over a local folder: drops engine.js + bindings + draw + mono-test
+// + CONTEXT.md + VERSION under `.mono/`, plus a shell/bat wrapper at the
+// project root so `./mono-test main.lua` just works.
+
+async function writeFile(dirHandle, name, content) {
+  const fh = await dirHandle.getFileHandle(name, { create: true });
+  const w = await fh.createWritable();
+  await w.write(content);
+  await w.close();
+}
+
+async function seedMonoDir(rootHandle) {
+  const base = window.location.origin;
+  const fetchText = async (url) => {
+    const r = await fetch(url + "?v=" + Date.now());
+    if (!r.ok) throw new Error(`${url} (${r.status})`);
+    return await r.text();
+  };
+  const version = (await fetchText("/VERSION")).trim();
+
+  const monoDir = await rootHandle.getDirectoryHandle(".mono", { create: true });
+
+  const bundle = [
+    { target: "engine.js",          url: "/runtime/engine.js" },
+    { target: "engine-bindings.js", url: "/runtime/engine-bindings.js" },
+    { target: "engine-draw.js",     url: "/runtime/engine-draw.js" },
+    { target: "mono-test.js",       url: "/editor/templates/mono/mono-test.js" },
+  ];
+  for (const { target, url } of bundle) {
+    const text = await fetchText(url);
+    await writeFile(monoDir, target, text);
+  }
+
+  // CONTEXT.md uses {{VERSION}} / {{BASE_URL}} placeholders.
+  let ctx = await fetchText("/editor/templates/mono/CONTEXT.md");
+  ctx = ctx
+    .replace(/\{\{VERSION\}\}/g, version)
+    .replace(/\{\{BASE_URL\}\}/g, "https://github.com/monogame-storage/mono/blob/main");
+  await writeFile(monoDir, "CONTEXT.md", ctx);
+  await writeFile(monoDir, "VERSION", version);
+
+  // Shell wrappers at the project root. SYNC_IGNORE_NAMES keeps pull
+  // from mistakenly uploading them back to R2.
+  await writeFile(rootHandle, "mono-test",     '#!/bin/sh\nnode "$(dirname "$0")/.mono/mono-test.js" "$@"\n');
+  await writeFile(rootHandle, "mono-test.cmd", '@node "%~dp0.mono\\mono-test.js" %*\r\n');
 }
 
 async function getFileHandleDeep(rootHandle, path, create = false) {
@@ -537,6 +591,13 @@ async function doPush() {
       }
       syncLog(`Pushed ${toWrite.length} files`, toWrite.map(c => c.name));
       if (toDelete.length) syncLog(`Deleted ${toDelete.length} local files`, toDelete.map(c => c.name));
+
+      try {
+        await seedMonoDir(state.linkedDirHandle);
+        syncLog(`Planted .mono/ engine bundle`);
+      } catch (e) {
+        syncLog(`.mono/ plant failed: ${e.message || e}`);
+      }
     });
   } catch (e) { alert("Push failed: " + e.message); }
 
