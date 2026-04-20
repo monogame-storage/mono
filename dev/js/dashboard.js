@@ -13,6 +13,7 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 import { openEditor } from './editor.js';
+import { buildCart, serializeCart } from './cart.js';
 
 const TEMPLATE_FILES = ["main.lua", "title.lua", "game.lua", "gameover.lua"];
 
@@ -25,15 +26,6 @@ async function fetchTemplate(name, title) {
   if (!res.ok) throw new Error(`template fetch failed: ${name} (${res.status})`);
   const body = await res.text();
   return body.replaceAll("%TITLE%", escapeLuaString(title));
-}
-
-async function fetchCartJson(title, description) {
-  const res = await fetch(`/templates/game/cart.json`);
-  if (!res.ok) throw new Error(`cart.json fetch failed (${res.status})`);
-  const cart = await res.json();
-  cart.title = title;
-  if (description) cart.description = description;
-  return JSON.stringify(cart, null, 2) + "\n";
 }
 
 export function renderDashboard(user) {
@@ -94,12 +86,12 @@ async function createGame() {
       updatedAt: serverTimestamp(),
     });
     // Seed cart.json + scene files (templates/game/) + empty chat history in parallel
-    const [cartContent, ...sceneContents] = await Promise.all([
-      fetchCartJson(title, desc),
+    const [cart, ...sceneContents] = await Promise.all([
+      buildCart(title, desc),
       ...TEMPLATE_FILES.map(name => fetchTemplate(name, title)),
     ]);
     const templates = [
-      { name: "cart.json", content: cartContent },
+      { name: "cart.json", content: serializeCart(cart) },
       ...TEMPLATE_FILES.map((name, i) => ({ name, content: sceneContents[i] })),
     ];
     await Promise.all([

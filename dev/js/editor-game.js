@@ -8,6 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 import { runHeadlessTest } from './editor-play.js';
 import { openAIProviders } from './settings.js';
+import { loadCart, saveCart, buildCart, serializeCart } from './cart.js';
 
 // ── Publish UI ──
 
@@ -141,6 +142,21 @@ export function initEditorGame() {
     btn.disabled = true;
     btn.textContent = "Saving...";
     try {
+      // cart.json is authoritative — write it first, then sync Firestore
+      // so the dashboard list stays in step.
+      const cart = (await loadCart(state.currentGameId)) || await buildCart(newTitle, newDesc);
+      cart.title = newTitle;
+      if (newDesc) cart.description = newDesc;
+      else delete cart.description;
+      await saveCart(state.currentGameId, cart);
+
+      // Mirror the cart.json contents into state.currentFiles so the
+      // Files tab doesn't show stale content.
+      const content = serializeCart(cart);
+      const existing = state.currentFiles.find(f => f.name === "cart.json");
+      if (existing) existing.content = content;
+      else state.currentFiles.push({ name: "cart.json", content });
+
       const { updateDoc } = await import("https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js");
       await updateDoc(doc(state.db, "games", state.currentGameId), {
         title: newTitle,

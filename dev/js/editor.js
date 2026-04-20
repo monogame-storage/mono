@@ -8,6 +8,7 @@ import {
   getDoc,
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 import { decryptData, updateModelSelector, saveProviders, openAIProviders, getVaultPp } from './settings.js';
+import { loadCart, saveCart, buildCart, serializeCart } from './cart.js';
 import { initEditorAI, renderChatHistory, clearEngineError } from './editor-ai.js';
 import { initEditorPlay, stopGame } from './editor-play.js';
 import { initEditorFiles } from './editor-files.js';
@@ -205,6 +206,28 @@ export async function openEditor(gameId, title, desc) {
       }
     }
   } catch {}
+
+  // Hydrate metadata from cart.json (authoritative source).
+  // Missing cart.json → build a fallback from dashboard-passed values and persist it.
+  let cartFile = state.currentFiles.find(f => f.name === "cart.json");
+  let cart = null;
+  if (cartFile) {
+    try { cart = JSON.parse(cartFile.content); } catch { cart = null; }
+  }
+  if (!cart) {
+    cart = await buildCart(state.currentGameTitle, state.currentGameDesc);
+    try {
+      await saveCart(gameId, cart);
+      const content = serializeCart(cart);
+      if (cartFile) cartFile.content = content;
+      else state.currentFiles.push({ name: "cart.json", content });
+    } catch (e) {
+      console.warn("cart.json fallback save failed:", e);
+    }
+  }
+  if (cart.title) state.currentGameTitle = cart.title;
+  state.currentGameDesc = cart.description || "";
+  document.getElementById("editor-title").textContent = state.currentGameTitle;
 
   // Load chat history
   try {
