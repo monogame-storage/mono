@@ -594,7 +594,9 @@ var Mono = (() => {
   // Listener refs for clean teardown. Populated by attachListeners inside
   // boot(), drained by detachListeners on suspend/stop.
   let _listeners = [];
-  let _attachListeners = null; // re-install hook, set per boot()
+  // Created per boot(); invoked by resume() to re-install the same
+  // listener bundle onto the document/touchTarget after a suspend.
+  let _attachListeners = null;
   let _suspended = false;
 
   function detachListeners() {
@@ -608,7 +610,7 @@ var Mono = (() => {
     if (!opts || (!opts.game && !opts.source)) return;
 
     // Stop previous run if any
-    if (_loopId) { clearInterval(_loopId); _loopId = null; }
+    if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     if (_lua) { _lua.global.close(); _lua = null; }
     // Detach any listeners from a prior boot — new boot re-attaches via
     // _attachListeners() below.
@@ -644,19 +646,6 @@ var Mono = (() => {
     const colorBuf = new Uint8Array(W * H);
     surfaces[0] = { w: W, h: H, buf32, colorBuf };
 
-    // Fit canvas to window (skip if opts.noAutoFit)
-    if (!opts.noAutoFit) {
-      function fitCanvas() {
-        const maxW = window.innerWidth - 40;
-        const maxH = window.innerHeight - 60;
-        const s = Math.min(maxW / W, maxH / H);
-        canvas.style.width = (W * s) + "px";
-        canvas.style.height = (H * s) + "px";
-      }
-      fitCanvas();
-      window.addEventListener("resize", fitCanvas);
-    }
-
     // Bind to canvas parent to work even when shader replaces canvas with glCanvas
     const touchTarget = canvas.parentNode || canvas;
     let mouseDown = false;
@@ -668,11 +657,26 @@ var Mono = (() => {
       target.addEventListener(type, fn, evOpts);
       _listeners.push({ target, type, fn, opts: evOpts });
     };
+
+    // Fit canvas to window now (skip if opts.noAutoFit). The matching
+    // resize listener is registered inside _attachListeners so it
+    // cleanly detaches/reattaches across suspend/resume.
+    function fitCanvas() {
+      if (opts.noAutoFit) return;
+      const maxW = window.innerWidth - 40;
+      const maxH = window.innerHeight - 60;
+      const s = Math.min(maxW / W, maxH / H);
+      canvas.style.width = (W * s) + "px";
+      canvas.style.height = (H * s) + "px";
+    }
+    fitCanvas();
+
     const isEditableTarget = (el) =>
       !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" ||
                el.isContentEditable === true);
 
     _attachListeners = function attachListeners() {
+      if (!opts.noAutoFit) on(window, "resize", fitCanvas);
       // Input handling (skip if external controller manages input)
       if (!opts.externalInput) {
         on(document, "keydown", (e) => {
@@ -1159,10 +1163,14 @@ var Mono = (() => {
     cancelAnimationFrame(_loopId);
     _loopId = null;
     detachListeners();
-    // Clear any held input so nothing "sticks" across the gap.
+    // Clear any held input so nothing "sticks" across the gap — mirrors
+    // the full reset list in API.stop() so suspend and stop leave input
+    // state equivalently idle.
     for (const k in keys) { keys[k] = false; keysPrev[k] = false; }
     axisX = 0; axisY = 0;
-    touches = []; touchStartedFlag = false; touchEndedFlag = false;
+    touches = []; touchStarted = false; touchEnded = false;
+    touchStartedFlag = false; touchEndedFlag = false;
+    swipeDir = false; swipeDirFlag = false; swipeAnchor = null;
     releaseWakeLock();
   };
 
@@ -1173,7 +1181,11 @@ var Mono = (() => {
     _suspended = false;
     if (_attachListeners) _attachListeners();
     requestWakeLock();
-    if (_tickFn) _loopId = requestAnimationFrame(_tickFn);
+    if (_tickFn) {
+      _loopId = requestAnimationFrame(_tickFn);
+    } else {
+      console.warn("Mono.resume: no tick function — game was not fully booted before suspend; skipping RAF restart.");
+    }
   };
 
   // Expose input for external control (playground gamepad)
