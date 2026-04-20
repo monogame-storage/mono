@@ -205,6 +205,18 @@ onmessage = async (e) => {
     const mainFile = files.find(f => f.name === "main.lua");
     if (!mainFile) { postMessage({ success: false, errors: ["No main.lua"], output }); return; }
 
+    // Preload non-entry .lua files as require()-able modules — mirrors
+    // runtime/engine.js so "require('lib.terrain')" works the same way
+    // in the headless test as it does in the real engine.
+    for (const f of files) {
+      if (f.name === "main.lua" || !f.name.endsWith(".lua")) continue;
+      const modName = f.name.replace(/\.lua$/, "").replace(/\//g, ".").replace(/"/g, "");
+      lua.global.set("_tmp_mod_src", f.content);
+      lua.global.set("_tmp_mod_name", modName);
+      await lua.doString(`package.preload[_tmp_mod_name] = load(_tmp_mod_src, "@" .. _tmp_mod_name .. ".lua")`);
+    }
+    await lua.doString("_tmp_mod_src = nil; _tmp_mod_name = nil");
+
     await lua.doString(mainFile.content);
 
     const initFn = lua.global.get("_init");
