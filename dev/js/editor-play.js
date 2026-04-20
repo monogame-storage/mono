@@ -7,7 +7,7 @@ import { showEngineError, clearEngineError } from './editor-ai.js';
 
 export function runHeadlessTest(files, frames = 30) {
   return new Promise((resolve) => {
-    const w = new Worker("/dev/test-worker.js");
+    const w = new Worker("/dev/test-worker.js?v=" + Date.now());
     const timeout = setTimeout(() => { w.terminate(); resolve({ success: false, errors: ["Test timed out"] }); }, 15000);
     w.onmessage = (e) => { clearTimeout(timeout); w.terminate(); resolve(e.data); };
     w.onerror = (e) => { clearTimeout(timeout); w.terminate(); resolve({ success: false, errors: [e.message] }); };

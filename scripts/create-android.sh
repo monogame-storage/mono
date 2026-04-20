@@ -81,6 +81,8 @@ log() {
 copy_engine_files() {
   local mono_dir="$1"
   cp "$MONO_ROOT/runtime/engine.js" "$mono_dir/engine.js"
+  cp "$MONO_ROOT/runtime/engine-bindings.js" "$mono_dir/engine-bindings.js"
+  cp "$MONO_ROOT/runtime/engine-draw.js" "$mono_dir/engine-draw.js"
   cp "$MONO_ROOT/runtime/console-gamepad.js" "$mono_dir/console-gamepad.js"
   cp "$MONO_ROOT/runtime/shader.js" "$mono_dir/shader.js"
   # Copy template files (excluding main.lua which goes to cart/)

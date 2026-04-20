@@ -1083,6 +1083,18 @@ async function openFolder(droppedHandle) {
         const w = await h.createWritable(); await w.write(await engineResp.text()); await w.close();
       }
 
+      // Deploy engine-bindings.js + engine-draw.js (loaded before engine.js)
+      const bindingsResp = await fetch(baseUrl + "/runtime/engine-bindings.js?v=" + Date.now());
+      if (bindingsResp.ok) {
+        const h = await monoDir.getFileHandle("engine-bindings.js", { create: true });
+        const w = await h.createWritable(); await w.write(await bindingsResp.text()); await w.close();
+      }
+      const drawResp = await fetch(baseUrl + "/runtime/engine-draw.js?v=" + Date.now());
+      if (drawResp.ok) {
+        const h = await monoDir.getFileHandle("engine-draw.js", { create: true });
+        const w = await h.createWritable(); await w.write(await drawResp.text()); await w.close();
+      }
+
       // Deploy mono-test.js
       const testResp = await fetch(baseUrl + "/editor/templates/mono/mono-test.js?v=" + Date.now());
       if (testResp.ok) {
@@ -1117,32 +1129,37 @@ async function openFolder(droppedHandle) {
       logToConsole(`Keeping engine v${existingVersion} (latest: ${MONO_VERSION})`, "log-info");
     }
 
-    // Load engine.js from .mono/ (version-locked local copy)
-    try {
-      const engineHandle = await monoDir.getFileHandle("engine.js", { create: false });
-      const engineFile = await engineHandle.getFile();
-      const engineSrc = await engineFile.text();
-      const blob = new Blob([engineSrc], { type: "text/javascript" });
-      const url = URL.createObjectURL(blob);
-      await new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = url;
-        s.onload = () => { URL.revokeObjectURL(url); resolve(); };
-        s.onerror = () => { URL.revokeObjectURL(url); reject(new Error("engine.js load failed")); };
-        document.head.appendChild(s);
-      });
-      logToConsole(`Engine loaded from .mono/engine.js`, "log-info");
-    } catch (e) {
-      // Fallback: load from server
-      await new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = "../runtime/engine.js?v=" + Date.now();
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
-      logToConsole("Engine loaded from server (no local copy)", "log-info");
+    // Load engine-bindings.js first (engine.js reads MonoBindings at boot)
+    // then engine.js, both from .mono/ (version-locked local copy).
+    async function loadLocalScript(name, fallback) {
+      try {
+        const h = await monoDir.getFileHandle(name, { create: false });
+        const file = await h.getFile();
+        const src = await file.text();
+        const blob = new Blob([src], { type: "text/javascript" });
+        const url = URL.createObjectURL(blob);
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = url;
+          s.onload = () => { URL.revokeObjectURL(url); resolve(); };
+          s.onerror = () => { URL.revokeObjectURL(url); reject(new Error(name + " load failed")); };
+          document.head.appendChild(s);
+        });
+        logToConsole(`Loaded .mono/${name}`, "log-info");
+      } catch (e) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = fallback + "?v=" + Date.now();
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+        logToConsole(`${name} loaded from server (no local copy)`, "log-info");
+      }
     }
+    await loadLocalScript("engine-draw.js", "../runtime/engine-draw.js");
+    await loadLocalScript("engine-bindings.js", "../runtime/engine-bindings.js");
+    await loadLocalScript("engine.js", "../runtime/engine.js");
 
     // Load shaders (depend on Mono global from engine.js)
     const shaderScripts = [
@@ -1227,14 +1244,16 @@ let knownEngineAPIs = null; // cached set of registered API names
 
 async function fetchEngineAPIs() {
   try {
-    const resp = await fetch("/runtime/engine.js");
-    if (!resp.ok) return null;
-    const src = await resp.text();
     const apis = new Set();
-    const re = /lua\.global\.set\("(\w+)"/g;
-    let m;
-    while ((m = re.exec(src)) !== null) apis.add(m[1]);
-    return apis;
+    for (const url of ["/runtime/engine.js", "/runtime/engine-bindings.js"]) {
+      const resp = await fetch(url);
+      if (!resp.ok) continue;
+      const src = await resp.text();
+      const re = /lua\.global\.set\("(\w+)"/g;
+      let m;
+      while ((m = re.exec(src)) !== null) apis.add(m[1]);
+    }
+    return apis.size ? apis : null;
   } catch (e) { return null; }
 }
 
