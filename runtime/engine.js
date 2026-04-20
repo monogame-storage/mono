@@ -690,8 +690,10 @@ var Mono = (() => {
   let flushFn = flush;
 
   // --- Scene system ---
-  let currentScene = null;
-  let scenePending = null;
+  // Scene state lives in a single ref object so MonoBindings can mutate
+  // sceneRef.pending when Lua calls go(). The engine reads sceneRef.current
+  // as the active scene name.
+  const sceneRef = { current: null, pending: null };
   let loadedSceneFiles = {};
 
   // --- Boot ---
@@ -854,11 +856,7 @@ var Mono = (() => {
     lua.global.set("SCREEN_W", W);
     lua.global.set("SCREEN_H", H);
     lua.global.set("COLORS", palette.length);
-    lua.global.set("ALIGN_LEFT", ALIGN_LEFT);
-    lua.global.set("ALIGN_HCENTER", ALIGN_HCENTER);
-    lua.global.set("ALIGN_RIGHT", ALIGN_RIGHT);
-    lua.global.set("ALIGN_VCENTER", ALIGN_VCENTER);
-    lua.global.set("ALIGN_CENTER", ALIGN_CENTER);
+    // ALIGN_* constants installed by MonoBindings.bind() below.
     // Drawing functions — first arg is surface id
     lua.global.set("cls", (id, c) => { const s = getSurf(id); if (s) cls(s, c); });
     lua.global.set("pix", (id, x, y, c) => { const s = getSurf(id); if (s) setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
@@ -872,8 +870,7 @@ var Mono = (() => {
     lua.global.set("cam", cam);
     lua.global.set("cam_reset", camReset);
     lua.global.set("cam_shake", camShake);
-    lua.global.set("_cam_get_x", () => camX);
-    lua.global.set("_cam_get_y", () => camY);
+    // _cam_get_x/_y installed by MonoBindings.bind() below.
     // Audio
     lua.global.set("note", notePlay);
     lua.global.set("tone", tonePlay);
@@ -893,21 +890,10 @@ var Mono = (() => {
     lua.global.set("blit", blitFn);
     lua.global.set("imageWidth", (id) => { const img = images[id]; return img ? img.w : 0; });
     lua.global.set("imageHeight", (id) => { const img = images[id]; return img ? img.h : 0; });
-    const validKeys = {"up":1,"down":1,"left":1,"right":1,"a":1,"b":1,"start":1,"select":1};
-    lua.global.set("_btn", (k) => {
-      if (typeof k !== "string" || !validKeys[k]) throw new Error('btn() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
-      return keys[k] ? 1 : 0;
-    });
-    lua.global.set("_btnp", (k) => {
-      if (typeof k !== "string" || !validKeys[k]) throw new Error('btnp() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
-      return (keys[k] && !keysPrev[k]) ? 1 : 0;
-    });
-    lua.global.set("_btnr", (k) => {
-      if (typeof k !== "string" || !validKeys[k]) throw new Error('btnr() invalid key "' + k + '". Valid: "up","down","left","right","a","b","start","select"');
-      return (!keys[k] && keysPrev[k]) ? 1 : 0;
-    });
-    lua.global.set("axis_x", () => axisX);
-    lua.global.set("axis_y", () => axisY);
+    // Input primitives (_btn/_btnp/_btnr/_touch_*) + swipe/axis_x/axis_y are
+    // installed by MonoBindings.bind() below; hooks below delegate to the
+    // engine's own state.
+
     // Motion sensor APIs (accelerometer + gyroscope)
     lua.global.set("motion_x", () => motionX);     // -1 to 1 (tilt left/right)
     lua.global.set("motion_y", () => motionY);     // -1 to 1 (tilt forward/back)
@@ -916,17 +902,6 @@ var Mono = (() => {
     lua.global.set("gyro_beta", () => gyroBeta);   // -180 to 180 front/back tilt
     lua.global.set("gyro_gamma", () => gyroGamma); // -90 to 90 left/right tilt
     lua.global.set("motion_enabled", () => motionEnabled ? 1 : 0);
-    // Check both latched state and raw flag: inputUpdate() runs after _update(),
-    // so a fast click (mousedown+mouseup between frames) would be missed without the flag check.
-    lua.global.set("_touch", () => touches.length > 0 || touchStartedFlag ? 1 : 0);
-    lua.global.set("_touch_start", () => touchStarted || touchStartedFlag ? 1 : 0);
-    lua.global.set("_touch_end", () => touchEnded || touchEndedFlag ? 1 : 0);
-    lua.global.set("touch_count", () => touches.length);
-    lua.global.set("_touch_pos_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.x : false; });
-    lua.global.set("_touch_pos_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.y : false; });
-    lua.global.set("_touch_posf_x", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fx : false; });
-    lua.global.set("_touch_posf_y", (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; });
-    lua.global.set("swipe", () => swipeDir || false);
     lua.global.set("frame", () => frame);
     // use_pause(true)  — engine auto-pauses on SELECT (this is the default)
     // use_pause(false) — engine stops auto-pausing; game owns SELECT
@@ -975,46 +950,12 @@ var Mono = (() => {
       return id;
     });
 
-    // Lua wrappers (avoid Wasmoon false→nil issue)
-    await lua.doString(`
-function btn(k)
-  return _btn(k) == 1
-end
-function btnp(k)
-  return _btnp(k) == 1
-end
-function btnr(k)
-  return _btnr(k) == 1
-end
-function cam_get()
-  return _cam_get_x(), _cam_get_y()
-end
-function touch()
-  return _touch() == 1
-end
-function touch_start()
-  return _touch_start() == 1
-end
-function touch_end()
-  return _touch_end() == 1
-end
-function touch_pos(i)
-  i = i or 1
-  local x = _touch_pos_x(i)
-  if x == false then return false end
-  return x, _touch_pos_y(i)
-end
-function touch_posf(i)
-  i = i or 1
-  local x = _touch_posf_x(i)
-  if x == false then return false end
-  return x, _touch_posf_y(i)
-end
-    `);
+    // Lua wrappers (btn/btnp/btnr/touch/touch_*/cam_get) installed by
+    // MonoBindings.bind() below.
 
     // --- Scene system ---
-    currentScene = null;
-    scenePending = null;
+    sceneRef.current = null;
+    sceneRef.pending = null;
     loadedSceneFiles = {};
 
     const readFile = opts.readFile || (async (name) => {
@@ -1042,7 +983,7 @@ end
           loadedSceneFiles[name] = true;
         }
       }
-      currentScene = name;
+      sceneRef.current = name;
       const cached = loadedSceneFiles[name];
       if (cached && typeof cached === "object") {
         sceneObj = cached;
@@ -1061,8 +1002,7 @@ end
       }
     }
 
-    lua.global.set("go", (name) => { scenePending = name; });
-    lua.global.set("scene_name", () => currentScene || false);
+    // go() / scene_name() registered by MonoBindings.bind() below.
 
     // Error overlay — HTML layer, not constrained by engine
     function showError(msg) {
@@ -1114,16 +1054,37 @@ end
         }
       } catch (e) { if (e instanceof SyntaxError) console.warn("modules.json parse error:", e); }
     }
-    // 2. Register preloaded modules
-    if (opts.modules) {
-      for (const [path, src] of Object.entries(opts.modules)) {
-        const modName = path.replace(/\.lua$/, "").replace(/\//g, ".").replace(/"/g, "");
-        lua.global.set("_tmp_mod_src", src);
-        lua.global.set("_tmp_mod_name", modName);
-        await lua.doString(`package.preload[_tmp_mod_name] = load(_tmp_mod_src, "@" .. _tmp_mod_name .. ".lua")`);
-      }
-      await lua.doString("_tmp_mod_src = nil; _tmp_mod_name = nil");
+    // 2. Install the shared Lua API surface via MonoBindings. This owns
+    //    input primitives + Lua wrappers + package.preload + go/scene_name
+    //    + ALIGN_* constants so the browser runtime, the CLI test runner,
+    //    and the Web Worker smoke test stay in lockstep.
+    const Bindings = (typeof globalThis !== "undefined" && globalThis.MonoBindings)
+                  || (typeof window !== "undefined" && window.MonoBindings);
+    if (!Bindings) {
+      showError("MonoBindings not loaded. Include <script src=\"/runtime/engine-bindings.js\"> before engine.js.");
+      return;
     }
+    await Bindings.bind(lua, {
+      input: {
+        btn:        (k) => !!keys[k],
+        btnp:       (k) => !!(keys[k] && !keysPrev[k]),
+        btnr:       (k) => !!(!keys[k] && keysPrev[k]),
+        touch:      () => touches.length > 0 || touchStartedFlag,
+        touchStart: () => touchStarted || touchStartedFlag,
+        touchEnd:   () => touchEnded || touchEndedFlag,
+        touchCount: () => touches.length,
+        touchPosX:  (i) => { const t = touches[(i || 1) - 1]; return t ? t.x  : false; },
+        touchPosY:  (i) => { const t = touches[(i || 1) - 1]; return t ? t.y  : false; },
+        touchPosfX: (i) => { const t = touches[(i || 1) - 1]; return t ? t.fx : false; },
+        touchPosfY: (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; },
+        swipe: () => swipeDir || false,
+        axisX: () => axisX,
+        axisY: () => axisY,
+      },
+      cam: { getX: () => camX, getY: () => camY },
+      scene: sceneRef,
+      modules: opts.modules || {},
+    });
 
     // Run game script
     try {
@@ -1160,9 +1121,9 @@ end
     }
 
     // Process boot-time go() (e.g. go("title") in _ready)
-    if (scenePending) {
-      const name = scenePending;
-      scenePending = null;
+    if (sceneRef.pending) {
+      const name = sceneRef.pending;
+      sceneRef.pending = null;
       await activateScene(name);
     }
 
@@ -1180,9 +1141,9 @@ end
       accumulator = Math.min(accumulator + dt, FRAME_MS * 10); // cap to avoid freeze after tab background
 
       // Process pending scene transition
-      if (scenePending) {
-        const name = scenePending;
-        scenePending = null;
+      if (sceneRef.pending) {
+        const name = sceneRef.pending;
+        sceneRef.pending = null;
         await activateScene(name);
       }
 
@@ -1191,8 +1152,8 @@ end
       while (accumulator >= FRAME_MS) {
         accumulator -= FRAME_MS;
         if (!paused) {
-          const uf = sceneObj ? sceneObj.update : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_update" : "_update");
-          if (uf) try { uf(); } catch (e) { stopWithError((currentScene || "") + " update: " + (e.message || e)); return; }
+          const uf = sceneObj ? sceneObj.update : lua.global.get(sceneRef.current ? (sceneRef.current.includes("/") ? sceneRef.current.split("/").pop() : sceneRef.current) + "_update" : "_update");
+          if (uf) try { uf(); } catch (e) { stopWithError((sceneRef.current || "") + " update: " + (e.message || e)); return; }
         }
         frame++;
         inputUpdate();
@@ -1208,8 +1169,8 @@ end
       } else { shakeAmount = 0; shakeX = 0; shakeY = 0; }
       camX += shakeX; camY += shakeY;
       {
-        const df = sceneObj ? sceneObj.draw : lua.global.get(currentScene ? (currentScene.includes("/") ? currentScene.split("/").pop() : currentScene) + "_draw" : "_draw");
-        if (df) try { df(); } catch (e) { camX -= shakeX; camY -= shakeY; stopWithError((currentScene || "") + " draw: " + (e.message || e)); return; }
+        const df = sceneObj ? sceneObj.draw : lua.global.get(sceneRef.current ? (sceneRef.current.includes("/") ? sceneRef.current.split("/").pop() : sceneRef.current) + "_draw" : "_draw");
+        if (df) try { df(); } catch (e) { camX -= shakeX; camY -= shakeY; stopWithError((sceneRef.current || "") + " draw: " + (e.message || e)); return; }
       }
       camX -= shakeX; camY -= shakeY;
       if (paused) {
@@ -1259,7 +1220,7 @@ end
     camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
     touches = []; touchStarted = false; touchEnded = false; touchStartedFlag = false; touchEndedFlag = false;
     swipeDir = false; swipeDirFlag = false; swipeAnchor = null;
-    currentScene = null; scenePending = null; loadedSceneFiles = {};
+    sceneRef.current = null; sceneRef.pending = null; loadedSceneFiles = {};
   };
 
   // Expose input for external control (playground gamepad)
