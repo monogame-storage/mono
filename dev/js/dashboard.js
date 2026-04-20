@@ -27,6 +27,15 @@ async function fetchTemplate(name, title) {
   return body.replaceAll("%TITLE%", escapeLuaString(title));
 }
 
+async function fetchCartJson(title, description) {
+  const res = await fetch(`/templates/game/cart.json`);
+  if (!res.ok) throw new Error(`cart.json fetch failed (${res.status})`);
+  const cart = await res.json();
+  cart.title = title;
+  if (description) cart.description = description;
+  return JSON.stringify(cart, null, 2) + "\n";
+}
+
 export function renderDashboard(user) {
   document.getElementById("dash-name").textContent = user.displayName || user.email;
   const avatar = document.getElementById("dash-avatar");
@@ -84,10 +93,15 @@ async function createGame() {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    // Seed default scene files (templates/game/) + empty chat history in parallel
-    const templates = await Promise.all(
-      TEMPLATE_FILES.map(async name => ({ name, content: await fetchTemplate(name, title) }))
-    );
+    // Seed cart.json + scene files (templates/game/) + empty chat history in parallel
+    const [cartContent, ...sceneContents] = await Promise.all([
+      fetchCartJson(title, desc),
+      ...TEMPLATE_FILES.map(name => fetchTemplate(name, title)),
+    ]);
+    const templates = [
+      { name: "cart.json", content: cartContent },
+      ...TEMPLATE_FILES.map((name, i) => ({ name, content: sceneContents[i] })),
+    ];
     await Promise.all([
       ...templates.map(f =>
         apiFetch(`/games/${docRef.id}/files/${f.name}`, {

@@ -298,10 +298,10 @@ if ! $DRY_RUN; then
   copy_engine_files "$TARGET_DIR/cart/.mono"
 fi
 
-# 4. Create starter scene files + default shader.json
+# 4. Create starter scene files + cart.json + default shader.json
 if ! $DRY_RUN; then
   title_esc=$(printf '%s' "$PROJECT_NAME" | sed -e 's/[\\&|]/\\&/g')
-  for f in main.lua title.lua game.lua gameover.lua; do
+  for f in cart.json main.lua title.lua game.lua gameover.lua; do
     sed "s|%TITLE%|$title_esc|g" "$MONO_ROOT/templates/game/$f" > "$TARGET_DIR/cart/$f"
   done
   cat > "$TARGET_DIR/cart/shader.json" << 'SHADER_EOF'
