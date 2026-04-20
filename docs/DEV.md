@@ -575,7 +575,7 @@ touch_start()      -- returns true on the frame a new touch begins (like btnp)
 touch_end()        -- returns true on the frame a touch is released
 touch_count()      -- number of active touch points
 
-touch_pos(i?)      -- returns integer x, y (0-159, 0-143). i defaults to 1
+touch_pos(i?)      -- returns integer x, y (0-159, 0-119). i defaults to 1
 touch_posf(i?)     -- returns float x, y (sub-pixel precision)
 
 swipe()            -- returns "up", "down", "left", "right", or false

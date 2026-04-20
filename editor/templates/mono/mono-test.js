@@ -13,7 +13,7 @@
  *   --frames N       Run N frames (default: 0 = init+start only)
  *   --colors N       Color depth: 1, 2, or 4 (default: 1)
  *   --vdump          Print full vdump after execution
- *   --vrow Y         Print specific row Y (0-143)
+ *   --vrow Y         Print specific row Y (0-119)
  *   --suite          Test suite mode: parse PASS/FAIL output, exit code
  *   --input "F:K"    Inject input at frame F key K (e.g., "3:a,5:up")
  *   --touch "F:A:X,Y" Inject touch events inline or from file
