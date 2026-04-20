@@ -22,6 +22,7 @@ function escapeLuaString(s) {
 
 async function fetchTemplate(name, title) {
   const res = await fetch(`/templates/game/${name}`);
+  if (!res.ok) throw new Error(`template fetch failed: ${name} (${res.status})`);
   const body = await res.text();
   return body.replaceAll("%TITLE%", escapeLuaString(title));
 }
