@@ -94,7 +94,7 @@ copy_engine_files() {
   for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
     cp "$MONO_ROOT/runtime/shaders/$sf" "$mono_dir/shaders/$sf"
   done
-  local version=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
+  local version=$(cat "$MONO_ROOT/VERSION")
   echo "$version" > "$mono_dir/VERSION"
   # Write engine major.minor for cart.json compatibility checks
   echo "$version" | cut -d. -f1,2 > "$mono_dir/ENGINE"
@@ -331,7 +331,7 @@ if ! $DRY_RUN; then
   fi
 fi
 
-VERSION=$(grep -o 'const MONO_VERSION = "[^"]*"' "$MONO_ROOT/editor/index.html" | head -1 | cut -d'"' -f2)
+VERSION=$(cat "$MONO_ROOT/VERSION")
 echo ""
 echo "Done! Project created at: $TARGET_DIR"
 echo ""
