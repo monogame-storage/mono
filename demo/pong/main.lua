@@ -190,7 +190,7 @@ function _update()
   end
 
   if winner then
-    if btnp("start") or touch_start() then
+    if btnr("start") or touch_end() then
       _start()
     end
     return
