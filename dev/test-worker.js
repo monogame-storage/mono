@@ -10,6 +10,7 @@
 
 importScripts("https://cdn.jsdelivr.net/npm/wasmoon@1.16.0/dist/index.js");
 importScripts("/runtime/engine-bindings.js");
+importScripts("/runtime/engine-draw.js");
 
 const W = 160, H = 120;
 
@@ -72,32 +73,30 @@ onmessage = async (e) => {
     lua.global.set("SCREEN_H", H);
     lua.global.set("COLORS", palette.length);
 
-    // Drawing stubs (Phase 4 will share real algorithms)
-    lua.global.set("cls", (id, c) => { const s = getSurf(id); if (s) cls(s, c); });
-    lua.global.set("pix", (id, x, y, c) => {
-      const s = getSurf(id); if (!s) return;
-      const px = Math.floor(x) - camX, py = Math.floor(y) - camY;
-      if (px >= 0 && px < s.w && py >= 0 && py < s.h) s.buf[py * s.w + px] = c;
-    });
+    // Shared drawing algorithms via MonoDraw. setPix writes color indices
+    // into surfaces[*].buf — the worker doesn't need buf32/RGBA because the
+    // snapshot returned to the main thread is a color-index buffer the
+    // caller turns into a PNG thumbnail.
+    function setPix(s, x, y, c) {
+      x = Math.floor(x); y = Math.floor(y);
+      if (x >= 0 && x < s.w && y >= 0 && y < s.h) s.buf[y * s.w + x] = c;
+    }
+    const draw = self.MonoDraw.create({ setPix, getCam: () => [camX, camY] });
+
+    lua.global.set("cls", (id, c) => { const s = getSurf(id); if (s) s.buf.fill(c || 0); });
+    lua.global.set("pix", (id, x, y, c) => { const s = getSurf(id); if (s) setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
     lua.global.set("gpix", (id, x, y) => {
       const s = getSurf(id); if (!s) return 0;
+      x = Math.floor(x); y = Math.floor(y);
       if (x >= 0 && x < s.w && y >= 0 && y < s.h) return s.buf[y * s.w + x];
       return 0;
     });
-    lua.global.set("line", () => {});
-    lua.global.set("rect", () => {});
-    lua.global.set("rectf", (id, x, y, w, h, c) => {
-      const s = getSurf(id); if (!s) return;
-      const x0 = Math.max(0, Math.floor(x) - camX);
-      const y0 = Math.max(0, Math.floor(y) - camY);
-      const x1 = Math.min(s.w, Math.floor(x + w) - camX);
-      const y1 = Math.min(s.h, Math.floor(y + h) - camY);
-      for (let py = y0; py < y1; py++)
-        for (let px = x0; px < x1; px++) s.buf[py * s.w + px] = c;
-    });
-    lua.global.set("circ", () => {});
-    lua.global.set("circf", () => {});
-    lua.global.set("text", () => {});
+    lua.global.set("line",  (id, x0, y0, x1, y1, c) => { const s = getSurf(id); if (s) draw.line(s, x0, y0, x1, y1, c); });
+    lua.global.set("rect",  (id, x, y, w, h, c) => { const s = getSurf(id); if (s) draw.rect(s, x, y, w, h, c); });
+    lua.global.set("rectf", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) draw.rectf(s, x, y, w, h, c); });
+    lua.global.set("circ",  (id, cx, cy, r, c) => { const s = getSurf(id); if (s) draw.circ(s, cx, cy, r, c); });
+    lua.global.set("circf", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) draw.circf(s, cx, cy, r, c); });
+    lua.global.set("text",  (id, str, x, y, c, align) => { const s = getSurf(id); if (s) draw.drawText(s, str, x, y, c, align); });
     lua.global.set("spr", () => {});
     lua.global.set("sspr", () => {});
     lua.global.set("drawImage", () => {});

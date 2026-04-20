@@ -1083,11 +1083,16 @@ async function openFolder(droppedHandle) {
         const w = await h.createWritable(); await w.write(await engineResp.text()); await w.close();
       }
 
-      // Deploy engine-bindings.js (loaded before engine.js — shared Lua API)
+      // Deploy engine-bindings.js + engine-draw.js (loaded before engine.js)
       const bindingsResp = await fetch(baseUrl + "/runtime/engine-bindings.js?v=" + Date.now());
       if (bindingsResp.ok) {
         const h = await monoDir.getFileHandle("engine-bindings.js", { create: true });
         const w = await h.createWritable(); await w.write(await bindingsResp.text()); await w.close();
+      }
+      const drawResp = await fetch(baseUrl + "/runtime/engine-draw.js?v=" + Date.now());
+      if (drawResp.ok) {
+        const h = await monoDir.getFileHandle("engine-draw.js", { create: true });
+        const w = await h.createWritable(); await w.write(await drawResp.text()); await w.close();
       }
 
       // Deploy mono-test.js
@@ -1152,6 +1157,7 @@ async function openFolder(droppedHandle) {
         logToConsole(`${name} loaded from server (no local copy)`, "log-info");
       }
     }
+    await loadLocalScript("engine-draw.js", "../runtime/engine-draw.js");
     await loadLocalScript("engine-bindings.js", "../runtime/engine-bindings.js");
     await loadLocalScript("engine.js", "../runtime/engine.js");
 
