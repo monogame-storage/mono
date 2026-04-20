@@ -104,12 +104,22 @@ export function switchTab(name) {
     location.hash = `editor/${state.currentGameId}/${name}`;
   }
 
-  // Auto-run game when entering Play tab, stop when leaving
+  // Tab transition for the Play tab: boot on first entry, then
+  // suspend/resume so the game pauses (keeping Lua state) instead of
+  // restarting when the user pops back and forth between tabs.
   if (name === "play" && prevTab !== "play") {
     const { runGame } = window._editorPlay || {};
-    if (runGame && !state.gameRunning) runGame();
+    if (state.gameRunning && typeof Mono !== "undefined" && Mono.resume) {
+      Mono.resume();
+    } else if (runGame && !state.gameRunning) {
+      runGame();
+    }
   } else if (name !== "play" && prevTab === "play" && state.gameRunning) {
-    stopGame();
+    if (typeof Mono !== "undefined" && Mono.suspend) {
+      Mono.suspend();
+    } else {
+      stopGame();
+    }
   }
 }
 
