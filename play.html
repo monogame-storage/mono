@@ -144,31 +144,42 @@
           png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
           gif: "image/gif", webp: "image/webp", bmp: "image/bmp",
         };
-        for (var f of data.files) {
-          if (f.encoding === "base64") {
-            // Binary asset — decode to Blob URL for engine's loadImage()
-            var bin = Uint8Array.from(atob(f.content), function(c) { return c.charCodeAt(0); });
-            var ext = f.name.split(".").pop().toLowerCase();
-            var mime = mimeByExt[ext] || "application/octet-stream";
-            assets[f.name] = URL.createObjectURL(new Blob([bin], { type: mime }));
-          } else if (f.name === "main.lua") {
-            mainSrc = f.content;
-          } else if (f.name.endsWith(".lua")) {
-            modules[f.name] = f.content;
-          } else {
-            textFiles[f.name] = f.content;
+        for (let f of data.files) {
+          try {
+            if (f.encoding === "base64") {
+              // Binary asset — decode to Blob URL for engine's loadImage()
+              const bin = Uint8Array.from(atob(f.content), function(c) { return c.charCodeAt(0); });
+              const ext = f.name.split(".").pop().toLowerCase();
+              const mime = mimeByExt[ext] || "application/octet-stream";
+              assets[f.name] = URL.createObjectURL(new Blob([bin], { type: mime }));
+            } else if (f.name === "main.lua") {
+              mainSrc = f.content;
+            } else if (f.name.endsWith(".lua")) {
+              modules[f.name] = f.content;
+            } else {
+              textFiles[f.name] = f.content;
+            }
+          } catch (e) {
+            throw new Error(f.name + ": " + (e.message || e));
           }
         }
         if (!mainSrc) throw new Error("No main.lua in published files");
-        await Mono.boot("screen", {
-          source: mainSrc,
-          modules: modules,
-          assets: assets,
-          colors: 4,
-          readFile: function(name) {
-            return modules[name] || textFiles[name] || null;
-          },
-        });
+        try {
+          await Mono.boot("screen", {
+            source: mainSrc,
+            modules: modules,
+            assets: assets,
+            colors: 4,
+            readFile: function(name) {
+              return modules[name] || textFiles[name] || null;
+            },
+          });
+        } finally {
+          // Engine has already fetched each blob into a wasm-side image.
+          // Release the URLs so the Blob bytes can be GC'd — safe whether
+          // boot succeeded or threw.
+          for (const k in assets) URL.revokeObjectURL(assets[k]);
+        }
         Mono.shader.preset();
       } catch(e) {
         console.error("Boot failed:", e);
