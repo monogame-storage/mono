@@ -4,7 +4,7 @@ local scr = screen()
 local function any_input_released()
   return btnr("start") or btnr("select") or btnr("a") or btnr("b")
       or btnr("up") or btnr("down") or btnr("left") or btnr("right")
-      or touch_start()
+      or touch_end()
 end
 
 function gameover_init()

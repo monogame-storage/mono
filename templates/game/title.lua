@@ -5,7 +5,7 @@ function title_init()
 end
 
 function title_update()
-  if btnr("start") or touch_start() then
+  if btnr("start") or touch_end() then
     note(0, "E5", 0.08)
     go("game")
   end
