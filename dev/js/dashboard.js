@@ -13,6 +13,7 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 import { openEditor } from './editor.js';
+import { buildCart, serializeCart } from './cart.js';
 
 const TEMPLATE_FILES = ["main.lua", "title.lua", "game.lua", "gameover.lua"];
 
@@ -84,10 +85,15 @@ async function createGame() {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    // Seed default scene files (templates/game/) + empty chat history in parallel
-    const templates = await Promise.all(
-      TEMPLATE_FILES.map(async name => ({ name, content: await fetchTemplate(name, title) }))
-    );
+    // Seed cart.json + scene files (templates/game/) + empty chat history in parallel
+    const [cart, ...sceneContents] = await Promise.all([
+      buildCart(title, desc),
+      ...TEMPLATE_FILES.map(name => fetchTemplate(name, title)),
+    ]);
+    const templates = [
+      { name: "cart.json", content: serializeCart(cart) },
+      ...TEMPLATE_FILES.map((name, i) => ({ name, content: sceneContents[i] })),
+    ];
     await Promise.all([
       ...templates.map(f =>
         apiFetch(`/games/${docRef.id}/files/${f.name}`, {

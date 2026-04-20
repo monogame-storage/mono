@@ -8,6 +8,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 import { runHeadlessTest } from './editor-play.js';
 import { openAIProviders } from './settings.js';
+import { loadCart, saveCart, buildCart, serializeCart } from './cart.js';
 
 // ── Publish UI ──
 
@@ -141,6 +142,8 @@ export function initEditorGame() {
     btn.disabled = true;
     btn.textContent = "Saving...";
     try {
+      // Firestore is the source of truth — write it first so the value
+      // is durable even if the cart.json mirror below fails.
       const { updateDoc } = await import("https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js");
       await updateDoc(doc(state.db, "games", state.currentGameId), {
         title: newTitle,
@@ -150,6 +153,22 @@ export function initEditorGame() {
       state.currentGameTitle = newTitle;
       state.currentGameDesc = newDesc;
       document.getElementById("editor-title").textContent = newTitle;
+
+      // Mirror to cart.json for offline consumers.
+      try {
+        const cart = (await loadCart(state.currentGameId)) || await buildCart(newTitle, newDesc);
+        cart.title = newTitle;
+        if (newDesc) cart.description = newDesc;
+        else delete cart.description;
+        await saveCart(state.currentGameId, cart);
+        const content = serializeCart(cart);
+        const existing = state.currentFiles.find(f => f.name === "cart.json");
+        if (existing) existing.content = content;
+        else state.currentFiles.push({ name: "cart.json", content });
+      } catch (e) {
+        console.warn("cart.json mirror failed:", e);
+      }
+
       btn.textContent = "Saved!";
       setTimeout(() => { btn.textContent = "Save"; btn.disabled = false; }, 1500);
     } catch (e) {

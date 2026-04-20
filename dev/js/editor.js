@@ -8,6 +8,7 @@ import {
   getDoc,
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 import { decryptData, updateModelSelector, saveProviders, openAIProviders, getVaultPp } from './settings.js';
+import { saveCart, buildCart, serializeCart } from './cart.js';
 import { initEditorAI, renderChatHistory, clearEngineError } from './editor-ai.js';
 import { initEditorPlay, stopGame } from './editor-play.js';
 import { initEditorFiles } from './editor-files.js';
@@ -205,6 +206,20 @@ export async function openEditor(gameId, title, desc) {
       }
     }
   } catch {}
+
+  // cart.json is a mirror of Firestore metadata for offline consumers
+  // (packaged Android carts, static deploys). Backfill it here if a
+  // legacy game never had one written.
+  const hasCart = state.currentFiles.some(f => f.name === "cart.json");
+  if (!hasCart) {
+    try {
+      const cart = await buildCart(state.currentGameTitle, state.currentGameDesc);
+      await saveCart(gameId, cart);
+      state.currentFiles.push({ name: "cart.json", content: serializeCart(cart) });
+    } catch (e) {
+      console.warn("cart.json backfill failed:", e);
+    }
+  }
 
   // Load chat history
   try {
