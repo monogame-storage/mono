@@ -13,7 +13,18 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 import { openEditor } from './editor.js';
-import { DEFAULT_GAME_FILES } from './game-template.js';
+
+const TEMPLATE_FILES = ["main.lua", "title.lua", "game.lua", "gameover.lua"];
+
+function escapeLuaString(s) {
+  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
+}
+
+async function fetchTemplate(name, title) {
+  const res = await fetch(`/templates/game/${name}`);
+  const body = await res.text();
+  return body.replaceAll("%TITLE%", escapeLuaString(title));
+}
 
 export function renderDashboard(user) {
   document.getElementById("dash-name").textContent = user.displayName || user.email;
@@ -72,9 +83,12 @@ async function createGame() {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    // Seed default game files + empty chat history in parallel
+    // Seed default scene files (templates/game/) + empty chat history in parallel
+    const templates = await Promise.all(
+      TEMPLATE_FILES.map(async name => ({ name, content: await fetchTemplate(name, title) }))
+    );
     await Promise.all([
-      ...DEFAULT_GAME_FILES.map(f =>
+      ...templates.map(f =>
         apiFetch(`/games/${docRef.id}/files/${f.name}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

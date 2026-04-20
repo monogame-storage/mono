@@ -36,105 +36,12 @@ cat > "$DEMO_DIR/cart.json" <<JSON
 }
 JSON
 
-# --- main.lua — entry, boots into title ---
-cat > "$DEMO_DIR/main.lua" <<'LUA'
--- Entry file: boot into the title scene.
-function _init()
-  mode(4)
-end
-
-function _start()
-  go("title")
-end
-LUA
-
-# --- title.lua — title screen with blinking PRESS START ---
-cat > "$DEMO_DIR/title.lua" <<LUA
--- Title scene: blinking PRESS START, reacts to START or touch.
-local scr = screen()
-
-function title_init()
-end
-
-function title_update()
-  -- START (or touch) begins the game
-  if btnr("start") or touch_start() then
-    go("game")
-  end
-end
-
-function title_draw()
-  cls(scr, 0)
-  text(scr, "$NAME", 0, 40, 15, ALIGN_HCENTER)
-
-  -- Blinking PRESS START — classic arcade pattern
-  if math.floor(frame() / 15) % 2 == 0 then
-    text(scr, "PRESS START", 0, 90, 11, ALIGN_HCENTER)
-  end
-end
-LUA
-
-# --- game.lua — main gameplay loop ---
-cat > "$DEMO_DIR/game.lua" <<'LUA'
--- Gameplay scene.
--- SELECT is handled by the engine (pause toggle) — no need to implement it.
--- If you want SELECT for inventory / menu / etc., call use_pause(false)
--- in game_init and handle btnp("select") yourself.
-local scr = screen()
-
-local player_x, player_y
-
-function game_init()
-  player_x = SCREEN_W / 2
-  player_y = SCREEN_H / 2
-end
-
-function game_update()
-  -- Simple movement with the d-pad
-  if btn("left")  then player_x = player_x - 1 end
-  if btn("right") then player_x = player_x + 1 end
-  if btn("up")    then player_y = player_y - 1 end
-  if btn("down")  then player_y = player_y + 1 end
-
-  -- Example: A triggers "hit" → go to gameover
-  if btnr("a") then
-    go("gameover")
-  end
-end
-
-function game_draw()
-  cls(scr, 0)
-  text(scr, "PLAYING", 2, 2, 11)
-  rectf(scr, math.floor(player_x) - 2, math.floor(player_y) - 2, 5, 5, 15)
-end
-LUA
-
-# --- gameover.lua — any input returns to title ---
-cat > "$DEMO_DIR/gameover.lua" <<'LUA'
--- Game over scene. Any input returns to the title.
-local scr = screen()
-
-local function any_input_released()
-  return btnr("start") or btnr("select") or btnr("a") or btnr("b")
-      or btnr("up") or btnr("down") or btnr("left") or btnr("right")
-      or touch_start()
-end
-
-function gameover_init()
-end
-
-function gameover_update()
-  if any_input_released() then
-    go("title")
-  end
-end
-
-function gameover_draw()
-  cls(scr, 0)
-  text(scr, "GAME OVER", 0, 55, 15, ALIGN_HCENTER)
-  text(scr, "ANY KEY",   0, 75, 8,  ALIGN_HCENTER)
-end
-LUA
+# --- Copy canonical scene files from templates/game/ with title substitution ---
+# Escape backslashes and sed delimiters in the name so the substitution is safe.
+TITLE_ESC=$(printf '%s' "$NAME" | sed -e 's/[\\&|]/\\&/g')
+for f in main.lua title.lua game.lua gameover.lua; do
+  sed "s|%TITLE%|$TITLE_ESC|g" "$REPO_ROOT/templates/game/$f" > "$DEMO_DIR/$f"
+done
 
 # --- .standard marker for /mono-lint ---
 touch "$DEMO_DIR/.standard"

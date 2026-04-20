@@ -298,9 +298,12 @@ if ! $DRY_RUN; then
   copy_engine_files "$TARGET_DIR/cart/.mono"
 fi
 
-# 4. Create starter main.lua + default shader.json
+# 4. Create starter scene files + default shader.json
 if ! $DRY_RUN; then
-  cp "$MONO_ROOT/editor/templates/mono/main.lua" "$TARGET_DIR/cart/main.lua"
+  title_esc=$(printf '%s' "$PROJECT_NAME" | sed -e 's/[\\&|]/\\&/g')
+  for f in main.lua title.lua game.lua gameover.lua; do
+    sed "s|%TITLE%|$title_esc|g" "$MONO_ROOT/templates/game/$f" > "$TARGET_DIR/cart/$f"
+  done
   cat > "$TARGET_DIR/cart/shader.json" << 'SHADER_EOF'
 {
   "chain": ["tint", "lcd"],
