@@ -597,6 +597,9 @@ var Mono = (() => {
   // Created per boot(); invoked by resume() to re-install the same
   // listener bundle onto the document/touchTarget after a suspend.
   let _attachListeners = null;
+  // Stored per boot so resume() can re-fit the canvas against the
+  // current window size (the user may have resized while suspended).
+  let _fitCanvas = null;
   let _suspended = false;
 
   function detachListeners() {
@@ -617,6 +620,7 @@ var Mono = (() => {
     detachListeners();
     _suspended = false;
     _attachListeners = null;
+    _fitCanvas = null;
     images = []; imageIdCounter = 0; pendingLoads = [];
     camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
     // Reset bootTime at each boot so time() starts near 0 on the very
@@ -660,7 +664,9 @@ var Mono = (() => {
 
     // Fit canvas to window now (skip if opts.noAutoFit). The matching
     // resize listener is registered inside _attachListeners so it
-    // cleanly detaches/reattaches across suspend/resume.
+    // cleanly detaches/reattaches across suspend/resume. resume() also
+    // calls this directly via _fitCanvas to catch window resizes that
+    // happened while the engine was suspended.
     function fitCanvas() {
       if (opts.noAutoFit) return;
       const maxW = window.innerWidth - 40;
@@ -669,6 +675,7 @@ var Mono = (() => {
       canvas.style.width = (W * s) + "px";
       canvas.style.height = (H * s) + "px";
     }
+    _fitCanvas = fitCanvas;
     fitCanvas();
 
     const isEditableTarget = (el) =>
@@ -1138,6 +1145,7 @@ var Mono = (() => {
     if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     _tickFn = null;
     _attachListeners = null;
+    _fitCanvas = null;
     _suspended = false;
     detachListeners();
     releaseWakeLock();
@@ -1163,6 +1171,10 @@ var Mono = (() => {
     cancelAnimationFrame(_loopId);
     _loopId = null;
     detachListeners();
+    // Silence any in-flight audio — Web Audio oscillators have their own
+    // timeline and would keep ringing otherwise while the render loop
+    // is halted.
+    sfxStop();
     // Clear any held input so nothing "sticks" across the gap — mirrors
     // the full reset list in API.stop() so suspend and stop leave input
     // state equivalently idle.
@@ -1180,6 +1192,9 @@ var Mono = (() => {
     if (!_suspended) return;
     _suspended = false;
     if (_attachListeners) _attachListeners();
+    // Catch any window resize that happened while suspended — the
+    // resize listener was detached so CSS sizing may be stale.
+    if (_fitCanvas) _fitCanvas();
     requestWakeLock();
     if (_tickFn) {
       _loopId = requestAnimationFrame(_tickFn);
