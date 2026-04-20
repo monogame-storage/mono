@@ -122,6 +122,11 @@ onmessage = async (e) => {
         throw new Error('btnp() invalid key "' + k + '"');
       return 0;
     });
+    lua.global.set("_btnr", (k) => {
+      if (typeof k !== "string" || !validKeys[k])
+        throw new Error('btnr() invalid key "' + k + '"');
+      return 0;
+    });
     lua.global.set("_touch", () => 0);
     lua.global.set("_touch_start", () => 0);
     lua.global.set("_touch_end", () => 0);
@@ -133,6 +138,29 @@ onmessage = async (e) => {
     lua.global.set("swipe", () => false);
     lua.global.set("axis_x", () => 0);
     lua.global.set("axis_y", () => 0);
+
+    // Lua wrappers — mirror runtime/engine.js so scripts see the same API.
+    await lua.doString(`
+function btn(k)  return _btn(k) == 1 end
+function btnp(k) return _btnp(k) == 1 end
+function btnr(k) return _btnr(k) == 1 end
+function touch() return _touch() == 1 end
+function touch_start() return _touch_start() == 1 end
+function touch_end()   return _touch_end() == 1 end
+function touch_pos(i)
+  i = i or 1
+  local x = _touch_pos_x(i)
+  if x == false then return false end
+  return x, _touch_pos_y(i)
+end
+function touch_posf(i)
+  i = i or 1
+  local x = _touch_posf_x(i)
+  if x == false then return false end
+  return x, _touch_posf_y(i)
+end
+function cam_get() return _cam_get_x(), _cam_get_y() end
+`);
 
     // Frame / time
     let frameNum = 0;
