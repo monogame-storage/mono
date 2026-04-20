@@ -27,5 +27,11 @@ NEW="$MAJOR.$MINOR.$PATCH"
 
 sed -i '' "s/MONO_VERSION = \"$CURRENT\"/MONO_VERSION = \"$NEW\"/" "$EDITOR"
 
+# Keep the plain-text VERSION file at the repo root in sync so bash
+# scripts and static JS fetchers can read it without parsing HTML.
+if [ -f "$REPO/VERSION" ]; then
+  echo "$NEW" > "$REPO/VERSION"
+fi
+
 TRIGGER=$(basename "$FILE")
 echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"$TRIGGER edited → version bumped $CURRENT → $NEW\"}}"

@@ -27,11 +27,13 @@ fi
 
 mkdir -p "$DEMO_DIR"
 
-# --- Copy canonical files from templates/game/ with title substitution ---
+# --- Copy canonical files from templates/game/ with title + engine substitution ---
 # Escape backslashes and sed delimiters in the name so the substitution is safe.
 TITLE_ESC=$(printf '%s' "$NAME" | sed -e 's/[\\&|]/\\&/g')
+ENGINE=$(cat "$REPO_ROOT/VERSION")
 for f in cart.json main.lua title.lua game.lua gameover.lua; do
-  sed "s|%TITLE%|$TITLE_ESC|g" "$REPO_ROOT/templates/game/$f" > "$DEMO_DIR/$f"
+  sed -e "s|%TITLE%|$TITLE_ESC|g" -e "s|%ENGINE%|$ENGINE|g" \
+      "$REPO_ROOT/templates/game/$f" > "$DEMO_DIR/$f"
 done
 
 # --- .standard marker for /mono-lint ---

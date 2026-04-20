@@ -1,5 +1,5 @@
 {
   "mono": 1,
-  "engine": "0.4",
+  "engine": "%ENGINE%",
   "title": "%TITLE%"
 }

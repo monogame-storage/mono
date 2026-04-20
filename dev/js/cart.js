@@ -1,7 +1,8 @@
 // ── cart.json helpers ──
-// cart.json is the authoritative game manifest. Firestore keeps a
-// denormalized copy of title/description/engine/required so the
-// dashboard can list games without N extra fetches.
+// cart.json mirrors the Firestore-backed metadata so offline consumers
+// (packaged Android carts, static deploys without Firestore) can still
+// read a game's manifest. The online editor treats Firestore as the
+// source of truth and syncs cart.json best-effort after every write.
 
 import { apiFetch } from './api.js';
 
@@ -34,8 +35,18 @@ export async function fetchCartTemplate() {
   return await res.json();
 }
 
+let cachedEngineVersion = null;
+async function getEngineVersion() {
+  if (cachedEngineVersion) return cachedEngineVersion;
+  const res = await fetch(`/VERSION`);
+  if (!res.ok) throw new Error(`VERSION fetch failed (${res.status})`);
+  cachedEngineVersion = (await res.text()).trim();
+  return cachedEngineVersion;
+}
+
 export async function buildCart(title, description) {
-  const cart = await fetchCartTemplate();
+  const [cart, engine] = await Promise.all([fetchCartTemplate(), getEngineVersion()]);
+  cart.engine = engine;
   cart.title = title;
   if (description) cart.description = description;
   return cart;
