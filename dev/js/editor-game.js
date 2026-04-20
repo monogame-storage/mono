@@ -73,8 +73,10 @@ function updatePublishUI() {
   const desc = document.getElementById("publish-desc");
   const btn = document.getElementById("btn-publish");
   const btnUpdate = document.getElementById("btn-update");
+  const btnDelete = document.getElementById("btn-delete-game");
+  const isPublished = state.currentGameStatus === "published";
 
-  if (state.currentGameStatus === "published") {
+  if (isPublished) {
     badge.className = "publish-badge published";
     badge.textContent = "Published";
     version.textContent = state.currentPublishedVersion ? `v${state.currentPublishedVersion}` : "";
@@ -95,6 +97,15 @@ function updatePublishUI() {
     btnUpdate.style.display = "none";
   }
   btn.disabled = false;
+
+  // Published games can't be deleted outright — unpublish first so the
+  // live snapshot comes down before the source goes away.
+  if (btnDelete) {
+    btnDelete.disabled = isPublished;
+    btnDelete.title = isPublished
+      ? "Unpublish first — live games cannot be deleted."
+      : "";
+  }
 }
 
 function fileListDump() {
@@ -273,6 +284,10 @@ export function initEditorGame() {
 
   // Delete game
   document.getElementById("btn-delete-game").addEventListener("click", async () => {
+    if (state.currentGameStatus === "published") {
+      alert("Unpublish this game before deleting it.");
+      return;
+    }
     if (!confirm("Are you sure? This will permanently delete this game.")) return;
     if (!confirm("This cannot be undone. Delete forever?")) return;
 

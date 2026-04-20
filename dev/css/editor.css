@@ -1052,6 +1052,13 @@
   gap: 8px;
 }
 .btn-delete-game:hover { background: #1a0000; border-color: #ff6666; }
+.btn-delete-game:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: transparent;
+  border-color: #442222;
+}
+.btn-delete-game:disabled:hover { background: transparent; border-color: #442222; }
 
 /* ── Game tab: AI Provider row ── */
 .game-provider-row {
