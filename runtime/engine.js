@@ -591,13 +591,36 @@ var Mono = (() => {
   let _loopId = null;
   let _lua = null;
   let _tickFn = null;
+  // Listener refs for clean teardown. Populated by attachListeners inside
+  // boot(), drained by detachListeners on suspend/stop.
+  let _listeners = [];
+  // Created per boot(); invoked by resume() to re-install the same
+  // listener bundle onto the document/touchTarget after a suspend.
+  let _attachListeners = null;
+  // Stored per boot so resume() can re-fit the canvas against the
+  // current window size (the user may have resized while suspended).
+  let _fitCanvas = null;
+  let _suspended = false;
+
+  function detachListeners() {
+    for (const { target, type, fn, opts } of _listeners) {
+      target.removeEventListener(type, fn, opts);
+    }
+    _listeners = [];
+  }
 
   API.boot = async (canvasId, opts) => {
     if (!opts || (!opts.game && !opts.source)) return;
 
     // Stop previous run if any
-    if (_loopId) { clearInterval(_loopId); _loopId = null; }
+    if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     if (_lua) { _lua.global.close(); _lua = null; }
+    // Detach any listeners from a prior boot — new boot re-attaches via
+    // _attachListeners() below.
+    detachListeners();
+    _suspended = false;
+    _attachListeners = null;
+    _fitCanvas = null;
     images = []; imageIdCounter = 0; pendingLoads = [];
     camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
     // Reset bootTime at each boot so time() starts near 0 on the very
@@ -627,111 +650,132 @@ var Mono = (() => {
     const colorBuf = new Uint8Array(W * H);
     surfaces[0] = { w: W, h: H, buf32, colorBuf };
 
-    // Fit canvas to window (skip if opts.noAutoFit)
-    if (!opts.noAutoFit) {
-      function fitCanvas() {
-        const maxW = window.innerWidth - 40;
-        const maxH = window.innerHeight - 60;
-        const s = Math.min(maxW / W, maxH / H);
-        canvas.style.width = (W * s) + "px";
-        canvas.style.height = (H * s) + "px";
-      }
-      fitCanvas();
-      window.addEventListener("resize", fitCanvas);
-    }
-
-    // Input handling (skip if external controller manages input)
-    if (!opts.externalInput) {
-      document.addEventListener("keydown", e => {
-        if (e.key === "1") { debugMode = !debugMode; return; }
-        if (e.key === " " && pauseEnabled) { paused = !paused; e.preventDefault(); return; }
-        const k = keyMap[e.key] || keyCodeMap[e.keyCode];
-        if (k) { keys[k] = true; e.preventDefault(); }
-      });
-      document.addEventListener("keyup", e => {
-        const k = keyMap[e.key] || keyCodeMap[e.keyCode];
-        if (k) { keys[k] = false; e.preventDefault(); }
-      });
-
-    }
-
-    // Touch & mouse events (always registered, even with externalInput)
     // Bind to canvas parent to work even when shader replaces canvas with glCanvas
     const touchTarget = canvas.parentNode || canvas;
-    touchTarget.addEventListener("touchstart", e => {
-      e.preventDefault();
-      const rect = getContentRect();
-      let added = 0;
-      for (const t of e.changedTouches) {
-        if (!isInsideRect(t.clientX, t.clientY, rect)) continue;
-        const p = mapToScreenWithRect(t.clientX, t.clientY, rect);
-        touches.push({ id: t.identifier, ...p });
-        added++;
-      }
-      if (added === 0) return;
-      touchStartedFlag = true;
-      if (!swipeAnchor) {
-        swipeAnchor = { x: touches[touches.length - added].fx, y: touches[touches.length - added].fy };
-      }
-    }, { passive: false });
+    let mouseDown = false;
 
-    touchTarget.addEventListener("touchmove", e => {
-      e.preventDefault();
-      for (const t of e.changedTouches) {
-        const idx = touches.findIndex(tt => tt.id === t.identifier);
-        if (idx >= 0) {
-          const p = mapToScreen(t.clientX, t.clientY);
-          touches[idx] = { id: t.identifier, ...p };
+    // All event handlers live in a reinstallable bundle so the engine can
+    // cleanly release them on suspend/stop (prevents wasd/zx from being
+    // swallowed in editor textareas once the Play tab is left).
+    const on = (target, type, fn, evOpts) => {
+      target.addEventListener(type, fn, evOpts);
+      _listeners.push({ target, type, fn, opts: evOpts });
+    };
+
+    // Fit canvas to window now (skip if opts.noAutoFit). The matching
+    // resize listener is registered inside _attachListeners so it
+    // cleanly detaches/reattaches across suspend/resume. resume() also
+    // calls this directly via _fitCanvas to catch window resizes that
+    // happened while the engine was suspended.
+    function fitCanvas() {
+      if (opts.noAutoFit) return;
+      const maxW = window.innerWidth - 40;
+      const maxH = window.innerHeight - 60;
+      const s = Math.min(maxW / W, maxH / H);
+      canvas.style.width = (W * s) + "px";
+      canvas.style.height = (H * s) + "px";
+    }
+    _fitCanvas = fitCanvas;
+    fitCanvas();
+
+    const isEditableTarget = (el) =>
+      !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" ||
+               el.isContentEditable === true);
+
+    _attachListeners = function attachListeners() {
+      if (!opts.noAutoFit) on(window, "resize", fitCanvas);
+      // Input handling (skip if external controller manages input)
+      if (!opts.externalInput) {
+        on(document, "keydown", (e) => {
+          // Never intercept while the user is typing in an editable
+          // element — safety net if the engine runs while a form is focused.
+          if (isEditableTarget(e.target)) return;
+          if (e.key === "1") { debugMode = !debugMode; return; }
+          if (e.key === " " && pauseEnabled) { paused = !paused; e.preventDefault(); return; }
+          const k = keyMap[e.key] || keyCodeMap[e.keyCode];
+          if (k) { keys[k] = true; e.preventDefault(); }
+        });
+        on(document, "keyup", (e) => {
+          if (isEditableTarget(e.target)) return;
+          const k = keyMap[e.key] || keyCodeMap[e.keyCode];
+          if (k) { keys[k] = false; e.preventDefault(); }
+        });
+      }
+
+      on(touchTarget, "touchstart", (e) => {
+        e.preventDefault();
+        const rect = getContentRect();
+        let added = 0;
+        for (const t of e.changedTouches) {
+          if (!isInsideRect(t.clientX, t.clientY, rect)) continue;
+          const p = mapToScreenWithRect(t.clientX, t.clientY, rect);
+          touches.push({ id: t.identifier, ...p });
+          added++;
         }
-      }
-    }, { passive: false });
+        if (added === 0) return;
+        touchStartedFlag = true;
+        if (!swipeAnchor) {
+          swipeAnchor = { x: touches[touches.length - added].fx, y: touches[touches.length - added].fy };
+        }
+      }, { passive: false });
 
-    const onTouchEnd = e => {
-      e.preventDefault();
-      for (const t of e.changedTouches) {
-        const idx = touches.findIndex(tt => tt.id === t.identifier);
+      on(touchTarget, "touchmove", (e) => {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+          const idx = touches.findIndex(tt => tt.id === t.identifier);
+          if (idx >= 0) {
+            const p = mapToScreen(t.clientX, t.clientY);
+            touches[idx] = { id: t.identifier, ...p };
+          }
+        }
+      }, { passive: false });
+
+      const onTouchEnd = (e) => {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+          const idx = touches.findIndex(tt => tt.id === t.identifier);
+          if (idx >= 0) {
+            detectSwipe(touches[idx].fx, touches[idx].fy);
+            touches.splice(idx, 1);
+          }
+        }
+        touchEndedFlag = true;
+        if (touches.length === 0) swipeAnchor = null;
+      };
+      on(touchTarget, "touchend",    onTouchEnd, { passive: false });
+      on(touchTarget, "touchcancel", onTouchEnd, { passive: false });
+
+      on(touchTarget, "mousedown", (e) => {
+        const rect = getContentRect();
+        if (!isInsideRect(e.clientX, e.clientY, rect)) return;
+        const p = mapToScreenWithRect(e.clientX, e.clientY, rect);
+        touches = touches.filter(t => t.id !== -1);
+        touches.push({ id: -1, ...p });
+        mouseDown = true;
+        touchStartedFlag = true;
+        swipeAnchor = { x: p.fx, y: p.fy };
+      });
+      on(document, "mousemove", (e) => {
+        if (!mouseDown) return;
+        const idx = touches.findIndex(t => t.id === -1);
+        if (idx >= 0) {
+          const p = mapToScreen(e.clientX, e.clientY);
+          touches[idx] = { id: -1, ...p };
+        }
+      });
+      on(document, "mouseup", () => {
+        if (!mouseDown) return;
+        mouseDown = false;
+        const idx = touches.findIndex(t => t.id === -1);
         if (idx >= 0) {
           detectSwipe(touches[idx].fx, touches[idx].fy);
           touches.splice(idx, 1);
         }
-      }
-      touchEndedFlag = true;
-      if (touches.length === 0) swipeAnchor = null;
+        touchEndedFlag = true;
+        if (touches.length === 0) swipeAnchor = null;
+      });
     };
-    touchTarget.addEventListener("touchend", onTouchEnd, { passive: false });
-    touchTarget.addEventListener("touchcancel", onTouchEnd, { passive: false });
-
-    // Mouse as single touch
-    let mouseDown = false;
-    touchTarget.addEventListener("mousedown", e => {
-      const rect = getContentRect();
-      if (!isInsideRect(e.clientX, e.clientY, rect)) return;
-      const p = mapToScreenWithRect(e.clientX, e.clientY, rect);
-      touches = touches.filter(t => t.id !== -1);
-      touches.push({ id: -1, ...p });
-      mouseDown = true;
-      touchStartedFlag = true;
-      swipeAnchor = { x: p.fx, y: p.fy };
-    });
-    document.addEventListener("mousemove", e => {
-      if (!mouseDown) return;
-      const idx = touches.findIndex(t => t.id === -1);
-      if (idx >= 0) {
-        const p = mapToScreen(e.clientX, e.clientY);
-        touches[idx] = { id: -1, ...p };
-      }
-    });
-    document.addEventListener("mouseup", e => {
-      if (!mouseDown) return;
-      mouseDown = false;
-      const idx = touches.findIndex(t => t.id === -1);
-      if (idx >= 0) {
-        detectSwipe(touches[idx].fx, touches[idx].fy);
-        touches.splice(idx, 1);
-      }
-      touchEndedFlag = true;
-      if (touches.length === 0) swipeAnchor = null;
-    });
+    _attachListeners();
 
     // Get game source (fetch URL or use inline source)
     const gameSrc = opts.source || await fetch(opts.game).then(r => r.text());
@@ -1100,6 +1144,10 @@ var Mono = (() => {
   API.stop = () => {
     if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     _tickFn = null;
+    _attachListeners = null;
+    _fitCanvas = null;
+    _suspended = false;
+    detachListeners();
     releaseWakeLock();
     if (_lua) { _lua.global.close(); _lua = null; }
     paused = false;
@@ -1111,6 +1159,48 @@ var Mono = (() => {
     touches = []; touchStarted = false; touchEnded = false; touchStartedFlag = false; touchEndedFlag = false;
     swipeDir = false; swipeDirFlag = false; swipeAnchor = null;
     sceneRef.current = null; sceneRef.pending = null; loadedSceneFiles = {};
+  };
+
+  // Pause the running game without tearing down Lua/surfaces. Frees the
+  // global DOM listeners (so wasd/zx work in editor textareas) and halts
+  // the render loop. Cheap to call repeatedly — no-op if not running or
+  // already suspended.
+  API.suspend = () => {
+    if (_suspended || !_loopId) return;
+    _suspended = true;
+    cancelAnimationFrame(_loopId);
+    _loopId = null;
+    detachListeners();
+    // Silence any in-flight audio — Web Audio oscillators have their own
+    // timeline and would keep ringing otherwise while the render loop
+    // is halted.
+    sfxStop();
+    // Clear any held input so nothing "sticks" across the gap — mirrors
+    // the full reset list in API.stop() so suspend and stop leave input
+    // state equivalently idle.
+    for (const k in keys) { keys[k] = false; keysPrev[k] = false; }
+    axisX = 0; axisY = 0;
+    touches = []; touchStarted = false; touchEnded = false;
+    touchStartedFlag = false; touchEndedFlag = false;
+    swipeDir = false; swipeDirFlag = false; swipeAnchor = null;
+    releaseWakeLock();
+  };
+
+  // Resume a previously suspended game. Reattaches listeners and
+  // restarts the RAF loop; assumes Lua state + surfaces are intact.
+  API.resume = () => {
+    if (!_suspended) return;
+    _suspended = false;
+    if (_attachListeners) _attachListeners();
+    // Catch any window resize that happened while suspended — the
+    // resize listener was detached so CSS sizing may be stale.
+    if (_fitCanvas) _fitCanvas();
+    requestWakeLock();
+    if (_tickFn) {
+      _loopId = requestAnimationFrame(_tickFn);
+    } else {
+      console.warn("Mono.resume: no tick function — game was not fully booted before suspend; skipping RAF restart.");
+    }
   };
 
   // Expose input for external control (playground gamepad)

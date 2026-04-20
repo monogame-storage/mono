@@ -73,8 +73,10 @@ function updatePublishUI() {
   const desc = document.getElementById("publish-desc");
   const btn = document.getElementById("btn-publish");
   const btnUpdate = document.getElementById("btn-update");
+  const btnDelete = document.getElementById("btn-delete-game");
+  const isPublished = state.currentGameStatus === "published";
 
-  if (state.currentGameStatus === "published") {
+  if (isPublished) {
     badge.className = "publish-badge published";
     badge.textContent = "Published";
     version.textContent = state.currentPublishedVersion ? `v${state.currentPublishedVersion}` : "";
@@ -95,6 +97,15 @@ function updatePublishUI() {
     btnUpdate.style.display = "none";
   }
   btn.disabled = false;
+
+  // Published games can't be deleted outright — unpublish first so the
+  // live snapshot comes down before the source goes away.
+  if (btnDelete) {
+    btnDelete.disabled = isPublished;
+    btnDelete.title = isPublished
+      ? "Unpublish first — live games cannot be deleted."
+      : "";
+  }
 }
 
 function fileListDump() {
@@ -106,6 +117,7 @@ function fileListDump() {
 
 async function publishGame() {
   const btn = document.getElementById("btn-publish");
+  const btnDelete = document.getElementById("btn-delete-game");
   const mainFile = state.currentFiles.find(f => f.name === "main.lua");
   if (!mainFile) {
     showErrorPopup("Cannot publish", "main.lua is required.\n\nFiles:\n" + fileListDump());
@@ -114,6 +126,9 @@ async function publishGame() {
 
   btn.disabled = true;
   btn.textContent = "Testing...";
+  // Delete must be locked for the entire publish window — otherwise a
+  // concurrent click could tear down the game mid-snapshot.
+  if (btnDelete) btnDelete.disabled = true;
 
   const result = await runHeadlessTest(state.currentFiles, 30);
   if (!result.success) {
@@ -125,6 +140,7 @@ async function publishGame() {
     showErrorPopup("Cannot publish: test failed", body);
     btn.disabled = false;
     btn.textContent = "Publish";
+    if (btnDelete) btnDelete.disabled = false;
     return;
   }
 
@@ -171,17 +187,19 @@ async function publishGame() {
       showErrorPopup("Publish failed — " + reason.split("\n")[0], body);
       btn.disabled = false;
       btn.textContent = "Publish";
+      if (btnDelete) btnDelete.disabled = false;
       return;
     }
     const data = await res.json();
     state.currentGameStatus = "published";
     state.currentPublishedVersion = data.version || (state.currentPublishedVersion + 1);
-    updatePublishUI();
+    updatePublishUI();  // restores btnDelete.disabled to the correct state (true, since now published)
   } catch (e) {
     const body = `${e.message || e}\n\nGame ID: ${state.currentGameId}\n\nFiles:\n${fileListDump()}`;
     showErrorPopup("Publish failed", body);
     btn.disabled = false;
     btn.textContent = "Publish";
+    if (btnDelete) btnDelete.disabled = false;
   }
 }
 
@@ -189,8 +207,11 @@ async function unpublishGame() {
   if (!confirm("Unpublish this game? It will no longer be publicly playable.")) return;
 
   const btn = document.getElementById("btn-publish");
+  const btnDelete = document.getElementById("btn-delete-game");
   btn.disabled = true;
   btn.textContent = "Unpublishing...";
+  // Keep delete locked through the whole unpublish; updatePublishUI on
+  // success re-enables it for the now-Draft game.
 
   try {
     const res = await apiFetch(`/games/${state.currentGameId}/unpublish`, { method: "POST" });
@@ -199,11 +220,14 @@ async function unpublishGame() {
       throw new Error(err.error || `Unpublish failed (${res.status})`);
     }
     state.currentGameStatus = "draft";
-    updatePublishUI();
+    updatePublishUI();  // delete becomes enabled (draft)
   } catch (e) {
     alert("Unpublish failed: " + e.message);
     btn.disabled = false;
     btn.textContent = "Unpublish";
+    // Stay published — updatePublishUI would also keep delete disabled,
+    // but we didn't flip the flag in the first place so nothing to restore.
+    if (btnDelete) btnDelete.disabled = true;
   }
 }
 
@@ -273,6 +297,10 @@ export function initEditorGame() {
 
   // Delete game
   document.getElementById("btn-delete-game").addEventListener("click", async () => {
+    if (state.currentGameStatus === "published") {
+      alert("Unpublish this game before deleting it.");
+      return;
+    }
     if (!confirm("Are you sure? This will permanently delete this game.")) return;
     if (!confirm("This cannot be undone. Delete forever?")) return;
 
