@@ -367,8 +367,9 @@ function syncLog(msg, files) {
   chat.scrollTop = chat.scrollHeight;
 }
 
-// Names excluded from local → cloud sync. `.mono/` and any `_*`/`.*` entry
-// are engine-managed or editor-managed metadata, not game source.
+// Root-level wrapper scripts planted by seedMonoDir(). The broader
+// `_*`/`.*` filter below catches `.mono/` and editor meta files;
+// this set covers the two non-dotted names that belong with them.
 const SYNC_IGNORE_NAMES = new Set(["mono-test", "mono-test.cmd"]);
 
 async function readDirRecursive(dirHandle, prefix = "") {
@@ -400,33 +401,33 @@ async function writeFile(dirHandle, name, content) {
 }
 
 async function seedMonoDir(rootHandle) {
-  const base = window.location.origin;
   const fetchText = async (url) => {
     const r = await fetch(url + "?v=" + Date.now());
     if (!r.ok) throw new Error(`${url} (${r.status})`);
     return await r.text();
   };
-  const version = (await fetchText("/VERSION")).trim();
+
+  // Parallel fetch of every source file first, then sequential writes
+  // (File System Access API handles one writable at a time per handle).
+  const [version, engineJs, bindingsJs, drawJs, testJs, ctxRaw] = await Promise.all([
+    fetchText("/VERSION").then(s => s.trim()),
+    fetchText("/runtime/engine.js"),
+    fetchText("/runtime/engine-bindings.js"),
+    fetchText("/runtime/engine-draw.js"),
+    fetchText("/editor/templates/mono/mono-test.js"),
+    fetchText("/editor/templates/mono/CONTEXT.md"),
+  ]);
 
   const monoDir = await rootHandle.getDirectoryHandle(".mono", { create: true });
-
-  const bundle = [
-    { target: "engine.js",          url: "/runtime/engine.js" },
-    { target: "engine-bindings.js", url: "/runtime/engine-bindings.js" },
-    { target: "engine-draw.js",     url: "/runtime/engine-draw.js" },
-    { target: "mono-test.js",       url: "/editor/templates/mono/mono-test.js" },
-  ];
-  for (const { target, url } of bundle) {
-    const text = await fetchText(url);
-    await writeFile(monoDir, target, text);
-  }
-
+  await writeFile(monoDir, "engine.js",          engineJs);
+  await writeFile(monoDir, "engine-bindings.js", bindingsJs);
+  await writeFile(monoDir, "engine-draw.js",     drawJs);
+  await writeFile(monoDir, "mono-test.js",       testJs);
   // CONTEXT.md uses {{VERSION}} / {{BASE_URL}} placeholders.
-  let ctx = await fetchText("/editor/templates/mono/CONTEXT.md");
-  ctx = ctx
-    .replace(/\{\{VERSION\}\}/g, version)
-    .replace(/\{\{BASE_URL\}\}/g, "https://github.com/monogame-storage/mono/blob/main");
-  await writeFile(monoDir, "CONTEXT.md", ctx);
+  await writeFile(monoDir, "CONTEXT.md",
+    ctxRaw
+      .replace(/\{\{VERSION\}\}/g, version)
+      .replace(/\{\{BASE_URL\}\}/g, "https://github.com/monogame-storage/mono/blob/main"));
   await writeFile(monoDir, "VERSION", version);
 
   // Shell wrappers at the project root. SYNC_IGNORE_NAMES keeps pull
