@@ -10,6 +10,61 @@ import { runHeadlessTest } from './editor-play.js';
 import { openAIProviders } from './settings.js';
 import { loadCart, saveCart, buildCart, serializeCart } from './cart.js';
 
+// ── Copyable error popup ──
+
+function showErrorPopup(title, body) {
+  const sheet = document.getElementById("file-sheet");
+  if (!sheet) { alert(title + "\n\n" + body); return; }
+
+  sheet.innerHTML = `
+    <div class="file-sheet-dim"></div>
+    <div class="file-sheet-panel">
+      <div class="file-sheet-handle"><div class="file-sheet-handle-bar"></div></div>
+      <div class="file-sheet-header">
+        <div class="file-sheet-left">
+          <span class="file-sheet-name">${esc(title)}</span>
+        </div>
+      </div>
+      <div class="fix-confirm-body">
+        <div class="fix-confirm-label">Error (click Copy to grab)</div>
+        <textarea class="fix-confirm-textarea" id="err-popup-text" spellcheck="false" readonly>${esc(body)}</textarea>
+      </div>
+      <div class="sync-actions">
+        <button class="sync-cancel" id="btn-err-close">Close</button>
+        <button class="sync-confirm" id="btn-err-copy">Copy</button>
+      </div>
+    </div>`;
+  sheet.classList.add("open");
+
+  const ta = document.getElementById("err-popup-text");
+  ta.addEventListener("keydown", (e) => e.stopPropagation());
+  ta.addEventListener("keyup", (e) => e.stopPropagation());
+  ta.addEventListener("keypress", (e) => e.stopPropagation());
+
+  let onEsc;
+  const close = () => {
+    sheet.classList.remove("open");
+    document.removeEventListener("keydown", onEsc, true);
+  };
+  onEsc = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); close(); }
+  };
+  document.addEventListener("keydown", onEsc, true);
+  sheet.querySelector(".file-sheet-dim").addEventListener("click", close, { once: true });
+  document.getElementById("btn-err-close").addEventListener("click", close);
+  document.getElementById("btn-err-copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(body);
+      const btn = document.getElementById("btn-err-copy");
+      const orig = btn.textContent;
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    } catch {
+      ta.select();
+    }
+  });
+}
+
 // ── Publish UI ──
 
 function updatePublishUI() {
@@ -42,11 +97,18 @@ function updatePublishUI() {
   btn.disabled = false;
 }
 
+function fileListDump() {
+  return state.currentFiles
+    .filter(f => !f.name.startsWith("_"))
+    .map(f => `  ${f.name} (${f.content ? f.content.length : 0} bytes)`)
+    .join("\n");
+}
+
 async function publishGame() {
   const btn = document.getElementById("btn-publish");
   const mainFile = state.currentFiles.find(f => f.name === "main.lua");
   if (!mainFile) {
-    alert("Cannot publish: main.lua is required.");
+    showErrorPopup("Cannot publish", "main.lua is required.\n\nFiles:\n" + fileListDump());
     return;
   }
 
@@ -56,7 +118,11 @@ async function publishGame() {
   const result = await runHeadlessTest(state.currentFiles, 30);
   if (!result.success) {
     const errors = (result.errors || []).join("\n");
-    alert("Cannot publish: test failed.\n\n" + errors);
+    const body =
+      `Test failed.\n\nErrors:\n${errors}\n\n` +
+      `Output:\n${(result.output || []).join("\n") || "(none)"}\n\n` +
+      `Files:\n${fileListDump()}`;
+    showErrorPopup("Cannot publish: test failed", body);
     btn.disabled = false;
     btn.textContent = "Publish";
     return;
@@ -93,15 +159,27 @@ async function publishGame() {
   try {
     const res = await apiFetch(`/games/${state.currentGameId}/publish`, { method: "POST" });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Publish failed (${res.status})`);
+      const text = await res.text();
+      let parsed = null;
+      try { parsed = JSON.parse(text); } catch {}
+      const reason = parsed?.error || parsed?.detail || text || `HTTP ${res.status}`;
+      const body =
+        `HTTP ${res.status} ${res.statusText}\n\n` +
+        `Response:\n${text || "(empty)"}\n\n` +
+        `Game ID: ${state.currentGameId}\n\n` +
+        `Files:\n${fileListDump()}`;
+      showErrorPopup("Publish failed — " + reason.split("\n")[0], body);
+      btn.disabled = false;
+      btn.textContent = "Publish";
+      return;
     }
     const data = await res.json();
     state.currentGameStatus = "published";
     state.currentPublishedVersion = data.version || (state.currentPublishedVersion + 1);
     updatePublishUI();
   } catch (e) {
-    alert("Publish failed: " + e.message);
+    const body = `${e.message || e}\n\nGame ID: ${state.currentGameId}\n\nFiles:\n${fileListDump()}`;
+    showErrorPopup("Publish failed", body);
     btn.disabled = false;
     btn.textContent = "Publish";
   }

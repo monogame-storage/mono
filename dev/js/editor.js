@@ -195,8 +195,9 @@ export async function openEditor(gameId, title, desc) {
         const { content } = await r.json();
         return { name: f.name, content };
       }));
+      const failed = [];
       for (const r of results) {
-        if (r.status !== "fulfilled") continue;
+        if (r.status !== "fulfilled") { failed.push(r.reason?.message || String(r.reason)); continue; }
         const f = r.value;
         if (f.blobUrl) {
           state.currentAssets[f.name] = f.blobUrl;
@@ -204,6 +205,7 @@ export async function openEditor(gameId, title, desc) {
           state.currentFiles.push(f);
         }
       }
+      if (failed.length) console.warn("[editor] failed to load files:", failed);
     }
   } catch {}
 
