@@ -875,6 +875,64 @@
 .ai-provider-pill.empty:hover { background: #221a10; }
 .ai-provider-pill.empty .pill-icon { color: #ff9a4a; }
 
+/* Provider dropdown (custom, not native <select>) */
+.provider-menu-pop {
+  position: fixed;
+  min-width: 180px;
+  max-width: 280px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  padding: 4px;
+  z-index: 1000;
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.provider-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #ccc;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.provider-menu-row:hover { background: #262626; color: #fff; }
+.provider-menu-row.active { color: #c9a0dc; }
+.provider-menu-row.active .provider-menu-dot { color: #c9a0dc; }
+.provider-menu-dot {
+  display: inline-block;
+  width: 10px;
+  text-align: center;
+  color: #555;
+  font-size: 9px;
+}
+.provider-menu-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.provider-menu-sep {
+  height: 1px;
+  background: #2a2a2a;
+  margin: 4px 2px;
+}
+.provider-menu-row.manage {
+  color: #6c6;
+  justify-content: center;
+}
+.provider-menu-row.manage:hover { color: #8d8; }
+
 /* ── AI tab: Input bar ── */
 .ai-input-bar {
   display: flex;

@@ -34,7 +34,10 @@ const TAB_TOPBAR_BUTTONS = {
   },
   ai: (nav) => {
     // Provider pill — shows current BYOK provider alias, or a "No provider"
-    // prompt that jumps to AI Providers settings when clicked.
+    // prompt that jumps to AI Providers settings when clicked. Native
+    // <select>.click() can't be programmatically opened in most browsers,
+    // so we paint our own menu panel anchored under the pill and keep the
+    // hidden <select> as the value store + change-event source.
     const sel = document.getElementById("model-select");
     const hasProviders = !!(sel && sel.options.length > 0);
     const label = hasProviders
@@ -46,27 +49,86 @@ const TAB_TOPBAR_BUTTONS = {
         <span class="pill-label">${label}</span>
         <span class="pill-chev"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
       </button>`;
-    nav.querySelector("#btn-provider-pill")?.addEventListener("click", () => {
-      // No providers → send user to AI Providers settings instead of
-      // opening an empty <select>.
+
+    const pill = nav.querySelector("#btn-provider-pill");
+    pill?.addEventListener("click", () => {
+      // Clicking the pill while the menu is open → close (toggle).
+      const existing = document.getElementById("provider-menu-pop");
+      if (existing) { existing.remove(); return; }
+
+      // No providers registered → jump straight to settings.
       if (!sel || sel.options.length === 0) {
         openAIProviders();
         return;
       }
-      sel.style.display = "block";
-      sel.style.position = "fixed";
-      sel.style.opacity = "0";
-      sel.focus();
-      sel.click();
-      const hide = () => {
-        sel.style.display = "none";
-        const newLabel = sel.options[sel.selectedIndex]?.textContent || "Model";
-        const pillLabel = nav.querySelector(".pill-label");
-        if (pillLabel) pillLabel.textContent = newLabel;
-        sel.removeEventListener("blur", hide);
+
+      const menu = document.createElement("div");
+      menu.id = "provider-menu-pop";
+      menu.className = "provider-menu-pop";
+
+      // One row per <option>. Clicking commits the selection and
+      // dispatches a change event so the saved-model listener in
+      // initEditor() persists it to localStorage.
+      for (let i = 0; i < sel.options.length; i++) {
+        const opt = sel.options[i];
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "provider-menu-row" + (i === sel.selectedIndex ? " active" : "");
+        row.innerHTML = `
+          <span class="provider-menu-dot">${i === sel.selectedIndex ? "●" : ""}</span>
+          <span class="provider-menu-name">${esc(opt.textContent)}</span>`;
+        row.addEventListener("click", (e) => {
+          e.stopPropagation();
+          sel.value = opt.value;
+          sel.dispatchEvent(new Event("change", { bubbles: true }));
+          const pillLabel = nav.querySelector(".pill-label");
+          if (pillLabel) pillLabel.textContent = opt.textContent;
+          menu.remove();
+        });
+        menu.appendChild(row);
+      }
+
+      // Footer link to the AI Providers settings view.
+      const sep = document.createElement("div");
+      sep.className = "provider-menu-sep";
+      menu.appendChild(sep);
+
+      const manage = document.createElement("button");
+      manage.type = "button";
+      manage.className = "provider-menu-row manage";
+      manage.textContent = "Manage providers…";
+      manage.addEventListener("click", (e) => {
+        e.stopPropagation();
+        menu.remove();
+        openAIProviders();
+      });
+      menu.appendChild(manage);
+
+      // Anchor under the pill, right-aligned.
+      const rect = pill.getBoundingClientRect();
+      menu.style.top = `${rect.bottom + 4}px`;
+      menu.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`;
+      document.body.appendChild(menu);
+
+      // Click-outside + Escape to close. Added on the next tick so the
+      // current click that opened the menu doesn't immediately close it.
+      const onDocClick = (e) => {
+        if (!menu.contains(e.target) && !pill.contains(e.target)) {
+          cleanup();
+        }
       };
-      sel.addEventListener("change", hide, { once: true });
-      sel.addEventListener("blur", hide, { once: true });
+      const onKey = (e) => {
+        if (e.key === "Escape") { e.preventDefault(); cleanup(); }
+      };
+      function cleanup() {
+        menu.remove();
+        document.removeEventListener("click", onDocClick, true);
+        document.removeEventListener("keydown", onKey, true);
+      }
+      setTimeout(() => {
+        document.addEventListener("click", onDocClick, true);
+        document.addEventListener("keydown", onKey, true);
+      }, 0);
     });
   },
   play: (nav) => {
