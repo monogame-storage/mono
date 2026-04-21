@@ -256,6 +256,7 @@ function editProvider(idx) {
   document.getElementById("apf-model").value = p.model;
   document.getElementById("apf-key").value = p.key;
   document.getElementById("apf-url").value = p.url || "";
+  document.getElementById("apf-model-name").value = p.modelName || "";
   document.getElementById("apf-default-toggle").className = p.isDefault ? "apf-toggle on" : "apf-toggle";
   document.getElementById("apf-test-result").className = "apf-test-result";
   document.getElementById("btn-apf-delete").className = "apf-delete-btn show";
@@ -451,6 +452,7 @@ export function initSettings() {
     document.getElementById("apf-model").value = "gpt-5.3-codex";
     document.getElementById("apf-key").value = "";
     document.getElementById("apf-url").value = "";
+    document.getElementById("apf-model-name").value = "";
     document.getElementById("apf-default-toggle").className = "apf-toggle";
     document.getElementById("apf-test-result").className = "apf-test-result";
     document.getElementById("btn-apf-delete").className = "apf-delete-btn";
@@ -468,6 +470,7 @@ export function initSettings() {
     const model = document.getElementById("apf-model").value;
     const key = document.getElementById("apf-key").value.trim();
     const url = document.getElementById("apf-url").value.trim();
+    const modelName = document.getElementById("apf-model-name").value.trim();
     const isDefault = document.getElementById("apf-default-toggle").classList.contains("on");
     if (!alias || !key) { alert("Alias and API Key are required"); return; }
 
@@ -475,9 +478,12 @@ export function initSettings() {
 
     if (state.editingProviderIdx >= 0) {
       const p = state.aiProviders[state.editingProviderIdx];
-      p.alias = alias; p.model = model; p.key = key; p.url = url; p.isDefault = isDefault;
+      p.alias = alias; p.model = model; p.key = key; p.url = url;
+      p.modelName = modelName; p.isDefault = isDefault;
     } else {
-      state.aiProviders.push({ id: crypto.randomUUID(), alias, model, key, url, isDefault });
+      state.aiProviders.push({
+        id: crypto.randomUUID(), alias, model, key, url, modelName, isDefault,
+      });
     }
 
     await saveProviders();
@@ -499,6 +505,7 @@ export function initSettings() {
     const model = document.getElementById("apf-model").value;
     const key = document.getElementById("apf-key").value.trim();
     const url = document.getElementById("apf-url").value.trim();
+    const modelName = document.getElementById("apf-model-name").value.trim();
     if (!key) { alert("Enter an API key first"); return; }
 
     const btn = document.getElementById("btn-apf-test");
@@ -516,7 +523,11 @@ export function initSettings() {
           files: [],
           history: [],
           model,
-          byok: { key, url: url || undefined },
+          byok: {
+            key,
+            url: url || undefined,
+            modelName: modelName || undefined,
+          },
         }),
       });
       const elapsed = Date.now() - start;

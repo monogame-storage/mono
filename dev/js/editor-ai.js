@@ -273,10 +273,14 @@ export async function sendMessage(autoMsg) {
     const provider = state.aiProviders.find(p => p.id === selectedValue.slice(9));
     if (!provider) throw new Error("Selected provider no longer exists — pick another one from the pill above.");
     const model = provider.model;
-    const byok = { key: provider.key, url: provider.url || undefined };
+    const byok = {
+      key: provider.key,
+      url: provider.url || undefined,
+      modelName: provider.modelName || undefined,
+    };
 
     console.group("[MONO Chat]");
-    console.log("→ model:", model);
+    console.log("→ model:", model, byok.modelName ? `(override: ${byok.modelName})` : "");
     console.log("→ message:", msg);
     console.log("→ files:", state.currentFiles.map(f => f.name));
     console.groupEnd();
