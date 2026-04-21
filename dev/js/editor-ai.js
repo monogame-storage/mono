@@ -305,7 +305,20 @@ export async function sendMessage(autoMsg) {
     console.log("← status:", res.status);
     console.log("← message:", data.message);
     console.log("← files:", data.files?.map(f => ({ name: f.name, size: f.content?.length || 0 })) || []);
-    if (data.usage) console.log("← usage:", data.usage);
+    if (data.usage) {
+      console.log("← usage:", data.usage);
+      // Anthropic prompt-cache telemetry — highlights the cache-hit ratio
+      // so it's obvious when the breakpoint is paying off.
+      const u = data.usage;
+      if (u.cache_read_input_tokens || u.cache_creation_input_tokens) {
+        const fresh = u.prompt_tokens || 0;
+        const cached = u.cache_read_input_tokens || 0;
+        const written = u.cache_creation_input_tokens || 0;
+        const total = fresh + cached;
+        const hitRatio = total > 0 ? Math.round((cached / total) * 100) : 0;
+        console.log(`← cache: ${cached}/${total} tokens reused (${hitRatio}% hit, ${written} newly cached)`);
+      }
+    }
     console.groupEnd();
 
     state.chatHistory.push({ role: "assistant", content: data.message });
