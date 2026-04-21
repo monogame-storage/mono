@@ -3,6 +3,7 @@
 import { state, esc, chatTime } from './state.js';
 import { apiFetch, saveChatHistory } from './api.js';
 import { runHeadlessTest } from './editor-play.js';
+import { openAIProviders } from './settings.js';
 
 // ── Card builders ──
 
@@ -237,6 +238,28 @@ export async function sendMessage(autoMsg) {
   const input = document.getElementById("editor-msg");
   const msg = autoMsg || input.value.trim();
   if (!msg) return;
+
+  // Chat is BYOK-only. Without a registered provider there is no key
+  // to send the request with — short-circuit here and point the user
+  // at the provider settings instead of letting the request fail on
+  // the server.
+  const selectedValue = document.getElementById("model-select").value;
+  if (!selectedValue.startsWith("provider:")) {
+    const chatEl = document.getElementById("editor-chat");
+    chatEl.innerHTML += errorCard(
+      "Register an AI provider in Settings → AI Providers, then pick it from the pill above to enable chat.",
+      "NO PROVIDER",
+      false,
+    );
+    chatEl.scrollTop = chatEl.scrollHeight;
+    if (!autoMsg) {
+      // Keep the user's draft so they can retry after registering.
+      input.focus();
+    }
+    openAIProviders();
+    return;
+  }
+
   if (!autoMsg) { input.value = ""; input.style.height = "auto"; }
 
   const chat = document.getElementById("editor-chat");
@@ -247,16 +270,10 @@ export async function sendMessage(autoMsg) {
   state.chatHistory.push({ role: "user", content: msg });
 
   try {
-    const selectedValue = document.getElementById("model-select").value;
-    let model, byok;
-    if (selectedValue.startsWith("provider:")) {
-      const provider = state.aiProviders.find(p => p.id === selectedValue.slice(9));
-      if (provider) {
-        model = provider.model;
-        byok = { key: provider.key, url: provider.url || undefined };
-      }
-    }
-    if (!model) model = selectedValue;
+    const provider = state.aiProviders.find(p => p.id === selectedValue.slice(9));
+    if (!provider) throw new Error("Selected provider no longer exists — pick another one from the pill above.");
+    const model = provider.model;
+    const byok = { key: provider.key, url: provider.url || undefined };
 
     console.group("[MONO Chat]");
     console.log("→ model:", model);

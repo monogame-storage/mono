@@ -867,6 +867,13 @@
 .ai-provider-pill .pill-icon svg,
 .ai-provider-pill .pill-chev svg { width: 10px; height: 10px; }
 .ai-provider-pill .pill-chev { color: #666; display: flex; }
+.ai-provider-pill.empty {
+  background: transparent;
+  border: 1px dashed #555;
+  color: #ff9a4a;
+}
+.ai-provider-pill.empty:hover { background: #221a10; }
+.ai-provider-pill.empty .pill-icon { color: #ff9a4a; }
 
 /* ── AI tab: Input bar ── */
 .ai-input-bar {

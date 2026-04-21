@@ -145,16 +145,24 @@ function onProviderListClick(e) {
 export function updateModelSelector() {
   const sel = document.getElementById("model-select");
   if (!sel) return;
-  sel.querySelectorAll('option[data-custom]').forEach(o => o.remove());
+  // Chat is BYOK-only: rebuild the full list from state.aiProviders so
+  // there is no "mono default" option lingering in the DOM.
+  sel.innerHTML = "";
   for (const p of state.aiProviders) {
     const opt = document.createElement("option");
     opt.value = `provider:${p.id}`;
     opt.textContent = p.alias;
-    opt.dataset.custom = "1";
-    sel.prepend(opt);
+    sel.appendChild(opt);
   }
   const def = state.aiProviders.find(p => p.isDefault);
   if (def) sel.value = `provider:${def.id}`;
+  // Refresh the provider pill label if the AI tab's topbar is mounted.
+  const pillLabel = document.querySelector("#btn-provider-pill .pill-label");
+  if (pillLabel) {
+    pillLabel.textContent = sel.options.length === 0
+      ? "No provider"
+      : (sel.options[sel.selectedIndex]?.textContent || "Model");
+  }
 }
 
 // ── AI Providers navigation ──

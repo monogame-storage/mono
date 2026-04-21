@@ -33,35 +33,40 @@ const TAB_TOPBAR_BUTTONS = {
     if (initTopbarHandlers) initTopbarHandlers();
   },
   ai: (nav) => {
-    // Provider pill — shows current model name
+    // Provider pill — shows current BYOK provider alias, or a "No provider"
+    // prompt that jumps to AI Providers settings when clicked.
     const sel = document.getElementById("model-select");
-    const label = sel ? sel.options[sel.selectedIndex]?.textContent || "Model" : "Model";
+    const hasProviders = !!(sel && sel.options.length > 0);
+    const label = hasProviders
+      ? (sel.options[sel.selectedIndex]?.textContent || "Model")
+      : "No provider";
     nav.innerHTML = `
-      <button class="ai-provider-pill" id="btn-provider-pill">
+      <button class="ai-provider-pill${hasProviders ? '' : ' empty'}" id="btn-provider-pill">
         <span class="pill-icon"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/></svg></span>
         <span class="pill-label">${label}</span>
         <span class="pill-chev"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
       </button>`;
-    // Click pill → open hidden <select>
     nav.querySelector("#btn-provider-pill")?.addEventListener("click", () => {
-      const select = document.getElementById("model-select");
-      if (select) {
-        select.style.display = "block";
-        select.style.position = "fixed";
-        select.style.opacity = "0";
-        select.focus();
-        select.click();
-        // On change/blur, re-hide and update pill label
-        const hide = () => {
-          select.style.display = "none";
-          const newLabel = select.options[select.selectedIndex]?.textContent || "Model";
-          const pillLabel = nav.querySelector(".pill-label");
-          if (pillLabel) pillLabel.textContent = newLabel;
-          select.removeEventListener("blur", hide);
-        };
-        select.addEventListener("change", hide, { once: true });
-        select.addEventListener("blur", hide, { once: true });
+      // No providers → send user to AI Providers settings instead of
+      // opening an empty <select>.
+      if (!sel || sel.options.length === 0) {
+        openAIProviders();
+        return;
       }
+      sel.style.display = "block";
+      sel.style.position = "fixed";
+      sel.style.opacity = "0";
+      sel.focus();
+      sel.click();
+      const hide = () => {
+        sel.style.display = "none";
+        const newLabel = sel.options[sel.selectedIndex]?.textContent || "Model";
+        const pillLabel = nav.querySelector(".pill-label");
+        if (pillLabel) pillLabel.textContent = newLabel;
+        sel.removeEventListener("blur", hide);
+      };
+      sel.addEventListener("change", hide, { once: true });
+      sel.addEventListener("blur", hide, { once: true });
     });
   },
   play: (nav) => {

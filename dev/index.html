@@ -121,27 +121,11 @@
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
         </button>
       </div>
-      <!-- Hidden model selector (opened via topbar provider pill) -->
-      <select class="ai-model-select" id="model-select" style="display:none">
-        <option value="kimi-latest">mono-alpha</option>
-        <optgroup label="Anthropic">
-          <option value="claude-opus-4">Claude Opus 4</option>
-          <option value="claude-sonnet-4">Claude Sonnet 4</option>
-          <option value="claude-haiku-3">Claude Haiku 3</option>
-        </optgroup>
-        <optgroup label="Google">
-          <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
-          <option value="gemini-3-pro">Gemini 3 Pro</option>
-          <option value="gemini-3-flash">Gemini 3 Flash</option>
-          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-        </optgroup>
-        <optgroup label="OpenAI">
-          <option value="gpt-5.3-codex">GPT-5.3 Codex</option>
-          <option value="o3">o3</option>
-          <option value="gpt-4.1">GPT-4.1</option>
-        </optgroup>
-      </select>
+      <!-- Hidden model selector (opened via topbar provider pill).
+           Populated entirely from registered BYOK providers by
+           settings.js updateModelSelector(). AI chat is gated on having
+           at least one provider. -->
+      <select class="ai-model-select" id="model-select" style="display:none"></select>
     </div>
 
     <!-- Play Tab -->
