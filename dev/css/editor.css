@@ -933,6 +933,38 @@
 }
 .provider-menu-row.manage:hover { color: #8d8; }
 
+/* Add Provider form — model list fetch */
+.apf-model-name-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.apf-model-name-row input { flex: 1; }
+.apf-fetch-btn {
+  flex-shrink: 0;
+  height: 40px;
+  padding: 0 12px;
+  background: #2a2a2a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #ccc;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.apf-fetch-btn:hover { background: #333; color: #fff; }
+.apf-fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.apf-fetch-status {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  min-height: 14px;
+}
+.apf-fetch-status.success { color: #6c6; }
+.apf-fetch-status.error   { color: #f66; }
+.apf-fetch-status.warn    { color: #fa3; }
+
 /* ── AI tab: Input bar ── */
 .ai-input-bar {
   display: flex;

@@ -306,7 +306,12 @@
       <div class="apf-field">
         <label>Custom Model Name</label>
         <span class="apf-hint">Optional — override the model name sent in the request body (e.g. proxy-specific Claude ID)</span>
-        <input type="text" id="apf-model-name" placeholder="claude-sonnet-4-5-20250929">
+        <div class="apf-model-name-row">
+          <input type="text" id="apf-model-name" list="apf-model-name-list" placeholder="claude-sonnet-4-5-20250929">
+          <button type="button" class="apf-fetch-btn" id="btn-apf-fetch-models" title="Fetch model list from Base URL">🔍 Fetch</button>
+        </div>
+        <datalist id="apf-model-name-list"></datalist>
+        <span class="apf-fetch-status" id="apf-fetch-status"></span>
       </div>
       <div class="apf-toggle-row">
         <button class="apf-toggle" id="apf-default-toggle"></button>

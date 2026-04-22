@@ -548,4 +548,56 @@ export function initSettings() {
     }
     btn.textContent = "⚡ Test Connection";
   });
+
+  // Fetch model list — calls mono-api /models with the BYOK url+key,
+  // populates the Custom Model Name datalist for autocomplete.
+  document.getElementById("btn-apf-fetch-models").addEventListener("click", async () => {
+    const model = document.getElementById("apf-model").value;
+    const key = document.getElementById("apf-key").value.trim();
+    const url = document.getElementById("apf-url").value.trim();
+    const status = document.getElementById("apf-fetch-status");
+    const btn = document.getElementById("btn-apf-fetch-models");
+    if (!key) { status.textContent = "Enter an API key first"; status.className = "apf-fetch-status warn"; return; }
+
+    btn.disabled = true;
+    btn.textContent = "Fetching…";
+    status.textContent = "";
+    status.className = "apf-fetch-status";
+
+    try {
+      const res = await apiFetch("/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url || undefined, key, model }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || data.detail || `HTTP ${res.status}`);
+      const list = document.getElementById("apf-model-name-list");
+      list.innerHTML = "";
+      const models = data.models || [];
+      // Sort: reasoning-capable first, then vision, then alpha.
+      models.sort((a, b) => {
+        if (a.reasoning !== b.reasoning) return a.reasoning ? -1 : 1;
+        if (a.vision !== b.vision) return a.vision ? -1 : 1;
+        return a.id.localeCompare(b.id);
+      });
+      for (const m of models) {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        const tags = [];
+        if (m.reasoning) tags.push("reasoning");
+        if (m.vision) tags.push("vision");
+        if (m.context) tags.push(`${Math.round(m.context / 1024)}K ctx`);
+        if (tags.length) opt.label = `${m.id} — ${tags.join(", ")}`;
+        list.appendChild(opt);
+      }
+      status.textContent = `✓ ${models.length} models — type or click the field to browse`;
+      status.className = "apf-fetch-status success";
+    } catch (e) {
+      status.textContent = `✗ ${e.message}`;
+      status.className = "apf-fetch-status error";
+    }
+    btn.disabled = false;
+    btn.textContent = "🔍 Fetch";
+  });
 }
