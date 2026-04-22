@@ -1462,6 +1462,22 @@
 }
 .apf-delete-btn.show { display: block; }
 .apf-delete-btn:hover { background: #1a0000; }
+.apf-duplicate-btn {
+  width: 100%;
+  height: 40px;
+  background: transparent;
+  border: 1px solid #2f4a66;
+  border-radius: 8px;
+  color: #6cb6ff;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: none;
+  margin-bottom: 8px;
+}
+.apf-duplicate-btn.show { display: block; }
+.apf-duplicate-btn:hover { background: #0f1a26; }
 
 /* ── Dev Settings view ── */
 .devsettings-topbar {

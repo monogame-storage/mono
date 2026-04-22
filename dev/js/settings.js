@@ -260,6 +260,7 @@ function editProvider(idx) {
   document.getElementById("apf-default-toggle").className = p.isDefault ? "apf-toggle on" : "apf-toggle";
   document.getElementById("apf-test-result").className = "apf-test-result";
   document.getElementById("btn-apf-delete").className = "apf-delete-btn show";
+  document.getElementById("btn-apf-duplicate").className = "apf-duplicate-btn show";
   showView("add-provider");
 }
 
@@ -456,6 +457,7 @@ export function initSettings() {
     document.getElementById("apf-default-toggle").className = "apf-toggle";
     document.getElementById("apf-test-result").className = "apf-test-result";
     document.getElementById("btn-apf-delete").className = "apf-delete-btn";
+    document.getElementById("btn-apf-duplicate").className = "apf-duplicate-btn";
     showView("add-provider");
   });
 
@@ -495,6 +497,24 @@ export function initSettings() {
   document.getElementById("btn-apf-delete").addEventListener("click", async () => {
     if (!confirm("Delete this provider?")) return;
     state.aiProviders.splice(state.editingProviderIdx, 1);
+    await saveProviders();
+    renderProviderList();
+    showView("ai-providers");
+  });
+
+  // Duplicate provider — clones the currently edited entry with a fresh
+  // id, " (copy)" suffix on the alias, and isDefault forced off. Stays
+  // on the list so the user can tweak either copy.
+  document.getElementById("btn-apf-duplicate").addEventListener("click", async () => {
+    if (state.editingProviderIdx < 0) return;
+    const src = state.aiProviders[state.editingProviderIdx];
+    const copy = {
+      ...src,
+      id: crypto.randomUUID(),
+      alias: `${src.alias} (copy)`,
+      isDefault: false,
+    };
+    state.aiProviders.push(copy);
     await saveProviders();
     renderProviderList();
     showView("ai-providers");
