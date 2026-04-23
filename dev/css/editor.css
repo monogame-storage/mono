@@ -770,6 +770,46 @@
   margin-top: 6px;
 }
 .ai-agent-text:empty { display: none; }
+
+/* Collapsed trace on completed agent cards — mirrors Claude.ai-style
+   "Thought for N iterations" pull-down. Default hidden; expanded shows
+   the full reasoning + tool log in the same compact style used during
+   the working phase. */
+.ai-trace-toggle {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #888;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+.ai-trace-toggle:hover { color: #c9a0dc; }
+.ai-trace {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-left: 2px solid #2a2a2a;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ai-trace-reasoning {
+  font-size: 11px;
+  color: #aaa;
+  font-style: italic;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+.ai-trace-text {
+  font-size: 12px;
+  color: #ddd;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
 .ai-tool-line {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;

@@ -110,6 +110,62 @@ function monoCard(message, files, status = "completed") {
   return html;
 }
 
+// Completed agent card with a collapsed trace footer. `trace` is an
+// ordered list of { kind: "reasoning"|"text"|"tool", ... } captured
+// during the /chat/agent SSE run; `stats` is { iterations, tools,
+// tokens } for the header summary. Trace stays collapsed by default
+// so the chat looks clean; user clicks to unfold.
+function formatTokens(n) {
+  if (!n) return "0";
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return String(n);
+}
+
+function monoCardAgentCompleted(message, files, trace, stats) {
+  let html = `<div class="ai-card-mono">
+    <div class="ai-card-status">MONO · completed</div>`;
+  const cleaned = cleanMessage(message);
+  if (cleaned) html += `<div class="ai-card-response">${renderMarkdown(cleaned)}</div>`;
+  if (files && files.length > 0) {
+    for (const f of files) {
+      const action = f._action || "edited";
+      const prefix = action === "created" ? "+ " : action === "deleted" ? "- " : "~ ";
+      html += `<div class="ai-card-file">${prefix}${esc(f.name)}  ·  ${action}</div>`;
+    }
+  }
+
+  if (trace && trace.length > 0) {
+    const parts = [];
+    if (stats?.iterations) parts.push(`${stats.iterations} iter`);
+    if (stats?.tools) parts.push(`${stats.tools} tool${stats.tools === 1 ? "" : "s"}`);
+    if (stats?.tokens) parts.push(`${formatTokens(stats.tokens)} tok`);
+    const summary = parts.length ? ` (${parts.join(" · ")})` : "";
+
+    let traceHtml = "";
+    for (const ev of trace) {
+      if (ev.kind === "reasoning") {
+        traceHtml += `<div class="ai-trace-reasoning">💭 ${esc(ev.text)}</div>`;
+      } else if (ev.kind === "text") {
+        traceHtml += `<div class="ai-trace-text">${esc(ev.text)}</div>`;
+      } else if (ev.kind === "tool") {
+        const label = toolLineLabel(ev.name, ev.input);
+        const cls = ev.ok === false ? "err" : ev.ok === true ? "ok" : "working";
+        const mark = ev.ok === false ? "✗" : ev.ok === true ? "✓" : "◌";
+        const tail = ev.summary ? ` — ${esc(ev.summary)}` : "";
+        traceHtml += `<div class="ai-tool-line ${cls}">`
+          + `<span class="ai-tool-spin">${mark}</span>`
+          + `<span class="ai-tool-text">${esc(label)}${tail}</span>`
+          + `</div>`;
+      }
+    }
+    html += `<button class="ai-trace-toggle" data-expanded="0">▸ Show trace${summary}</button>`;
+    html += `<div class="ai-trace" hidden>${traceHtml}</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
 function monoTypingCard() {
   return `<div class="ai-card-mono working" id="mono-typing">
     <div class="ai-card-status working">MONO · working…</div>
@@ -346,8 +402,14 @@ async function sendAgent(provider, msg, chat) {
   let finalText = "";
   let changedList = [];
   let finalUsage = null;
+  let finalIterations = 0;
   let errored = null;
   let streamBuf = ""; // per-turn token buffer, flushed on tool call / final
+  // Parallel data log of every SSE event — survives the DOM swap so the
+  // completed card can render a collapsed trace of reasoning / mid-turn
+  // text / tool calls for user inspection.
+  const trace = [];
+  const traceToolById = new Map();
 
   try {
     const token = await state.auth.currentUser.getIdToken();
@@ -370,15 +432,19 @@ async function sendAgent(provider, msg, chat) {
       throw new Error(`agent ${res.status}: ${body.slice(0, 200)}`);
     }
 
-    const flushStream = (label) => {
+    const flushStream = (label, intoTrace) => {
       if (!streamBuf) return;
       console.log(`· ${label}:`, streamBuf);
+      // Only inter-turn chatter (pre-tool text) is worth preserving in
+      // the trace; the final reply is already shown above it.
+      if (intoTrace) trace.push({ kind: "text", text: streamBuf });
       streamBuf = "";
     };
 
     for await (const { event, data } of parseSSE(res)) {
       if (event === "reasoning") {
         console.log("· reasoning:", data.text || "");
+        if (data.text) trace.push({ kind: "reasoning", text: data.text });
       } else if (event === "token") {
         if (!data.text) continue;
         // Accumulate into the per-turn buffer; flushed (one console.log)
@@ -394,26 +460,32 @@ async function sendAgent(provider, msg, chat) {
           chat.scrollTop = chat.scrollHeight;
         }
       } else if (event === "tool_start") {
-        flushStream("pre-tool text");
+        flushStream("pre-tool text", true);
         console.log("→ tool:", data.name, data.input);
         if (textEl && textEl.textContent) textEl.dataset.stale = "1";
         addToolLine(data.id, toolLineLabel(data.name, data.input));
+        const entry = { kind: "tool", id: data.id, name: data.name, input: data.input, ok: null, summary: null };
+        trace.push(entry);
+        traceToolById.set(data.id, entry);
       } else if (event === "tool_result") {
         console.log("← tool:", data.name, data.ok ? "ok" : "err", data.summary);
         finishToolLine(data.id, data.ok, data.summary);
+        const entry = traceToolById.get(data.id);
+        if (entry) { entry.ok = !!data.ok; entry.summary = data.summary || ""; }
       } else if (event === "final") {
-        flushStream("final text");
+        flushStream("final text", false);
         finalText = data.text || "";
         changedList = data.changed || [];
         finalUsage = data.usage || null;
+        finalIterations = data.iterations || 0;
         console.log("← final:", { iterations: data.iterations, changed: changedList.length });
       } else if (event === "error") {
-        flushStream("pre-error text");
+        flushStream("pre-error text", true);
         errored = data.message || "agent error";
         console.error("← error:", data);
       }
     }
-    flushStream("trailing text");
+    flushStream("trailing text", false);
 
     if (errored) throw new Error(errored);
 
@@ -458,7 +530,12 @@ async function sendAgent(provider, msg, chat) {
     state.chatHistory.push({ role: "assistant", content: finalText });
     saveChatHistory();
 
-    const replacement = monoCard(finalText, changedFiles, "completed");
+    const stats = {
+      iterations: finalIterations,
+      tools: trace.filter(t => t.kind === "tool").length,
+      tokens: finalUsage?.total_tokens || 0,
+    };
+    const replacement = monoCardAgentCompleted(finalText, changedFiles, trace, stats);
     if (card) card.outerHTML = replacement;
     console.groupEnd();
 
@@ -676,6 +753,24 @@ export function initEditorAI() {
       const errText = card?.querySelector(".ai-card-response")?.textContent || "";
       const label = card?.querySelector(".ai-card-status")?.textContent || "ERROR";
       if (errText) showFixConfirm(errText, label);
+      return;
+    }
+    // Agent trace toggle → expand/collapse the reasoning + tool log.
+    const traceBtn = e.target.closest(".ai-trace-toggle");
+    if (traceBtn) {
+      const card = traceBtn.closest(".ai-card-mono");
+      const panel = card?.querySelector(".ai-trace");
+      if (!panel) return;
+      const expanded = traceBtn.dataset.expanded === "1";
+      if (expanded) {
+        panel.hidden = true;
+        traceBtn.dataset.expanded = "0";
+        traceBtn.textContent = traceBtn.textContent.replace(/^▾/, "▸").replace("Hide trace", "Show trace");
+      } else {
+        panel.hidden = false;
+        traceBtn.dataset.expanded = "1";
+        traceBtn.textContent = traceBtn.textContent.replace(/^▸/, "▾").replace("Show trace", "Hide trace");
+      }
       return;
     }
   });
