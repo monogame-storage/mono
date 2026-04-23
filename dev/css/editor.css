@@ -756,6 +756,33 @@
   color: #777;
 }
 .ai-card-file.active { color: #aaa; }
+.ai-agent-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.ai-tool-line {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #888;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.ai-tool-line .ai-tool-spin {
+  display: inline-block;
+  width: 10px;
+  color: #c9a0dc;
+}
+.ai-tool-line.working .ai-tool-spin { animation: ai-tool-pulse 1s ease-in-out infinite; }
+.ai-tool-line.ok  .ai-tool-spin { color: #7bcf7b; }
+.ai-tool-line.err .ai-tool-spin { color: #e48686; }
+.ai-tool-line.err .ai-tool-text { color: #c97878; }
+@keyframes ai-tool-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 1;   }
+}
 .ai-card-stop {
   display: inline-flex;
   align-items: center;

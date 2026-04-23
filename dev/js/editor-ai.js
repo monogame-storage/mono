@@ -1,9 +1,22 @@
 // ── AI Tab: Chat, send message, test & fix ──
 
-import { state, esc, chatTime } from './state.js';
+import { state, esc, chatTime, API_URL } from './state.js';
 import { apiFetch, saveChatHistory } from './api.js';
 import { runHeadlessTest } from './editor-play.js';
 import { openAIProviders } from './settings.js';
+
+// Models whose server-side PROVIDERS entry has apiType=openai. Those
+// route to /chat/agent (SSE tool-use loop); anything else falls back
+// to the one-shot /chat endpoint via the legacy path in sendMessage.
+// Keep in sync with PROVIDERS in mono-api/src/index.js.
+const AGENT_MODELS = new Set([
+  "kimi-latest", "o3", "gpt-4.1",
+  "gpt-5.3-codex-apimart", "gpt-5.4-apimart",
+  "claude-code",
+]);
+function usesAgentPath(modelValue) {
+  return AGENT_MODELS.has(modelValue);
+}
 
 // ── Card builders ──
 
@@ -102,6 +115,29 @@ function monoTypingCard() {
     <div class="ai-card-status working">MONO · working…</div>
     <div class="ai-card-response" style="color:#888">Thinking…</div>
   </div>`;
+}
+
+// Progress card for the /chat/agent streaming path. Tool activity
+// lines are appended into `.ai-agent-tools` as they stream in; the
+// final reply replaces the whole card via monoCard() once the
+// SSE stream sends `final`.
+function monoAgentCard(id) {
+  return `<div class="ai-card-mono working" id="${id}">
+    <div class="ai-card-status working">MONO · working…</div>
+    <div class="ai-agent-tools"></div>
+  </div>`;
+}
+
+const TOOL_ICON = {
+  list_files: "📂",
+  read_file:  "📖",
+  write_file: "✏️",
+  delete_file:"🗑️",
+};
+
+function toolLineLabel(name, input) {
+  const p = input?.path ? ` ${input.path}` : "";
+  return `${TOOL_ICON[name] || "🔧"} ${name}${p}`;
 }
 
 function errorCard(msg, label = "ERROR", showFix = true) {
@@ -232,6 +268,176 @@ function updateUsageDisplay(data) {
   state.sessionTokens.total += usage.total_tokens || 0;
 }
 
+// ── Agent path (SSE tool-use loop) ──
+
+// Parse an SSE stream into { event, data } records. Yields each record
+// as it arrives. Follows the minimal SSE grammar used by /chat/agent:
+// one `event:` + one `data:` per frame, separated by blank lines.
+async function* parseSSE(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const frame = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      let event = "message", dataStr = "";
+      for (const line of frame.split("\n")) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+      }
+      if (!dataStr) continue;
+      let data;
+      try { data = JSON.parse(dataStr); } catch { continue; }
+      yield { event, data };
+    }
+  }
+}
+
+async function sendAgent(provider, msg, chat) {
+  const model = provider.model;
+  const byok = {
+    key: provider.key,
+    url: provider.url || undefined,
+    modelName: provider.modelName || undefined,
+  };
+
+  const cardId = `mono-agent-${Date.now()}`;
+  const typing = document.getElementById("mono-typing");
+  if (typing) typing.outerHTML = monoAgentCard(cardId);
+  else chat.innerHTML += monoAgentCard(cardId);
+  const card = document.getElementById(cardId);
+  const toolsEl = card?.querySelector(".ai-agent-tools");
+  const toolLines = new Map(); // tool_call id → row element
+  chat.scrollTop = chat.scrollHeight;
+
+  const addToolLine = (id, text) => {
+    if (!toolsEl) return null;
+    const row = document.createElement("div");
+    row.className = "ai-tool-line working";
+    row.dataset.id = id;
+    row.innerHTML = `<span class="ai-tool-spin">◌</span><span class="ai-tool-text">${esc(text)}</span>`;
+    toolsEl.appendChild(row);
+    toolLines.set(id, row);
+    chat.scrollTop = chat.scrollHeight;
+    return row;
+  };
+  const finishToolLine = (id, ok, summary) => {
+    const row = toolLines.get(id);
+    if (!row) return;
+    row.classList.remove("working");
+    row.classList.add(ok ? "ok" : "err");
+    const spin = row.querySelector(".ai-tool-spin");
+    if (spin) spin.textContent = ok ? "✓" : "✗";
+    const txt = row.querySelector(".ai-tool-text");
+    if (txt && summary) txt.textContent = `${txt.textContent} — ${summary}`;
+  };
+
+  console.group("[MONO Agent]");
+  console.log("→ model:", model, byok.modelName ? `(override: ${byok.modelName})` : "");
+  console.log("→ message:", msg);
+
+  let finalText = "";
+  let changedList = [];
+  let finalUsage = null;
+  let errored = null;
+
+  try {
+    const token = await state.auth.currentUser.getIdToken();
+    const res = await fetch(`${API_URL}/chat/agent`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        gameId: state.currentGameId,
+        message: msg,
+        history: state.chatHistory.slice(0, -1),
+        model,
+        byok,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`agent ${res.status}: ${body.slice(0, 200)}`);
+    }
+
+    for await (const { event, data } of parseSSE(res)) {
+      if (event === "reasoning") {
+        console.log("· reasoning:", (data.text || "").slice(0, 200));
+      } else if (event === "tool_start") {
+        console.log("→ tool:", data.name, data.input);
+        addToolLine(data.id, toolLineLabel(data.name, data.input));
+      } else if (event === "tool_result") {
+        console.log("← tool:", data.name, data.ok ? "ok" : "err", data.summary);
+        finishToolLine(data.id, data.ok, data.summary);
+      } else if (event === "final") {
+        finalText = data.text || "";
+        changedList = data.changed || [];
+        finalUsage = data.usage || null;
+        console.log("← final:", { iterations: data.iterations, changed: changedList.length });
+      } else if (event === "error") {
+        errored = data.message || "agent error";
+        console.error("← error:", data);
+      }
+    }
+
+    if (errored) throw new Error(errored);
+
+    // Re-sync changed files from R2 so state.currentFiles matches disk.
+    const changedFiles = [];
+    if (changedList.length) {
+      const deletes = changedList.filter(c => c.action === "delete");
+      const writes = changedList.filter(c => c.action === "write");
+      for (const d of deletes) {
+        const idx = state.currentFiles.findIndex(c => c.name === d.name);
+        if (idx >= 0) state.currentFiles.splice(idx, 1);
+        changedFiles.push({ name: d.name, _action: "deleted" });
+      }
+      await Promise.all(writes.map(async (w) => {
+        try {
+          const r = await apiFetch(`/games/${state.currentGameId}/files/${w.name}`);
+          if (!r.ok) return;
+          const text = await r.text();
+          const idx = state.currentFiles.findIndex(c => c.name === w.name);
+          const action = idx >= 0 ? "edited" : "created";
+          if (idx >= 0) state.currentFiles[idx].content = text;
+          else state.currentFiles.push({ name: w.name, content: text });
+          changedFiles.push({ name: w.name, _action: action });
+        } catch (e) {
+          console.warn("re-sync failed:", w.name, e);
+        }
+      }));
+      const { renderFileTree } = window._editorFiles || {};
+      if (renderFileTree) renderFileTree();
+    }
+
+    if (finalUsage) {
+      state.sessionTokens.prompt += finalUsage.prompt_tokens || 0;
+      state.sessionTokens.completion += finalUsage.completion_tokens || 0;
+      state.sessionTokens.total += finalUsage.total_tokens || 0;
+    }
+
+    state.chatHistory.push({ role: "assistant", content: finalText });
+    saveChatHistory();
+
+    const replacement = monoCard(finalText, changedFiles, "completed");
+    if (card) card.outerHTML = replacement;
+    console.groupEnd();
+  } catch (e) {
+    console.error("agent error:", e);
+    console.groupEnd();
+    const cardEl = document.getElementById(cardId);
+    if (cardEl) cardEl.outerHTML = errorCard(e.message, "AGENT ERROR", false);
+  }
+  chat.scrollTop = chat.scrollHeight;
+}
+
 // ── Send message ──
 
 export async function sendMessage(autoMsg) {
@@ -272,6 +478,15 @@ export async function sendMessage(autoMsg) {
   try {
     const provider = state.aiProviders.find(p => p.id === selectedValue.slice(9));
     if (!provider) throw new Error("Selected provider no longer exists — pick another one from the pill above.");
+
+    // OpenAI-compat providers run the full agentic tool-use loop on the
+    // server, streamed over SSE. Everything else falls back to one-shot
+    // /chat (which still handles anthropic / gemini / responses apiTypes).
+    if (usesAgentPath(provider.model)) {
+      await sendAgent(provider, msg, chat);
+      return;
+    }
+
     const model = provider.model;
     const byok = {
       key: provider.key,
