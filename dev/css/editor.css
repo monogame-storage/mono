@@ -756,20 +756,29 @@
   color: #777;
 }
 .ai-card-file.active { color: #aaa; }
-.ai-agent-tools {
+/* Live trace container — interleaves reasoning / tool / token events
+   in the working agent card. Each block coalesces consecutive deltas
+   of the same kind and finalizes when a different event arrives. */
+.ai-agent-live {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   margin-top: 4px;
+}
+.ai-agent-live:empty { display: none; }
+.ai-agent-reasoning {
+  font-size: 11px;
+  color: #aaa;
+  font-style: italic;
+  white-space: pre-wrap;
+  line-height: 1.4;
 }
 .ai-agent-text {
   font-size: 12px;
   color: #ccc;
   white-space: pre-wrap;
   line-height: 1.45;
-  margin-top: 6px;
 }
-.ai-agent-text:empty { display: none; }
 
 /* Collapsed trace on completed agent cards — mirrors Claude.ai-style
    "Thought for N iterations" pull-down. Default hidden; expanded shows

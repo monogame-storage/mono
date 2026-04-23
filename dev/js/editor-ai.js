@@ -173,15 +173,15 @@ function monoTypingCard() {
   </div>`;
 }
 
-// Progress card for the /chat/agent streaming path. Tool activity
-// lines are appended into `.ai-agent-tools` as they stream in; the
-// final reply replaces the whole card via monoCard() once the
-// SSE stream sends `final`.
+// Progress card for the /chat/agent streaming path. Events (reasoning,
+// tool_start, tool_result, token deltas) land inside `.ai-agent-live`
+// in arrival order, so the user watches the same interleaved trace
+// that will later be folded into the completed card's collapsible.
+// On final the whole card is swapped for monoCardAgentCompleted().
 function monoAgentCard(id) {
   return `<div class="ai-card-mono working" id="${id}">
     <div class="ai-card-status working">MONO · working…</div>
-    <div class="ai-agent-tools"></div>
-    <div class="ai-agent-text"></div>
+    <div class="ai-agent-live"></div>
   </div>`;
 }
 
@@ -368,21 +368,47 @@ async function sendAgent(provider, msg, chat) {
   if (typing) typing.outerHTML = monoAgentCard(cardId);
   else chat.innerHTML += monoAgentCard(cardId);
   const card = document.getElementById(cardId);
-  const toolsEl = card?.querySelector(".ai-agent-tools");
-  const textEl = card?.querySelector(".ai-agent-text");
+  const liveEl = card?.querySelector(".ai-agent-live");
   const toolLines = new Map(); // tool_call id → row element
   chat.scrollTop = chat.scrollHeight;
 
-  const addToolLine = (id, text) => {
-    if (!toolsEl) return null;
-    const row = document.createElement("div");
-    row.className = "ai-tool-line working";
-    row.dataset.id = id;
-    row.innerHTML = `<span class="ai-tool-spin">◌</span><span class="ai-tool-text">${esc(text)}</span>`;
-    toolsEl.appendChild(row);
-    toolLines.set(id, row);
+  // Append into `.ai-agent-live` in arrival order. Consecutive reasoning
+  // or token events coalesce into the same block (typing-style growth);
+  // a new event type — tool call, next-turn reasoning after tools —
+  // starts a fresh block underneath so the trace reads top-to-bottom.
+  const appendLive = (kind, text, opts = {}) => {
+    if (!liveEl) return null;
+    const last = liveEl.lastElementChild;
+    if (kind === "reasoning") {
+      if (last?.classList.contains("ai-agent-reasoning") && last.dataset.finalized !== "1") {
+        last.append(text);
+      } else {
+        const el = document.createElement("div");
+        el.className = "ai-agent-reasoning";
+        el.textContent = "💭 " + text;
+        liveEl.appendChild(el);
+      }
+    } else if (kind === "text") {
+      if (last?.classList.contains("ai-agent-text") && last.dataset.finalized !== "1") {
+        last.append(text);
+      } else {
+        const el = document.createElement("div");
+        el.className = "ai-agent-text";
+        el.textContent = text;
+        liveEl.appendChild(el);
+      }
+    } else if (kind === "tool") {
+      // Starting a tool row closes whatever live reasoning / text is
+      // above so the next delta after the tool opens a fresh block.
+      for (const child of liveEl.children) child.dataset.finalized = "1";
+      const row = document.createElement("div");
+      row.className = "ai-tool-line working";
+      row.dataset.id = opts.id;
+      row.innerHTML = `<span class="ai-tool-spin">◌</span><span class="ai-tool-text">${esc(opts.label)}</span>`;
+      liveEl.appendChild(row);
+      toolLines.set(opts.id, row);
+    }
     chat.scrollTop = chat.scrollHeight;
-    return row;
   };
   const finishToolLine = (id, ok, summary) => {
     const row = toolLines.get(id);
@@ -407,9 +433,11 @@ async function sendAgent(provider, msg, chat) {
   let streamBuf = ""; // per-turn token buffer, flushed on tool call / final
   // Parallel data log of every SSE event — survives the DOM swap so the
   // completed card can render a collapsed trace of reasoning / mid-turn
-  // text / tool calls for user inspection.
+  // text / tool calls for user inspection. Reasoning deltas coalesce into
+  // the open entry (currentReasoningEntry) until a tool_start closes it.
   const trace = [];
   const traceToolById = new Map();
+  let currentReasoningEntry = null;
 
   try {
     const token = await state.auth.currentUser.getIdToken();
@@ -443,27 +471,27 @@ async function sendAgent(provider, msg, chat) {
 
     for await (const { event, data } of parseSSE(res)) {
       if (event === "reasoning") {
-        console.log("· reasoning:", data.text || "");
-        if (data.text) trace.push({ kind: "reasoning", text: data.text });
+        if (!data.text) continue;
+        // Live: grow the current reasoning block (coalesce deltas).
+        appendLive("reasoning", data.text);
+        // Trace: same coalescing rule so deltas become one block per turn.
+        if (currentReasoningEntry) {
+          currentReasoningEntry.text += data.text;
+        } else {
+          currentReasoningEntry = { kind: "reasoning", text: data.text };
+          trace.push(currentReasoningEntry);
+        }
       } else if (event === "token") {
         if (!data.text) continue;
-        // Accumulate into the per-turn buffer; flushed (one console.log)
-        // when the turn ends (tool_start or final) so the console stays
-        // readable while still preserving full visibility of the stream.
         streamBuf += data.text;
-        if (textEl) {
-          if (textEl.dataset.stale === "1") {
-            textEl.textContent = "";
-            textEl.dataset.stale = "";
-          }
-          textEl.textContent += data.text;
-          chat.scrollTop = chat.scrollHeight;
-        }
+        appendLive("text", data.text);
       } else if (event === "tool_start") {
         flushStream("pre-tool text", true);
         console.log("→ tool:", data.name, data.input);
-        if (textEl && textEl.textContent) textEl.dataset.stale = "1";
-        addToolLine(data.id, toolLineLabel(data.name, data.input));
+        // A tool call ends the current reasoning block: the next
+        // reasoning burst belongs to the next iteration.
+        currentReasoningEntry = null;
+        appendLive("tool", null, { id: data.id, label: toolLineLabel(data.name, data.input) });
         const entry = { kind: "tool", id: data.id, name: data.name, input: data.input, ok: null, summary: null };
         trace.push(entry);
         traceToolById.set(data.id, entry);
