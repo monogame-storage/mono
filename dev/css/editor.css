@@ -806,6 +806,10 @@
   flex-direction: column;
   gap: 4px;
 }
+/* The `hidden` attribute's UA default (display:none) is outranked by
+   .ai-trace's explicit display:flex above, so a class-specificity rule
+   is required to actually hide the trace when collapsed. */
+.ai-trace[hidden] { display: none; }
 .ai-trace-reasoning {
   font-size: 11px;
   color: #aaa;
