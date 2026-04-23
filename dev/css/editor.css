@@ -762,6 +762,14 @@
   gap: 2px;
   margin-top: 4px;
 }
+.ai-agent-text {
+  font-size: 12px;
+  color: #ccc;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  margin-top: 6px;
+}
+.ai-agent-text:empty { display: none; }
 .ai-tool-line {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;

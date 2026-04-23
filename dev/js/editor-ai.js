@@ -125,6 +125,7 @@ function monoAgentCard(id) {
   return `<div class="ai-card-mono working" id="${id}">
     <div class="ai-card-status working">MONO · working…</div>
     <div class="ai-agent-tools"></div>
+    <div class="ai-agent-text"></div>
   </div>`;
 }
 
@@ -312,6 +313,7 @@ async function sendAgent(provider, msg, chat) {
   else chat.innerHTML += monoAgentCard(cardId);
   const card = document.getElementById(cardId);
   const toolsEl = card?.querySelector(".ai-agent-tools");
+  const textEl = card?.querySelector(".ai-agent-text");
   const toolLines = new Map(); // tool_call id → row element
   chat.scrollTop = chat.scrollHeight;
 
@@ -370,8 +372,22 @@ async function sendAgent(provider, msg, chat) {
     for await (const { event, data } of parseSSE(res)) {
       if (event === "reasoning") {
         console.log("· reasoning:", (data.text || "").slice(0, 200));
+      } else if (event === "token") {
+        if (textEl && data.text) {
+          // Clear between iterations: if a tool call executed after the
+          // last token burst, the next burst is a fresh turn.
+          if (textEl.dataset.stale === "1") {
+            textEl.textContent = "";
+            textEl.dataset.stale = "";
+          }
+          textEl.textContent += data.text;
+          chat.scrollTop = chat.scrollHeight;
+        }
       } else if (event === "tool_start") {
         console.log("→ tool:", data.name, data.input);
+        // Any streamed text that preceded this tool call was inter-turn
+        // chatter — mark stale so the next token burst overwrites it.
+        if (textEl && textEl.textContent) textEl.dataset.stale = "1";
         addToolLine(data.id, toolLineLabel(data.name, data.input));
       } else if (event === "tool_result") {
         console.log("← tool:", data.name, data.ok ? "ok" : "err", data.summary);
