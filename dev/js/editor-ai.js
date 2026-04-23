@@ -8,8 +8,11 @@ import { openAIProviders } from './settings.js';
 // Models whose server-side PROVIDERS entry has apiType=openai. Those
 // route to /chat/agent (SSE tool-use loop); anything else falls back
 // to the one-shot /chat endpoint via the legacy path in sendMessage.
-// Keep in sync with PROVIDERS in mono-api/src/index.js.
-const AGENT_MODELS = new Set([
+// The authoritative list lives in mono-api/src/index.js PROVIDERS;
+// the client fetches it from /config on boot. Hardcoded fallback is
+// used until the config arrives (first-load / offline) so the feature
+// still works if the network blip happens before we initialize.
+let AGENT_MODELS = new Set([
   "kimi-latest", "o3", "gpt-4.1",
   "gpt-5.3-codex-apimart", "gpt-5.4-apimart",
   "claude-code",
@@ -17,6 +20,23 @@ const AGENT_MODELS = new Set([
 function usesAgentPath(modelValue) {
   return AGENT_MODELS.has(modelValue);
 }
+
+// Fire-and-forget on module load — replaces AGENT_MODELS with the
+// server's source of truth. No auth required (public endpoint).
+(async function loadAgentModelsFromConfig() {
+  try {
+    const res = await fetch(`${API_URL}/config`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data.agentModels) && data.agentModels.length) {
+      AGENT_MODELS = new Set(data.agentModels);
+    }
+  } catch {
+    // Offline or network error — keep the hardcoded fallback. Any drift
+    // only matters when the server adds a NEW openai-compat model; the
+    // hardcoded list still covers the six built-ins as of this writing.
+  }
+})();
 
 // ── Card builders ──
 
