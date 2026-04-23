@@ -2,7 +2,7 @@
 
 import { state, esc, chatTime, API_URL } from './state.js';
 import { apiFetch, saveChatHistory } from './api.js';
-import { runHeadlessTest } from './editor-play.js';
+import { runHeadlessTest, defaultSmokeScenario } from './editor-play.js';
 import { openAIProviders } from './settings.js';
 
 // Models whose server-side PROVIDERS entry has apiType=openai. Those
@@ -461,6 +461,34 @@ async function sendAgent(provider, msg, chat) {
     const replacement = monoCard(finalText, changedFiles, "completed");
     if (card) card.outerHTML = replacement;
     console.groupEnd();
+
+    // Smoke test: if the agent edited any .lua file, run the headless
+    // worker with a scripted tap scenario. Catches runtime errors that
+    // the static write_file lint can't (nil arithmetic, wrong touch_pos
+    // semantics, scene callbacks throwing on input). Always on for the
+    // agent path so bad writes surface in seconds instead of next Play.
+    const luaChanged = changedFiles.some(f => f.name.endsWith(".lua"));
+    if (luaChanged) {
+      const scenario = defaultSmokeScenario();
+      const testCardId = `smoke-${Date.now()}`;
+      chat.innerHTML += `<div class="ai-card-mono working" id="${testCardId}">
+        <div class="ai-card-status working">MONO · running smoke test…</div>
+      </div>`;
+      chat.scrollTop = chat.scrollHeight;
+      const result = await runHeadlessTest(state.currentFiles, scenario);
+      const testCard = document.getElementById(testCardId);
+      if (result.success) {
+        if (testCard) testCard.outerHTML = `<div class="ai-card-mono">
+          <div class="ai-card-status">MONO · smoke test</div>
+          <div class="ai-card-response" style="color:#7bcf7b">✓ booted + tap scenario cleared (${scenario.frames} frames)</div>
+        </div>`;
+      } else {
+        const errs = (result.errors || ["unknown error"]).join("\n");
+        console.error("[smoke test] failed:", errs);
+        if (testCard) testCard.outerHTML = errorCard(errs, "SMOKE TEST FAILED");
+      }
+      chat.scrollTop = chat.scrollHeight;
+    }
   } catch (e) {
     console.error("agent error:", e);
     console.groupEnd();
