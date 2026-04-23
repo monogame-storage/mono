@@ -347,6 +347,7 @@ async function sendAgent(provider, msg, chat) {
   let changedList = [];
   let finalUsage = null;
   let errored = null;
+  let streamBuf = ""; // per-turn token buffer, flushed on tool call / final
 
   try {
     const token = await state.auth.currentUser.getIdToken();
@@ -369,13 +370,22 @@ async function sendAgent(provider, msg, chat) {
       throw new Error(`agent ${res.status}: ${body.slice(0, 200)}`);
     }
 
+    const flushStream = (label) => {
+      if (!streamBuf) return;
+      console.log(`· ${label}:`, streamBuf);
+      streamBuf = "";
+    };
+
     for await (const { event, data } of parseSSE(res)) {
       if (event === "reasoning") {
-        console.log("· reasoning:", (data.text || "").slice(0, 200));
+        console.log("· reasoning:", data.text || "");
       } else if (event === "token") {
-        if (textEl && data.text) {
-          // Clear between iterations: if a tool call executed after the
-          // last token burst, the next burst is a fresh turn.
+        if (!data.text) continue;
+        // Accumulate into the per-turn buffer; flushed (one console.log)
+        // when the turn ends (tool_start or final) so the console stays
+        // readable while still preserving full visibility of the stream.
+        streamBuf += data.text;
+        if (textEl) {
           if (textEl.dataset.stale === "1") {
             textEl.textContent = "";
             textEl.dataset.stale = "";
@@ -384,24 +394,26 @@ async function sendAgent(provider, msg, chat) {
           chat.scrollTop = chat.scrollHeight;
         }
       } else if (event === "tool_start") {
+        flushStream("pre-tool text");
         console.log("→ tool:", data.name, data.input);
-        // Any streamed text that preceded this tool call was inter-turn
-        // chatter — mark stale so the next token burst overwrites it.
         if (textEl && textEl.textContent) textEl.dataset.stale = "1";
         addToolLine(data.id, toolLineLabel(data.name, data.input));
       } else if (event === "tool_result") {
         console.log("← tool:", data.name, data.ok ? "ok" : "err", data.summary);
         finishToolLine(data.id, data.ok, data.summary);
       } else if (event === "final") {
+        flushStream("final text");
         finalText = data.text || "";
         changedList = data.changed || [];
         finalUsage = data.usage || null;
         console.log("← final:", { iterations: data.iterations, changed: changedList.length });
       } else if (event === "error") {
+        flushStream("pre-error text");
         errored = data.message || "agent error";
         console.error("← error:", data);
       }
     }
+    flushStream("trailing text");
 
     if (errored) throw new Error(errored);
 
@@ -419,11 +431,15 @@ async function sendAgent(provider, msg, chat) {
         try {
           const r = await apiFetch(`/games/${state.currentGameId}/files/${w.name}`);
           if (!r.ok) return;
-          const text = await r.text();
+          // The GET returns {"content": "..."} — NOT the raw file body —
+          // so we must unwrap. Previously we did r.text() which stuffed
+          // the JSON envelope into state.currentFiles, making the engine
+          // execute garbage on the next Play.
+          const { content } = await r.json();
           const idx = state.currentFiles.findIndex(c => c.name === w.name);
           const action = idx >= 0 ? "edited" : "created";
-          if (idx >= 0) state.currentFiles[idx].content = text;
-          else state.currentFiles.push({ name: w.name, content: text });
+          if (idx >= 0) state.currentFiles[idx].content = content;
+          else state.currentFiles.push({ name: w.name, content });
           changedFiles.push({ name: w.name, _action: action });
         } catch (e) {
           console.warn("re-sync failed:", w.name, e);
