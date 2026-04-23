@@ -536,7 +536,18 @@ async function sendAgent(provider, msg, chat) {
       tokens: finalUsage?.total_tokens || 0,
     };
     const replacement = monoCardAgentCompleted(finalText, changedFiles, trace, stats);
-    if (card) card.outerHTML = replacement;
+    // Re-query by id — if anything else appended to chat during streaming
+    // (showEngineError, another message, ...) the `card` reference is
+    // stale and outerHTML= would mutate a detached node. Fall back to
+    // appending so the user always sees the completed card.
+    const liveCard = document.getElementById(cardId);
+    if (liveCard) {
+      liveCard.outerHTML = replacement;
+    } else {
+      console.warn("[MONO Agent] working card detached before final; appending");
+      chat.insertAdjacentHTML("beforeend", replacement);
+    }
+    console.log("← rendered:", { bytes: replacement.length, hasText: !!finalText });
     console.groupEnd();
 
     // Smoke test: if the agent edited any .lua file, run the headless
