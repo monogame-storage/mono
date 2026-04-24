@@ -1,6 +1,6 @@
 // ── AI Provider Vault + Dev Settings ──
 
-import { state, esc, showView } from './state.js';
+import { state, esc, showView, API_URL } from './state.js';
 import { apiFetch } from './api.js';
 import {
   doc,
@@ -99,12 +99,25 @@ export async function loadProviders() {
     const uid = state.auth.currentUser.uid;
     const snap = await getDoc(doc(state.db, "users", uid, "settings", "ai"));
     if (snap.exists() && snap.data().encrypted) {
-      state.aiProviders = await decryptData(pp, snap.data().encrypted);
+      const loaded = await decryptData(pp, snap.data().encrypted);
+      // Detect legacy shape (pre-PROVIDER_CATALOG): old entries carry
+      // `key` / `url` / `modelName` and a flat preset `model` key, with
+      // no `provider` field. Wipe them — user will re-add under the new
+      // Provider × Model structure. Banner is shown by the AI settings
+      // view so they know why.
+      const isLegacy = Array.isArray(loaded) && loaded.some(c => c && !c.provider && (c.key || c.url || c.modelName));
+      if (isLegacy) {
+        state.aiConnections = [];
+        state.connectionsWereReset = true;
+        await saveProviders();
+      } else {
+        state.aiConnections = Array.isArray(loaded) ? loaded : [];
+      }
     } else {
-      state.aiProviders = [];
+      state.aiConnections = [];
     }
   } catch {
-    state.aiProviders = [];
+    state.aiConnections = [];
   }
   renderProviderList();
 }
@@ -112,22 +125,28 @@ export async function loadProviders() {
 export async function saveProviders() {
   const pp = getVaultPp() || document.getElementById("aip-passphrase").value;
   if (!pp) { alert("Set a vault passphrase first"); return; }
-  const encrypted = await encryptData(pp, state.aiProviders);
+  const encrypted = await encryptData(pp, state.aiConnections);
   const uid = state.auth.currentUser.uid;
   await setDoc(doc(state.db, "users", uid, "settings", "ai"), { encrypted });
 }
 
 function renderProviderList() {
   const list = document.getElementById("aip-list");
-  if (state.aiProviders.length === 0) {
-    list.innerHTML = '<div style="color:#555;font-size:12px;text-align:center;padding:16px">No providers added yet</div>';
+  // One-shot banner when loadProviders() wiped a legacy-shape vault.
+  // Cleared on the user's next Add so the reset notice doesn't follow
+  // them around the app forever.
+  const banner = state.connectionsWereReset
+    ? `<div class="aip-reset-banner">AI connections were reset — the vault format changed. Please add your connections again.</div>`
+    : "";
+  if (state.aiConnections.length === 0) {
+    list.innerHTML = banner + '<div style="color:#555;font-size:12px;text-align:center;padding:16px">No connections added yet</div>';
     return;
   }
-  list.innerHTML = state.aiProviders.map((p, i) => `
+  list.innerHTML = banner + state.aiConnections.map((p, i) => `
     <div class="aip-provider-card" data-idx="${i}">
       <div>
         <div class="aip-provider-name">${esc(p.alias)}</div>
-        <div class="aip-provider-model">${esc(p.model)}</div>
+        <div class="aip-provider-model">${esc(p.provider || "")} · ${esc(p.model || "")}</div>
       </div>
       ${p.isDefault ? '<span class="aip-provider-badge">DEFAULT</span>' : '<span style="color:#555;font-size:14px">›</span>'}
     </div>
@@ -145,16 +164,16 @@ function onProviderListClick(e) {
 export function updateModelSelector() {
   const sel = document.getElementById("model-select");
   if (!sel) return;
-  // Chat is BYOK-only: rebuild the full list from state.aiProviders so
+  // Chat is BYOK-only: rebuild the full list from state.aiConnections so
   // there is no "mono default" option lingering in the DOM.
   sel.innerHTML = "";
-  for (const p of state.aiProviders) {
+  for (const p of state.aiConnections) {
     const opt = document.createElement("option");
     opt.value = `provider:${p.id}`;
     opt.textContent = p.alias;
     sel.appendChild(opt);
   }
-  const def = state.aiProviders.find(p => p.isDefault);
+  const def = state.aiConnections.find(p => p.isDefault);
   if (def) sel.value = `provider:${def.id}`;
   // Refresh the provider pill label if the AI tab's topbar is mounted.
   const pillLabel = document.querySelector("#btn-provider-pill .pill-label");
@@ -231,7 +250,7 @@ export async function openAIProviders() {
   if (getVaultPp()) {
     await loadProviders();
   } else {
-    state.aiProviders = [];
+    state.aiConnections = [];
     renderProviderList();
   }
   showView("ai-providers");
@@ -246,18 +265,69 @@ function evaluateStrength(val) {
   return Math.min(score, 3);
 }
 
-// ── Add/Edit Provider ──
+// ── Add/Edit Connection ──
+
+// Public catalog from /config. Populated once on init; each provider:
+// { id, label, protocol, baseUrl, modelsPath, requiresBaseUrl }.
+let PROVIDER_CATALOG_CACHE = [];
+
+async function loadProviderCatalog() {
+  try {
+    const res = await fetch(`${API_URL}/config`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data.providers)) {
+      PROVIDER_CATALOG_CACHE = data.providers;
+      renderProviderDropdown();
+    }
+  } catch { /* offline is fine, just can't add */ }
+}
+
+function renderProviderDropdown() {
+  const sel = document.getElementById("apf-provider");
+  if (!sel) return;
+  sel.innerHTML = PROVIDER_CATALOG_CACHE
+    .map(p => `<option value="${esc(p.id)}">${esc(p.label)}</option>`)
+    .join("");
+}
+
+// Show / hide the Base URL field based on provider.requiresBaseUrl.
+function applyProviderSelection() {
+  const providerId = document.getElementById("apf-provider").value;
+  const p = PROVIDER_CATALOG_CACHE.find(x => x.id === providerId);
+  const field = document.getElementById("apf-base-url-field");
+  const hint = document.getElementById("apf-base-url-hint");
+  if (!p) return;
+  if (p.requiresBaseUrl) {
+    field.style.display = "";
+    hint.textContent = "Required — your relay's base URL";
+  } else {
+    field.style.display = "";
+    hint.textContent = `Optional — default ${p.baseUrl || ""}`;
+  }
+  // Clear model list — it's provider-specific.
+  document.getElementById("apf-model-select").innerHTML = '<option value="">— Fetch models to populate —</option>';
+  document.getElementById("apf-fetch-status").textContent = "";
+}
 
 function editProvider(idx) {
-  state.editingProviderIdx = idx;
-  const p = state.aiProviders[idx];
-  document.getElementById("apf-title").textContent = "Edit Provider";
-  document.getElementById("apf-alias").value = p.alias;
-  document.getElementById("apf-model").value = p.model;
-  document.getElementById("apf-key").value = p.key;
-  document.getElementById("apf-url").value = p.url || "";
-  document.getElementById("apf-model-name").value = p.modelName || "";
-  document.getElementById("apf-default-toggle").className = p.isDefault ? "apf-toggle on" : "apf-toggle";
+  state.editingConnectionIdx = idx;
+  const c = state.aiConnections[idx];
+  document.getElementById("apf-title").textContent = "Edit Connection";
+  document.getElementById("apf-alias").value = c.alias || "";
+  document.getElementById("apf-provider").value = c.provider || "";
+  applyProviderSelection();
+  document.getElementById("apf-base-url").value = c.baseUrl || "";
+  document.getElementById("apf-key").value = c.apiKey || "";
+  // Seed the model dropdown with the current value so edit doesn't need
+  // a re-fetch; user can still hit Fetch to refresh.
+  const msel = document.getElementById("apf-model-select");
+  msel.innerHTML = c.model
+    ? `<option value="${esc(c.model)}" selected>${esc(c.model)}</option>`
+    : '<option value="">— Fetch models to populate —</option>';
+  document.getElementById("apf-model-manual").value = "";
+  document.getElementById("apf-model-manual").style.display = "none";
+  document.getElementById("apf-default-toggle").className = c.isDefault ? "apf-toggle on" : "apf-toggle";
   document.getElementById("apf-test-result").className = "apf-test-result";
   document.getElementById("btn-apf-delete").className = "apf-delete-btn show";
   document.getElementById("btn-apf-duplicate").className = "apf-duplicate-btn show";
@@ -369,7 +439,7 @@ export function initSettings() {
         const uid = state.auth.currentUser.uid;
         const snap = await getDoc(doc(state.db, "users", uid, "settings", "ai"));
         const encrypted = snap.data().encrypted;
-        state.aiProviders = await decryptData(newKey, encrypted);
+        state.aiConnections = await decryptData(newKey, encrypted);
         setVaultPp(newKey);
         status.textContent = "✓ Unlocked";
         status.className = "aip-mk-status success";
@@ -380,7 +450,7 @@ export function initSettings() {
         status.textContent = "✗ Wrong master key";
         status.className = "aip-mk-status error";
         resetBtn.style.display = "block";
-        state.aiProviders = [];
+        state.aiConnections = [];
         renderProviderList();
       }
       return;
@@ -392,7 +462,7 @@ export function initSettings() {
         const uid = state.auth.currentUser.uid;
         const snap = await getDoc(doc(state.db, "users", uid, "settings", "ai"));
         if (snap.exists() && snap.data().encrypted) {
-          state.aiProviders = await decryptData(oldKey, snap.data().encrypted);
+          state.aiConnections = await decryptData(oldKey, snap.data().encrypted);
         }
       } catch {}
       setVaultPp(newKey);
@@ -415,7 +485,7 @@ export function initSettings() {
       const uid = state.auth.currentUser.uid;
       await setDoc(doc(state.db, "users", uid, "settings", "ai"), { encrypted: null });
       state.hasOnlineProviders = false;
-      state.aiProviders = [];
+      state.aiConnections = [];
       clearVaultPp();
       renderProviderList();
       renderMasterKeyState();
@@ -445,15 +515,24 @@ export function initSettings() {
     el.className = "aip-strength " + level.cls;
   });
 
-  // Add provider
+  // Add connection
   document.getElementById("btn-aip-add").addEventListener("click", () => {
-    state.editingProviderIdx = -1;
-    document.getElementById("apf-title").textContent = "Add Provider";
+    state.editingConnectionIdx = -1;
+    // Clear the legacy-reset banner on first add — user has acknowledged.
+    state.connectionsWereReset = false;
+    document.getElementById("apf-title").textContent = "Add Connection";
     document.getElementById("apf-alias").value = "";
-    document.getElementById("apf-model").value = "gpt-5.3-codex";
+    // Default to the first catalog entry (alphabetical / catalog-defined
+    // order). Fallback empty if catalog hasn't loaded yet.
+    const firstProvider = PROVIDER_CATALOG_CACHE[0]?.id || "";
+    document.getElementById("apf-provider").value = firstProvider;
+    applyProviderSelection();
+    document.getElementById("apf-base-url").value = "";
     document.getElementById("apf-key").value = "";
-    document.getElementById("apf-url").value = "";
-    document.getElementById("apf-model-name").value = "";
+    document.getElementById("apf-model-select").innerHTML = '<option value="">— Fetch models to populate —</option>';
+    document.getElementById("apf-model-manual").value = "";
+    document.getElementById("apf-model-manual").style.display = "none";
+    document.getElementById("apf-fetch-status").textContent = "";
     document.getElementById("apf-default-toggle").className = "apf-toggle";
     document.getElementById("apf-test-result").className = "apf-test-result";
     document.getElementById("btn-apf-delete").className = "apf-delete-btn";
@@ -465,27 +544,64 @@ export function initSettings() {
   document.getElementById("apf-default-toggle").addEventListener("click", function () {
     this.classList.toggle("on");
   });
+  document.getElementById("apf-provider").addEventListener("change", applyProviderSelection);
 
-  // Save provider
+  // Manual model entry toggle — when the provider doesn't expose /models
+  // or the user wants a model not in the fetched list, flip to a plain
+  // text input. Click again to flip back.
+  document.getElementById("btn-apf-model-manual-toggle").addEventListener("click", (e) => {
+    e.preventDefault();
+    const manual = document.getElementById("apf-model-manual");
+    const select = document.getElementById("apf-model-select");
+    const link = document.getElementById("btn-apf-model-manual-toggle");
+    const isManual = manual.style.display !== "none";
+    if (isManual) {
+      manual.style.display = "none";
+      select.style.display = "";
+      link.textContent = "Enter model manually →";
+    } else {
+      manual.value = select.value || manual.value;
+      manual.style.display = "";
+      select.style.display = "none";
+      link.textContent = "← Pick from fetched list";
+    }
+  });
+
+  // Returns the model id chosen via dropdown OR manual input, whichever
+  // is currently visible. Empty string if neither.
+  function currentFormModelId() {
+    const manual = document.getElementById("apf-model-manual");
+    if (manual.style.display !== "none") return manual.value.trim();
+    return document.getElementById("apf-model-select").value.trim();
+  }
+
+  // Save connection
   document.getElementById("btn-apf-save").addEventListener("click", async () => {
     const alias = document.getElementById("apf-alias").value.trim();
-    const model = document.getElementById("apf-model").value;
-    const key = document.getElementById("apf-key").value.trim();
-    const url = document.getElementById("apf-url").value.trim();
-    const modelName = document.getElementById("apf-model-name").value.trim();
+    const providerId = document.getElementById("apf-provider").value;
+    const baseUrl = document.getElementById("apf-base-url").value.trim();
+    const apiKey = document.getElementById("apf-key").value.trim();
+    const model = currentFormModelId();
     const isDefault = document.getElementById("apf-default-toggle").classList.contains("on");
-    if (!alias || !key) { alert("Alias and API Key are required"); return; }
+    const catalogEntry = PROVIDER_CATALOG_CACHE.find(p => p.id === providerId);
+    if (!alias || !apiKey) { alert("Alias and API Key are required"); return; }
+    if (!providerId || !catalogEntry) { alert("Pick a Provider"); return; }
+    if (catalogEntry.requiresBaseUrl && !baseUrl) { alert("Base URL is required for this provider"); return; }
+    if (!model) { alert("Pick a Model (Fetch from the provider or enter manually)"); return; }
 
-    if (isDefault) state.aiProviders.forEach(p => p.isDefault = false);
+    if (isDefault) state.aiConnections.forEach(p => p.isDefault = false);
 
-    if (state.editingProviderIdx >= 0) {
-      const p = state.aiProviders[state.editingProviderIdx];
-      p.alias = alias; p.model = model; p.key = key; p.url = url;
-      p.modelName = modelName; p.isDefault = isDefault;
+    const next = {
+      alias, provider: providerId, model,
+      apiKey,
+      baseUrl: baseUrl || undefined,
+      isDefault,
+    };
+    if (state.editingConnectionIdx >= 0) {
+      const p = state.aiConnections[state.editingConnectionIdx];
+      Object.assign(p, next);
     } else {
-      state.aiProviders.push({
-        id: crypto.randomUUID(), alias, model, key, url, modelName, isDefault,
-      });
+      state.aiConnections.push({ id: crypto.randomUUID(), ...next });
     }
 
     await saveProviders();
@@ -493,40 +609,42 @@ export function initSettings() {
     showView("ai-providers");
   });
 
-  // Delete provider
+  // Delete connection
   document.getElementById("btn-apf-delete").addEventListener("click", async () => {
-    if (!confirm("Delete this provider?")) return;
-    state.aiProviders.splice(state.editingProviderIdx, 1);
+    if (!confirm("Delete this connection?")) return;
+    state.aiConnections.splice(state.editingConnectionIdx, 1);
     await saveProviders();
     renderProviderList();
     showView("ai-providers");
   });
 
-  // Duplicate provider — clones the currently edited entry with a fresh
-  // id, " (copy)" suffix on the alias, and isDefault forced off. Stays
-  // on the list so the user can tweak either copy.
+  // Duplicate connection — clones the currently edited entry with a
+  // fresh id, " (copy)" suffix on the alias, and isDefault forced off.
   document.getElementById("btn-apf-duplicate").addEventListener("click", async () => {
-    if (state.editingProviderIdx < 0) return;
-    const src = state.aiProviders[state.editingProviderIdx];
+    if (state.editingConnectionIdx < 0) return;
+    const src = state.aiConnections[state.editingConnectionIdx];
     const copy = {
       ...src,
       id: crypto.randomUUID(),
       alias: `${src.alias} (copy)`,
       isDefault: false,
     };
-    state.aiProviders.push(copy);
+    state.aiConnections.push(copy);
     await saveProviders();
     renderProviderList();
     showView("ai-providers");
   });
 
-  // Test connection
+  // Test connection — send a minimal chat to /chat using the in-progress
+  // form values (not yet saved). Lets the user verify key + url + model
+  // before committing the Connection.
   document.getElementById("btn-apf-test").addEventListener("click", async () => {
-    const model = document.getElementById("apf-model").value;
-    const key = document.getElementById("apf-key").value.trim();
-    const url = document.getElementById("apf-url").value.trim();
-    const modelName = document.getElementById("apf-model-name").value.trim();
-    if (!key) { alert("Enter an API key first"); return; }
+    const providerId = document.getElementById("apf-provider").value;
+    const baseUrl = document.getElementById("apf-base-url").value.trim();
+    const apiKey = document.getElementById("apf-key").value.trim();
+    const model = currentFormModelId();
+    if (!apiKey) { alert("Enter an API key first"); return; }
+    if (!model) { alert("Pick a Model first"); return; }
 
     const btn = document.getElementById("btn-apf-test");
     btn.textContent = "Testing...";
@@ -542,12 +660,9 @@ export function initSettings() {
           message: "Say hi in one word",
           files: [],
           history: [],
+          provider: providerId,
           model,
-          byok: {
-            key,
-            url: url || undefined,
-            modelName: modelName || undefined,
-          },
+          byok: { apiKey, baseUrl: baseUrl || undefined },
         }),
       });
       const elapsed = Date.now() - start;
@@ -558,7 +673,7 @@ export function initSettings() {
         document.getElementById("apf-test-title").style.color = "#6c6";
         document.getElementById("apf-test-detail").textContent = `Response: ${elapsed}ms`;
       } else {
-        throw new Error(data.error || data.detail || "Unknown error");
+        throw new Error(data.error || `HTTP ${res.status}`);
       }
     } catch (e) {
       result.className = "apf-test-result fail show";
@@ -569,15 +684,18 @@ export function initSettings() {
     btn.textContent = "⚡ Test Connection";
   });
 
-  // Fetch model list — calls mono-api /models with the BYOK url+key,
-  // populates the Custom Model Name datalist for autocomplete.
+  // Fetch model list — calls /models with { provider, apiKey, baseUrl? }
+  // and populates the Model dropdown. Manual-entry fallback is always
+  // available via the "Enter model manually" link below the field.
   document.getElementById("btn-apf-fetch-models").addEventListener("click", async () => {
-    const model = document.getElementById("apf-model").value;
-    const key = document.getElementById("apf-key").value.trim();
-    const url = document.getElementById("apf-url").value.trim();
+    const providerId = document.getElementById("apf-provider").value;
+    const apiKey = document.getElementById("apf-key").value.trim();
+    const baseUrl = document.getElementById("apf-base-url").value.trim();
     const status = document.getElementById("apf-fetch-status");
     const btn = document.getElementById("btn-apf-fetch-models");
-    if (!key) { status.textContent = "Enter an API key first"; status.className = "apf-fetch-status warn"; return; }
+    const select = document.getElementById("apf-model-select");
+    if (!apiKey) { status.textContent = "Enter an API key first"; status.className = "apf-fetch-status warn"; return; }
+    if (!providerId) { status.textContent = "Pick a Provider first"; status.className = "apf-fetch-status warn"; return; }
 
     btn.disabled = true;
     btn.textContent = "Fetching…";
@@ -588,36 +706,39 @@ export function initSettings() {
       const res = await apiFetch("/models", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url || undefined, key, model }),
+        body: JSON.stringify({ provider: providerId, apiKey, baseUrl: baseUrl || undefined }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || data.detail || `HTTP ${res.status}`);
-      const list = document.getElementById("apf-model-name-list");
-      list.innerHTML = "";
-      const models = data.models || [];
-      // Sort: reasoning-capable first, then vision, then alpha.
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const models = (data.models || []).slice();
+      // Sort: reasoning first, then vision, then alpha.
       models.sort((a, b) => {
         if (a.reasoning !== b.reasoning) return a.reasoning ? -1 : 1;
         if (a.vision !== b.vision) return a.vision ? -1 : 1;
         return a.id.localeCompare(b.id);
       });
-      for (const m of models) {
-        const opt = document.createElement("option");
-        opt.value = m.id;
+      const prevValue = select.value;
+      select.innerHTML = models.map(m => {
         const tags = [];
         if (m.reasoning) tags.push("reasoning");
         if (m.vision) tags.push("vision");
         if (m.context) tags.push(`${Math.round(m.context / 1024)}K ctx`);
-        if (tags.length) opt.label = `${m.id} — ${tags.join(", ")}`;
-        list.appendChild(opt);
-      }
-      status.textContent = `✓ ${models.length} models — type or click the field to browse`;
+        const label = tags.length ? `${m.id} — ${tags.join(", ")}` : m.id;
+        return `<option value="${esc(m.id)}">${esc(label)}</option>`;
+      }).join("");
+      // Preserve prior selection if it survived the new list.
+      if (prevValue && models.some(m => m.id === prevValue)) select.value = prevValue;
+      status.textContent = `✓ ${models.length} models`;
       status.className = "apf-fetch-status success";
     } catch (e) {
-      status.textContent = `✗ ${e.message}`;
+      status.textContent = `✗ ${e.message} — use "Enter model manually" if the provider has no /models`;
       status.className = "apf-fetch-status error";
     }
     btn.disabled = false;
     btn.textContent = "🔍 Fetch";
   });
+
+  // Kick off one-time catalog load so the Provider dropdown is populated
+  // by the time the user clicks Add Connection.
+  loadProviderCatalog();
 }

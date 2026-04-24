@@ -232,12 +232,12 @@ export async function openEditor(gameId, title, desc) {
 
   // Load AI providers if needed
   const vaultPp = getVaultPp();
-  if (state.aiProviders.length === 0 && vaultPp) {
+  if (state.aiConnections.length === 0 && vaultPp) {
     try {
       const uid = state.auth.currentUser.uid;
       const snap = await getDoc(doc(state.db, "users", uid, "settings", "ai"));
       if (snap.exists() && snap.data().encrypted) {
-        state.aiProviders = await decryptData(vaultPp, snap.data().encrypted);
+        state.aiConnections = await decryptData(vaultPp, snap.data().encrypted);
         updateModelSelector();
       }
     } catch {}
@@ -343,10 +343,10 @@ export function initEditor() {
     const val = e.target.value;
     localStorage.setItem("mono_model", val);
     if (val.startsWith("provider:")) {
-      const noUserDefault = !state.aiProviders.some(p => p.isDefault);
+      const noUserDefault = !state.aiConnections.some(p => p.isDefault);
       if (noUserDefault) {
         const pid = val.slice(9);
-        state.aiProviders.forEach(p => p.isDefault = (p.id === pid));
+        state.aiConnections.forEach(p => p.isDefault = (p.id === pid));
         saveProviders();
       }
     }

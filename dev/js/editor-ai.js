@@ -5,36 +5,41 @@ import { apiFetch, saveChatHistory } from './api.js';
 import { runHeadlessTest, defaultSmokeScenario } from './editor-play.js';
 import { openAIProviders } from './settings.js';
 
-// Models whose server-side PROVIDERS entry has apiType=openai. Those
-// route to /chat/agent (SSE tool-use loop); anything else falls back
-// to the one-shot /chat endpoint via the legacy path in sendMessage.
-// The authoritative list lives in mono-api/src/index.js PROVIDERS;
-// the client fetches it from /config on boot. Hardcoded fallback is
-// used until the config arrives (first-load / offline) so the feature
-// still works if the network blip happens before we initialize.
-let AGENT_MODELS = new Set([
-  "kimi-latest", "o3", "gpt-4.1",
-  "gpt-5.3-codex-apimart", "gpt-5.4-apimart",
-  "claude-code",
+// Provider catalog from mono-api /config — { id, protocol, ... }. The
+// client uses it to decide whether a Connection routes to /chat/agent
+// (openai-protocol tool-use loop) or /chat (one-shot). Fetched fire-
+// and-forget at module load; until it arrives the set below carries
+// the built-in openai-protocol providers so first-boot doesn't lose
+// agent routing on a slow network.
+let AGENT_PROTOCOLS = new Set(["openai"]);
+let PROVIDER_PROTOCOL = new Map([
+  ["openai",    "openai"],
+  ["moonshot",  "openai"],
+  ["apimart",   "openai"],
+  ["custom",    "openai"],
+  ["anthropic", "anthropic"],
+  ["google",    "gemini"],
 ]);
-function usesAgentPath(modelValue) {
-  return AGENT_MODELS.has(modelValue);
+function usesAgentPath(connection) {
+  const proto = PROVIDER_PROTOCOL.get(connection?.provider);
+  return !!proto && AGENT_PROTOCOLS.has(proto);
 }
 
-// Fire-and-forget on module load — replaces AGENT_MODELS with the
-// server's source of truth. No auth required (public endpoint).
-(async function loadAgentModelsFromConfig() {
+(async function loadCatalogFromConfig() {
   try {
     const res = await fetch(`${API_URL}/config`);
     if (!res.ok) return;
     const data = await res.json();
-    if (Array.isArray(data.agentModels) && data.agentModels.length) {
-      AGENT_MODELS = new Set(data.agentModels);
+    if (Array.isArray(data.providers)) {
+      const map = new Map();
+      for (const p of data.providers) map.set(p.id, p.protocol);
+      PROVIDER_PROTOCOL = map;
+    }
+    if (Array.isArray(data.agentProtocols)) {
+      AGENT_PROTOCOLS = new Set(data.agentProtocols);
     }
   } catch {
-    // Offline or network error — keep the hardcoded fallback. Any drift
-    // only matters when the server adds a NEW openai-compat model; the
-    // hardcoded list still covers the six built-ins as of this writing.
+    // Offline — keep the hardcoded fallback.
   }
 })();
 
@@ -375,12 +380,12 @@ async function* parseSSE(response) {
   }
 }
 
-async function sendAgent(provider, msg, chat) {
-  const model = provider.model;
+async function sendAgent(connection, msg, chat) {
+  const providerId = connection.provider;
+  const model = connection.model;
   const byok = {
-    key: provider.key,
-    url: provider.url || undefined,
-    modelName: provider.modelName || undefined,
+    apiKey: connection.apiKey,
+    baseUrl: connection.baseUrl || undefined,
   };
 
   const cardId = `mono-agent-${Date.now()}`;
@@ -442,7 +447,7 @@ async function sendAgent(provider, msg, chat) {
   };
 
   console.group("[MONO Agent]");
-  console.log("→ model:", model, byok.modelName ? `(override: ${byok.modelName})` : "");
+  console.log("→", providerId, "·", model, byok.baseUrl ? `@ ${byok.baseUrl}` : "");
   console.log("→ message:", msg);
 
   let finalText = "";
@@ -471,6 +476,7 @@ async function sendAgent(provider, msg, chat) {
         gameId: state.currentGameId,
         message: msg,
         history: state.chatHistory.slice(0, -1),
+        provider: providerId,
         model,
         byok,
       }),
@@ -672,26 +678,25 @@ export async function sendMessage(autoMsg) {
   state.chatHistory.push({ role: "user", content: msg });
 
   try {
-    const provider = state.aiProviders.find(p => p.id === selectedValue.slice(9));
-    if (!provider) throw new Error("Selected provider no longer exists — pick another one from the pill above.");
+    const connection = state.aiConnections.find(p => p.id === selectedValue.slice(9));
+    if (!connection) throw new Error("Selected connection no longer exists — pick another one from the pill above.");
 
-    // OpenAI-compat providers run the full agentic tool-use loop on the
-    // server, streamed over SSE. Everything else falls back to one-shot
-    // /chat (which still handles anthropic / gemini / responses apiTypes).
-    if (usesAgentPath(provider.model)) {
-      await sendAgent(provider, msg, chat);
+    // openai-protocol connections run the server-side agent tool-use loop
+    // over SSE; anthropic / gemini fall back to one-shot /chat.
+    if (usesAgentPath(connection)) {
+      await sendAgent(connection, msg, chat);
       return;
     }
 
-    const model = provider.model;
+    const providerId = connection.provider;
+    const model = connection.model;
     const byok = {
-      key: provider.key,
-      url: provider.url || undefined,
-      modelName: provider.modelName || undefined,
+      apiKey: connection.apiKey,
+      baseUrl: connection.baseUrl || undefined,
     };
 
     console.group("[MONO Chat]");
-    console.log("→ model:", model, byok.modelName ? `(override: ${byok.modelName})` : "");
+    console.log("→", providerId, "·", model, byok.baseUrl ? `@ ${byok.baseUrl}` : "");
     console.log("→ message:", msg);
     console.log("→ files:", state.currentFiles.map(f => f.name));
     console.groupEnd();
@@ -704,6 +709,7 @@ export async function sendMessage(autoMsg) {
         message: msg,
         files: state.currentFiles,
         history: state.chatHistory.slice(0, -1),
+        provider: providerId,
         model,
         byok,
       }),

@@ -1375,6 +1375,24 @@
 .aip-mk-status.success { color: #6c6; }
 .aip-mk-status.warn { color: #fa3; }
 .aip-divider { height: 1px; background: #222; }
+.apf-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #888;
+  text-decoration: none;
+}
+.apf-link:hover { color: #c9a0dc; }
+.aip-reset-banner {
+  background: #3a2a1a;
+  color: #e6c08a;
+  border-left: 3px solid #c08a3a;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  border-radius: 4px;
+}
 .aip-provider-card {
   display: flex;
   align-items: center;

@@ -66,7 +66,7 @@ onAuthStateChanged(state.auth, async (user) => {
   const newUid = user?.uid || null;
   if (newUid !== lastUid) {
     state.vaultPp = null;
-    state.aiProviders = [];
+    state.aiConnections = [];
     state.hasOnlineProviders = false;
   }
   lastUid = newUid;
