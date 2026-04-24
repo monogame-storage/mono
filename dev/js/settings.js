@@ -292,18 +292,23 @@ function renderProviderDropdown() {
 }
 
 // Show / hide the Base URL field based on provider.requiresBaseUrl.
+// The placeholder reflects the catalog baseUrl (or a sensible template
+// for providers requiring a custom relay) so users see the expected
+// shape without typing it.
 function applyProviderSelection() {
   const providerId = document.getElementById("apf-provider").value;
   const p = PROVIDER_CATALOG_CACHE.find(x => x.id === providerId);
   const field = document.getElementById("apf-base-url-field");
   const hint = document.getElementById("apf-base-url-hint");
+  const input = document.getElementById("apf-base-url");
   if (!p) return;
+  field.style.display = "";
   if (p.requiresBaseUrl) {
-    field.style.display = "";
     hint.textContent = "Required — your relay's base URL";
+    input.placeholder = "https://your-relay.example.com";
   } else {
-    field.style.display = "";
     hint.textContent = `Optional — default ${p.baseUrl || ""}`;
+    input.placeholder = p.baseUrl || "";
   }
   // Clear model list — it's provider-specific.
   document.getElementById("apf-model-select").innerHTML = '<option value="">— Fetch models to populate —</option>';
