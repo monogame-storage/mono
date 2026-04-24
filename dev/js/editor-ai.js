@@ -655,8 +655,8 @@ export async function sendMessage(autoMsg) {
   if (!selectedValue.startsWith("provider:")) {
     const chatEl = document.getElementById("editor-chat");
     chatEl.innerHTML += errorCard(
-      "Register an AI provider in Settings → AI Providers, then pick it from the pill above to enable chat.",
-      "NO PROVIDER",
+      "Register a Connection in Settings → AI Assistant, then pick it from the pill above to enable chat.",
+      "NO CONNECTION",
       false,
     );
     chatEl.scrollTop = chatEl.scrollHeight;

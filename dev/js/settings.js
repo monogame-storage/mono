@@ -179,7 +179,7 @@ export function updateModelSelector() {
   const pillLabel = document.querySelector("#btn-provider-pill .pill-label");
   if (pillLabel) {
     pillLabel.textContent = sel.options.length === 0
-      ? "No provider"
+      ? "No connection"
       : (sel.options[sel.selectedIndex]?.textContent || "Model");
   }
 }
@@ -227,7 +227,7 @@ function renderMasterKeyState() {
     input.placeholder = "Enter your master key to unlock";
     actionBtn.textContent = "Unlock";
     actionBtn.style.display = "block";
-    subtitle.textContent = "Encrypted providers found. Enter your master key to unlock.";
+    subtitle.textContent = "Encrypted connections found. Enter your master key to unlock.";
     subtitle.style.color = "#fa3";
     status.textContent = "";
   } else {
@@ -467,7 +467,7 @@ export function initSettings() {
       } catch {}
       setVaultPp(newKey);
       await saveProviders();
-      status.textContent = "✓ Master key changed and providers re-encrypted";
+      status.textContent = "✓ Master key changed and connections re-encrypted";
       status.className = "aip-mk-status success";
       renderMasterKeyState();
       return;
@@ -480,7 +480,7 @@ export function initSettings() {
 
   // Reset
   document.getElementById("aip-mk-reset").addEventListener("click", async () => {
-    if (!confirm("This will delete all saved providers. Are you sure?")) return;
+    if (!confirm("This will delete all saved connections. Are you sure?")) return;
     try {
       const uid = state.auth.currentUser.uid;
       await setDoc(doc(state.db, "users", uid, "settings", "ai"), { encrypted: null });
@@ -489,7 +489,7 @@ export function initSettings() {
       clearVaultPp();
       renderProviderList();
       renderMasterKeyState();
-      document.getElementById("aip-mk-status").textContent = "Providers cleared";
+      document.getElementById("aip-mk-status").textContent = "Connections cleared";
       document.getElementById("aip-mk-status").className = "aip-mk-status warn";
     } catch (e) {
       alert("Failed: " + e.message);
