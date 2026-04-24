@@ -563,8 +563,7 @@ function applyTouch(frame) {
 }
 
 function touchUpdate() {
-  touchStarted = touchStartedFlag;
-  touchEnded = touchEndedFlag;
+  // Clear edge flags at frame end — uf() has had one shot to observe them.
   touchStartedFlag = false;
   touchEndedFlag = false;
 }
@@ -835,9 +834,12 @@ async function main() {
       btn:  (k) => !!keys[k],
       btnp: (k) => !!(keys[k] && !keysPrev[k]),
       btnr: (k) => !!(!keys[k] && keysPrev[k]),
-      touch:      () => touches.length > 0 || touchStartedFlag,
-      touchStart: () => touchStarted || touchStartedFlag,
-      touchEnd:   () => touchEnded || touchEndedFlag,
+      touch:      () => touches.length > 0,
+      // touch_start/touch_end are edge-triggered: visible for exactly one
+      // frame starting on the frame the event was dispatched. Match runtime
+      // engine.js semantics (see engine.js MonoBindings input block).
+      touchStart: () => touchStartedFlag,
+      touchEnd:   () => touchEndedFlag,
       touchCount: () => touches.length,
       touchPosX:  (i) => { const t = touches[(i || 1) - 1]; return t ? t.x  : false; },
       touchPosY:  (i) => { const t = touches[(i || 1) - 1]; return t ? t.y  : false; },

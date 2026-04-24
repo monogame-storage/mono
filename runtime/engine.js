@@ -563,13 +563,11 @@ var Mono = (() => {
     // game has opted out via use_pause(false).
     if (pauseEnabled && keys["select"] && !keysPrev["select"]) paused = !paused;
 
-    // Touch edge detection (persists one frame, like btnp). endedTouches
-    // is the release-position snapshot accessed through touch_pos(i) during
-    // that single frame; clear it once the frame ticks past so stale data
-    // can't leak into later turns.
-    if (touchEnded && !touchEndedFlag) endedTouches = [];
-    touchStarted = touchStartedFlag;
-    touchEnded = touchEndedFlag;
+    // Touch edge flags are cleared here at frame end, after uf() has had
+    // one shot at observing them via touchStart() / touchEnd(). endedTouches
+    // holds the release snapshot consumed by touch_pos(i) during touch_end();
+    // clear it at the same time as the flag so stale data can't leak forward.
+    if (touchEndedFlag) endedTouches = [];
     touchStartedFlag = false;
     touchEndedFlag = false;
     swipeDir = swipeDirFlag;
@@ -1020,17 +1018,21 @@ var Mono = (() => {
         btn:        (k) => !!keys[k],
         btnp:       (k) => !!(keys[k] && !keysPrev[k]),
         btnr:       (k) => !!(!keys[k] && keysPrev[k]),
-        touch:      () => touches.length > 0 || touchStartedFlag,
-        touchStart: () => touchStarted || touchStartedFlag,
-        touchEnd:   () => touchEnded || touchEndedFlag,
-        touchCount: () => touches.length || (touchEnded || touchEndedFlag ? endedTouches.length : 0),
+        touch:      () => touches.length > 0,
+        // touch_start/touch_end are edge-triggered: true for exactly one update
+        // frame, beginning on the frame the event was dispatched. The previous
+        // `state || flag` form caused a 2-frame visibility bleed that could leak
+        // an event into a scene activated via go() on the same frame.
+        touchStart: () => touchStartedFlag,
+        touchEnd:   () => touchEndedFlag,
+        touchCount: () => touches.length || (touchEndedFlag ? endedTouches.length : 0),
         // While touch_end() is true (one frame), fall back to the release
         // snapshot so `if touch_end() then local x, y = touch_pos(1) end`
         // returns the lift coordinates instead of false.
-        touchPosX:  (i) => { const t = touches[(i || 1) - 1] || ((touchEnded || touchEndedFlag) ? endedTouches[(i || 1) - 1] : null); return t ? t.x  : false; },
-        touchPosY:  (i) => { const t = touches[(i || 1) - 1] || ((touchEnded || touchEndedFlag) ? endedTouches[(i || 1) - 1] : null); return t ? t.y  : false; },
-        touchPosfX: (i) => { const t = touches[(i || 1) - 1] || ((touchEnded || touchEndedFlag) ? endedTouches[(i || 1) - 1] : null); return t ? t.fx : false; },
-        touchPosfY: (i) => { const t = touches[(i || 1) - 1] || ((touchEnded || touchEndedFlag) ? endedTouches[(i || 1) - 1] : null); return t ? t.fy : false; },
+        touchPosX:  (i) => { const t = touches[(i || 1) - 1] || (touchEndedFlag ? endedTouches[(i || 1) - 1] : null); return t ? t.x  : false; },
+        touchPosY:  (i) => { const t = touches[(i || 1) - 1] || (touchEndedFlag ? endedTouches[(i || 1) - 1] : null); return t ? t.y  : false; },
+        touchPosfX: (i) => { const t = touches[(i || 1) - 1] || (touchEndedFlag ? endedTouches[(i || 1) - 1] : null); return t ? t.fx : false; },
+        touchPosfY: (i) => { const t = touches[(i || 1) - 1] || (touchEndedFlag ? endedTouches[(i || 1) - 1] : null); return t ? t.fy : false; },
         swipe: () => swipeDir || false,
         axisX: () => axisX,
         axisY: () => axisY,
