@@ -994,7 +994,7 @@ end
           // Single key or comma-separated: "up" or "up,a"
           for (const k of action.split(",")) {
             const key = k.trim();
-            if (key && validKeys[key]) keys[key] = true;
+            if (key && MonoBindings.VALID_KEYS[key]) keys[key] = true;
           }
         }
       } catch (e) {
