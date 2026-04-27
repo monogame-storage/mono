@@ -17,6 +17,31 @@ function readText(p) {
   return fs.readFileSync(p, "utf8").replace(/\s+$/, "") + "\n";
 }
 
+function extractTags(jsdoc) {
+  if (!jsdoc) return { sig: null, group: null, desc: null };
+  // Strip /** */ and leading * on each line, then collapse to a single tag-stream.
+  const inner = jsdoc
+    .replace(/^\/\*\*/, "")
+    .replace(/\*\/$/, "")
+    .split(/\r?\n/)
+    .map(line => line.replace(/^\s*\*\s?/, ""))
+    .join("\n");
+  // Tokenize tags. A tag starts at "@<word>" at line start and runs until the next "@<word>" at line start or EOF.
+  const tags = {};
+  const re = /^@(\w+)[ \t]*([^\n]*(?:\n(?!@)[^\n]*)*)/gm;
+  let m;
+  while ((m = re.exec(inner)) !== null) {
+    const name = m[1];
+    const value = m[2].replace(/\s+/g, " ").trim();
+    if (!(name in tags)) tags[name] = value;
+  }
+  return {
+    sig:   tags.lua   || null,
+    group: tags.group || null,
+    desc:  tags.desc  || null,
+  };
+}
+
 // Parse one source file → array of { name, jsdoc | null }
 function parseFile(src) {
   const text = fs.readFileSync(src, "utf8");
@@ -41,7 +66,7 @@ function parseFile(src) {
         }
       }
     }
-    out.push({ name, jsdoc });
+    out.push({ name, ...extractTags(jsdoc) });
   }
   return out;
 }
@@ -63,7 +88,7 @@ function main() {
   // Debug dump for now.
   console.error(`parsed ${apis.length} registrations`);
   for (const a of apis) {
-    console.error(`  ${a.name}${a.jsdoc ? "  [jsdoc]" : ""}`);
+    console.error(`  ${a.name.padEnd(18)} group=${a.group || "-"}  sig=${a.sig || "-"}`);
   }
   const body = "<!-- generated body goes here -->";
   fs.writeFileSync(OUT, compose(body));
