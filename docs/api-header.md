@@ -39,14 +39,15 @@ Default is 1-bit (2 colors) if `mode()` is never called.
 
 ## Lifecycle
 
-The engine calls two global functions before scenes start (both optional):
+The engine calls three global functions before the game loop starts (all optional):
 
 ```lua
 function _init()    -- system config: call mode() here
-function _start()   -- game setup: define sprites, set state, often calls go("title")
+function _start()   -- game setup: define sprites, queue loadImage() calls, set state
+function _ready()   -- runs after every loadImage() resolves; safe to query imageWidth/imageHeight; common place to call go()
 ```
 
-Order: `_init()` → engine internals exposed → `_start()` → game loop begins. Each frame: input → `<scene>_update()` → `<scene>_draw()`.
+Order: `_init()` → engine internals exposed → `_start()` → image loads finish → `_ready()` → game loop begins. Each frame: input → `<scene>_update()` (or global `_update()` when no scene is active) → `<scene>_draw()` (or `_draw()`).
 
 ## Surfaces
 
@@ -117,4 +118,4 @@ Press number keys during gameplay to toggle overlays:
 
 ## Pause
 
-**Select** (Space) toggles pause during the `play` scene. While paused, `<scene>_update()` is skipped; `<scene>_draw()` still runs. A blinking "PAUSE" overlay is drawn automatically.
+**Select** (Space) toggles pause in every scene by default. While paused, `<scene>_update()` is skipped; `<scene>_draw()` still runs. A blinking "PAUSE" overlay is drawn automatically. Call `use_pause(false)` to opt out — the engine stops auto-pausing and the game owns SELECT (useful for menu / title scenes that bind it).
