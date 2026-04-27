@@ -91,4 +91,4 @@ Android의 `<uses-feature android:required="true">`와 같은 개념.
 
 - [GAME-STANDARD.md](./GAME-STANDARD.md) — 게임 구조 / 컨트롤 규약
 - [SPEC.md](./SPEC.md) — 콘솔 하드웨어 스펙
-- [DEV.md](./DEV.md) — 엔진 API 레퍼런스
+- [API.md](./API.md) — 엔진 API 레퍼런스

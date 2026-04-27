@@ -90,7 +90,7 @@ function _ready() go("scenes/title") end
 - `COLORS` — number of palette colors (e.g. 16 in mode 4). Use `COLORS - 1` for max color index.
 
 ## Documentation
-- API Reference: {{BASE_URL}}/docs/DEV.md
+- API Reference: {{BASE_URL}}/docs/API.md
 - Common AI Mistakes: {{BASE_URL}}/docs/AI-PITFALLS.md
 - Headless Testing: {{BASE_URL}}/docs/LLM-VERIFICATION.md
 - Source: https://github.com/monogame-storage/mono
@@ -148,7 +148,7 @@ gh issue comment <number> --body "Additional context: ..."
 gh issue create --repo monogame-storage/mono \
   --label "bug" \
   --title "frame() not available in mono-test.js" \
-  --body "DEV.md documents frame() but mono-test.js doesn't register it."
+  --body "API.md documents frame() but mono-test.js doesn't register it."
 
 gh issue create --repo monogame-storage/mono \
   --label "proposal" \
