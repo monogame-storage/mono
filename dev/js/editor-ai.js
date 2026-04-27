@@ -352,13 +352,20 @@ function updateUsageDisplay(data) {
 
 // ── Agent path (SSE tool-use loop) ──
 
-// Parse an SSE stream into { event, data } records. Yields each record
-// as it arrives. Follows the minimal SSE grammar used by /chat/agent:
-// one `event:` + one `data:` per frame, separated by blank lines.
+// Parse an SSE stream into { event, data } records. Follows the
+// WHATWG SSE grammar: every `data:` line in a frame contributes a
+// value, and consecutive `data:` lines are joined with `\n` (not
+// concatenated tightly — that corrupts JSON whose values contain
+// embedded whitespace). Optional single space after the colon is
+// stripped per spec; preserves all other characters verbatim.
 async function* parseSSE(response) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
+  const stripPrefix = (line, prefix) => {
+    const rest = line.slice(prefix.length);
+    return rest.startsWith(" ") ? rest.slice(1) : rest;
+  };
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
@@ -367,12 +374,15 @@ async function* parseSSE(response) {
     while ((idx = buf.indexOf("\n\n")) !== -1) {
       const frame = buf.slice(0, idx);
       buf = buf.slice(idx + 2);
-      let event = "message", dataStr = "";
+      let event = "message";
+      const dataLines = [];
       for (const line of frame.split("\n")) {
-        if (line.startsWith("event:")) event = line.slice(6).trim();
-        else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+        if (line.startsWith(":")) continue; // SSE comment
+        if (line.startsWith("event:")) event = stripPrefix(line, "event:").trim();
+        else if (line.startsWith("data:")) dataLines.push(stripPrefix(line, "data:"));
       }
-      if (!dataStr) continue;
+      if (dataLines.length === 0) continue;
+      const dataStr = dataLines.join("\n");
       let data;
       try { data = JSON.parse(dataStr); } catch { continue; }
       yield { event, data };
@@ -381,6 +391,13 @@ async function* parseSSE(response) {
 }
 
 async function sendAgent(connection, msg, chat) {
+  // Defensive guard — caller already checks state.aiConnections, but the
+  // user can delete the Connection between the lookup and now (rapid
+  // navigation, multi-tab edit). Bail with a clear error instead of
+  // crashing on `connection.provider`.
+  if (!connection?.provider || !connection?.model || !connection?.apiKey) {
+    throw new Error("Connection is invalid — re-pick or re-add it in Settings → AI Assistant.");
+  }
   const providerId = connection.provider;
   const model = connection.model;
   const byok = {
@@ -392,16 +409,22 @@ async function sendAgent(connection, msg, chat) {
   const typing = document.getElementById("mono-typing");
   if (typing) typing.outerHTML = monoAgentCard(cardId);
   else chat.innerHTML += monoAgentCard(cardId);
-  const card = document.getElementById(cardId);
-  const liveEl = card?.querySelector(".ai-agent-live");
   const toolLines = new Map(); // tool_call id → row element
   chat.scrollTop = chat.scrollHeight;
+
+  // Re-query the live container on every append. A captured reference
+  // would go stale the moment something else mutates chat.innerHTML
+  // during the stream (engine error card, smoke test card from a prior
+  // run, another sendMessage), and writes would land on a detached
+  // node — invisible to the user but consuming the rest of the trace.
+  const getLiveEl = () => document.getElementById(cardId)?.querySelector(".ai-agent-live");
 
   // Append into `.ai-agent-live` in arrival order. Consecutive reasoning
   // or token events coalesce into the same block (typing-style growth);
   // a new event type — tool call, next-turn reasoning after tools —
   // starts a fresh block underneath so the trace reads top-to-bottom.
   const appendLive = (kind, text, opts = {}) => {
+    const liveEl = getLiveEl();
     if (!liveEl) return null;
     const last = liveEl.lastElementChild;
     if (kind === "reasoning") {
@@ -437,7 +460,7 @@ async function sendAgent(connection, msg, chat) {
   };
   const finishToolLine = (id, ok, summary) => {
     const row = toolLines.get(id);
-    if (!row) return;
+    if (!row?.isConnected) return;
     row.classList.remove("working");
     row.classList.add(ok ? "ok" : "err");
     const spin = row.querySelector(".ai-tool-spin");
