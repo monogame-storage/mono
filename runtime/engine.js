@@ -892,7 +892,7 @@ var Mono = (() => {
     lua.global.set("gyro_gamma", () => gyroGamma); // -90 to 90 left/right tilt
     lua.global.set("motion_enabled", () => motionEnabled ? 1 : 0);
     /**
-     * @lua frame: number
+     * @lua frame(): number
      * @group Globals
      * @desc Current frame number, starts at 0 and increments by 1 each frame.
      */
@@ -923,8 +923,11 @@ var Mono = (() => {
         ms:    d.getMilliseconds(),
       };
     });
-    // print is intentionally routed to console.log for debugging. It is NOT
-    // part of the public Mono API — it's Lua's built-in, kept for dev convenience.
+    /**
+     * @lua print(...): void
+     * @group Util
+     * @desc Logs values to the host console (prefixed with [Lua]). Useful during development. On platforms without a visible console (e.g. mobile builds) this is a no-op for end users.
+     */
     lua.global.set("print", (...args) => console.log("[Lua]", ...args));
 
     // mode(bits) — set color depth (1=2 colors, 2=4 colors, 4=16 colors)

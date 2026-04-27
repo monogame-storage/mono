@@ -150,6 +150,48 @@
      */
     lua.global.set("btnr", () => false);
 
+    /**
+     * @lua touch(): boolean
+     * @group Input
+     * @desc Returns true while at least one finger is on the screen.
+     */
+    lua.global.set("touch", () => false);
+
+    /**
+     * @lua touch_start(): boolean
+     * @group Input
+     * @desc Returns true on the frame a touch began.
+     */
+    lua.global.set("touch_start", () => false);
+
+    /**
+     * @lua touch_end(): boolean
+     * @group Input
+     * @desc Returns true on the frame a touch was released.
+     */
+    lua.global.set("touch_end", () => false);
+
+    /**
+     * @lua touch_pos(i?: number): number, number | false
+     * @group Input
+     * @desc Integer pixel coordinates (x, y) of touch i (1-based, default 1). Returns false if no such touch.
+     */
+    lua.global.set("touch_pos", () => false);
+
+    /**
+     * @lua touch_posf(i?: number): number, number | false
+     * @group Input
+     * @desc Sub-pixel float coordinates (x, y) of touch i (1-based, default 1). Returns false if no such touch.
+     */
+    lua.global.set("touch_posf", () => false);
+
+    /**
+     * @lua cam_get(): number, number
+     * @group Camera
+     * @desc Returns the current camera offset (x, y) set by cam().
+     */
+    lua.global.set("cam_get", () => false);
+
     // ── Lua-side wrappers (single source of truth) ──
     // Wasmoon returns `false` for JS `false` but `nil` feels more natural
     // for the primitives that can return false — wrappers normalize.

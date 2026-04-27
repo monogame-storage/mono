@@ -10,9 +10,14 @@ function update(): void  // per-frame logic (30fps)
 function draw(): void    // per-frame rendering
 ```
 
+## Camera
+
+### cam_get(): number, number
+Returns the current camera offset (x, y) set by cam().
+
 ## Globals
 
-### frame: number
+### frame(): number
 Current frame number, starts at 0 and increments by 1 each frame.
 
 ## Graphics
@@ -52,6 +57,21 @@ Returns true on the frame the button was newly pressed (was not down on the prev
 ### btnr(key: Key): boolean
 Returns true on the frame the button was released. Use instead of btnp() for scene transitions and confirmations — acting on release feels more forgiving.
 
+### touch(): boolean
+Returns true while at least one finger is on the screen.
+
+### touch_end(): boolean
+Returns true on the frame a touch was released.
+
+### touch_pos(i?: number): number, number | false
+Integer pixel coordinates (x, y) of touch i (1-based, default 1). Returns false if no such touch.
+
+### touch_posf(i?: number): number, number | false
+Sub-pixel float coordinates (x, y) of touch i (1-based, default 1). Returns false if no such touch.
+
+### touch_start(): boolean
+Returns true on the frame a touch began.
+
 ## Sound
 
 ### note(channel: 0 | 1, note: string, duration: number): void
@@ -64,6 +84,11 @@ Stop a channel. With no argument, stops all channels.
 
 ### spr(id: number, x: number, y: number, flipX?: boolean, flipY?: boolean): void
 Draw a registered sprite at the given screen position. flipX/flipY mirror.
+
+## Util
+
+### print(...): void
+Logs values to the host console (prefixed with [Lua]). Useful during development. On platforms without a visible console (e.g. mobile builds) this is a no-op for end users.
 
 ## Misc
 
@@ -120,8 +145,6 @@ Draw a registered sprite at the given screen position. flipX/flipY mirror.
 ### motion_z
 
 ### noise
-
-### print
 
 ### scene_name
 
