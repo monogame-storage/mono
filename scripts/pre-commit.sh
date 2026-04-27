@@ -18,6 +18,7 @@ done
 [ "$TRIGGER" = "1" ] || exit 0
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
+[ -f "$REPO_ROOT/scripts/gen-api-docs.js" ] || exit 0
 DIFF=$(cd "$REPO_ROOT" && node scripts/gen-api-docs.js --check 2>&1) || {
   echo "✖ docs/API.md is out of date." >&2
   echo "$DIFF" >&2
