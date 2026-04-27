@@ -39,3 +39,11 @@ Read `docs/GAME-STANDARD.md` or use `/mono-new-game`. New games must follow the 
 - Commit messages: imperative, concise, with Co-Authored-By
 - Don't amend — always new commits
 - PR that addresses a GitHub issue: always include `Closes #N` in PR body so merging auto-closes the issue
+
+### Pre-commit hook
+
+`.git/hooks/pre-commit` blocks commits when `docs/API.md` is out of date. Install:
+
+```bash
+cp scripts/pre-commit.sh .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+```
