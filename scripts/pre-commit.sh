@@ -4,18 +4,23 @@
 
 set -e
 
-# Only run if any relevant path is staged.
 STAGED=$(git diff --cached --name-only)
-TRIGGER=0
-for f in $STAGED; do
+TRIGGER_INPUT=0
+TRIGGER_OUTPUT=0
+while IFS= read -r f; do
   case "$f" in
-    runtime/engine.js|runtime/engine-bindings.js|docs/api-header.md|docs/api-footer.md)
-      TRIGGER=1
-      break
-      ;;
+    runtime/engine.js|runtime/engine-bindings.js|docs/api-header.md|docs/api-footer.md) TRIGGER_INPUT=1 ;;
+    docs/API.md) TRIGGER_OUTPUT=1 ;;
   esac
-done
-[ "$TRIGGER" = "1" ] || exit 0
+done <<< "$STAGED"
+
+[ "$TRIGGER_INPUT" = "1" ] || exit 0
+
+if [ "$TRIGGER_OUTPUT" = "0" ]; then
+  echo "✖ Engine source changed but docs/API.md is not staged." >&2
+  echo "  Run \`npm run docs:api\` and stage docs/API.md, then retry." >&2
+  exit 1
+fi
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 [ -f "$REPO_ROOT/scripts/gen-api-docs.js" ] || exit 0
