@@ -157,5 +157,5 @@ Working  ─→  Completed
 ## Related docs
 
 - [GAME-STANDARD.md](./GAME-STANDARD.md) — 게임 구조 / 컨트롤 규약
-- [DEV.md](./DEV.md) — Mono 엔진 API 레퍼런스
+- [API.md](./API.md) — Mono 엔진 API 레퍼런스
 - [AI-PITFALLS.md](./AI-PITFALLS.md) — AI 코드 생성 시 흔한 실수
