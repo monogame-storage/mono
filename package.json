@@ -6,7 +6,10 @@
   "directories": {
     "doc": "docs"
   },
-  "scripts": {},
+  "scripts": {
+    "docs:api": "node scripts/gen-api-docs.js",
+    "docs:api:check": "node scripts/gen-api-docs.js --check"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/monogame-storage/mono.git"
