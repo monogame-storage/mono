@@ -127,10 +127,37 @@ function renderBody(apis) {
   return lines.join("\n");
 }
 
+function shortDiff(expected, actual) {
+  const e = expected.split("\n");
+  const a = actual.split("\n");
+  const lines = [];
+  const maxLen = Math.max(e.length, a.length);
+  for (let i = 0; i < maxLen && lines.length < 20; i++) {
+    if (e[i] !== a[i]) {
+      if (e[i] !== undefined) lines.push(`-${i + 1}: ${e[i]}`);
+      if (a[i] !== undefined) lines.push(`+${i + 1}: ${a[i]}`);
+    }
+  }
+  return lines.join("\n");
+}
+
 function main() {
+  const check = process.argv.includes("--check");
   const apis = parseAll().filter(isPublic);
   const body = renderBody(apis);
-  fs.writeFileSync(OUT, compose(body));
+  const expected = compose(body);
+
+  if (check) {
+    const actual = fs.existsSync(OUT) ? fs.readFileSync(OUT, "utf8") : "";
+    if (actual === expected) {
+      process.exit(0);
+    }
+    process.stderr.write("docs/API.md is out of date.\n");
+    process.stderr.write(shortDiff(expected, actual) + "\n");
+    process.exit(1);
+  }
+
+  fs.writeFileSync(OUT, expected);
   console.log(`wrote ${path.relative(ROOT, OUT)} (${apis.length} APIs)`);
 }
 
