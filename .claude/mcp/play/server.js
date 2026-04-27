@@ -24,13 +24,13 @@ const readline = require("readline");
 const crypto = require("crypto");
 
 const REPO_ROOT = path.resolve(__dirname, "../../..");
-const TEST_RUNNER = path.join(REPO_ROOT, "editor/templates/mono/mono-test.js");
+const TEST_RUNNER = path.join(REPO_ROOT, "headless/mono-runner.js");
 
 const SERVER_INFO = { name: "mono-play", version: "0.1.0" };
 const PROTOCOL_VERSION = "2024-11-05";
 
 // --- Session store ---
-// Because mono-test.js is one-shot, we persist state by re-running the
+// Because mono-runner.js is one-shot, we persist state by re-running the
 // whole game from frame 0 for each step, accumulating all inputs so far.
 // This is slow for long sessions but keeps the implementation trivial.
 const sessions = {};  // session_id → { gamePath, colors, inputs: [{frame, keys}], totalFrames }

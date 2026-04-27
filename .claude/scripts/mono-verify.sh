@@ -6,14 +6,14 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-TEST_RUNNER="$REPO_ROOT/editor/templates/mono/mono-test.js"
+TEST_RUNNER="$REPO_ROOT/headless/mono-runner.js"
 DEMO_DIR="${1:-$REPO_ROOT/demo}"
 FRAMES="${FRAMES:-120}"
 FUZZ_RUNS="${FUZZ_RUNS:-50}"
 DETERMINISM_RUNS="${DETERMINISM_RUNS:-3}"
 
 if [ ! -f "$TEST_RUNNER" ]; then
-  echo "error: mono-test.js not found at $TEST_RUNNER" >&2
+  echo "error: mono-runner.js not found at $TEST_RUNNER" >&2
   exit 1
 fi
 

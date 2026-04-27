@@ -370,7 +370,7 @@ function syncLog(msg, files) {
 // Root-level wrapper scripts planted by seedMonoDir(). The broader
 // `_*`/`.*` filter below catches `.mono/` and editor meta files;
 // this set covers the two non-dotted names that belong with them.
-const SYNC_IGNORE_NAMES = new Set(["mono-test", "mono-test.cmd"]);
+const SYNC_IGNORE_NAMES = new Set(["mono-run", "mono-run.cmd"]);
 
 async function readDirRecursive(dirHandle, prefix = "") {
   const entries = [];
@@ -388,10 +388,9 @@ async function readDirRecursive(dirHandle, prefix = "") {
 }
 
 // ── .mono/ bundle planting (push-time only) ──
-// Mirrors the engine-deploy path that editor/index.html uses when it
-// takes over a local folder: drops engine.js + bindings + draw + mono-test
-// + CONTEXT.md + VERSION under `.mono/`, plus a shell/bat wrapper at the
-// project root so `./mono-test main.lua` just works.
+// Drops engine.js + bindings + draw + mono-runner + CONTEXT.md + VERSION
+// under `.mono/`, plus a shell/bat wrapper at the project root so
+// `./mono-run main.lua` just works.
 
 async function writeFile(dirHandle, name, content) {
   const fh = await dirHandle.getFileHandle(name, { create: true });
@@ -409,20 +408,20 @@ async function seedMonoDir(rootHandle) {
 
   // Parallel fetch of every source file first, then sequential writes
   // (File System Access API handles one writable at a time per handle).
-  const [version, engineJs, bindingsJs, drawJs, testJs, ctxRaw] = await Promise.all([
+  const [version, engineJs, bindingsJs, drawJs, runnerJs, ctxRaw] = await Promise.all([
     fetchText("/VERSION").then(s => s.trim()),
     fetchText("/runtime/engine.js"),
     fetchText("/runtime/engine-bindings.js"),
     fetchText("/runtime/engine-draw.js"),
-    fetchText("/editor/templates/mono/mono-test.js"),
-    fetchText("/editor/templates/mono/CONTEXT.md"),
+    fetchText("/headless/mono-runner.js"),
+    fetchText("/templates/mono/CONTEXT.md"),
   ]);
 
   const monoDir = await rootHandle.getDirectoryHandle(".mono", { create: true });
   await writeFile(monoDir, "engine.js",          engineJs);
   await writeFile(monoDir, "engine-bindings.js", bindingsJs);
   await writeFile(monoDir, "engine-draw.js",     drawJs);
-  await writeFile(monoDir, "mono-test.js",       testJs);
+  await writeFile(monoDir, "mono-runner.js",     runnerJs);
   // CONTEXT.md uses {{VERSION}} / {{BASE_URL}} placeholders.
   await writeFile(monoDir, "CONTEXT.md",
     ctxRaw
@@ -432,8 +431,8 @@ async function seedMonoDir(rootHandle) {
 
   // Shell wrappers at the project root. SYNC_IGNORE_NAMES keeps pull
   // from mistakenly uploading them back to R2.
-  await writeFile(rootHandle, "mono-test",     '#!/bin/sh\nnode "$(dirname "$0")/.mono/mono-test.js" "$@"\n');
-  await writeFile(rootHandle, "mono-test.cmd", '@node "%~dp0.mono\\mono-test.js" %*\r\n');
+  await writeFile(rootHandle, "mono-run",     '#!/bin/sh\nnode "$(dirname "$0")/.mono/mono-runner.js" "$@"\n');
+  await writeFile(rootHandle, "mono-run.cmd", '@node "%~dp0.mono\\mono-runner.js" %*\r\n');
 }
 
 async function getFileHandleDeep(rootHandle, path, create = false) {

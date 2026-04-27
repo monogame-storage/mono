@@ -47,7 +47,7 @@
 - [x] `.mono/CONTEXT.md` 자동 생성 (에디터 Open Folder 시)
 - [x] `.mono/PROPOSALS.md` 워크플로 (LLM이 API 제안 → 구현 시 [DONE] 자동 마킹)
 - [x] 에디터 파일 감시 (5초 주기 트리 새로고침 + 탭 전환 시 디스크 변경 감지)
-- [ ] `mono-test.js` — Headless CLI 테스트 러너 (Node.js + Wasmoon + vdump 검증) → [상세](CLI-TEST-RUNNER.md)
+- [ ] `mono-runner.js` — Headless 러너 (Node.js + Wasmoon + vdump 검증) → [상세](CLI-RUNNER.md)
 
 ## 데모 게임 목록
 

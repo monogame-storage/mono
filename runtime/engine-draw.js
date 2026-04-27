@@ -3,7 +3,7 @@
  *
  * Line, rect, rectf, circ, circf, and drawText (with the 4x7 bitmap font)
  * live here so runtime/engine.js, dev/test-worker.js, and
- * editor/templates/mono/mono-test.js can't drift on pixel output.
+ * headless/mono-runner.js can't drift on pixel output.
  *
  * Runners call MonoDraw.create(ctx) with a setPix closure that knows how
  * to write into their own surface representation (RGBA buf32 + colorBuf

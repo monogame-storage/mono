@@ -134,13 +134,13 @@ Document player input here.
 
 \`\`\`bash
 cd demo/$NAME
-node ../../editor/templates/mono/mono-test.js main.lua --frames 120 --coverage
+node ../../headless/mono-runner.js main.lua --frames 120 --coverage
 \`\`\`
 MD
 
 # Smoke test
 cd "$DEMO_DIR"
-if node "$REPO_ROOT/editor/templates/mono/mono-test.js" main.lua --frames 10 --colors 4 --quiet >/dev/null 2>&1; then
+if node "$REPO_ROOT/headless/mono-runner.js" main.lua --frames 10 --colors 4 --quiet >/dev/null 2>&1; then
   echo "✓ demo/$NAME scaffolded and passes smoke test"
   echo "  files:"
   echo "    $DEMO_DIR/main.lua"

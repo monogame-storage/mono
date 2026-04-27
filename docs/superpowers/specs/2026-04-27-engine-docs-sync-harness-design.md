@@ -6,7 +6,7 @@
 
 ## Problem
 
-When engine code (`runtime/engine.js`, `runtime/engine-bindings.js`) is edited — adding new APIs, renaming, removing — the public API documentation in `docs/API.md` drifts. There is no automatic detection or correction. The existing `.claude/hooks/check-api-sync.sh` only checks runner-to-runner consistency (engine.js ↔ mono-test.js ↔ test-worker.js), not engine ↔ docs.
+When engine code (`runtime/engine.js`, `runtime/engine-bindings.js`) is edited — adding new APIs, renaming, removing — the public API documentation in `docs/API.md` drifts. There is no automatic detection or correction. The existing `.claude/hooks/check-api-sync.sh` only checks runner-to-runner consistency (engine.js ↔ mono-runner.js ↔ test-worker.js), not engine ↔ docs.
 
 Today, `docs/API.md` documents ~24 functions while the engine registers many more (`cam`, `cam_reset`, `canvas`, `drawImage`, `gyro_*`, `motion_*`, `axis_x/y`, `touch_*`, `swipe`, `noise`, `mode`, `go`, `scene_name`, etc.). This gap grows every commit.
 
@@ -190,7 +190,7 @@ Composition order:
 
 **Relationship to existing `check-api-sync.sh`:**
 
-- That hook continues to enforce runner-to-runner consistency (engine.js ↔ mono-test.js ↔ test-worker.js).
+- That hook continues to enforce runner-to-runner consistency (engine.js ↔ mono-runner.js ↔ test-worker.js).
 - The new hook enforces engine-to-docs consistency.
 - Both run independently in PostToolUse with no overlap.
 

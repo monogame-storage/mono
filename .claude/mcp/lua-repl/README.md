@@ -37,4 +37,4 @@ MCP is JSON-RPC over stdio. This server implements it directly in ~200 lines wit
 
 ## Dependency
 
-Requires `mono-test.js` at `editor/templates/mono/mono-test.js` (resolved via `__dirname`). The server spawns it as a subprocess via `--source` for each eval.
+Requires `mono-runner.js` at `headless/mono-runner.js` (resolved via `__dirname`). The server spawns it as a subprocess via `--source` for each eval.

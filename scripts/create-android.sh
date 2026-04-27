@@ -85,8 +85,9 @@ copy_engine_files() {
   cp "$MONO_ROOT/runtime/engine-draw.js" "$mono_dir/engine-draw.js"
   cp "$MONO_ROOT/runtime/console-gamepad.js" "$mono_dir/console-gamepad.js"
   cp "$MONO_ROOT/runtime/shader.js" "$mono_dir/shader.js"
-  # Copy template files (excluding main.lua which goes to cart/)
-  for f in "$MONO_ROOT/editor/templates/mono/"*; do
+  # Copy headless runner and template assets into the runtime bundle.
+  cp "$MONO_ROOT/headless/mono-runner.js" "$mono_dir/mono-runner.js"
+  for f in "$MONO_ROOT/templates/mono/"*; do
     local name=$(basename "$f")
     case "$name" in
       main.lua) ;;

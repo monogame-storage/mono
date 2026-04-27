@@ -10,19 +10,19 @@ INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_response.filePath // ""')
 
 case "$FILE" in
-  */runtime/engine.js|*/runtime/engine-bindings.js|*/runtime/engine-draw.js|*/editor/templates/mono/mono-test.js|*/dev/test-worker.js) ;;
+  */runtime/engine.js|*/runtime/engine-bindings.js|*/runtime/engine-draw.js|*/headless/mono-runner.js|*/dev/test-worker.js) ;;
   *) exit 0 ;;
 esac
 
 REPO=$(echo "$FILE" | sed -e 's|/runtime/engine\.js||' \
                           -e 's|/runtime/engine-bindings\.js||' \
                           -e 's|/runtime/engine-draw\.js||' \
-                          -e 's|/editor/templates/mono/mono-test\.js||' \
+                          -e 's|/headless/mono-runner\.js||' \
                           -e 's|/dev/test-worker\.js||')
 
 ENGINE="$REPO/runtime/engine.js"
 BINDINGS="$REPO/runtime/engine-bindings.js"
-TEST="$REPO/editor/templates/mono/mono-test.js"
+TEST="$REPO/headless/mono-runner.js"
 WORKER="$REPO/dev/test-worker.js"
 
 [ -f "$ENGINE" ] && [ -f "$BINDINGS" ] && [ -f "$TEST" ] && [ -f "$WORKER" ] || exit 0
@@ -54,7 +54,7 @@ note_missing() {
 for api in $ENGINE_APIS; do
   # Skip helpers not meant for game code.
   case "$api" in _*|SCREEN_W|SCREEN_H|COLORS) continue ;; esac
-  echo "$TEST_PROVIDED"   | grep -qx "$api" || note_missing "$api" "mono-test.js"
+  echo "$TEST_PROVIDED"   | grep -qx "$api" || note_missing "$api" "mono-runner.js"
   echo "$WORKER_PROVIDED" | grep -qx "$api" || note_missing "$api" "test-worker.js"
 done
 
