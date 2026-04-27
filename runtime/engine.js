@@ -826,7 +826,7 @@ var Mono = (() => {
     /**
      * @lua circ(cx, cy, r, color: Color): void
      * @group Graphics
-     * @desc Draw a circle outline.
+     * @desc Draw a circle outline (1-pixel stroke).
      */
     lua.global.set("circ", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circ(s, cx, cy, r, c); });
     /**

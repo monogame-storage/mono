@@ -18,7 +18,7 @@ Current frame number, starts at 0 and increments by 1 each frame.
 ## Graphics
 
 ### circ(cx, cy, r, color: Color): void
-Draw a circle outline.
+Draw a circle outline (1-pixel stroke).
 
 ### circf(cx: number, cy: number, r: number, color: Color): void
 Draw a filled circle.
