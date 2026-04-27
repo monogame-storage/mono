@@ -43,6 +43,15 @@ function extractTags(jsdoc) {
 }
 
 // Parse one source file → array of { name, jsdoc | null }
+function isPublic(api) {
+  const n = api.name;
+  if (n.startsWith("_")) return false;
+  if (n === "SCREEN_W" || n === "SCREEN_H" || n === "COLORS") return false;
+  // All-uppercase constant-style names without JSDoc are excluded.
+  if (!api.sig && /^[A-Z][A-Z0-9_]+$/.test(n)) return false;
+  return true;
+}
+
 function parseFile(src) {
   const text = fs.readFileSync(src, "utf8");
   const out = [];
@@ -84,7 +93,7 @@ function compose(body) {
 }
 
 function main() {
-  const apis = parseAll();
+  const apis = parseAll().filter(isPublic);
   // Debug dump for now.
   console.error(`parsed ${apis.length} registrations`);
   for (const a of apis) {
