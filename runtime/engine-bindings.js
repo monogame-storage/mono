@@ -126,6 +126,30 @@
     lua.global.set("go",         (name) => { scene.pending = name; });
     lua.global.set("scene_name", () => scene.current || false);
 
+    // ── Doc stubs for Lua-side wrappers (btn/btnp/btnr live in doString below) ──
+    // These stubs are immediately overwritten by the doString Lua definitions.
+    // They exist only so the JSDoc parser can pick up the @lua annotations.
+    /**
+     * @lua btn(key: Key): boolean
+     * @group Input
+     * @desc Returns true while the given button is held. Key ∈ "up","down","left","right","a","b","start","select".
+     */
+    lua.global.set("btn", () => false);
+
+    /**
+     * @lua btnp(key: Key): boolean
+     * @group Input
+     * @desc Returns true on the frame the button was newly pressed (was not down on the previous frame).
+     */
+    lua.global.set("btnp", () => false);
+
+    /**
+     * @lua btnr(key: Key): boolean
+     * @group Input
+     * @desc Returns true on the frame the button was released. Use instead of btnp() for scene transitions and confirmations — acting on release feels more forgiving.
+     */
+    lua.global.set("btnr", () => false);
+
     // ── Lua-side wrappers (single source of truth) ──
     // Wasmoon returns `false` for JS `false` but `nil` feels more natural
     // for the primitives that can return false — wrappers normalize.

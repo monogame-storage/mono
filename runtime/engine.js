@@ -792,11 +792,36 @@ var Mono = (() => {
     lua.global.set("COLORS", palette.length);
     // ALIGN_* constants installed by MonoBindings.bind() below.
     // Drawing functions — first arg is surface id
+    /**
+     * @lua cls(color?: Color): void
+     * @group Graphics
+     * @desc Clear the screen with the given color. Default 0 (BLACK).
+     */
     lua.global.set("cls", (id, c) => { const s = getSurf(id); if (s) cls(s, c); });
+    /**
+     * @lua pix(x: number, y: number, color: Color): void
+     * @group Graphics
+     * @desc Set a single pixel.
+     */
     lua.global.set("pix", (id, x, y, c) => { const s = getSurf(id); if (s) setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
     lua.global.set("gpix", (id, x, y) => { const s = getSurf(id); return s ? getPix(s, x, y) : 0; });
+    /**
+     * @lua line(x0: number, y0: number, x1: number, y1: number, color: Color): void
+     * @group Graphics
+     * @desc Draw a line between two points.
+     */
     lua.global.set("line", (id, x0, y0, x1, y1, c) => { const s = getSurf(id); if (s) line(s, x0, y0, x1, y1, c); });
+    /**
+     * @lua rect(x: number, y: number, w: number, h: number, color: Color): void
+     * @group Graphics
+     * @desc Draw a rectangle outline.
+     */
     lua.global.set("rect", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) rect(s, x, y, w, h, c); });
+    /**
+     * @lua rectf(x: number, y: number, w: number, h: number, color: Color): void
+     * @group Graphics
+     * @desc Draw a filled rectangle.
+     */
     lua.global.set("rectf", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) rectf(s, x, y, w, h, c); });
     /**
      * @lua circ(cx, cy, r, color: Color): void
@@ -804,18 +829,43 @@ var Mono = (() => {
      * @desc Draw a circle outline.
      */
     lua.global.set("circ", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circ(s, cx, cy, r, c); });
+    /**
+     * @lua circf(cx: number, cy: number, r: number, color: Color): void
+     * @group Graphics
+     * @desc Draw a filled circle.
+     */
     lua.global.set("circf", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circf(s, cx, cy, r, c); });
+    /**
+     * @lua text(str: string, x: number, y: number, color: Color): void
+     * @group Graphics
+     * @desc Draw text with the built-in 4×7 pixel font (uppercase, digits, basic punctuation).
+     */
     lua.global.set("text", (id, str, x, y, c, align) => { const s = getSurf(id); if (s) drawText(s, str, x, y, c, align); });
     lua.global.set("cam", cam);
     lua.global.set("cam_reset", camReset);
     lua.global.set("cam_shake", camShake);
     // _cam_get_x/_y installed by MonoBindings.bind() below.
     // Audio
+    /**
+     * @lua note(channel: 0 | 1, note: string, duration: number): void
+     * @group Sound
+     * @desc Play a note on the given channel. note is "C4" / "A#3" / etc. duration in seconds.
+     */
     lua.global.set("note", notePlay);
     lua.global.set("tone", tonePlay);
     lua.global.set("noise", noisePlay);
     lua.global.set("wave", waveSet);
+    /**
+     * @lua sfx_stop(channel?: 0 | 1): void
+     * @group Sound
+     * @desc Stop a channel. With no argument, stops all channels.
+     */
     lua.global.set("sfx_stop", sfxStop);
+    /**
+     * @lua spr(id: number, x: number, y: number, flipX?: boolean, flipY?: boolean): void
+     * @group Sprite
+     * @desc Draw a registered sprite at the given screen position. flipX/flipY mirror.
+     */
     lua.global.set("spr", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
     lua.global.set("sspr", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = getSurf(id); if (s) drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
     lua.global.set("drawImage", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
@@ -841,6 +891,11 @@ var Mono = (() => {
     lua.global.set("gyro_beta", () => gyroBeta);   // -180 to 180 front/back tilt
     lua.global.set("gyro_gamma", () => gyroGamma); // -90 to 90 left/right tilt
     lua.global.set("motion_enabled", () => motionEnabled ? 1 : 0);
+    /**
+     * @lua frame: number
+     * @group Globals
+     * @desc Current frame number, starts at 0 and increments by 1 each frame.
+     */
     lua.global.set("frame", () => frame);
     // use_pause(true)  — engine auto-pauses on SELECT (this is the default)
     // use_pause(false) — engine stops auto-pausing; game owns SELECT

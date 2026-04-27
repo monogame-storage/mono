@@ -10,10 +10,60 @@ function update(): void  // per-frame logic (30fps)
 function draw(): void    // per-frame rendering
 ```
 
+## Globals
+
+### frame: number
+Current frame number, starts at 0 and increments by 1 each frame.
+
 ## Graphics
 
 ### circ(cx, cy, r, color: Color): void
 Draw a circle outline.
+
+### circf(cx: number, cy: number, r: number, color: Color): void
+Draw a filled circle.
+
+### cls(color?: Color): void
+Clear the screen with the given color. Default 0 (BLACK).
+
+### line(x0: number, y0: number, x1: number, y1: number, color: Color): void
+Draw a line between two points.
+
+### pix(x: number, y: number, color: Color): void
+Set a single pixel.
+
+### rect(x: number, y: number, w: number, h: number, color: Color): void
+Draw a rectangle outline.
+
+### rectf(x: number, y: number, w: number, h: number, color: Color): void
+Draw a filled rectangle.
+
+### text(str: string, x: number, y: number, color: Color): void
+Draw text with the built-in 4×7 pixel font (uppercase, digits, basic punctuation).
+
+## Input
+
+### btn(key: Key): boolean
+Returns true while the given button is held. Key ∈ "up","down","left","right","a","b","start","select".
+
+### btnp(key: Key): boolean
+Returns true on the frame the button was newly pressed (was not down on the previous frame).
+
+### btnr(key: Key): boolean
+Returns true on the frame the button was released. Use instead of btnp() for scene transitions and confirmations — acting on release feels more forgiving.
+
+## Sound
+
+### note(channel: 0 | 1, note: string, duration: number): void
+Play a note on the given channel. note is "C4" / "A#3" / etc. duration in seconds.
+
+### sfx_stop(channel?: 0 | 1): void
+Stop a channel. With no argument, stops all channels.
+
+## Sprite
+
+### spr(id: number, x: number, y: number, flipX?: boolean, flipY?: boolean): void
+Draw a registered sprite at the given screen position. flipX/flipY mirror.
 
 ## Misc
 
@@ -37,17 +87,11 @@ Draw a circle outline.
 
 ### canvas_w
 
-### circf
-
-### cls
-
 ### date
 
 ### drawImage
 
 ### drawImageRegion
-
-### frame
 
 ### go
 
@@ -63,8 +107,6 @@ Draw a circle outline.
 
 ### imageWidth
 
-### line
-
 ### loadImage
 
 ### mode
@@ -79,29 +121,15 @@ Draw a circle outline.
 
 ### noise
 
-### note
-
-### pix
-
 ### print
-
-### rect
-
-### rectf
 
 ### scene_name
 
 ### screen
 
-### sfx_stop
-
-### spr
-
 ### sspr
 
 ### swipe
-
-### text
 
 ### time
 
