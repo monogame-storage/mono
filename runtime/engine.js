@@ -432,6 +432,13 @@ var Mono = (() => {
 
   // --- Touch / Mouse ---
   let touches = [];           // [{ id, x, y, fx, fy }]
+  // Snapshot of touches removed by the most recent `touchend` DOM event.
+  // touch_pos(i) falls back to this while touch_end() is true so that
+  //   if touch_end() then local x, y = touch_pos(1) end
+  // reads the release position instead of false — otherwise splice()
+  // happens before touchEndedFlag flips, leaving touches[] empty on the
+  // single frame touch_end() fires.
+  let endedTouches = [];
   let touchStartedFlag = false;
   let touchEndedFlag = false;
   let touchStarted = false;
@@ -556,9 +563,11 @@ var Mono = (() => {
     // game has opted out via use_pause(false).
     if (pauseEnabled && keys["select"] && !keysPrev["select"]) paused = !paused;
 
-    // Touch edge detection (persists one frame, like btnp)
-    touchStarted = touchStartedFlag;
-    touchEnded = touchEndedFlag;
+    // Touch edge flags are cleared here at frame end, after uf() has had
+    // one shot at observing them via touchStart() / touchEnd(). endedTouches
+    // holds the release snapshot consumed by touch_pos(i) during touch_end();
+    // clear it at the same time as the flag so stale data can't leak forward.
+    if (touchEndedFlag) endedTouches = [];
     touchStartedFlag = false;
     touchEndedFlag = false;
     swipeDir = swipeDirFlag;
@@ -732,9 +741,13 @@ var Mono = (() => {
 
       const onTouchEnd = (e) => {
         e.preventDefault();
+        // Snapshot release positions BEFORE splice so touch_pos(i) on
+        // the touch_end() frame still returns the last coord.
+        endedTouches = [];
         for (const t of e.changedTouches) {
           const idx = touches.findIndex(tt => tt.id === t.identifier);
           if (idx >= 0) {
+            endedTouches.push({ ...touches[idx] });
             detectSwipe(touches[idx].fx, touches[idx].fy);
             touches.splice(idx, 1);
           }
@@ -766,8 +779,10 @@ var Mono = (() => {
       on(document, "mouseup", () => {
         if (!mouseDown) return;
         mouseDown = false;
+        endedTouches = [];
         const idx = touches.findIndex(t => t.id === -1);
         if (idx >= 0) {
+          endedTouches.push({ ...touches[idx] });
           detectSwipe(touches[idx].fx, touches[idx].fy);
           touches.splice(idx, 1);
         }
@@ -1003,14 +1018,21 @@ var Mono = (() => {
         btn:        (k) => !!keys[k],
         btnp:       (k) => !!(keys[k] && !keysPrev[k]),
         btnr:       (k) => !!(!keys[k] && keysPrev[k]),
-        touch:      () => touches.length > 0 || touchStartedFlag,
-        touchStart: () => touchStarted || touchStartedFlag,
-        touchEnd:   () => touchEnded || touchEndedFlag,
-        touchCount: () => touches.length,
-        touchPosX:  (i) => { const t = touches[(i || 1) - 1]; return t ? t.x  : false; },
-        touchPosY:  (i) => { const t = touches[(i || 1) - 1]; return t ? t.y  : false; },
-        touchPosfX: (i) => { const t = touches[(i || 1) - 1]; return t ? t.fx : false; },
-        touchPosfY: (i) => { const t = touches[(i || 1) - 1]; return t ? t.fy : false; },
+        touch:      () => touches.length > 0,
+        // touch_start/touch_end are edge-triggered: true for exactly one update
+        // frame, beginning on the frame the event was dispatched. The previous
+        // `state || flag` form caused a 2-frame visibility bleed that could leak
+        // an event into a scene activated via go() on the same frame.
+        touchStart: () => touchStartedFlag,
+        touchEnd:   () => touchEndedFlag,
+        touchCount: () => touches.length || (touchEndedFlag ? endedTouches.length : 0),
+        // While touch_end() is true (one frame), fall back to the release
+        // snapshot so `if touch_end() then local x, y = touch_pos(1) end`
+        // returns the lift coordinates instead of false.
+        touchPosX:  (i) => { const t = touches[(i || 1) - 1] || (touchEndedFlag ? endedTouches[(i || 1) - 1] : null); return t ? t.x  : false; },
+        touchPosY:  (i) => { const t = touches[(i || 1) - 1] || (touchEndedFlag ? endedTouches[(i || 1) - 1] : null); return t ? t.y  : false; },
+        touchPosfX: (i) => { const t = touches[(i || 1) - 1] || (touchEndedFlag ? endedTouches[(i || 1) - 1] : null); return t ? t.fx : false; },
+        touchPosfY: (i) => { const t = touches[(i || 1) - 1] || (touchEndedFlag ? endedTouches[(i || 1) - 1] : null); return t ? t.fy : false; },
         swipe: () => swipeDir || false,
         axisX: () => axisX,
         axisY: () => axisY,
@@ -1156,7 +1178,7 @@ var Mono = (() => {
     bootTime = performance.now();
     images = []; imageIdCounter = 0; pendingLoads = [];
     camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
-    touches = []; touchStarted = false; touchEnded = false; touchStartedFlag = false; touchEndedFlag = false;
+    touches = []; endedTouches = []; touchStarted = false; touchEnded = false; touchStartedFlag = false; touchEndedFlag = false;
     swipeDir = false; swipeDirFlag = false; swipeAnchor = null;
     sceneRef.current = null; sceneRef.pending = null; loadedSceneFiles = {};
   };
@@ -1180,7 +1202,7 @@ var Mono = (() => {
     // state equivalently idle.
     for (const k in keys) { keys[k] = false; keysPrev[k] = false; }
     axisX = 0; axisY = 0;
-    touches = []; touchStarted = false; touchEnded = false;
+    touches = []; endedTouches = []; touchStarted = false; touchEnded = false;
     touchStartedFlag = false; touchEndedFlag = false;
     swipeDir = false; swipeDirFlag = false; swipeAnchor = null;
     releaseWakeLock();

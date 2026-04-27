@@ -5,14 +5,36 @@ import { showEngineError, clearEngineError } from './editor-ai.js';
 
 // ── Headless test (used by AI tab too) ──
 
-export function runHeadlessTest(files, frames = 30) {
+// Back-compat: runHeadlessTest(files, 60) still works; new callers pass
+// { frames, inputScript } to simulate taps / button presses and exercise
+// code paths that a pure idle loop would miss (e.g. touch_start polling).
+export function runHeadlessTest(files, opts = {}) {
+  const options = typeof opts === "number" ? { frames: opts } : (opts || {});
+  const { frames = 30, inputScript = null } = options;
   return new Promise((resolve) => {
     const w = new Worker("/dev/test-worker.js?v=" + Date.now());
     const timeout = setTimeout(() => { w.terminate(); resolve({ success: false, errors: ["Test timed out"] }); }, 15000);
     w.onmessage = (e) => { clearTimeout(timeout); w.terminate(); resolve(e.data); };
     w.onerror = (e) => { clearTimeout(timeout); w.terminate(); resolve({ success: false, errors: [e.message] }); };
-    w.postMessage({ files, frames });
+    w.postMessage({ files, frames, inputScript });
   });
+}
+
+// Default smoke-test scenario for the agent path: boots + runs a brief
+// idle stretch, then simulates a single tap at screen center with a
+// touch_start / held / touch_end sequence. Catches most "works until the
+// player touches something" runtime errors (missing nil guards, wrong
+// touch_pos semantics, scene callbacks that throw on input).
+export function defaultSmokeScenario() {
+  return {
+    frames: 40,
+    inputScript: [
+      { frame: 10, touchStart: true, touches: [{ x: 80, y: 60 }] },
+      { frame: 11, touches: [{ x: 80, y: 60 }] },
+      { frame: 12, touches: [{ x: 80, y: 60 }] },
+      { frame: 13, touchEnd: true, touches: [{ x: 80, y: 60 }] },
+    ],
+  };
 }
 
 // ── Console log ──
