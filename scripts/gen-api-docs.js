@@ -89,7 +89,7 @@ function parseAll() {
 function compose(body) {
   const header = readText(HEADER);
   const footer = readText(FOOTER);
-  return `${header}\n${body}\n${footer}`;
+  return `${header}\n${body}\n\n${footer}`;
 }
 
 function renderBody(apis) {
