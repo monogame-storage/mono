@@ -92,15 +92,46 @@ function compose(body) {
   return `${header}\n${body}\n${footer}`;
 }
 
+function renderBody(apis) {
+  // Bucket by @group. APIs with no JSDoc go to "Misc" too, but rendered as bare names.
+  const groups = new Map();
+  const ensure = (g) => {
+    if (!groups.has(g)) groups.set(g, []);
+    return groups.get(g);
+  };
+  for (const api of apis) {
+    const g = api.group || "Misc";
+    ensure(g).push(api);
+  }
+  // Always show Misc last; everything else alphabetical.
+  const groupNames = [...groups.keys()].filter(g => g !== "Misc").sort();
+  if (groups.has("Misc")) groupNames.push("Misc");
+
+  const lines = [];
+  for (const g of groupNames) {
+    lines.push(`## ${g}`);
+    lines.push("");
+    const list = groups.get(g).slice().sort((a, b) => a.name.localeCompare(b.name));
+    for (const api of list) {
+      if (api.sig) {
+        lines.push(`### ${api.sig}`);
+        if (api.desc) lines.push(api.desc);
+      } else {
+        lines.push(`### ${api.name}`);
+      }
+      lines.push("");
+    }
+  }
+  // Trim trailing blank line.
+  while (lines.length && lines[lines.length - 1] === "") lines.pop();
+  return lines.join("\n");
+}
+
 function main() {
   const apis = parseAll().filter(isPublic);
-  // Debug dump for now.
-  console.error(`parsed ${apis.length} registrations`);
-  for (const a of apis) {
-    console.error(`  ${a.name.padEnd(18)} group=${a.group || "-"}  sig=${a.sig || "-"}`);
-  }
-  const body = "<!-- generated body goes here -->";
+  const body = renderBody(apis);
   fs.writeFileSync(OUT, compose(body));
+  console.log(`wrote ${path.relative(ROOT, OUT)} (${apis.length} APIs)`);
 }
 
 main();
