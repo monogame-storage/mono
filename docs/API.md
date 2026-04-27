@@ -131,29 +131,29 @@ Current frame number, starts at 0 and increments by 1 each frame.
 
 ## Graphics
 
-### circ(cx, cy, r, color: Color): void
+### circ(surface: number, cx: number, cy: number, r: number, color: Color): void
 Draw a circle outline (1-pixel stroke).
 
-### circf(cx: number, cy: number, r: number, color: Color): void
+### circf(surface: number, cx: number, cy: number, r: number, color: Color): void
 Draw a filled circle.
 
-### cls(color?: Color): void
-Clear the screen with the given color. Default 0 (BLACK).
+### cls(surface: number, color?: Color): void
+Clear the surface with the given color. Default 0 (BLACK).
 
-### line(x0: number, y0: number, x1: number, y1: number, color: Color): void
+### line(surface: number, x0: number, y0: number, x1: number, y1: number, color: Color): void
 Draw a line between two points.
 
-### pix(x: number, y: number, color: Color): void
+### pix(surface: number, x: number, y: number, color: Color): void
 Set a single pixel.
 
-### rect(x: number, y: number, w: number, h: number, color: Color): void
+### rect(surface: number, x: number, y: number, w: number, h: number, color: Color): void
 Draw a rectangle outline.
 
-### rectf(x: number, y: number, w: number, h: number, color: Color): void
+### rectf(surface: number, x: number, y: number, w: number, h: number, color: Color): void
 Draw a filled rectangle.
 
-### text(str: string, x: number, y: number, color: Color): void
-Draw text with the built-in 4×7 pixel font (uppercase, digits, basic punctuation).
+### text(surface: number, str: string, x: number, y: number, color: Color, align?: number): void
+Draw text with the built-in 4×7 pixel font (uppercase, digits, basic punctuation). Optional align is a bit flag (combine ALIGN_HCENTER, ALIGN_RIGHT, ALIGN_VCENTER, ALIGN_CENTER). Not affected by camera.
 
 ## Input
 
@@ -191,8 +191,8 @@ Stop a channel. With no argument, stops all channels.
 
 ## Sprite
 
-### spr(id: number, x: number, y: number, flipX?: boolean, flipY?: boolean): void
-Draw a registered sprite at the given screen position. flipX/flipY mirror.
+### spr(surface: number, id: number, x: number, y: number): void
+Draw a registered sprite or loaded image at (x, y). Camera-affected.
 
 ## Util
 
