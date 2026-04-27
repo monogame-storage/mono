@@ -20,10 +20,17 @@ export const state = {
   gameRunning: false,
   sessionTokens: { prompt: 0, completion: 0, total: 0 },
 
-  // AI providers
-  aiProviders: [],       // { id, alias, model, key, url, isDefault }
+  // AI Assistant — user's Connections: { id, alias, provider, model,
+  // apiKey, baseUrl?, isDefault }. `provider` keys into the server's
+  // PROVIDER_CATALOG (fetched via /config); `model` is an id chosen
+  // from a live /models query (or manually typed as a fallback).
+  aiConnections: [],
   hasOnlineProviders: false,
-  editingProviderIdx: -1,
+  editingConnectionIdx: -1,
+  // One-shot banner: set to true when loadConnections() detects a
+  // legacy vault shape (pre-catalog) and wipes it. Rendered in the
+  // AI settings view so the user knows why their entries disappeared.
+  connectionsWereReset: false,
   vaultPp: null,         // in-memory master key when local-save is disabled
 
   // Local sync

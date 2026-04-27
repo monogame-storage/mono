@@ -22,10 +22,22 @@ function buildPalette(bits) {
 }
 
 onmessage = async (e) => {
-  const { files, frames = 30, colors = 4 } = e.data;
+  const { files, frames = 30, colors = 4, inputScript = null } = e.data;
   const errors = [];
   const output = [];
   let palette = buildPalette(colors);
+
+  // Mutable input state driven by `inputScript` events. Mirrors the
+  // browser engine's edge-detected fields (touchStart / touchEnd) and
+  // the release-snapshot semantics (endedTouches while touchEnd is true),
+  // so scripted taps exercise the same code paths as real user input.
+  // inputScript = [{ frame: N, touchStart?: true, touchEnd?: true, touches?: [{x,y}] }, ...]
+  const inputState = {
+    touches: [],
+    endedTouches: [],
+    touchStarted: false,
+    touchEnded: false,
+  };
 
   const surfaces = {};
   let surfIdCounter = 1;
@@ -51,13 +63,22 @@ onmessage = async (e) => {
       if (f.name === "main.lua" || !f.name.endsWith(".lua")) continue;
       modules[f.name] = f.content;
     }
+    const posLookup = (i) => {
+      const idx = (i || 1) - 1;
+      return inputState.touches[idx]
+          || (inputState.touchEnded ? inputState.endedTouches[idx] : null);
+    };
     await self.MonoBindings.bind(lua, {
       input: {
         btn: () => false, btnp: () => false, btnr: () => false,
-        touch: () => false, touchStart: () => false, touchEnd: () => false,
-        touchCount: () => 0,
-        touchPosX: () => false, touchPosY: () => false,
-        touchPosfX: () => false, touchPosfY: () => false,
+        touch:      () => inputState.touches.length > 0 || inputState.touchStarted,
+        touchStart: () => inputState.touchStarted,
+        touchEnd:   () => inputState.touchEnded,
+        touchCount: () => inputState.touches.length || (inputState.touchEnded ? inputState.endedTouches.length : 0),
+        touchPosX:  (i) => { const t = posLookup(i); return t ? t.x : false; },
+        touchPosY:  (i) => { const t = posLookup(i); return t ? t.y : false; },
+        touchPosfX: (i) => { const t = posLookup(i); return t ? t.x : false; },
+        touchPosfY: (i) => { const t = posLookup(i); return t ? t.y : false; },
         swipe: () => false,
         axisX: () => 0, axisY: () => 0,
       },
@@ -219,8 +240,35 @@ onmessage = async (e) => {
 
     if (sceneRef.pending) { await activateScene(sceneRef.pending); sceneRef.pending = null; }
 
+    // Index inputScript by frame for O(1) lookup.
+    const scriptByFrame = {};
+    if (Array.isArray(inputScript)) {
+      for (const ev of inputScript) {
+        if (typeof ev?.frame === "number") scriptByFrame[ev.frame] = ev;
+      }
+    }
+
     for (let i = 0; i < frames; i++) {
       if (sceneRef.pending) { await activateScene(sceneRef.pending); sceneRef.pending = null; }
+
+      // Clear last-frame edges before applying this frame's event. Mirrors
+      // the browser engine's `if (touchEnded) endedTouches = []` reset.
+      if (inputState.touchEnded) inputState.endedTouches = [];
+      inputState.touchStarted = false;
+      inputState.touchEnded = false;
+
+      const ev = scriptByFrame[i];
+      if (ev) {
+        if (Array.isArray(ev.touches)) inputState.touches = ev.touches.map(t => ({ ...t }));
+        if (ev.touchStart) inputState.touchStarted = true;
+        if (ev.touchEnd) {
+          inputState.touchEnded = true;
+          // Snapshot current touches into endedTouches, then clear (same
+          // timing as the browser onTouchEnd handler).
+          inputState.endedTouches = inputState.touches.map(t => ({ ...t }));
+          if (ev.touches === undefined) inputState.touches = [];
+        }
+      }
 
       if (sceneObj?.update) { sceneObj.update(); }
       else {

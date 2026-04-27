@@ -1,8 +1,47 @@
 // ── AI Tab: Chat, send message, test & fix ──
 
-import { state, esc, chatTime } from './state.js';
+import { state, esc, chatTime, API_URL } from './state.js';
 import { apiFetch, saveChatHistory } from './api.js';
-import { runHeadlessTest } from './editor-play.js';
+import { runHeadlessTest, defaultSmokeScenario } from './editor-play.js';
+import { openAIProviders } from './settings.js';
+
+// Provider catalog from mono-api /config — { id, protocol, ... }. The
+// client uses it to decide whether a Connection routes to /chat/agent
+// (openai-protocol tool-use loop) or /chat (one-shot). Fetched fire-
+// and-forget at module load; until it arrives the set below carries
+// the built-in openai-protocol providers so first-boot doesn't lose
+// agent routing on a slow network.
+let AGENT_PROTOCOLS = new Set(["openai"]);
+let PROVIDER_PROTOCOL = new Map([
+  ["openai",    "openai"],
+  ["moonshot",  "openai"],
+  ["apimart",   "openai"],
+  ["custom",    "openai"],
+  ["anthropic", "anthropic"],
+  ["google",    "gemini"],
+]);
+function usesAgentPath(connection) {
+  const proto = PROVIDER_PROTOCOL.get(connection?.provider);
+  return !!proto && AGENT_PROTOCOLS.has(proto);
+}
+
+(async function loadCatalogFromConfig() {
+  try {
+    const res = await fetch(`${API_URL}/config`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data.providers)) {
+      const map = new Map();
+      for (const p of data.providers) map.set(p.id, p.protocol);
+      PROVIDER_PROTOCOL = map;
+    }
+    if (Array.isArray(data.agentProtocols)) {
+      AGENT_PROTOCOLS = new Set(data.agentProtocols);
+    }
+  } catch {
+    // Offline — keep the hardcoded fallback.
+  }
+})();
 
 // ── Card builders ──
 
@@ -96,11 +135,91 @@ function monoCard(message, files, status = "completed") {
   return html;
 }
 
+// Completed agent card with a collapsed trace footer. `trace` is an
+// ordered list of { kind: "reasoning"|"text"|"tool", ... } captured
+// during the /chat/agent SSE run; `stats` is { iterations, tools,
+// tokens } for the header summary. Trace stays collapsed by default
+// so the chat looks clean; user clicks to unfold.
+function formatTokens(n) {
+  if (!n) return "0";
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return String(n);
+}
+
+function monoCardAgentCompleted(message, files, trace, stats) {
+  let html = `<div class="ai-card-mono">
+    <div class="ai-card-status">MONO · completed</div>`;
+  const cleaned = cleanMessage(message);
+  if (cleaned) html += `<div class="ai-card-response">${renderMarkdown(cleaned)}</div>`;
+  if (files && files.length > 0) {
+    for (const f of files) {
+      const action = f._action || "edited";
+      const prefix = action === "created" ? "+ " : action === "deleted" ? "- " : "~ ";
+      html += `<div class="ai-card-file">${prefix}${esc(f.name)}  ·  ${action}</div>`;
+    }
+  }
+
+  if (trace && trace.length > 0) {
+    const parts = [];
+    if (stats?.iterations) parts.push(`${stats.iterations} iter`);
+    if (stats?.tools) parts.push(`${stats.tools} tool${stats.tools === 1 ? "" : "s"}`);
+    if (stats?.tokens) parts.push(`${formatTokens(stats.tokens)} tok`);
+    const summary = parts.length ? ` (${parts.join(" · ")})` : "";
+
+    let traceHtml = "";
+    for (const ev of trace) {
+      if (ev.kind === "reasoning") {
+        traceHtml += `<div class="ai-trace-reasoning">💭 ${esc(ev.text)}</div>`;
+      } else if (ev.kind === "text") {
+        traceHtml += `<div class="ai-trace-text">${esc(ev.text)}</div>`;
+      } else if (ev.kind === "tool") {
+        const label = toolLineLabel(ev.name, ev.input);
+        const cls = ev.ok === false ? "err" : ev.ok === true ? "ok" : "working";
+        const mark = ev.ok === false ? "✗" : ev.ok === true ? "✓" : "◌";
+        const tail = ev.summary ? ` — ${esc(ev.summary)}` : "";
+        traceHtml += `<div class="ai-tool-line ${cls}">`
+          + `<span class="ai-tool-spin">${mark}</span>`
+          + `<span class="ai-tool-text">${esc(label)}${tail}</span>`
+          + `</div>`;
+      }
+    }
+    html += `<button class="ai-trace-toggle" data-expanded="0">▸ Show trace${summary}</button>`;
+    html += `<div class="ai-trace" hidden>${traceHtml}</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
 function monoTypingCard() {
   return `<div class="ai-card-mono working" id="mono-typing">
     <div class="ai-card-status working">MONO · working…</div>
     <div class="ai-card-response" style="color:#888">Thinking…</div>
   </div>`;
+}
+
+// Progress card for the /chat/agent streaming path. Events (reasoning,
+// tool_start, tool_result, token deltas) land inside `.ai-agent-live`
+// in arrival order, so the user watches the same interleaved trace
+// that will later be folded into the completed card's collapsible.
+// On final the whole card is swapped for monoCardAgentCompleted().
+function monoAgentCard(id) {
+  return `<div class="ai-card-mono working" id="${id}">
+    <div class="ai-card-status working">MONO · working…</div>
+    <div class="ai-agent-live"></div>
+  </div>`;
+}
+
+const TOOL_ICON = {
+  list_files: "📂",
+  read_file:  "📖",
+  write_file: "✏️",
+  delete_file:"🗑️",
+};
+
+function toolLineLabel(name, input) {
+  const p = input?.path ? ` ${input.path}` : "";
+  return `${TOOL_ICON[name] || "🔧"} ${name}${p}`;
 }
 
 function errorCard(msg, label = "ERROR", showFix = true) {
@@ -231,12 +350,347 @@ function updateUsageDisplay(data) {
   state.sessionTokens.total += usage.total_tokens || 0;
 }
 
+// ── Agent path (SSE tool-use loop) ──
+
+// Parse an SSE stream into { event, data } records. Follows the
+// WHATWG SSE grammar: every `data:` line in a frame contributes a
+// value, and consecutive `data:` lines are joined with `\n` (not
+// concatenated tightly — that corrupts JSON whose values contain
+// embedded whitespace). Optional single space after the colon is
+// stripped per spec; preserves all other characters verbatim.
+async function* parseSSE(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  const stripPrefix = (line, prefix) => {
+    const rest = line.slice(prefix.length);
+    return rest.startsWith(" ") ? rest.slice(1) : rest;
+  };
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) !== -1) {
+      const frame = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      let event = "message";
+      const dataLines = [];
+      for (const line of frame.split("\n")) {
+        if (line.startsWith(":")) continue; // SSE comment
+        if (line.startsWith("event:")) event = stripPrefix(line, "event:").trim();
+        else if (line.startsWith("data:")) dataLines.push(stripPrefix(line, "data:"));
+      }
+      if (dataLines.length === 0) continue;
+      const dataStr = dataLines.join("\n");
+      let data;
+      try { data = JSON.parse(dataStr); } catch { continue; }
+      yield { event, data };
+    }
+  }
+}
+
+async function sendAgent(connection, msg, chat) {
+  // Defensive guard — caller already checks state.aiConnections, but the
+  // user can delete the Connection between the lookup and now (rapid
+  // navigation, multi-tab edit). Bail with a clear error instead of
+  // crashing on `connection.provider`.
+  if (!connection?.provider || !connection?.model || !connection?.apiKey) {
+    throw new Error("Connection is invalid — re-pick or re-add it in Settings → AI Assistant.");
+  }
+  const providerId = connection.provider;
+  const model = connection.model;
+  const byok = {
+    apiKey: connection.apiKey,
+    baseUrl: connection.baseUrl || undefined,
+  };
+
+  const cardId = `mono-agent-${Date.now()}`;
+  const typing = document.getElementById("mono-typing");
+  if (typing) typing.outerHTML = monoAgentCard(cardId);
+  else chat.innerHTML += monoAgentCard(cardId);
+  const toolLines = new Map(); // tool_call id → row element
+  chat.scrollTop = chat.scrollHeight;
+
+  // Re-query the live container on every append. A captured reference
+  // would go stale the moment something else mutates chat.innerHTML
+  // during the stream (engine error card, smoke test card from a prior
+  // run, another sendMessage), and writes would land on a detached
+  // node — invisible to the user but consuming the rest of the trace.
+  const getLiveEl = () => document.getElementById(cardId)?.querySelector(".ai-agent-live");
+
+  // Append into `.ai-agent-live` in arrival order. Consecutive reasoning
+  // or token events coalesce into the same block (typing-style growth);
+  // a new event type — tool call, next-turn reasoning after tools —
+  // starts a fresh block underneath so the trace reads top-to-bottom.
+  const appendLive = (kind, text, opts = {}) => {
+    const liveEl = getLiveEl();
+    if (!liveEl) return null;
+    const last = liveEl.lastElementChild;
+    if (kind === "reasoning") {
+      if (last?.classList.contains("ai-agent-reasoning") && last.dataset.finalized !== "1") {
+        last.append(text);
+      } else {
+        const el = document.createElement("div");
+        el.className = "ai-agent-reasoning";
+        el.textContent = "💭 " + text;
+        liveEl.appendChild(el);
+      }
+    } else if (kind === "text") {
+      if (last?.classList.contains("ai-agent-text") && last.dataset.finalized !== "1") {
+        last.append(text);
+      } else {
+        const el = document.createElement("div");
+        el.className = "ai-agent-text";
+        el.textContent = text;
+        liveEl.appendChild(el);
+      }
+    } else if (kind === "tool") {
+      // Starting a tool row closes whatever live reasoning / text is
+      // above so the next delta after the tool opens a fresh block.
+      for (const child of liveEl.children) child.dataset.finalized = "1";
+      const row = document.createElement("div");
+      row.className = "ai-tool-line working";
+      row.dataset.id = opts.id;
+      row.innerHTML = `<span class="ai-tool-spin">◌</span><span class="ai-tool-text">${esc(opts.label)}</span>`;
+      liveEl.appendChild(row);
+      toolLines.set(opts.id, row);
+    }
+    chat.scrollTop = chat.scrollHeight;
+  };
+  const finishToolLine = (id, ok, summary) => {
+    const row = toolLines.get(id);
+    if (!row?.isConnected) return;
+    row.classList.remove("working");
+    row.classList.add(ok ? "ok" : "err");
+    const spin = row.querySelector(".ai-tool-spin");
+    if (spin) spin.textContent = ok ? "✓" : "✗";
+    const txt = row.querySelector(".ai-tool-text");
+    if (txt && summary) txt.textContent = `${txt.textContent} — ${summary}`;
+  };
+
+  console.group("[MONO Agent]");
+  console.log("→", providerId, "·", model, byok.baseUrl ? `@ ${byok.baseUrl}` : "");
+  console.log("→ message:", msg);
+
+  let finalText = "";
+  let changedList = [];
+  let finalUsage = null;
+  let finalIterations = 0;
+  let errored = null;
+  let streamBuf = ""; // per-turn token buffer, flushed on tool call / final
+  // Parallel data log of every SSE event — survives the DOM swap so the
+  // completed card can render a collapsed trace of reasoning / mid-turn
+  // text / tool calls for user inspection. Reasoning deltas coalesce into
+  // the open entry (currentReasoningEntry) until a tool_start closes it.
+  const trace = [];
+  const traceToolById = new Map();
+  let currentReasoningEntry = null;
+
+  try {
+    const token = await state.auth.currentUser.getIdToken();
+    const res = await fetch(`${API_URL}/chat/agent`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        gameId: state.currentGameId,
+        message: msg,
+        history: state.chatHistory.slice(0, -1),
+        provider: providerId,
+        model,
+        byok,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`agent ${res.status}: ${body.slice(0, 200)}`);
+    }
+
+    const flushStream = (label, intoTrace) => {
+      if (!streamBuf) return;
+      console.log(`· ${label}:`, streamBuf);
+      // Only inter-turn chatter (pre-tool text) is worth preserving in
+      // the trace; the final reply is already shown above it.
+      if (intoTrace) trace.push({ kind: "text", text: streamBuf });
+      streamBuf = "";
+    };
+
+    for await (const { event, data } of parseSSE(res)) {
+      if (event === "reasoning") {
+        if (!data.text) continue;
+        // Live: grow the current reasoning block (coalesce deltas).
+        appendLive("reasoning", data.text);
+        // Trace: same coalescing rule so deltas become one block per turn.
+        if (currentReasoningEntry) {
+          currentReasoningEntry.text += data.text;
+        } else {
+          currentReasoningEntry = { kind: "reasoning", text: data.text };
+          trace.push(currentReasoningEntry);
+        }
+      } else if (event === "token") {
+        if (!data.text) continue;
+        streamBuf += data.text;
+        appendLive("text", data.text);
+      } else if (event === "tool_start") {
+        flushStream("pre-tool text", true);
+        console.log("→ tool:", data.name, data.input);
+        // A tool call ends the current reasoning block: the next
+        // reasoning burst belongs to the next iteration.
+        currentReasoningEntry = null;
+        appendLive("tool", null, { id: data.id, label: toolLineLabel(data.name, data.input) });
+        const entry = { kind: "tool", id: data.id, name: data.name, input: data.input, ok: null, summary: null };
+        trace.push(entry);
+        traceToolById.set(data.id, entry);
+      } else if (event === "tool_result") {
+        console.log("← tool:", data.name, data.ok ? "ok" : "err", data.summary);
+        finishToolLine(data.id, data.ok, data.summary);
+        const entry = traceToolById.get(data.id);
+        if (entry) { entry.ok = !!data.ok; entry.summary = data.summary || ""; }
+      } else if (event === "final") {
+        flushStream("final text", false);
+        finalText = data.text || "";
+        changedList = data.changed || [];
+        finalUsage = data.usage || null;
+        finalIterations = data.iterations || 0;
+        console.log("← final:", { iterations: data.iterations, changed: changedList.length });
+      } else if (event === "error") {
+        flushStream("pre-error text", true);
+        errored = data.message || "agent error";
+        console.error("← error:", data);
+      }
+    }
+    flushStream("trailing text", false);
+
+    if (errored) throw new Error(errored);
+
+    // Re-sync changed files from R2 so state.currentFiles matches disk.
+    const changedFiles = [];
+    if (changedList.length) {
+      const deletes = changedList.filter(c => c.action === "delete");
+      const writes = changedList.filter(c => c.action === "write");
+      for (const d of deletes) {
+        const idx = state.currentFiles.findIndex(c => c.name === d.name);
+        if (idx >= 0) state.currentFiles.splice(idx, 1);
+        changedFiles.push({ name: d.name, _action: "deleted" });
+      }
+      await Promise.all(writes.map(async (w) => {
+        try {
+          const r = await apiFetch(`/games/${state.currentGameId}/files/${w.name}`);
+          if (!r.ok) return;
+          // The GET returns {"content": "..."} — NOT the raw file body —
+          // so we must unwrap. Previously we did r.text() which stuffed
+          // the JSON envelope into state.currentFiles, making the engine
+          // execute garbage on the next Play.
+          const { content } = await r.json();
+          const idx = state.currentFiles.findIndex(c => c.name === w.name);
+          const action = idx >= 0 ? "edited" : "created";
+          if (idx >= 0) state.currentFiles[idx].content = content;
+          else state.currentFiles.push({ name: w.name, content });
+          changedFiles.push({ name: w.name, _action: action });
+        } catch (e) {
+          console.warn("re-sync failed:", w.name, e);
+        }
+      }));
+      const { renderFileTree } = window._editorFiles || {};
+      if (renderFileTree) renderFileTree();
+    }
+
+    if (finalUsage) {
+      state.sessionTokens.prompt += finalUsage.prompt_tokens || 0;
+      state.sessionTokens.completion += finalUsage.completion_tokens || 0;
+      state.sessionTokens.total += finalUsage.total_tokens || 0;
+    }
+
+    state.chatHistory.push({ role: "assistant", content: finalText });
+    saveChatHistory();
+
+    const stats = {
+      iterations: finalIterations,
+      tools: trace.filter(t => t.kind === "tool").length,
+      tokens: finalUsage?.total_tokens || 0,
+    };
+    const replacement = monoCardAgentCompleted(finalText, changedFiles, trace, stats);
+    // Re-query by id — if anything else appended to chat during streaming
+    // (showEngineError, another message, ...) the `card` reference is
+    // stale and outerHTML= would mutate a detached node. Fall back to
+    // appending so the user always sees the completed card.
+    const liveCard = document.getElementById(cardId);
+    if (liveCard) {
+      liveCard.outerHTML = replacement;
+    } else {
+      console.warn("[MONO Agent] working card detached before final; appending");
+      chat.insertAdjacentHTML("beforeend", replacement);
+    }
+    console.log("← rendered:", { bytes: replacement.length, hasText: !!finalText });
+    console.groupEnd();
+
+    // Smoke test: if the agent edited any .lua file, run the headless
+    // worker with a scripted tap scenario. Catches runtime errors that
+    // the static write_file lint can't (nil arithmetic, wrong touch_pos
+    // semantics, scene callbacks throwing on input). Always on for the
+    // agent path so bad writes surface in seconds instead of next Play.
+    const luaChanged = changedFiles.some(f => f.name.endsWith(".lua"));
+    if (luaChanged) {
+      const scenario = defaultSmokeScenario();
+      const testCardId = `smoke-${Date.now()}`;
+      chat.innerHTML += `<div class="ai-card-mono working" id="${testCardId}">
+        <div class="ai-card-status working">MONO · running smoke test…</div>
+      </div>`;
+      chat.scrollTop = chat.scrollHeight;
+      const result = await runHeadlessTest(state.currentFiles, scenario);
+      const testCard = document.getElementById(testCardId);
+      if (result.success) {
+        if (testCard) testCard.outerHTML = `<div class="ai-card-mono">
+          <div class="ai-card-status">MONO · smoke test</div>
+          <div class="ai-card-response" style="color:#7bcf7b">✓ booted + tap scenario cleared (${scenario.frames} frames)</div>
+        </div>`;
+      } else {
+        const errs = (result.errors || ["unknown error"]).join("\n");
+        console.error("[smoke test] failed:", errs);
+        if (testCard) testCard.outerHTML = errorCard(errs, "SMOKE TEST FAILED");
+      }
+      chat.scrollTop = chat.scrollHeight;
+    }
+  } catch (e) {
+    console.error("agent error:", e);
+    console.groupEnd();
+    const cardEl = document.getElementById(cardId);
+    if (cardEl) cardEl.outerHTML = errorCard(e.message, "AGENT ERROR", false);
+  }
+  chat.scrollTop = chat.scrollHeight;
+}
+
 // ── Send message ──
 
 export async function sendMessage(autoMsg) {
   const input = document.getElementById("editor-msg");
   const msg = autoMsg || input.value.trim();
   if (!msg) return;
+
+  // Chat is BYOK-only. Without a registered provider there is no key
+  // to send the request with — short-circuit here and point the user
+  // at the provider settings instead of letting the request fail on
+  // the server.
+  const selectedValue = document.getElementById("model-select").value;
+  if (!selectedValue.startsWith("provider:")) {
+    const chatEl = document.getElementById("editor-chat");
+    chatEl.innerHTML += errorCard(
+      "Register a Connection in Settings → AI Assistant, then pick it from the pill above to enable chat.",
+      "NO CONNECTION",
+      false,
+    );
+    chatEl.scrollTop = chatEl.scrollHeight;
+    if (!autoMsg) {
+      // Keep the user's draft so they can retry after registering.
+      input.focus();
+    }
+    openAIProviders();
+    return;
+  }
+
   if (!autoMsg) { input.value = ""; input.style.height = "auto"; }
 
   const chat = document.getElementById("editor-chat");
@@ -247,19 +701,25 @@ export async function sendMessage(autoMsg) {
   state.chatHistory.push({ role: "user", content: msg });
 
   try {
-    const selectedValue = document.getElementById("model-select").value;
-    let model, byok;
-    if (selectedValue.startsWith("provider:")) {
-      const provider = state.aiProviders.find(p => p.id === selectedValue.slice(9));
-      if (provider) {
-        model = provider.model;
-        byok = { key: provider.key, url: provider.url || undefined };
-      }
+    const connection = state.aiConnections.find(p => p.id === selectedValue.slice(9));
+    if (!connection) throw new Error("Selected connection no longer exists — pick another one from the pill above.");
+
+    // openai-protocol connections run the server-side agent tool-use loop
+    // over SSE; anthropic / gemini fall back to one-shot /chat.
+    if (usesAgentPath(connection)) {
+      await sendAgent(connection, msg, chat);
+      return;
     }
-    if (!model) model = selectedValue;
+
+    const providerId = connection.provider;
+    const model = connection.model;
+    const byok = {
+      apiKey: connection.apiKey,
+      baseUrl: connection.baseUrl || undefined,
+    };
 
     console.group("[MONO Chat]");
-    console.log("→ model:", model);
+    console.log("→", providerId, "·", model, byok.baseUrl ? `@ ${byok.baseUrl}` : "");
     console.log("→ message:", msg);
     console.log("→ files:", state.currentFiles.map(f => f.name));
     console.groupEnd();
@@ -272,6 +732,7 @@ export async function sendMessage(autoMsg) {
         message: msg,
         files: state.currentFiles,
         history: state.chatHistory.slice(0, -1),
+        provider: providerId,
         model,
         byok,
       }),
@@ -284,7 +745,20 @@ export async function sendMessage(autoMsg) {
     console.log("← status:", res.status);
     console.log("← message:", data.message);
     console.log("← files:", data.files?.map(f => ({ name: f.name, size: f.content?.length || 0 })) || []);
-    if (data.usage) console.log("← usage:", data.usage);
+    if (data.usage) {
+      console.log("← usage:", data.usage);
+      // Anthropic prompt-cache telemetry — highlights the cache-hit ratio
+      // so it's obvious when the breakpoint is paying off.
+      const u = data.usage;
+      if (u.cache_read_input_tokens || u.cache_creation_input_tokens) {
+        const fresh = u.prompt_tokens || 0;
+        const cached = u.cache_read_input_tokens || 0;
+        const written = u.cache_creation_input_tokens || 0;
+        const total = fresh + cached;
+        const hitRatio = total > 0 ? Math.round((cached / total) * 100) : 0;
+        console.log(`← cache: ${cached}/${total} tokens reused (${hitRatio}% hit, ${written} newly cached)`);
+      }
+    }
     console.groupEnd();
 
     state.chatHistory.push({ role: "assistant", content: data.message });
@@ -367,6 +841,24 @@ export function initEditorAI() {
       const errText = card?.querySelector(".ai-card-response")?.textContent || "";
       const label = card?.querySelector(".ai-card-status")?.textContent || "ERROR";
       if (errText) showFixConfirm(errText, label);
+      return;
+    }
+    // Agent trace toggle → expand/collapse the reasoning + tool log.
+    const traceBtn = e.target.closest(".ai-trace-toggle");
+    if (traceBtn) {
+      const card = traceBtn.closest(".ai-card-mono");
+      const panel = card?.querySelector(".ai-trace");
+      if (!panel) return;
+      const expanded = traceBtn.dataset.expanded === "1";
+      if (expanded) {
+        panel.hidden = true;
+        traceBtn.dataset.expanded = "0";
+        traceBtn.textContent = traceBtn.textContent.replace(/^▾/, "▸").replace("Hide trace", "Show trace");
+      } else {
+        panel.hidden = false;
+        traceBtn.dataset.expanded = "1";
+        traceBtn.textContent = traceBtn.textContent.replace(/^▸/, "▾").replace("Show trace", "Hide trace");
+      }
       return;
     }
   });

@@ -756,6 +756,94 @@
   color: #777;
 }
 .ai-card-file.active { color: #aaa; }
+/* Live trace container — interleaves reasoning / tool / token events
+   in the working agent card. Each block coalesces consecutive deltas
+   of the same kind and finalizes when a different event arrives. */
+.ai-agent-live {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+.ai-agent-live:empty { display: none; }
+.ai-agent-reasoning {
+  font-size: 11px;
+  color: #aaa;
+  font-style: italic;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+.ai-agent-text {
+  font-size: 12px;
+  color: #ccc;
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+/* Collapsed trace on completed agent cards — mirrors Claude.ai-style
+   "Thought for N iterations" pull-down. Default hidden; expanded shows
+   the full reasoning + tool log in the same compact style used during
+   the working phase. */
+.ai-trace-toggle {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #888;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+.ai-trace-toggle:hover { color: #c9a0dc; }
+.ai-trace {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-left: 2px solid #2a2a2a;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+/* The `hidden` attribute's UA default (display:none) is outranked by
+   .ai-trace's explicit display:flex above, so a class-specificity rule
+   is required to actually hide the trace when collapsed. */
+.ai-trace[hidden] { display: none; }
+.ai-trace-reasoning {
+  font-size: 11px;
+  color: #aaa;
+  font-style: italic;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+.ai-trace-text {
+  font-size: 12px;
+  color: #ddd;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+.ai-tool-line {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #888;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.ai-tool-line .ai-tool-spin {
+  display: inline-block;
+  width: 10px;
+  color: #c9a0dc;
+}
+.ai-tool-line.working .ai-tool-spin { animation: ai-tool-pulse 1s ease-in-out infinite; }
+.ai-tool-line.ok  .ai-tool-spin { color: #7bcf7b; }
+.ai-tool-line.err .ai-tool-spin { color: #e48686; }
+.ai-tool-line.err .ai-tool-text { color: #c97878; }
+@keyframes ai-tool-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 1;   }
+}
 .ai-card-stop {
   display: inline-flex;
   align-items: center;
@@ -867,6 +955,103 @@
 .ai-provider-pill .pill-icon svg,
 .ai-provider-pill .pill-chev svg { width: 10px; height: 10px; }
 .ai-provider-pill .pill-chev { color: #666; display: flex; }
+.ai-provider-pill.empty {
+  background: transparent;
+  border: 1px dashed #555;
+  color: #ff9a4a;
+}
+.ai-provider-pill.empty:hover { background: #221a10; }
+.ai-provider-pill.empty .pill-icon { color: #ff9a4a; }
+
+/* Provider dropdown (custom, not native <select>) */
+.provider-menu-pop {
+  position: fixed;
+  min-width: 180px;
+  max-width: 280px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  padding: 4px;
+  z-index: 1000;
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.provider-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #ccc;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.provider-menu-row:hover { background: #262626; color: #fff; }
+.provider-menu-row.active { color: #c9a0dc; }
+.provider-menu-row.active .provider-menu-dot { color: #c9a0dc; }
+.provider-menu-dot {
+  display: inline-block;
+  width: 10px;
+  text-align: center;
+  color: #555;
+  font-size: 9px;
+}
+.provider-menu-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.provider-menu-sep {
+  height: 1px;
+  background: #2a2a2a;
+  margin: 4px 2px;
+}
+.provider-menu-row.manage {
+  color: #6c6;
+  justify-content: center;
+}
+.provider-menu-row.manage:hover { color: #8d8; }
+
+/* Add Provider form — model list fetch */
+.apf-model-name-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.apf-model-name-row input { flex: 1; }
+.apf-fetch-btn {
+  flex-shrink: 0;
+  height: 40px;
+  padding: 0 12px;
+  background: #2a2a2a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #ccc;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.apf-fetch-btn:hover { background: #333; color: #fff; }
+.apf-fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.apf-fetch-status {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  min-height: 14px;
+}
+.apf-fetch-status.success { color: #6c6; }
+.apf-fetch-status.error   { color: #f66; }
+.apf-fetch-status.warn    { color: #fa3; }
 
 /* ── AI tab: Input bar ── */
 .ai-input-bar {
@@ -1190,6 +1375,24 @@
 .aip-mk-status.success { color: #6c6; }
 .aip-mk-status.warn { color: #fa3; }
 .aip-divider { height: 1px; background: #222; }
+.apf-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #888;
+  text-decoration: none;
+}
+.apf-link:hover { color: #c9a0dc; }
+.aip-reset-banner {
+  background: #3a2a1a;
+  color: #e6c08a;
+  border-left: 3px solid #c08a3a;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  border-radius: 4px;
+}
 .aip-provider-card {
   display: flex;
   align-items: center;
@@ -1365,6 +1568,22 @@
 }
 .apf-delete-btn.show { display: block; }
 .apf-delete-btn:hover { background: #1a0000; }
+.apf-duplicate-btn {
+  width: 100%;
+  height: 40px;
+  background: transparent;
+  border: 1px solid #2f4a66;
+  border-radius: 8px;
+  color: #6cb6ff;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: none;
+  margin-bottom: 8px;
+}
+.apf-duplicate-btn.show { display: block; }
+.apf-duplicate-btn:hover { background: #0f1a26; }
 
 /* ── Dev Settings view ── */
 .devsettings-topbar {
