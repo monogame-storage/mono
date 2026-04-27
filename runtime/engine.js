@@ -808,52 +808,52 @@ var Mono = (() => {
     // ALIGN_* constants installed by MonoBindings.bind() below.
     // Drawing functions — first arg is surface id
     /**
-     * @lua cls(color?: Color): void
+     * @lua cls(surface: number, color?: Color): void
      * @group Graphics
-     * @desc Clear the screen with the given color. Default 0 (BLACK).
+     * @desc Clear the surface with the given color. Default 0 (BLACK).
      */
     lua.global.set("cls", (id, c) => { const s = getSurf(id); if (s) cls(s, c); });
     /**
-     * @lua pix(x: number, y: number, color: Color): void
+     * @lua pix(surface: number, x: number, y: number, color: Color): void
      * @group Graphics
      * @desc Set a single pixel.
      */
     lua.global.set("pix", (id, x, y, c) => { const s = getSurf(id); if (s) setPix(s, Math.floor(x) - camX, Math.floor(y) - camY, c); });
     lua.global.set("gpix", (id, x, y) => { const s = getSurf(id); return s ? getPix(s, x, y) : 0; });
     /**
-     * @lua line(x0: number, y0: number, x1: number, y1: number, color: Color): void
+     * @lua line(surface: number, x0: number, y0: number, x1: number, y1: number, color: Color): void
      * @group Graphics
      * @desc Draw a line between two points.
      */
     lua.global.set("line", (id, x0, y0, x1, y1, c) => { const s = getSurf(id); if (s) line(s, x0, y0, x1, y1, c); });
     /**
-     * @lua rect(x: number, y: number, w: number, h: number, color: Color): void
+     * @lua rect(surface: number, x: number, y: number, w: number, h: number, color: Color): void
      * @group Graphics
      * @desc Draw a rectangle outline.
      */
     lua.global.set("rect", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) rect(s, x, y, w, h, c); });
     /**
-     * @lua rectf(x: number, y: number, w: number, h: number, color: Color): void
+     * @lua rectf(surface: number, x: number, y: number, w: number, h: number, color: Color): void
      * @group Graphics
      * @desc Draw a filled rectangle.
      */
     lua.global.set("rectf", (id, x, y, w, h, c) => { const s = getSurf(id); if (s) rectf(s, x, y, w, h, c); });
     /**
-     * @lua circ(cx, cy, r, color: Color): void
+     * @lua circ(surface: number, cx: number, cy: number, r: number, color: Color): void
      * @group Graphics
      * @desc Draw a circle outline (1-pixel stroke).
      */
     lua.global.set("circ", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circ(s, cx, cy, r, c); });
     /**
-     * @lua circf(cx: number, cy: number, r: number, color: Color): void
+     * @lua circf(surface: number, cx: number, cy: number, r: number, color: Color): void
      * @group Graphics
      * @desc Draw a filled circle.
      */
     lua.global.set("circf", (id, cx, cy, r, c) => { const s = getSurf(id); if (s) circf(s, cx, cy, r, c); });
     /**
-     * @lua text(str: string, x: number, y: number, color: Color): void
+     * @lua text(surface: number, str: string, x: number, y: number, color: Color, align?: number): void
      * @group Graphics
-     * @desc Draw text with the built-in 4×7 pixel font (uppercase, digits, basic punctuation).
+     * @desc Draw text with the built-in 4×7 pixel font (uppercase, digits, basic punctuation). Optional align is a bit flag (combine ALIGN_HCENTER, ALIGN_RIGHT, ALIGN_VCENTER, ALIGN_CENTER). Not affected by camera.
      */
     lua.global.set("text", (id, str, x, y, c, align) => { const s = getSurf(id); if (s) drawText(s, str, x, y, c, align); });
     lua.global.set("cam", cam);
@@ -877,9 +877,9 @@ var Mono = (() => {
      */
     lua.global.set("sfx_stop", sfxStop);
     /**
-     * @lua spr(id: number, x: number, y: number, flipX?: boolean, flipY?: boolean): void
+     * @lua spr(surface: number, id: number, x: number, y: number): void
      * @group Sprite
-     * @desc Draw a registered sprite at the given screen position. flipX/flipY mirror.
+     * @desc Draw a registered sprite or loaded image at (x, y). Camera-affected.
      */
     lua.global.set("spr", (id, imgId, x, y) => { const s = getSurf(id); if (s) drawImageFn(s, imgId, x, y); });
     lua.global.set("sspr", (id, imgId, sx, sy, sw, sh, dx, dy) => { const s = getSurf(id); if (s) drawImageRegionFn(s, imgId, sx, sy, sw, sh, dx, dy); });
