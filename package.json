@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/monogame-storage/mono#readme",
   "dependencies": {
+    "luaparse": "^0.3.1",
     "luau-web": "^1.4.0",
     "pngjs": "^7.0.0",
     "wasmoon": "^1.16.0"

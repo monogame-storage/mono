@@ -26,10 +26,12 @@ const ANSI = {
 };
 
 // --- Public API set ---
-// Shared helper parses runtime/engine.js on first use. Lazy-loaded so
-// `require()`ing this file from a non-CLI context (tests, other tools)
-// doesn't trigger file I/O at import time.
-const { loadPublicAPIs } = require("./lib/engine-apis");
+// Shared helpers parse runtime/engine.js (defensive-api-check) and
+// docs/API.md (unknown-api). Lazy-loaded so `require()`ing this file from
+// a non-CLI context (tests, other tools) doesn't trigger file I/O at
+// import time.
+const { loadPublicAPIs, loadAPIsFromMd } = require("./lib/engine-apis");
+const { findUnknownCalls } = require("./lib/lua-analysis");
 
 let _publicAPIs = null;
 function getPublicAPIs() {
@@ -45,6 +47,22 @@ function getPublicAPIs() {
   }
   return _publicAPIs;
 }
+
+let _apiMdNames = null;
+function getAPIMdNames() {
+  if (_apiMdNames === null) {
+    _apiMdNames = loadAPIsFromMd();
+    if (_apiMdNames.size === 0) {
+      console.warn(
+        "mono-lint: unknown-api skipped — could not load docs/API.md."
+      );
+    }
+  }
+  return _apiMdNames;
+}
+
+// Shared cache so a multi-file lint run only analyzes each required module once.
+const _moduleCache = new Map();
 
 // --- Rules ---
 // Each rule receives the full file content + per-line array.
@@ -326,6 +344,24 @@ rule("standard-structure", ({ file, content }) => {
     });
   }
   return out;
+});
+
+// Rule: call sites that aren't engine APIs, Lua stdlib, or locally defined.
+// Uses luaparse so we can distinguish locals/globals/required-module exports
+// from unknown calls — the regex rules above can't.
+rule("unknown-api", ({ file }) => {
+  if (!file) return [];
+  const apis = getAPIMdNames();
+  if (apis.size === 0) return [];
+  const findings = findUnknownCalls(file, apis, _moduleCache);
+  return findings.map(f => ({
+    line: f.line,
+    severity: "error",
+    rule: "unknown-api",
+    msg: f.kind === "parse-error"
+      ? `lua parse failed: ${f.msg}`
+      : `${f.name} is not an API.md entry, Lua stdlib, or a local/required name (${f.kind})`,
+  }));
 });
 
 // btnp() before go() — should use btnr() for scene transitions.
