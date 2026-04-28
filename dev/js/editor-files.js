@@ -370,7 +370,13 @@ function syncLog(msg, files) {
 // Root-level wrapper scripts planted by seedMonoDir(). The broader
 // `_*`/`.*` filter below catches `.mono/` and editor meta files;
 // this set covers the two non-dotted names that belong with them.
-const SYNC_IGNORE_NAMES = new Set(["mono-run", "mono-run.cmd"]);
+const SYNC_IGNORE_NAMES = new Set([
+  "mono-run", "mono-run.cmd",
+  // Legacy wrappers from before the dev/ relocation. Kept in the ignore
+  // set so old linked folders don't upload them as cloud game files on
+  // Pull, or surface them as scary deletes on Push.
+  "mono-test", "mono-test.cmd",
+]);
 
 async function readDirRecursive(dirHandle, prefix = "") {
   const entries = [];
