@@ -1,0 +1,37 @@
+{
+  "_G": [
+    "assert", "collectgarbage", "dofile", "error", "getmetatable",
+    "ipairs", "load", "loadfile", "next", "pairs", "pcall", "print",
+    "rawequal", "rawget", "rawlen", "rawset", "require", "select",
+    "setmetatable", "tonumber", "tostring", "type", "warn", "xpcall"
+  ],
+  "math": [
+    "abs", "acos", "asin", "atan", "ceil", "cos", "deg", "exp",
+    "floor", "fmod", "huge", "log", "max", "maxinteger", "min",
+    "mininteger", "modf", "pi", "pow", "rad", "random", "randomseed",
+    "sin", "sqrt", "tan", "tointeger", "type", "ult"
+  ],
+  "string": [
+    "byte", "char", "dump", "find", "format", "gmatch", "gsub", "len",
+    "lower", "match", "pack", "packsize", "rep", "reverse", "sub",
+    "unpack", "upper"
+  ],
+  "table": [
+    "concat", "insert", "move", "pack", "remove", "sort", "unpack"
+  ],
+  "coroutine": [
+    "close", "create", "isyieldable", "resume", "running", "status",
+    "wrap", "yield"
+  ],
+  "utf8": [
+    "char", "charpattern", "codepoint", "codes", "len", "offset"
+  ],
+  "io": [
+    "close", "flush", "input", "lines", "open", "output", "read",
+    "stderr", "stdin", "stdout", "tmpfile", "type", "write"
+  ],
+  "os": [
+    "clock", "date", "difftime", "exit", "getenv", "remove", "rename",
+    "setlocale", "time", "tmpname"
+  ]
+}
