@@ -3,8 +3,7 @@
 // Centralizes knowledge of the Mono engine's public API surface and the
 // mapping between internal `_`-prefixed glue helpers and their user-facing
 // wrapper names. Consumed by:
-//   - .claude/scripts/mono-lint.js          (defensive-api-check rule)
-//   - .claude/scripts/mono-docs-sync.js     (DEV.md drift detection)
+//   - .claude/scripts/mono-lint.js          (defensive-api-check, unknown-api rules)
 //   - dev/headless/mono-runner.js           (--coverage report)
 //
 // Keep this file minimal and zero-dependency (no third-party imports) so
@@ -41,6 +40,7 @@ const INTERNAL_TO_PUBLIC = Object.freeze({
 // Scripts can override with an explicit path argument.
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, "../../..");
 const DEFAULT_ENGINE_JS = path.join(DEFAULT_REPO_ROOT, "runtime/engine.js");
+const DEFAULT_API_MD    = path.join(DEFAULT_REPO_ROOT, "docs/API.md");
 
 /**
  * Parse `runtime/engine.js` and return the set of public API names
@@ -96,9 +96,36 @@ function buildCoverageRename() {
   return out;
 }
 
+/**
+ * Parse `docs/API.md` (the auto-generated API reference) and return the set
+ * of API names rendered in the doc — both the documented entries
+ * (`### name(args): type`) and the bare-name entries in the Misc section
+ * (`### name`).
+ *
+ * Use this when you want the canonical "what game code is allowed to call"
+ * surface — it includes APIs registered via `lua.global.set` in either
+ * runtime/engine.js OR runtime/engine-bindings.js, plus any API.md header
+ * additions.
+ *
+ * @param {string} [apiMdPath] — absolute path to API.md (defaults to docs/API.md)
+ * @returns {Set<string>}
+ */
+function loadAPIsFromMd(apiMdPath) {
+  const file = apiMdPath || DEFAULT_API_MD;
+  const names = new Set();
+  if (!fs.existsSync(file)) return names;
+  const src = fs.readFileSync(file, "utf8");
+  const re = /^### ([a-zA-Z_][a-zA-Z0-9_]*)\b/gm;
+  let m;
+  while ((m = re.exec(src)) !== null) names.add(m[1]);
+  return names;
+}
+
 module.exports = {
   INTERNAL_TO_PUBLIC,
   loadPublicAPIs,
+  loadAPIsFromMd,
   buildCoverageRename,
   DEFAULT_ENGINE_JS,
+  DEFAULT_API_MD,
 };
