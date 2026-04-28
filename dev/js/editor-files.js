@@ -413,8 +413,8 @@ async function seedMonoDir(rootHandle) {
     fetchText("/runtime/engine.js"),
     fetchText("/runtime/engine-bindings.js"),
     fetchText("/runtime/engine-draw.js"),
-    fetchText("/headless/mono-runner.js"),
-    fetchText("/templates/mono/CONTEXT.md"),
+    fetchText("/dev/headless/mono-runner.js"),
+    fetchText("/dev/templates/mono/CONTEXT.md"),
   ]);
 
   const monoDir = await rootHandle.getDirectoryHandle(".mono", { create: true });

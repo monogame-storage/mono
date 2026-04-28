@@ -20,7 +20,7 @@ const path = require("path");
 const readline = require("readline");
 
 const REPO_ROOT = path.resolve(__dirname, "../../..");
-const TEST_RUNNER = path.join(REPO_ROOT, "headless/mono-runner.js");
+const TEST_RUNNER = path.join(REPO_ROOT, "dev/headless/mono-runner.js");
 
 const SERVER_INFO = {
   name: "mono-lua-repl",

@@ -10,19 +10,19 @@ INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_response.filePath // ""')
 
 case "$FILE" in
-  */runtime/engine.js|*/runtime/engine-bindings.js|*/runtime/engine-draw.js|*/headless/mono-runner.js|*/dev/test-worker.js) ;;
+  */runtime/engine.js|*/runtime/engine-bindings.js|*/runtime/engine-draw.js|*/dev/headless/mono-runner.js|*/dev/test-worker.js) ;;
   *) exit 0 ;;
 esac
 
 REPO=$(echo "$FILE" | sed -e 's|/runtime/engine\.js||' \
                           -e 's|/runtime/engine-bindings\.js||' \
                           -e 's|/runtime/engine-draw\.js||' \
-                          -e 's|/headless/mono-runner\.js||' \
+                          -e 's|/dev/headless/mono-runner\.js||' \
                           -e 's|/dev/test-worker\.js||')
 
 ENGINE="$REPO/runtime/engine.js"
 BINDINGS="$REPO/runtime/engine-bindings.js"
-TEST="$REPO/headless/mono-runner.js"
+TEST="$REPO/dev/headless/mono-runner.js"
 WORKER="$REPO/dev/test-worker.js"
 
 [ -f "$ENGINE" ] && [ -f "$BINDINGS" ] && [ -f "$TEST" ] && [ -f "$WORKER" ] || exit 0

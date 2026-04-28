@@ -5,7 +5,7 @@
 // wrapper names. Consumed by:
 //   - .claude/scripts/mono-lint.js          (defensive-api-check rule)
 //   - .claude/scripts/mono-docs-sync.js     (DEV.md drift detection)
-//   - headless/mono-runner.js               (--coverage report)
+//   - dev/headless/mono-runner.js           (--coverage report)
 //
 // Keep this file minimal and zero-dependency (no third-party imports) so
 // it can be required by both the repo-local scripts and the copied-into-

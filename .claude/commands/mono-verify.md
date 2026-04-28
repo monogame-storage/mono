@@ -23,7 +23,7 @@ Environment overrides (optional):
 
 When to use:
 
-- Before committing any change to `runtime/engine.js` or `headless/mono-runner.js`
+- Before committing any change to `runtime/engine.js` or `dev/headless/mono-runner.js`
 - When adding a new demo to confirm it plays nice with existing ones
 - As a quick health check during engine refactors
 

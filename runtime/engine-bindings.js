@@ -4,7 +4,7 @@
  * Used by three runners:
  *   - runtime/engine.js       (browser, full rendering)
  *   - dev/test-worker.js      (Web Worker, pre-publish smoke test)
- *   - headless/mono-runner.js (Node CLI, CI + tools)
+ *   - dev/headless/mono-runner.js (Node CLI, CI + tools)
  *
  * This file is loaded as a **classic script** (not ESM) so it works as
  * <script src>, importScripts(), and require() without transpilation.

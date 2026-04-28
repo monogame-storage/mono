@@ -6,8 +6,8 @@ FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
 
 case "$FILE" in
   */runtime/engine.js) REPO=$(echo "$FILE" | sed 's|/runtime/engine.js||') ;;
-  */headless/mono-runner.js) REPO=$(echo "$FILE" | sed 's|/headless/mono-runner.js||') ;;
-  */templates/mono/CONTEXT.md) REPO=$(echo "$FILE" | sed 's|/templates/mono/CONTEXT.md||') ;;
+  */dev/headless/mono-runner.js) REPO=$(echo "$FILE" | sed 's|/dev/headless/mono-runner.js||') ;;
+  */dev/templates/mono/CONTEXT.md) REPO=$(echo "$FILE" | sed 's|/dev/templates/mono/CONTEXT.md||') ;;
   *) exit 0 ;;
 esac
 

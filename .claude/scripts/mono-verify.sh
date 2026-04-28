@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-TEST_RUNNER="$REPO_ROOT/headless/mono-runner.js"
+TEST_RUNNER="$REPO_ROOT/dev/headless/mono-runner.js"
 DEMO_DIR="${1:-$REPO_ROOT/demo}"
 FRAMES="${FRAMES:-120}"
 FUZZ_RUNS="${FUZZ_RUNS:-50}"

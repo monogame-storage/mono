@@ -22,7 +22,7 @@ function escapeLuaString(s) {
 }
 
 async function fetchTemplate(name, title) {
-  const res = await fetch(`/templates/game/${name}`);
+  const res = await fetch(`/dev/templates/game/${name}`);
   if (!res.ok) throw new Error(`template fetch failed: ${name} (${res.status})`);
   const body = await res.text();
   return body.replaceAll("%TITLE%", escapeLuaString(title));
@@ -85,7 +85,7 @@ async function createGame() {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    // Seed cart.json + scene files (templates/game/) + empty chat history in parallel
+    // Seed cart.json + scene files (dev/templates/game/) + empty chat history in parallel
     const [cart, ...sceneContents] = await Promise.all([
       buildCart(title, desc),
       ...TEMPLATE_FILES.map(name => fetchTemplate(name, title)),

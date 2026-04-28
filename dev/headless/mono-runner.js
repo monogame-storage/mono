@@ -47,12 +47,12 @@ const fs = require("fs");
 const path = require("path");
 
 // Resolve runtime modules in both supported layouts:
-//   - In-repo:  headless/mono-runner.js → ../runtime/<name>
-//   - Deployed: .mono/mono-runner.js    → ./<name>  (flat alongside engine files)
+//   - In-repo:  dev/headless/mono-runner.js → ../../runtime/<name>
+//   - Deployed: .mono/mono-runner.js        → ./<name>  (flat alongside engine files)
 function loadRuntime(name) {
   const flat = path.resolve(__dirname, name);
   if (fs.existsSync(flat)) return require(flat);
-  return require(path.resolve(__dirname, "../runtime", name));
+  return require(path.resolve(__dirname, "../../runtime", name));
 }
 const MonoBindings = loadRuntime("engine-bindings.js");
 const MonoDraw     = loadRuntime("engine-draw.js");
@@ -1335,7 +1335,7 @@ end
     // run from inside the repo.
     let API_RENAME;
     try {
-      API_RENAME = require("../.claude/scripts/lib/engine-apis").buildCoverageRename();
+      API_RENAME = require("../../.claude/scripts/lib/engine-apis").buildCoverageRename();
     } catch (e) {
       API_RENAME = {
         _btn: "btn",

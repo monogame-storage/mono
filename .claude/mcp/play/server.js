@@ -24,7 +24,7 @@ const readline = require("readline");
 const crypto = require("crypto");
 
 const REPO_ROOT = path.resolve(__dirname, "../../..");
-const TEST_RUNNER = path.join(REPO_ROOT, "headless/mono-runner.js");
+const TEST_RUNNER = path.join(REPO_ROOT, "dev/headless/mono-runner.js");
 
 const SERVER_INFO = { name: "mono-play", version: "0.1.0" };
 const PROTOCOL_VERSION = "2024-11-05";

@@ -63,7 +63,7 @@ jobs:
               continue
             fi
             echo "Running $entry"
-            if node headless/mono-runner.js "$entry" --frames 60 --quiet; then
+            if node dev/headless/mono-runner.js "$entry" --frames 60 --quiet; then
               echo "  OK"
             else
               echo "  FAIL"
