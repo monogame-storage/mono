@@ -11,7 +11,7 @@ Lets Claude actually play a Mono game: boot it, take an action, see the next VRA
 
 ## Session model
 
-Because `mono-test.js` is one-shot, the server keeps an in-memory session record `{gamePath, inputs[], totalFrames}` and re-runs the entire game from frame 0 on every step, with the accumulated input schedule. This is slow for long sessions but dead simple and deterministic. Good for short playtest loops (tens of steps). For longer plays, use `mono-test.js --replay` with a `.replay` file instead.
+Because `mono-runner.js` is one-shot, the server keeps an in-memory session record `{gamePath, inputs[], totalFrames}` and re-runs the entire game from frame 0 on every step, with the accumulated input schedule. This is slow for long sessions but dead simple and deterministic. Good for short playtest loops (tens of steps). For longer plays, use `mono-runner.js --replay` with a `.replay` file instead.
 
 Sessions live only for the lifetime of the MCP server process. A fresh Claude Code launch means empty state.
 
@@ -46,4 +46,4 @@ JSON
 
 ## Dependencies
 
-None beyond Node stdlib. Spawns `mono-test.js` via `child_process.spawnSync` for each step.
+None beyond Node stdlib. Spawns `mono-runner.js` via `child_process.spawnSync` for each step.

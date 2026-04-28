@@ -1,6 +1,6 @@
 -- Engine Test Demo
 -- Exercises the current Mono engine API each frame so that
--- mono-test.js can catch regressions quickly.
+-- mono-runner.js can catch regressions quickly.
 --
 -- Modes cycle automatically every 60 frames; press START to step
 -- manually. Each mode hits a different slice of the API:

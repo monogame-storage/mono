@@ -19,11 +19,11 @@ Existing games (`pong`, `bounce`, `dodge`, `invaders`, `bubble`, `tiltmaze`, `st
 
 ```
 demo/<name>/
-├── main.lua      ← entry point, loaded by play.html AND mono-test.js --scan
+├── main.lua      ← entry point, loaded by play.html AND mono-runner.js --scan
 ├── (optional)    ← other .lua scene files, assets, etc.
 ```
 
-Every demo uses `main.lua` as the entry file — no exceptions. `play.html` loads `/demo/<name>/main.lua` and `mono-test.js --scan` recursively walks `demo/` looking for `main.lua` files. There is no separate "test file" vs "play file"; the same file drives both.
+Every demo uses `main.lua` as the entry file — no exceptions. `play.html` loads `/demo/<name>/main.lua` and `mono-runner.js --scan` recursively walks `demo/` looking for `main.lua` files. There is no separate "test file" vs "play file"; the same file drives both.
 
 ### 2. Register in `play.html`
 
@@ -66,7 +66,7 @@ Each scene file defines its own `<name>_init / _update / _draw` functions. See `
 
 ### Attract mode (for scan-mode coverage)
 
-`/mono-verify` and `mono-test.js --scan` run every demo for ~60-120 frames with **no input at all**. If your demo's interesting APIs (audio, camera effects, screen transitions) only trigger on user input, they will stay at 0 coverage in the report.
+`/mono-verify` and `mono-runner.js --scan` run every demo for ~60-120 frames with **no input at all**. If your demo's interesting APIs (audio, camera effects, screen transitions) only trigger on user input, they will stay at 0 coverage in the report.
 
 Fix: make the demo demonstrate its features without waiting for the player. Two patterns:
 

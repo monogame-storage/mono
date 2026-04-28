@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * mono-test.js — Headless CLI Test Runner for Mono Engine
+ * mono-runner.js — Headless Mono runner
  *
- * Runs Lua game code in Node.js without a browser.
- * Uses Wasmoon for Lua 5.4, replicates engine.js drawing core.
- * Outputs vdump (VRAM hex text) for LLM verification.
+ * Two roles:
+ *   1. Harness — verify AI-edited Lua before publishing (local + R2 flows).
+ *   2. Self-test — run a game headlessly for balance/regression checks.
+ *
+ * Uses Wasmoon for Lua 5.4 and shares pixel/binding modules with engine.js.
  *
  * Usage:
- *   node mono-test.js <main.lua> [options]
+ *   node mono-runner.js <main.lua> [options]
  *
  * Options:
  *   --frames N       Run N frames (default: 0 = init+start only)
@@ -43,13 +45,22 @@
 
 const fs = require("fs");
 const path = require("path");
-const MonoBindings = require(path.resolve(__dirname, "../../../runtime/engine-bindings.js"));
-const MonoDraw     = require(path.resolve(__dirname, "../../../runtime/engine-draw.js"));
+
+// Resolve runtime modules in both supported layouts:
+//   - In-repo:  dev/headless/mono-runner.js → ../../runtime/<name>
+//   - Deployed: .mono/mono-runner.js        → ./<name>  (flat alongside engine files)
+function loadRuntime(name) {
+  const flat = path.resolve(__dirname, name);
+  if (fs.existsSync(flat)) return require(flat);
+  return require(path.resolve(__dirname, "../../runtime", name));
+}
+const MonoBindings = loadRuntime("engine-bindings.js");
+const MonoDraw     = loadRuntime("engine-draw.js");
 
 // --- Parse arguments ---
 const args = process.argv.slice(2);
 if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
-  console.log(`Usage: node mono-test.js <main.lua> [options]
+  console.log(`Usage: node mono-runner.js <main.lua> [options]
 
 Options:
   --frames N       Run N frames (default: 0)
@@ -1324,7 +1335,7 @@ end
     // run from inside the repo.
     let API_RENAME;
     try {
-      API_RENAME = require("../../../.claude/scripts/lib/engine-apis").buildCoverageRename();
+      API_RENAME = require("../../.claude/scripts/lib/engine-apis").buildCoverageRename();
     } catch (e) {
       API_RENAME = {
         _btn: "btn",

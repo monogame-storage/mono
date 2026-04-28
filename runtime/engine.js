@@ -191,8 +191,8 @@ var Mono = (() => {
   let palette = null;
   let canvas, ctx, imgData, buf32;
 
-  // Color validation removed from engine — handled by headless test runner (mono-test.js)
-  // for zero runtime overhead. See requireColor() in mono-test.js.
+  // Color validation removed from engine — handled by headless runner (mono-runner.js)
+  // for zero runtime overhead. See requireColor() in mono-runner.js.
 
   function setPix(s, x, y, c) {
     x = Math.floor(x); y = Math.floor(y);

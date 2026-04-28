@@ -30,7 +30,7 @@ export async function saveCart(gameId, cart) {
 }
 
 export async function fetchCartTemplate() {
-  const res = await fetch(`/templates/game/cart.json`);
+  const res = await fetch(`/dev/templates/game/cart.json`);
   if (!res.ok) throw new Error(`cart.json template fetch failed (${res.status})`);
   return await res.json();
 }

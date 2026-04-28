@@ -147,8 +147,8 @@ gh issue comment <number> --body "Additional context: ..."
 # 3. Only create a new issue if no match found
 gh issue create --repo monogame-storage/mono \
   --label "bug" \
-  --title "frame() not available in mono-test.js" \
-  --body "API.md documents frame() but mono-test.js doesn't register it."
+  --title "frame() not available in mono-runner.js" \
+  --body "API.md documents frame() but mono-runner.js doesn't register it."
 
 gh issue create --repo monogame-storage/mono \
   --label "proposal" \
@@ -160,10 +160,10 @@ Workaround: manual state variable for scene management."
 
 Use labels: `bug`, `proposal`. The developer will review and prioritize.
 
-## Headless Verification (mono-test.js)
-LLM can run and verify Lua code without a browser using `mono-test.js`.
+## Headless Verification (mono-runner.js)
+LLM can run and verify Lua code without a browser using `mono-runner.js`.
 
-**Setup**: `.mono/mono-test.js` and shell wrappers (`mono-test`, `mono-test.cmd`) are auto-deployed when you open a folder in the editor.
+**Setup**: `.mono/mono-runner.js` and shell wrappers (`mono-run`, `mono-run.cmd`) are auto-deployed when you open a folder in the editor.
 Dependencies: `npm install wasmoon@1.16.0 pngjs@7`
 
 **Prefer vdump over PNG** — vdump is text (hex 0-f per pixel), directly readable and verifiable. PNG is for human visual checks only.
@@ -171,38 +171,38 @@ Dependencies: `npm install wasmoon@1.16.0 pngjs@7`
 **Usage**:
 ```bash
 # Run a game file and dump the VRAM (160×120 hex, 0-f per pixel)
-./mono-test main.lua --frames 5 --vdump
+./mono-run main.lua --frames 5 --vdump
 
 # Test inline code (no file needed)
-./mono-test --source 'cls(0) rectf(10,10,20,20,1) print(gpix(15,15))' --vdump --console
+./mono-run --source 'cls(0) rectf(10,10,20,20,1) print(gpix(15,15))' --vdump --console
 
 # Pixel-level assertion
-./mono-test --source 'cls(0) pix(80,72,1) print(gpix(80,72))' --console --quiet
+./mono-run --source 'cls(0) pix(80,72,1) print(gpix(80,72))' --console --quiet
 # → prints "1" if correct
 
 # Verify specific region (e.g. check top-left 10x5 area)
-./mono-test main.lua --frames 5 --vdump --region 0,0,10,5
+./mono-run main.lua --frames 5 --vdump --region 0,0,10,5
 
 # Save and compare snapshots (regression test)
-./mono-test main.lua --frames 5 --snapshot expected.txt
-./mono-test main.lua --frames 5 --diff expected.txt
+./mono-run main.lua --frames 5 --snapshot expected.txt
+./mono-run main.lua --frames 5 --diff expected.txt
 ```
 
-**Workflow**: Edit code → run mono-test.js → check vdump → fix → repeat (1-2s per cycle).
+**Workflow**: Edit code → run mono-runner.js → check vdump → fix → repeat (1-2s per cycle).
 
 **Fast-forward testing**: Run thousands of frames in ~1 second to verify game outcomes:
 ```bash
 # Stop when game prints "WINNER"
-./mono-test main.lua --frames 10000 --until "WINNER" --quiet --console
+./mono-run main.lua --frames 10000 --until "WINNER" --quiet --console
 
 # Run 10 games, report win rate stats
-./mono-test main.lua --frames 10000 --until "WINNER" --quiet --runs 10
+./mono-run main.lua --frames 10000 --until "WINNER" --quiet --runs 10
 
 # Reproducible test with fixed seed
-./mono-test main.lua --frames 1000 --seed 42 --console --quiet
+./mono-run main.lua --frames 1000 --seed 42 --console --quiet
 
 # Auto-play with VRAM bot (reads screen, controls P2)
-./mono-test main.lua --frames 10000 --until "WINNER" --bot --quiet
+./mono-run main.lua --frames 10000 --until "WINNER" --bot --quiet
 # Custom bot script
-./mono-test main.lua --frames 10000 --until "WINNER" --bot bot.lua --quiet
+./mono-run main.lua --frames 10000 --until "WINNER" --bot bot.lua --quiet
 ```

@@ -1,5 +1,5 @@
 -- Pong Bot: reads VRAM to track ball, controls P2 paddle
--- Usage: node runtime/mono-test.js demos/pong/main.lua --bot demos/pong/bot.lua
+-- Usage: node dev/headless/mono-runner.js demos/pong/main.lua --bot demos/pong/bot.lua
 
 function _bot()
   -- find ball: scan middle area for brightest pixel cluster

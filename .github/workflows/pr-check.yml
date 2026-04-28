@@ -53,7 +53,7 @@ jobs:
           done < <(find . -name '*.lua' -type f -not -path './node_modules/*')
           exit $fail
 
-      - name: Run all demos headlessly (mono-test)
+      - name: Run all demos headlessly (mono-runner)
         run: |
           fail=0
           for d in demo/*/; do
@@ -63,7 +63,7 @@ jobs:
               continue
             fi
             echo "Running $entry"
-            if node editor/templates/mono/mono-test.js "$entry" --frames 60 --quiet; then
+            if node dev/headless/mono-runner.js "$entry" --frames 60 --quiet; then
               echo "  OK"
             else
               echo "  FAIL"

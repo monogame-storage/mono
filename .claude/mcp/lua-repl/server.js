@@ -20,7 +20,7 @@ const path = require("path");
 const readline = require("readline");
 
 const REPO_ROOT = path.resolve(__dirname, "../../..");
-const TEST_RUNNER = path.join(REPO_ROOT, "editor/templates/mono/mono-test.js");
+const TEST_RUNNER = path.join(REPO_ROOT, "dev/headless/mono-runner.js");
 
 const SERVER_INFO = {
   name: "mono-lua-repl",
@@ -108,7 +108,7 @@ function runLua(code, { frames = 1, colors = 4, show = "vdump" } = {}) {
   if (show === "vdump") args.push("--vdump");
   // "hash" mode runs with no visual output at all. It's the cheapest
   // way to answer "does this snippet compile and run?"; callers only
-  // inspect `ok` / `stderr`, never the final VRAM hash (mono-test.js
+  // inspect `ok` / `stderr`, never the final VRAM hash (mono-runner.js
   // does not emit the hash to stdout in normal runs — only under
   // --determinism, which we don't enable here).
 

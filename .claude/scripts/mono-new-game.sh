@@ -27,13 +27,13 @@ fi
 
 mkdir -p "$DEMO_DIR"
 
-# --- Copy canonical files from templates/game/ with title + engine substitution ---
+# --- Copy canonical files from dev/templates/game/ with title + engine substitution ---
 # Escape backslashes and sed delimiters in the name so the substitution is safe.
 TITLE_ESC=$(printf '%s' "$NAME" | sed -e 's/[\\&|]/\\&/g')
 ENGINE=$(cat "$REPO_ROOT/VERSION")
 for f in cart.json main.lua title.lua game.lua gameover.lua; do
   sed -e "s|%TITLE%|$TITLE_ESC|g" -e "s|%ENGINE%|$ENGINE|g" \
-      "$REPO_ROOT/templates/game/$f" > "$DEMO_DIR/$f"
+      "$REPO_ROOT/dev/templates/game/$f" > "$DEMO_DIR/$f"
 done
 
 # --- .standard marker for /mono-lint ---
@@ -64,7 +64,7 @@ Standard-compliant Mono game.
 
 \`\`\`bash
 cd demo/$NAME
-node ../../editor/templates/mono/mono-test.js main.lua --frames 120
+node ../../dev/headless/mono-runner.js main.lua --frames 120
 \`\`\`
 
 Or run \`/mono-verify\` to check this game along with every other demo.
@@ -78,7 +78,7 @@ MD
 
 # --- Smoke test ---
 cd "$DEMO_DIR"
-if node "$REPO_ROOT/editor/templates/mono/mono-test.js" main.lua --frames 10 --colors 4 --quiet >/dev/null 2>&1; then
+if node "$REPO_ROOT/dev/headless/mono-runner.js" main.lua --frames 10 --colors 4 --quiet >/dev/null 2>&1; then
   echo "✓ demo/$NAME scaffolded and passes smoke test"
   echo "  files:"
   echo "    $DEMO_DIR/cart.json"

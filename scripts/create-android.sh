@@ -85,14 +85,9 @@ copy_engine_files() {
   cp "$MONO_ROOT/runtime/engine-draw.js" "$mono_dir/engine-draw.js"
   cp "$MONO_ROOT/runtime/console-gamepad.js" "$mono_dir/console-gamepad.js"
   cp "$MONO_ROOT/runtime/shader.js" "$mono_dir/shader.js"
-  # Copy template files (excluding main.lua which goes to cart/)
-  for f in "$MONO_ROOT/editor/templates/mono/"*; do
-    local name=$(basename "$f")
-    case "$name" in
-      main.lua) ;;
-      *) cp -R "$f" "$mono_dir/" ;;
-    esac
-  done
+  # Copy headless runner and AI-context template into the runtime bundle.
+  cp "$MONO_ROOT/dev/headless/mono-runner.js" "$mono_dir/mono-runner.js"
+  cp "$MONO_ROOT/dev/templates/mono/CONTEXT.md" "$mono_dir/CONTEXT.md"
   for sf in tint.js lcd.js lcd3d.js crt.js scanlines.js invert_lcd.js; do
     cp "$MONO_ROOT/runtime/shaders/$sf" "$mono_dir/shaders/$sf"
   done
@@ -306,7 +301,7 @@ if ! $DRY_RUN; then
   engine=$(cat "$MONO_ROOT/VERSION")
   for f in cart.json main.lua title.lua game.lua gameover.lua; do
     sed -e "s|%TITLE%|$title_esc|g" -e "s|%ENGINE%|$engine|g" \
-        "$MONO_ROOT/templates/game/$f" > "$TARGET_DIR/cart/$f"
+        "$MONO_ROOT/dev/templates/game/$f" > "$TARGET_DIR/cart/$f"
   done
   cat > "$TARGET_DIR/cart/shader.json" << 'SHADER_EOF'
 {

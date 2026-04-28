@@ -4,7 +4,7 @@
 // mapping between internal `_`-prefixed glue helpers and their user-facing
 // wrapper names. Consumed by:
 //   - .claude/scripts/mono-lint.js          (defensive-api-check, unknown-api rules)
-//   - editor/templates/mono/mono-test.js    (--coverage report)
+//   - dev/headless/mono-runner.js           (--coverage report)
 //
 // Keep this file minimal and zero-dependency (no third-party imports) so
 // it can be required by both the repo-local scripts and the copied-into-
@@ -16,7 +16,7 @@ const fs = require("fs");
 const path = require("path");
 
 // Map from internal glue name (as exposed via lua.global.set in engine.js
-// and mono-test.js) → the public name the user actually calls.
+// and mono-runner.js) → the public name the user actually calls.
 //
 // Both halves of a pair (e.g., _touch_pos_x + _touch_pos_y → touch_pos)
 // resolve to the same public name. Tools that need to count calls exactly
