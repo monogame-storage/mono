@@ -102,16 +102,41 @@ function collectSymbols(ast) {
         }
         break;
       }
-      case "FunctionDeclaration": {
-        const id = node.identifier;
-        if (!id) break;
-        if (id.type === "Identifier") {
-          if (node.isLocal) locals.add(id.name);
-          else globals.add(id.name);
-        } else if (id.type === "MemberExpression"
-                && id.base.type === "Identifier") {
-          const mod = tableModules.get(id.base.name);
-          if (mod) mod.add(id.identifier.name);
+      case "FunctionDeclaration":
+      case "FunctionExpression": {
+        // Parameters (including method `self`) are locals scoped to the body.
+        // We use a flat scope so adding to the file-wide locals set is fine —
+        // it errs permissive but never produces a false positive.
+        if (Array.isArray(node.parameters)) {
+          for (const p of node.parameters) {
+            if (p.type === "Identifier") locals.add(p.name);
+          }
+        }
+        if (node.type === "FunctionDeclaration") {
+          const id = node.identifier;
+          if (!id) break;
+          if (id.type === "Identifier") {
+            if (node.isLocal) locals.add(id.name);
+            else globals.add(id.name);
+          } else if (id.type === "MemberExpression"
+                  && id.base.type === "Identifier") {
+            const mod = tableModules.get(id.base.name);
+            if (mod) mod.add(id.identifier.name);
+            // Method `function obj:foo(...)` adds an implicit `self` local.
+            if (id.indexer === ":") locals.add("self");
+          }
+        }
+        break;
+      }
+      case "ForNumericStatement": {
+        if (node.variable?.type === "Identifier") locals.add(node.variable.name);
+        break;
+      }
+      case "ForGenericStatement": {
+        if (Array.isArray(node.variables)) {
+          for (const v of node.variables) {
+            if (v.type === "Identifier") locals.add(v.name);
+          }
         }
         break;
       }
@@ -160,20 +185,38 @@ function fieldKeyName(field) {
 }
 
 /**
- * Resolve a Lua module path to an absolute filesystem path. Mono follows
- * Lua's dot-to-slash convention: `require("lib.utils")` → `lib/utils.lua`,
- * relative to the directory of the file doing the require.
+ * Resolve a Lua module path to an absolute filesystem path. Mono's runtime
+ * registers modules into package.preload using paths rooted at the **game
+ * root** (the directory containing main.lua), not at the directory of the
+ * file that calls require(). So `require("lib.utils")` from
+ * `scenes/play.lua` resolves to `<game-root>/lib/utils.lua`, not
+ * `scenes/lib/utils.lua`.
  */
-function resolveRequire(modPath, baseDir) {
+function resolveRequire(modPath, gameRoot) {
   const rel = modPath.replace(/\./g, "/") + ".lua";
   const candidates = [
-    path.join(baseDir, rel),
-    path.join(baseDir, rel.replace(/\.lua$/, "/init.lua")),
+    path.join(gameRoot, rel),
+    path.join(gameRoot, rel.replace(/\.lua$/, "/init.lua")),
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
   return null;
+}
+
+/**
+ * Walk up from a Lua file's directory to find the game root — the closest
+ * ancestor that contains a main.lua. Falls back to the file's own dir.
+ */
+function findGameRoot(filepath) {
+  let dir = path.dirname(path.resolve(filepath));
+  while (true) {
+    if (fs.existsSync(path.join(dir, "main.lua"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return path.dirname(path.resolve(filepath));
 }
 
 /**
@@ -222,12 +265,12 @@ function findUnknownCalls(filepath, engineAPIs, moduleCache) {
     return [{ line: e.line || 0, name: "<parse error>", kind: "parse-error", msg: e.message }];
   }
   const sym = collectSymbols(ast);
-  const baseDir = path.dirname(filepath);
+  const gameRoot = findGameRoot(filepath);
 
   // Resolve required modules' exports up front.
   const requireExports = new Map(); // varName → Set<string> | null
   for (const [varName, modPath] of sym.requireBindings) {
-    const resolved = resolveRequire(modPath, baseDir);
+    const resolved = resolveRequire(modPath, gameRoot);
     if (!resolved) {
       requireExports.set(varName, null); // unresolved: allow anything
       continue;
@@ -305,6 +348,7 @@ module.exports = {
   collectSymbols,
   moduleExports,
   resolveRequire,
+  findGameRoot,
   findUnknownCalls,
   STDLIB,
 };

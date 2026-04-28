@@ -356,10 +356,14 @@ rule("unknown-api", ({ file }) => {
   const findings = findUnknownCalls(file, apis, _moduleCache);
   return findings.map(f => ({
     line: f.line,
-    severity: "error",
+    // Parse errors degrade to info — luaparse caps at 5.3 grammar so
+    // valid Lua 5.4 syntax (`<const>`, `<close>`) trips it. info doesn't
+    // increment the warning/error counters, so the lint passes; the user
+    // still sees a note that the rule was skipped for that file.
+    severity: f.kind === "parse-error" ? "info" : "error",
     rule: "unknown-api",
     msg: f.kind === "parse-error"
-      ? `lua parse failed: ${f.msg}`
+      ? `unknown-api skipped — luaparse rejected the file (likely Lua 5.4 syntax): ${f.msg}`
       : `${f.name} is not an API.md entry, Lua stdlib, or a local/required name (${f.kind})`,
   }));
 });
