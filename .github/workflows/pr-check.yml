@@ -71,3 +71,40 @@ jobs:
             fi
           done
           exit $fail
+
+  # Cosmi (the Cloudflare Worker that runs the chat agent + lint
+  # pipeline) lives in its own subtree with its own package.json and
+  # wrangler config. Validating it here catches:
+  #   - syntax / import regressions in the worker source
+  #   - lint regressions (api-lint, engine-primitive guard, gameId guard)
+  #   - prompt / tool drift (agent-prompt.test.mjs)
+  #   - wrangler.toml breakage (e.g. assets misconfig that broke deploy
+  #     earlier)
+  # Runs in parallel with the mono-side validate job above.
+  validate-cosmi:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cosmi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cosmi/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: JS syntax check
+        run: npm run check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Wrangler dry-run deploy
+        run: npx --yes wrangler@latest deploy --dry-run --outdir dist
