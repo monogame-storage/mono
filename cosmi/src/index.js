@@ -545,6 +545,7 @@ async function deleteFile(env, key) {
 import { lintEnginePrimitiveOverwrite } from "./lib/lint.js";
 import { validateAgentPath } from "./lib/path.js";
 import { extractApiWhitelist, lintApiCompliance, collectFileDefinedNames } from "./lib/api-lint.js";
+import { AGENT_TOOLS, buildAgentSystemPrompt } from "./lib/agent-prompt.js";
 
 // Append-only audit trail for write_file rejections. Each rejection
 // becomes its own R2 object so concurrent writes don't race; the ISO
@@ -552,10 +553,14 @@ import { extractApiWhitelist, lintApiCompliance, collectFileDefinedNames } from 
 // Best-effort: failures here must NEVER break the agent loop.
 async function logLintRejection(env, uid, payload) {
   try {
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    const isoTs = new Date().toISOString();
+    const day = isoTs.slice(0, 10); // 2026-04-29
+    const ts = isoTs.replace(/[:.]/g, "-");
     const rand = Math.random().toString(36).slice(2, 8);
-    const key = `${uid}/_admin/lint-reject/${ts}-${rand}.json`;
-    const body = JSON.stringify({ ts: new Date().toISOString(), ...payload });
+    // Date-bucketed key — `${uid}/_admin/lint-reject/2026-04-29/...`.
+    // Future cleanup can drop whole day prefixes via list(prefix).delete().
+    const key = `${uid}/_admin/lint-reject/${day}/${ts}-${rand}.json`;
+    const body = JSON.stringify({ ts: isoTs, ...payload });
     await env.BUCKET.put(key, body, {
       httpMetadata: { contentType: "application/json" },
     });
@@ -568,8 +573,9 @@ async function handleListLintRejects(env, uid, url) {
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 100);
   const prefix = `${uid}/_admin/lint-reject/`;
   // R2 list returns alphabetical by key. ISO timestamps sort oldest
-  // first, so reverse to get newest. Pull a window slightly larger than
-  // `limit` so trimming after parse still lands `limit` items.
+  // first, so reverse to get newest. Cap window at 1000 (R2's per-list
+  // ceiling) — `windowed` reflects what we actually scanned, not the
+  // true total, so the response can't claim more than it knows.
   const list = await env.BUCKET.list({ prefix, limit: 1000 });
   const sorted = list.objects.slice().reverse().slice(0, limit);
   const items = await Promise.all(sorted.map(async (obj) => {
@@ -582,8 +588,9 @@ async function handleListLintRejects(env, uid, url) {
     }
   }));
   return json(200, {
-    total: list.objects.length,
-    truncated: list.truncated || false,
+    returned: items.filter(Boolean).length,
+    windowed: list.objects.length,
+    windowCapped: Boolean(list.truncated),
     items: items.filter(Boolean),
   });
 }
@@ -591,27 +598,48 @@ async function handleListLintRejects(env, uid, url) {
 // Collect every identifier defined in any sibling .lua file under
 // `prefix`, excluding `excludePath`. Mono games use cross-file globals
 // (main.lua declares helpers, scene files call them), so the lint must
-// see the union before deciding what's "unknown". Returns Set<string>.
-async function collectProjectGlobals(env, prefix, excludePath) {
-  const set = new Set();
+// see the union before deciding what's "unknown".
+//
+// `cache` (optional) is a turn-scoped `{ signature, set }` slot. We
+// list R2 first to compute a content signature (sorted "name:size"
+// entries minus the excludePath), and only re-read the .lua bodies if
+// that signature changed since the previous call in the same turn —
+// usually it won't, so multi-write turns drop from O(N writes × N
+// files) R2 GETs to O(N files) once.
+async function collectProjectGlobals(env, prefix, excludePath, cache) {
+  // Single pass: list everything, then decide if cache hit applies.
+  const objs = [];
   let cursor;
-  const reads = [];
   do {
     const list = await env.BUCKET.list({ prefix, cursor });
     for (const obj of list.objects) {
       const name = obj.key.slice(prefix.length);
       if (!name.endsWith(".lua")) continue;
       if (name === excludePath) continue;
-      reads.push((async () => {
-        const o = await env.BUCKET.get(obj.key);
-        if (!o) return null;
-        return collectFileDefinedNames(await o.text());
-      })());
+      objs.push({ key: obj.key, name, size: obj.size });
     }
     cursor = list.truncated ? list.cursor : undefined;
   } while (cursor);
+
+  const signature = objs
+    .map((o) => `${o.name}:${o.size}`)
+    .sort()
+    .join("|");
+  if (cache && cache.signature === signature && cache.set) return cache.set;
+
+  const reads = objs.map(async (o) => {
+    const got = await env.BUCKET.get(o.key);
+    if (!got) return null;
+    return collectFileDefinedNames(await got.text());
+  });
   const results = await Promise.all(reads);
+  const set = new Set();
   for (const r of results) if (r) for (const n of r) set.add(n);
+
+  if (cache) {
+    cache.signature = signature;
+    cache.set = set;
+  }
   return set;
 }
 
@@ -627,58 +655,6 @@ async function getApiWhitelist(env) {
   }
   return apiWhitelistCache;
 }
-
-const AGENT_TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "list_files",
-      description: "List every file in the current game with name and size in bytes. No arguments.",
-      parameters: { type: "object", properties: {}, required: [] },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "read_file",
-      description: "Read the full UTF-8 content of a file in the current game.",
-      parameters: {
-        type: "object",
-        properties: {
-          path: { type: "string", description: "File path relative to the game root, e.g. 'main.lua' or 'scenes/title.lua'" },
-        },
-        required: ["path"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "write_file",
-      description: "Create or overwrite a file with the given content. Always pass the entire file content.",
-      parameters: {
-        type: "object",
-        properties: {
-          path: { type: "string" },
-          content: { type: "string" },
-        },
-        required: ["path", "content"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "delete_file",
-      description: "Delete a file from the current game.",
-      parameters: {
-        type: "object",
-        properties: { path: { type: "string" } },
-        required: ["path"],
-      },
-    },
-  },
-];
 
 async function execAgentTool(name, input, ctx) {
   const { env, uid, gameId, changed } = ctx;
@@ -729,7 +705,7 @@ async function execAgentTool(name, input, ctx) {
           return { error: `write_file blocked for ${input.path}: ${violation}` };
         }
         const whitelist = await getApiWhitelist(env);
-        const projectDefined = await collectProjectGlobals(env, prefix, input.path);
+        const projectDefined = await collectProjectGlobals(env, prefix, input.path, ctx.projectGlobalsCache);
         const apiViolations = lintApiCompliance(input.content, whitelist, { projectDefined });
         if (apiViolations.length > 0) {
           const list = apiViolations
@@ -787,105 +763,11 @@ async function handleAgent(request, env, uid) {
   const modelName = model;
 
   // System prompt — agent-style (no file dump; LLM uses tools to inspect).
-  // API.md is appended verbatim so the model and the write_file harness
-  // share the same source of truth — anything outside this list will be
-  // rejected when the model tries to write it.
+  // Built from the shared lib so the eval harness sees the exact same
+  // text. API.md is appended verbatim inside buildAgentSystemPrompt so
+  // the model and the write_file harness share one source of truth.
   const apiDoc = await fetchDoc("api", env);
-  const systemPrompt = [
-    "You are Mono, an AI game developer for the Mono fantasy console (160x120, up to 16 evenly-spaced grayscale shades — black to white, no RGB; Lua 5.4 via Wasmoon).",
-    "You work on the user's current game by calling tools: list_files, read_file, write_file, delete_file.",
-    "",
-    "## CRITICAL — you MUST use tools for every change request",
-    "If the user asks you to add / edit / fix / change / rewrite / modify / remove",
-    "ANYTHING, you MUST invoke write_file (or delete_file) in this turn. A final",
-    "reply that says \"I changed X\" or \"수정했습니다\" or \"done\" WITHOUT having",
-    "called write_file in this same turn is a BUG — the file on disk is unchanged",
-    "and you will have lied to the user.",
-    "",
-    "Prior assistant turns in this conversation may describe changes. DO NOT trust",
-    "that those changes still exist on disk — files may have been reverted, edited",
-    "externally, or the prior turn may itself have made the same mistake. ALWAYS:",
-    "  1. read_file to verify the current file contents FOR THIS TURN",
-    "  2. write_file with the full new content FOR THIS TURN",
-    "  3. only then send a final plain-text reply describing what you just wrote",
-    "",
-    "If the user only asks a question (\"what does X do?\", \"explain Y\") and no change",
-    "is requested, you may reply directly without write_file. But any action verb in",
-    "the user's message means tools are mandatory.",
-    "",
-    "## Stage long work — don't try to do everything in one turn",
-    "Big rewrites (new game scaffolds, multi-scene rewrites, large refactors) MUST",
-    "be broken into stages. The hard rule: at most TWO write_file calls per turn for",
-    "non-trivial work. After 2 successful writes, finalize with a short summary",
-    "(\"Wrote main.lua and cart.json. Title and play scenes next — say 계속 to continue.\")",
-    "and STOP. The user will say \"계속\" / \"continue\" / \"이어서\" or similar to advance.",
-    "",
-    "Why: long single turns take minutes, accumulate failure risk, and produce huge",
-    "diffs the user can't review. Staging gives faster feedback, lets the user catch",
-    "regressions early, and keeps each turn short enough to reason about.",
-    "",
-    "Exceptions — finish in one turn:",
-    "- Single-file edits (rename, fix, small feature add).",
-    "- Bug fixes where you read 1-2 files and write 1 fix.",
-    "- Trivial multi-file changes (e.g. updating cart.json + a one-liner).",
-    "",
-    "When the user says 계속 / continue, resume from where you left off. Use list_files",
-    "and read_file to confirm the current state — don't assume your prior plan is still valid.",
-    "",
-    "## Workflow",
-    "1. Call list_files first if you don't already know the file layout.",
-    "2. Use read_file to inspect files before editing them.",
-    "3. Use write_file to create or fully overwrite a file. Always pass the entire file content (no diffs).",
-    "4. Keep working until the user's request is done, then send a final plain-text reply explaining what you changed.",
-    "",
-    "## Mono engine essentials",
-    "- Lifecycle: _init (set mode), _start (state init), _ready (after image loads), _update (30fps), _draw.",
-    "- Surface-first drawing: cls(scr,c), pix(scr,x,y,c), line/rect/rectf/circ/circf/text(scr,str,x,y,c,align?).",
-    "- Audio: note(ch,name,dur), tone(ch,a,b,dur), noise(ch,dur,...), wave(ch,type), sfx_stop.",
-    "- Scenes: go(\"scene_name\") loads scene_name.lua. Globals <name>_init / _update / _draw, or return a table.",
-    "- Constants: SCREEN_W=160, SCREEN_H=120, ALIGN_LEFT=0 HCENTER=1 RIGHT=2 VCENTER=4 CENTER=5.",
-    "",
-    "## Input is POLLING, not callbacks",
-    "All input functions return booleans/numbers. You call them INSIDE _update each frame.",
-    "There are NO callback-style input handlers in Mono. Never write",
-    "`function touch_start(x, y) ... end` — that overwrites the engine primitive and silently",
-    "breaks touch entirely.",
-    "",
-    "- btn(k) / btnp(k) / btnr(k) → bool. k ∈ \"up|down|left|right|a|b|start|select\".",
-    "  Use btnr for scene transitions.",
-    "- touch_start() → bool (true on frame touch began).",
-    "- touch_end()   → bool (true on frame touch ended).",
-    "- touch()       → bool (true while any finger is down).",
-    "- touch_pos(i)  → x, y  (i = 1..touch_count(), 1-indexed).",
-    "- touch_count() → int.",
-    "- swipe() → \"up|down|left|right\" or false (one-shot this frame).",
-    "",
-    "Correct touch pattern (spawn particles where the user taps):",
-    "    function game_update()",
-    "      if touch_start() then",
-    "        local x, y = touch_pos(1)",
-    "        spawn_particles(x, y)",
-    "      end",
-    "      -- ... rest of update",
-    "    end",
-    "",
-    "## Reserved engine globals — NEVER redefine as functions or assign to",
-    "btn, btnp, btnr, touch, touch_start, touch_end, touch_pos, touch_posf, touch_count,",
-    "swipe, axis_x, axis_y, go, scene_name, cam, cam_reset, cam_shake, cam_get,",
-    "cls, pix, gpix, line, rect, rectf, circ, circf, text, spr, sspr, blit,",
-    "screen, canvas, canvas_w, canvas_h, canvas_del, note, tone, noise, wave, sfx_stop,",
-    "frame, time, date, use_pause, mode, motion_x, motion_y, motion_z,",
-    "gyro_alpha, gyro_beta, gyro_gamma, motion_enabled,",
-    "SCREEN_W, SCREEN_H, COLORS, ALIGN_LEFT, ALIGN_HCENTER, ALIGN_RIGHT, ALIGN_VCENTER, ALIGN_CENTER.",
-    "The write_file tool will reject any file that redefines one of these.",
-    "",
-    "## Response rules",
-    "- Final reply: 2~4 short sentences, same language as the user, NO code blocks (files are already written).",
-    "- If you cannot complete the request, explain what you tried and what's blocking.",
-    "",
-    "## API reference (canonical — write_file rejects calls to anything not listed here)",
-    apiDoc || "(API.md unavailable — proceed with the engine essentials above only)",
-  ].join("\n");
+  const systemPrompt = buildAgentSystemPrompt(apiDoc);
 
   const messages = [{ role: "system", content: systemPrompt }];
   for (const h of (history || [])) {
@@ -904,7 +786,12 @@ async function handleAgent(request, env, uid) {
   // Run the loop without awaiting — so the response starts streaming
   // immediately. Errors route to an SSE error event.
   (async () => {
-    const ctx = { env, uid, gameId, changed: new Map() };
+    // projectGlobalsCache is a turn-scoped { signature, set } cache so
+    // the cross-file globals scan doesn't re-list+re-read R2 on every
+    // write_file in the same turn. Signature = sorted list of "name:size"
+    // — invalidated automatically the moment a sibling .lua write changes
+    // its size.
+    const ctx = { env, uid, gameId, changed: new Map(), projectGlobalsCache: { signature: null, set: null } };
     const usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
     const MAX_ITER = 20;
 

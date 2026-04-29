@@ -31,6 +31,7 @@ import {
 } from "../src/lib/api-lint.js";
 import { lintEnginePrimitiveOverwrite } from "../src/lib/lint.js";
 import { validateAgentPath } from "../src/lib/path.js";
+import { AGENT_TOOLS, buildAgentSystemPrompt } from "../src/lib/agent-prompt.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 // cosmi/eval/ → mono/ is two parents up. Override MONO_REPO if you've
@@ -44,59 +45,6 @@ const KIMI_MODEL = process.env.KIMI_MODEL || "kimi-k2.6";
 const KIMI_BASE = process.env.KIMI_BASE || "https://api.moonshot.ai";
 const MAX_ITER = parseInt(process.env.MAX_ITER || "20", 10);
 
-// Mirror of mono-api/src/index.js AGENT_TOOLS. Kept in sync manually — if
-// these drift, the harness lies about what prod sees. Test: `npm test` in
-// mono-api will fail any lint regression caught here, which is the more
-// important contract.
-const AGENT_TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "list_files",
-      description: "List every file in the current game with name and size in bytes. No arguments.",
-      parameters: { type: "object", properties: {}, required: [] },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "read_file",
-      description: "Read the full UTF-8 content of a file in the current game.",
-      parameters: {
-        type: "object",
-        properties: {
-          path: { type: "string", description: "File path relative to the game root" },
-        },
-        required: ["path"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "write_file",
-      description: "Create or overwrite a file with the given content. Always pass the entire file content.",
-      parameters: {
-        type: "object",
-        properties: { path: { type: "string" }, content: { type: "string" } },
-        required: ["path", "content"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "delete_file",
-      description: "Delete a file from the current game.",
-      parameters: {
-        type: "object",
-        properties: { path: { type: "string" } },
-        required: ["path"],
-      },
-    },
-  },
-];
-
 class InMemoryR2 {
   constructor() { this.files = new Map(); }
   list() {
@@ -107,97 +55,11 @@ class InMemoryR2 {
   delete(p) { this.files.delete(p); }
 }
 
-async function buildSystemPrompt(apiDoc) {
-  // Verbatim duplicate of handleAgent's prompt construction in
-  // mono-api/src/index.js. Drift between the two is a real risk — the
-  // harness becomes a lie if prod evolves. Mitigation: keep the prompt
-  // short enough to diff visually, and note divergence in commit messages.
-  return [
-    "You are Mono, an AI game developer for the Mono fantasy console (160x120, up to 16 evenly-spaced grayscale shades — black to white, no RGB; Lua 5.4 via Wasmoon).",
-    "You work on the user's current game by calling tools: list_files, read_file, write_file, delete_file.",
-    "",
-    "## CRITICAL — you MUST use tools for every change request",
-    "If the user asks you to add / edit / fix / change / rewrite / modify / remove",
-    "ANYTHING, you MUST invoke write_file (or delete_file) in this turn. A final",
-    "reply that says \"I changed X\" or \"수정했습니다\" or \"done\" WITHOUT having",
-    "called write_file in this same turn is a BUG — the file on disk is unchanged",
-    "and you will have lied to the user.",
-    "",
-    "Prior assistant turns in this conversation may describe changes. DO NOT trust",
-    "that those changes still exist on disk — files may have been reverted, edited",
-    "externally, or the prior turn may itself have made the same mistake. ALWAYS:",
-    "  1. read_file to verify the current file contents FOR THIS TURN",
-    "  2. write_file with the full new content FOR THIS TURN",
-    "  3. only then send a final plain-text reply describing what you just wrote",
-    "",
-    "If the user only asks a question (\"what does X do?\", \"explain Y\") and no change",
-    "is requested, you may reply directly without write_file. But any action verb in",
-    "the user's message means tools are mandatory.",
-    "",
-    "## Stage long work — don't try to do everything in one turn",
-    "Big rewrites (new game scaffolds, multi-scene rewrites, large refactors) MUST",
-    "be broken into stages. The hard rule: at most TWO write_file calls per turn for",
-    "non-trivial work. After 2 successful writes, finalize with a short summary",
-    "(\"Wrote main.lua and cart.json. Title and play scenes next — say 계속 to continue.\")",
-    "and STOP. The user will say \"계속\" / \"continue\" / \"이어서\" or similar to advance.",
-    "",
-    "Why: long single turns take minutes, accumulate failure risk, and produce huge",
-    "diffs the user can't review. Staging gives faster feedback, lets the user catch",
-    "regressions early, and keeps each turn short enough to reason about.",
-    "",
-    "Exceptions — finish in one turn:",
-    "- Single-file edits (rename, fix, small feature add).",
-    "- Bug fixes where you read 1-2 files and write 1 fix.",
-    "- Trivial multi-file changes (e.g. updating cart.json + a one-liner).",
-    "",
-    "When the user says 계속 / continue, resume from where you left off. Use list_files",
-    "and read_file to confirm the current state — don't assume your prior plan is still valid.",
-    "",
-    "## Workflow",
-    "1. Call list_files first if you don't already know the file layout.",
-    "2. Use read_file to inspect files before editing them.",
-    "3. Use write_file to create or fully overwrite a file. Always pass the entire file content (no diffs).",
-    "4. Keep working until the user's request is done, then send a final plain-text reply explaining what you changed.",
-    "",
-    "## Mono engine essentials",
-    "- Lifecycle: _init (set mode), _start (state init), _ready (after image loads), _update (30fps), _draw.",
-    "- Surface-first drawing: cls(scr,c), pix(scr,x,y,c), line/rect/rectf/circ/circf/text(scr,str,x,y,c,align?).",
-    "- Audio: note(ch,name,dur), tone(ch,a,b,dur), noise(ch,dur,...), wave(ch,type), sfx_stop.",
-    "- Scenes: go(\"scene_name\") loads scene_name.lua. Globals <name>_init / _update / _draw, or return a table.",
-    "- Constants: SCREEN_W=160, SCREEN_H=120, ALIGN_LEFT=0 HCENTER=1 RIGHT=2 VCENTER=4 CENTER=5.",
-    "",
-    "## Input is POLLING, not callbacks",
-    "All input functions return booleans/numbers. You call them INSIDE _update each frame.",
-    "There are NO callback-style input handlers in Mono. Never write",
-    "`function touch_start(x, y) ... end` — that overwrites the engine primitive and silently",
-    "breaks touch entirely.",
-    "",
-    "- btn(k) / btnp(k) / btnr(k) → bool. k ∈ \"up|down|left|right|a|b|start|select\".",
-    "  Use btnr for scene transitions.",
-    "- touch_start() → bool (true on frame touch began).",
-    "- touch_end()   → bool (true on frame touch ended).",
-    "- touch()       → bool (true while any finger is down).",
-    "- touch_pos(i)  → x, y  (i = 1..touch_count(), 1-indexed).",
-    "- touch_count() → int.",
-    "- swipe() → \"up|down|left|right\" or false (one-shot this frame).",
-    "",
-    "## Reserved engine globals — NEVER redefine as functions or assign to",
-    "btn, btnp, btnr, touch, touch_start, touch_end, touch_pos, touch_posf, touch_count,",
-    "swipe, axis_x, axis_y, go, scene_name, cam, cam_reset, cam_shake, cam_get,",
-    "cls, pix, gpix, line, rect, rectf, circ, circf, text, spr, sspr, blit,",
-    "screen, canvas, canvas_w, canvas_h, canvas_del, note, tone, noise, wave, sfx_stop,",
-    "frame, time, date, use_pause, mode, motion_x, motion_y, motion_z,",
-    "gyro_alpha, gyro_beta, gyro_gamma, motion_enabled,",
-    "SCREEN_W, SCREEN_H, COLORS, ALIGN_LEFT, ALIGN_HCENTER, ALIGN_RIGHT, ALIGN_VCENTER, ALIGN_CENTER.",
-    "The write_file tool will reject any file that redefines one of these.",
-    "",
-    "## Response rules",
-    "- Final reply: 2~4 short sentences, same language as the user, NO code blocks (files are already written).",
-    "- If you cannot complete the request, explain what you tried and what's blocking.",
-    "",
-    "## API reference (canonical — write_file rejects calls to anything not listed here)",
-    apiDoc,
-  ].join("\n");
+// Build the agent system prompt. Delegates to the shared lib (used by
+// the prod Worker too) so harness measurements match what the deployed
+// agent actually sees.
+function buildSystemPrompt(apiDoc) {
+  return buildAgentSystemPrompt(apiDoc);
 }
 
 async function execTool(name, input, ctx) {
