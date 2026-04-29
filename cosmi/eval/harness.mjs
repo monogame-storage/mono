@@ -43,6 +43,14 @@ const MONO_RUNNER = path.join(MONO_REPO, "dev/headless/mono-runner.js");
 const KIMI_API_KEY = process.env.KIMI_API_KEY;
 const KIMI_MODEL = process.env.KIMI_MODEL || "kimi-k2.6";
 const KIMI_BASE = process.env.KIMI_BASE || "https://api.moonshot.ai";
+// The judge defaults to the same model — fine for first-pass scoring
+// since the judge prompt lists explicit rubric items, leaving little
+// room for self-flattery. Override with KIMI_JUDGE_MODEL=kimi-k2.5
+// (etc.) to cross-check or save cost.
+const KIMI_JUDGE_MODEL = process.env.KIMI_JUDGE_MODEL || KIMI_MODEL;
+// Set NO_JUDGE=1 to skip the judge phase entirely (useful when
+// iterating on lint logic — saves ~30s and ~5k tokens per spec).
+const SKIP_JUDGE = process.env.NO_JUDGE === "1";
 // Override only when probing model behaviour at extreme depths;
 // default mirrors the prod Worker so harness numbers match what
 // users actually hit.
@@ -223,6 +231,105 @@ async function smokeTest(r2) {
   }
 }
 
+// LLM judge — score the produced game against the spec on a 0-10
+// scale. Smoke says "did it boot for 40 frames"; the judge says "did
+// it actually do what was asked". Deliberately uses a separate
+// session from the agent so the judge has no memory of the model's
+// own writes / reasoning.
+async function judgeOutput({ spec, files, smoke, log }) {
+  if (SKIP_JUDGE) return { skipped: true };
+  if (files.length === 0) {
+    return {
+      score: 0,
+      summary: "Agent produced no files.",
+      missing: ["any output"],
+      present: [],
+    };
+  }
+
+  const fileBlock = files
+    .map(({ name, content }) => `### ${name}\n\`\`\`lua\n${content}\n\`\`\``)
+    .join("\n\n");
+  const smokeBlock = smoke.passed
+    ? `Smoke test PASSED (booted + ran 40 frames cleanly).`
+    : `Smoke test FAILED (exit ${smoke.code}). Stderr: ${(smoke.stderr || "").slice(0, 400)}`;
+
+  const judgePrompt = [
+    "You are reviewing a Mono fantasy console game produced by an AI agent against a user spec.",
+    "Mono runs Lua 5.4, 160x120, up to 16 grayscale shades. The agent had access to docs/API.md.",
+    "",
+    "Score 0-10 on how well the produced code FULFILS THE SPEC, not on code style.",
+    "Rubric:",
+    "- 0-3: skeleton only or missing major features",
+    "- 4-6: most features present but with significant gaps or bugs",
+    "- 7-8: all primary features present, minor polish or edge-case gaps",
+    "- 9-10: spec fully realized including edge cases (game-over, restart, etc.)",
+    "",
+    "Reply with ONLY a JSON object, no prose, no code fences:",
+    '{ "score": <0-10>, "summary": "<one sentence>", "present": ["<feature>", ...], "missing": ["<feature>", ...] }',
+    "",
+    "## Spec",
+    spec.trim(),
+    "",
+    "## Smoke",
+    smokeBlock,
+    "",
+    "## Files",
+    fileBlock,
+  ].join("\n");
+
+  try {
+    const res = await fetch(`${KIMI_BASE.replace(/\/$/, "")}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${KIMI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        // temperature is not set — KIMI k2.6 currently rejects any
+        // value other than 1, and the rubric is concrete enough that
+        // determinism isn't critical. max_tokens matches the agent
+        // loop budget — k2.6 spends 4-6k tokens on internal reasoning
+        // for a long file review and returns an empty content if it
+        // hits the cap mid-thought (observed: 2/4 judge calls came
+        // back blank at 4096).
+        model: KIMI_JUDGE_MODEL,
+        messages: [
+          { role: "system", content: "You output only a single JSON object." },
+          { role: "user", content: judgePrompt },
+        ],
+        max_tokens: 8192,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { error: `judge ${res.status}: ${body.slice(0, 300)}` };
+    }
+    const data = await res.json();
+    log.judgeTokens = {
+      input: data.usage?.prompt_tokens || 0,
+      output: data.usage?.completion_tokens || 0,
+    };
+    const text = data.choices?.[0]?.message?.content || "";
+    // Strip ```json fences if the model adds them despite instructions.
+    const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
+    try {
+      const parsed = JSON.parse(cleaned);
+      const score = Number(parsed.score);
+      return {
+        score: Number.isFinite(score) ? Math.max(0, Math.min(10, score)) : null,
+        summary: typeof parsed.summary === "string" ? parsed.summary : "",
+        present: Array.isArray(parsed.present) ? parsed.present : [],
+        missing: Array.isArray(parsed.missing) ? parsed.missing : [],
+      };
+    } catch {
+      return { error: "judge response was not JSON", raw: text.slice(0, 500) };
+    }
+  } catch (e) {
+    return { error: e?.message || String(e) };
+  }
+}
+
 export async function runOne(specPath) {
   if (!KIMI_API_KEY) throw new Error("KIMI_API_KEY env var is required");
   const spec = await fs.readFile(specPath, "utf8");
@@ -251,13 +358,16 @@ export async function runOne(specPath) {
   }
   const elapsedMs = Date.now() - t0;
   const smoke = await smokeTest(r2);
+  const filesFull = [...r2.files.entries()].map(([name, content]) => ({ name, content }));
+  const judge = await judgeOutput({ spec, files: filesFull, smoke, log });
 
   return {
     spec: path.basename(specPath, path.extname(specPath)),
     elapsedMs,
-    files: [...r2.files.entries()].map(([name, content]) => ({ name, size: content.length })),
+    files: filesFull.map(({ name, content }) => ({ name, size: content.length })),
     log,
     smoke,
+    judge,
   };
 }
 

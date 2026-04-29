@@ -61,7 +61,11 @@ function fmtRow(r) {
   const tokIn = r.log?.tokens?.input ?? 0;
   const tokOut = r.log?.tokens?.output ?? 0;
   const smoke = r.smoke?.passed ? "PASS" : `FAIL${r.smoke?.code != null ? `(${r.smoke.code})` : ""}`;
-  return `${r.spec.padEnd(8)} | iters ${String(iters).padStart(2)} | writes ${String(writes).padStart(2)} | rej ${String(rejs).padStart(2)} | smoke ${smoke.padEnd(8)} | ${sec}s | tok ${tokIn}/${tokOut}`;
+  let judge = "  -";
+  if (r.judge?.skipped) judge = "skip";
+  else if (typeof r.judge?.score === "number") judge = `${r.judge.score}/10`;
+  else if (r.judge?.error) judge = " err";
+  return `${r.spec.padEnd(8)} | iters ${String(iters).padStart(2)} | writes ${String(writes).padStart(2)} | rej ${String(rejs).padStart(2)} | smoke ${smoke.padEnd(8)} | judge ${judge.padEnd(5)} | ${sec}s | tok ${tokIn}/${tokOut}`;
 }
 
 async function main() {
@@ -78,7 +82,8 @@ async function main() {
     const name = path.basename(specPath, path.extname(specPath));
     console.error(`  → start: ${name}`);
     const r = await runOne(specPath);
-    console.error(`  ✓ done:  ${name} (${(r.elapsedMs / 1000).toFixed(1)}s, smoke=${r.smoke.passed ? "pass" : "fail"})`);
+    const score = typeof r.judge?.score === "number" ? `, judge=${r.judge.score}/10` : "";
+    console.error(`  ✓ done:  ${name} (${(r.elapsedMs / 1000).toFixed(1)}s, smoke=${r.smoke.passed ? "pass" : "fail"}${score})`);
     const out = path.join(RESULTS_DIR, `${name}-${ts}.json`);
     await fs.writeFile(out, JSON.stringify(r, null, 2));
     return r;
@@ -91,7 +96,16 @@ async function main() {
   }
 
   const passed = results.filter((r) => r?.smoke?.passed).length;
-  console.log(`\n${passed}/${results.length} smoke tests passed`);
+  const scored = results.filter((r) => typeof r?.judge?.score === "number");
+  const avgScore = scored.length
+    ? (scored.reduce((s, r) => s + r.judge.score, 0) / scored.length).toFixed(1)
+    : "n/a";
+  console.log(`\n${passed}/${results.length} smoke tests passed · avg judge score: ${avgScore}/10 (${scored.length} scored)`);
+  // Per-spec judge summaries — quick read on what's missing.
+  for (const r of scored) {
+    const miss = (r.judge.missing || []).slice(0, 3).join(", ");
+    console.log(`  ${r.spec}: ${r.judge.summary}${miss ? ` — missing: ${miss}` : ""}`);
+  }
   process.exit(passed === results.length ? 0 : 1);
 }
 
