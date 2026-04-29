@@ -1097,6 +1097,11 @@
   flex-shrink: 0;
 }
 .ai-send:hover { background: #fff; }
+/* While a chat request is in flight the send button morphs into a
+   stop button. Dark fill + light glyph so it reads as "active /
+   destructive" against the otherwise light input bar. */
+.ai-send.is-stop { background: #2a2a2a; color: #fff; }
+.ai-send.is-stop:hover { background: #1a1a1a; }
 
 /* Hidden model selector */
 .ai-model-select { position: absolute; opacity: 0; pointer-events: none; }

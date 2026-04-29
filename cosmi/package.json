@@ -1,0 +1,16 @@
+{
+  "name": "cosmi",
+  "version": "1.0.0",
+  "description": "Mono backend Worker — Cosmi AI agent + game file storage",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/index.js && node --check src/lib/lint.js && node --check src/lib/path.js",
+    "test": "node --test test/*.test.mjs",
+    "build:dryrun": "wrangler deploy --dry-run --outdir=dist"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "wasmoon": "^1.16.0"
+  }
+}

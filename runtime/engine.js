@@ -917,7 +917,11 @@ var Mono = (() => {
     // When opted out, the game must read btnp("select") itself and provide
     // its own pause if desired. Any active pause state is cleared.
     lua.global.set("use_pause", (v) => { pauseEnabled = !!v; if (!v) paused = false; });
-    // time() — monotonic seconds since boot, float. Resets with frame.
+    /**
+     * @lua time(): number
+     * @group Globals
+     * @desc Elapsed seconds since the game booted. Returns a **float** (sub-frame resolution). For random seeding in Lua 5.4, wrap it: `math.randomseed(math.floor(time() * 1000))` — passing the raw float fails with "number has no integer representation".
+     */
     lua.global.set("time", () => (performance.now() - bootTime) / 1000);
     // date() — current wall-clock as an os.date("*t")-shaped table, plus ms.
     lua.global.set("date", () => {
