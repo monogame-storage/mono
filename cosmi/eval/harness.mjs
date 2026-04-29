@@ -288,13 +288,17 @@ async function judgeOutput({ spec, files, smoke, log }) {
       body: JSON.stringify({
         // temperature is not set — KIMI k2.6 currently rejects any
         // value other than 1, and the rubric is concrete enough that
-        // determinism isn't critical.
+        // determinism isn't critical. max_tokens matches the agent
+        // loop budget — k2.6 spends 4-6k tokens on internal reasoning
+        // for a long file review and returns an empty content if it
+        // hits the cap mid-thought (observed: 2/4 judge calls came
+        // back blank at 4096).
         model: KIMI_JUDGE_MODEL,
         messages: [
           { role: "system", content: "You output only a single JSON object." },
           { role: "user", content: judgePrompt },
         ],
-        max_tokens: 4096,
+        max_tokens: 8192,
       }),
     });
     if (!res.ok) {
