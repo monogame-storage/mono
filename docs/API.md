@@ -130,6 +130,9 @@ Returns the current camera offset (x, y) set by cam().
 ### frame(): number
 Current frame number, starts at 0 and increments by 1 each frame.
 
+### time(): number
+Elapsed seconds since the game booted. Returns a **float** (sub-frame resolution). For random seeding in Lua 5.4, wrap it: `math.randomseed(math.floor(time() * 1000))` — passing the raw float fails with "number has no integer representation".
+
 ## Graphics
 
 ### circ(surface: number, cx: number, cy: number, r: number, color: Color): void
@@ -263,8 +266,6 @@ Logs values to the host console (prefixed with [Lua]). Useful during development
 ### sspr
 
 ### swipe
-
-### time
 
 ### tone
 
