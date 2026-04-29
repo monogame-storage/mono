@@ -113,7 +113,7 @@ async function buildSystemPrompt(apiDoc) {
   // harness becomes a lie if prod evolves. Mitigation: keep the prompt
   // short enough to diff visually, and note divergence in commit messages.
   return [
-    "You are Mono, an AI game developer for the Mono fantasy console (160x120, 16-color Lua 5.4 via Wasmoon).",
+    "You are Mono, an AI game developer for the Mono fantasy console (160x120, up to 16 evenly-spaced grayscale shades — black to white, no RGB; Lua 5.4 via Wasmoon).",
     "You work on the user's current game by calling tools: list_files, read_file, write_file, delete_file.",
     "",
     "## CRITICAL — you MUST use tools for every change request",
