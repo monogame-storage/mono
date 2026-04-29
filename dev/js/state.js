@@ -20,7 +20,7 @@ export const state = {
   gameRunning: false,
   sessionTokens: { prompt: 0, completion: 0, total: 0 },
 
-  // AI Assistant — user's Connections: { id, alias, provider, model,
+  // Cosmi — user's Connections: { id, alias, provider, model,
   // apiKey, baseUrl?, isDefault }. `provider` keys into the server's
   // PROVIDER_CATALOG (fetched via /config); `model` is an id chosen
   // from a live /models query (or manually typed as a fallback).
