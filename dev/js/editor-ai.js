@@ -5,6 +5,27 @@ import { apiFetch, saveChatHistory } from './api.js';
 import { runHeadlessTest, defaultSmokeScenario } from './editor-play.js';
 import { openAIProviders } from './settings.js';
 
+// ── Smart auto-scroll for the chat panel ──
+// The agent stream can drop dozens of token / tool-result events per
+// second. Hard-pinning the chat to scrollHeight on every event breaks
+// the user's ability to scroll up and read mid-stream. Pattern: track
+// whether the user is "at bottom" (within a small threshold), only
+// auto-scroll while true, and re-engage as soon as the user scrolls
+// back to the bottom themselves.
+const SCROLL_BOTTOM_THRESHOLD_PX = 50;
+let chatAutoScroll = true;
+function scrollChatToBottom(el) {
+  if (!el) return;
+  if (!el.dataset.autoScrollBound) {
+    el.dataset.autoScrollBound = "1";
+    el.addEventListener("scroll", () => {
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+      chatAutoScroll = distance <= SCROLL_BOTTOM_THRESHOLD_PX;
+    }, { passive: true });
+  }
+  if (chatAutoScroll) el.scrollTop = el.scrollHeight;
+}
+
 // Provider catalog from mono-api /config — { id, protocol, ... }. The
 // client uses it to decide whether a Connection routes to /chat/agent
 // (openai-protocol tool-use loop) or /chat (one-shot). Fetched fire-
@@ -246,11 +267,15 @@ export function addChatMsg(sender, body) {
   } else {
     chat.innerHTML += userCard(body);
   }
-  chat.scrollTop = chat.scrollHeight;
+  scrollChatToBottom(chat);
 }
 
 export function renderChatHistory() {
   const chat = document.getElementById("editor-chat");
+  // Switching games (or initial load) should always land at bottom —
+  // user couldn't have meaningfully scrolled past content they haven't
+  // seen. Reset the auto-scroll latch so the first paint pins down.
+  chatAutoScroll = true;
 
   if (state.chatHistory.length > 0) {
     let html = '';
@@ -268,7 +293,7 @@ export function renderChatHistory() {
   } else {
     chat.innerHTML = monoCard("Game created. Describe what you want to build!", null, "ready");
   }
-  chat.scrollTop = chat.scrollHeight;
+  scrollChatToBottom(chat);
 }
 
 // ── Engine error (shown inline as error card) ──
@@ -277,7 +302,7 @@ export function showEngineError(msg) {
   state.lastEngineError = msg;
   const chat = document.getElementById("editor-chat");
   chat.innerHTML += errorCard(msg, "RUNTIME ERROR");
-  chat.scrollTop = chat.scrollHeight;
+  scrollChatToBottom(chat);
 }
 
 // ── Fix confirmation popup ──
@@ -410,7 +435,7 @@ async function sendAgent(connection, msg, chat) {
   if (typing) typing.outerHTML = monoAgentCard(cardId);
   else chat.innerHTML += monoAgentCard(cardId);
   const toolLines = new Map(); // tool_call id → row element
-  chat.scrollTop = chat.scrollHeight;
+  scrollChatToBottom(chat);
 
   // Re-query the live container on every append. A captured reference
   // would go stale the moment something else mutates chat.innerHTML
@@ -456,7 +481,7 @@ async function sendAgent(connection, msg, chat) {
       liveEl.appendChild(row);
       toolLines.set(opts.id, row);
     }
-    chat.scrollTop = chat.scrollHeight;
+    scrollChatToBottom(chat);
   };
   const finishToolLine = (id, ok, summary) => {
     const row = toolLines.get(id);
@@ -639,7 +664,7 @@ async function sendAgent(connection, msg, chat) {
       chat.innerHTML += `<div class="ai-card-mono working" id="${testCardId}">
         <div class="ai-card-status working">MONO · running smoke test…</div>
       </div>`;
-      chat.scrollTop = chat.scrollHeight;
+      scrollChatToBottom(chat);
       const result = await runHeadlessTest(state.currentFiles, scenario);
       const testCard = document.getElementById(testCardId);
       if (result.success) {
@@ -652,7 +677,7 @@ async function sendAgent(connection, msg, chat) {
         console.error("[smoke test] failed:", errs);
         if (testCard) testCard.outerHTML = errorCard(errs, "SMOKE TEST FAILED");
       }
-      chat.scrollTop = chat.scrollHeight;
+      scrollChatToBottom(chat);
     }
   } catch (e) {
     console.error("agent error:", e);
@@ -660,7 +685,7 @@ async function sendAgent(connection, msg, chat) {
     const cardEl = document.getElementById(cardId);
     if (cardEl) cardEl.outerHTML = errorCard(e.message, "AGENT ERROR", false);
   }
-  chat.scrollTop = chat.scrollHeight;
+  scrollChatToBottom(chat);
 }
 
 // ── Send message ──
@@ -682,7 +707,7 @@ export async function sendMessage(autoMsg) {
       "NO CONNECTION",
       false,
     );
-    chatEl.scrollTop = chatEl.scrollHeight;
+    scrollChatToBottom(chatEl);
     if (!autoMsg) {
       // Keep the user's draft so they can retry after registering.
       input.focus();
@@ -696,7 +721,7 @@ export async function sendMessage(autoMsg) {
   const chat = document.getElementById("editor-chat");
   chat.innerHTML += userCard(msg);
   chat.innerHTML += monoTypingCard();
-  chat.scrollTop = chat.scrollHeight;
+  scrollChatToBottom(chat);
 
   state.chatHistory.push({ role: "user", content: msg });
 
@@ -794,7 +819,7 @@ export async function sendMessage(autoMsg) {
       } else {
         const testErrors = (testResult.errors || []).join("\n");
         chat.innerHTML += errorCard(testErrors, "TEST FAILED");
-        chat.scrollTop = chat.scrollHeight;
+        scrollChatToBottom(chat);
       }
     }
   } catch (e) {
@@ -803,7 +828,7 @@ export async function sendMessage(autoMsg) {
       typing.outerHTML = errorCard(e.message, "API ERROR", false);
     }
   }
-  chat.scrollTop = chat.scrollHeight;
+  scrollChatToBottom(chat);
 }
 
 // ── Init ──
