@@ -41,6 +41,8 @@ KIMI_API_KEY=sk-... node run-battery.mjs --filter brick
 | `KIMI_BASE`    | `https://api.moonshot.ai`     | for relays                              |
 | `MONO_REPO`    | `../..`                       | path to the mono repo root (API.md + runner) |
 | `MAX_ITER`     | `20`                          | agent loop cap, mirrors prod            |
+| `KIMI_JUDGE_MODEL` | same as `KIMI_MODEL`      | model used for the post-run intent judge |
+| `NO_JUDGE`     | `0`                           | set to `1` to skip the judge phase entirely |
 
 ## What gets recorded
 
