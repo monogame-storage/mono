@@ -33,10 +33,29 @@ function scrollChatToBottom(el) {
 // stomping on each other's R2 writes and producing two completed
 // cards. The pattern: hold the AbortController for the in-flight
 // request in a module slot; reject re-entry at the top of
-// sendMessage; let the Stop button (`#btn-ai-stop`) abort it.
+// sendMessage; let either the in-card Stop button or the Send button
+// (which morphs into a Stop button mid-flight) call abort.
 let aiInFlight = null;
 function isAbortError(e) {
   return e?.name === "AbortError" || e?.message === "AbortError";
+}
+
+// Glyphs swapped into #btn-send. Send is the upward arrow; running
+// shows a stop square. Title attr changes for screen-reader hint.
+const SEND_BTN_ARROW = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const SEND_BTN_STOP = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>';
+function setSendButtonRunning(running) {
+  const btn = document.getElementById("btn-send");
+  if (!btn) return;
+  if (running) {
+    btn.classList.add("is-stop");
+    btn.innerHTML = SEND_BTN_STOP;
+    btn.title = "Stop (cancel current request)";
+  } else {
+    btn.classList.remove("is-stop");
+    btn.innerHTML = SEND_BTN_ARROW;
+    btn.title = "Send";
+  }
 }
 
 // Provider catalog from mono-api /config — { id, protocol, ... }. The
@@ -750,6 +769,7 @@ export async function sendMessage(autoMsg) {
 
   const controller = new AbortController();
   aiInFlight = controller;
+  setSendButtonRunning(true);
   try {
     const connection = state.aiConnections.find(p => p.id === selectedValue.slice(9));
     if (!connection) throw new Error("Selected connection no longer exists — pick another one from the pill above.");
@@ -857,6 +877,7 @@ export async function sendMessage(autoMsg) {
     }
   } finally {
     aiInFlight = null;
+    setSendButtonRunning(false);
   }
   scrollChatToBottom(chat);
 }
@@ -864,8 +885,13 @@ export async function sendMessage(autoMsg) {
 // ── Init ──
 
 export function initEditorAI() {
-  // Send button
-  document.getElementById("btn-send").addEventListener("click", () => sendMessage());
+  // Send button — doubles as Stop while a request is in flight.
+  // setSendButtonRunning() flips the icon + class so the click target
+  // reflects what'll happen.
+  document.getElementById("btn-send").addEventListener("click", () => {
+    if (aiInFlight) aiInFlight.abort();
+    else sendMessage();
+  });
 
   // Textarea
   const editorMsg = document.getElementById("editor-msg");
