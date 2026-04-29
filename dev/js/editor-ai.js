@@ -26,6 +26,19 @@ function scrollChatToBottom(el) {
   if (chatAutoScroll) el.scrollTop = el.scrollHeight;
 }
 
+// ── Single-flight guard for the chat agent ──
+// Without this, hitting Enter twice (or clicking Send while an agent
+// turn was already streaming) kicked off a SECOND parallel /chat/agent
+// request — both turns ran end-to-end against the same gameId,
+// stomping on each other's R2 writes and producing two completed
+// cards. The pattern: hold the AbortController for the in-flight
+// request in a module slot; reject re-entry at the top of
+// sendMessage; let the Stop button (`#btn-ai-stop`) abort it.
+let aiInFlight = null;
+function isAbortError(e) {
+  return e?.name === "AbortError" || e?.message === "AbortError";
+}
+
 // Provider catalog from mono-api /config — { id, protocol, ... }. The
 // client uses it to decide whether a Connection routes to /chat/agent
 // (openai-protocol tool-use loop) or /chat (one-shot). Fetched fire-
@@ -415,7 +428,7 @@ async function* parseSSE(response) {
   }
 }
 
-async function sendAgent(connection, msg, chat) {
+async function sendAgent(connection, msg, chat, signal) {
   // Defensive guard — caller already checks state.aiConnections, but the
   // user can delete the Connection between the lookup and now (rapid
   // navigation, multi-tab edit). Bail with a clear error instead of
@@ -528,6 +541,7 @@ async function sendAgent(connection, msg, chat) {
         model,
         byok,
       }),
+      signal,
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
@@ -683,7 +697,11 @@ async function sendAgent(connection, msg, chat) {
     console.error("agent error:", e);
     console.groupEnd();
     const cardEl = document.getElementById(cardId);
-    if (cardEl) cardEl.outerHTML = errorCard(e.message, "AGENT ERROR", false);
+    if (cardEl) {
+      const label = isAbortError(e) ? "STOPPED" : "AGENT ERROR";
+      const msg = isAbortError(e) ? "Stopped by user." : e.message;
+      cardEl.outerHTML = errorCard(msg, label, false);
+    }
   }
   scrollChatToBottom(chat);
 }
@@ -691,6 +709,11 @@ async function sendAgent(connection, msg, chat) {
 // ── Send message ──
 
 export async function sendMessage(autoMsg) {
+  // Re-entry guard. Don't clear the input or push a duplicate user
+  // card — let the user keep typing the next prompt while the
+  // current turn finishes (or hit Stop to cancel and resend).
+  if (aiInFlight) return;
+
   const input = document.getElementById("editor-msg");
   const msg = autoMsg || input.value.trim();
   if (!msg) return;
@@ -725,6 +748,8 @@ export async function sendMessage(autoMsg) {
 
   state.chatHistory.push({ role: "user", content: msg });
 
+  const controller = new AbortController();
+  aiInFlight = controller;
   try {
     const connection = state.aiConnections.find(p => p.id === selectedValue.slice(9));
     if (!connection) throw new Error("Selected connection no longer exists — pick another one from the pill above.");
@@ -732,7 +757,7 @@ export async function sendMessage(autoMsg) {
     // openai-protocol connections run the server-side agent tool-use loop
     // over SSE; anthropic / gemini fall back to one-shot /chat.
     if (usesAgentPath(connection)) {
-      await sendAgent(connection, msg, chat);
+      await sendAgent(connection, msg, chat, controller.signal);
       return;
     }
 
@@ -761,6 +786,7 @@ export async function sendMessage(autoMsg) {
         model,
         byok,
       }),
+      signal: controller.signal,
     });
 
     const data = await res.json();
@@ -825,8 +851,12 @@ export async function sendMessage(autoMsg) {
   } catch (e) {
     const typing = document.getElementById("mono-typing");
     if (typing) {
-      typing.outerHTML = errorCard(e.message, "API ERROR", false);
+      const label = isAbortError(e) ? "STOPPED" : "API ERROR";
+      const msg = isAbortError(e) ? "Stopped by user." : e.message;
+      typing.outerHTML = errorCard(msg, label, false);
     }
+  } finally {
+    aiInFlight = null;
   }
   scrollChatToBottom(chat);
 }
@@ -851,6 +881,13 @@ export function initEditorAI() {
 
   // Chat area event delegation
   document.getElementById("editor-chat").addEventListener("click", async (e) => {
+    // Stop button (rendered inside the working agent card) → abort
+    // the in-flight fetch. The catch path in sendMessage / sendAgent
+    // turns this into a "STOPPED" card and clears aiInFlight in finally.
+    if (e.target.closest("#btn-ai-stop")) {
+      aiInFlight?.abort();
+      return;
+    }
     // Retry button → re-send that user message
     const retryBtn = e.target.closest(".ai-card-retry");
     if (retryBtn) {
