@@ -53,6 +53,8 @@ export default {
     const pubMatch = url.pathname.match(/^\/games\/([^/]+)\/(published|thumbnail)$/);
     if (pubMatch && request.method === "GET") {
       const [, gameId, endpoint] = pubMatch;
+      const bad = validateGameId(gameId);
+      if (bad) return json(400, { error: bad });
       if (endpoint === "published") return await handleGetPublished(env, gameId);
       if (endpoint === "thumbnail") return await handleGetThumbnail(env, gameId);
     }
@@ -102,6 +104,8 @@ export default {
       const publishMatch = url.pathname.match(/^\/games\/([^/]+)\/(publish|unpublish)$/);
       if (publishMatch && request.method === "POST") {
         const [, gameId, action] = publishMatch;
+        const bad = validateGameId(gameId);
+        if (bad) return json(400, { error: bad });
         if (action === "publish") return await handlePublish(env, uid, gameId);
         if (action === "unpublish") return await handleUnpublish(env, uid, gameId);
       }
@@ -116,6 +120,8 @@ export default {
       if (!match) return json(404, { error: "Not found" });
 
       const [, gameId, filename] = match;
+      const bad = validateGameId(gameId);
+      if (bad) return json(400, { error: bad });
       const prefix = `${uid}/${gameId}/`;
 
       switch (request.method) {
@@ -131,7 +137,11 @@ export default {
           return json(405, { error: "Method not allowed" });
       }
     } catch (e) {
-      return json(500, { error: e.message, stack: e.stack });
+      // Don't leak stack traces — they expose Worker internals
+      // (paths, framework versions, prompt structure) to clients.
+      // Surface only the message; tail the wrangler logs for traces.
+      console.error("[unhandled]", e?.stack || e);
+      return json(500, { error: e?.message || "internal error" });
     }
   },
 };
@@ -220,6 +230,8 @@ async function handleChat(request, env, uid) {
   const model = body.model;
   const byok = body.byok || {};
   if (!gameId || !message) return json(400, { error: "gameId and message required" });
+  const badId = validateGameId(gameId);
+  if (badId) return json(400, { error: badId });
   if (!providerId || !model) return json(400, { error: "provider and model required" });
   if (!byok.apiKey) return json(400, { error: "byok.apiKey required" });
 
@@ -543,9 +555,9 @@ async function deleteFile(env, key) {
 // real time. File I/O goes straight to R2.
 
 import { lintEnginePrimitiveOverwrite } from "./lib/lint.js";
-import { validateAgentPath } from "./lib/path.js";
+import { validateAgentPath, validateGameId } from "./lib/path.js";
 import { extractApiWhitelist, lintApiCompliance, collectFileDefinedNames } from "./lib/api-lint.js";
-import { AGENT_TOOLS, buildAgentSystemPrompt } from "./lib/agent-prompt.js";
+import { AGENT_TOOLS, AGENT_MAX_ITER, buildAgentSystemPrompt } from "./lib/agent-prompt.js";
 
 // Append-only audit trail for write_file rejections. Each rejection
 // becomes its own R2 object so concurrent writes don't race; the ISO
@@ -606,7 +618,7 @@ async function handleListLintRejects(env, uid, url) {
 // that signature changed since the previous call in the same turn —
 // usually it won't, so multi-write turns drop from O(N writes × N
 // files) R2 GETs to O(N files) once.
-async function collectProjectGlobals(env, prefix, excludePath, cache) {
+async function collectProjectGlobals(env, prefix, excludePath, cache, writesSoFar) {
   // Single pass: list everything, then decide if cache hit applies.
   const objs = [];
   let cursor;
@@ -621,10 +633,16 @@ async function collectProjectGlobals(env, prefix, excludePath, cache) {
     cursor = list.truncated ? list.cursor : undefined;
   } while (cursor);
 
+  // Signature mixes (name:size) per file with `writesSoFar` — the
+  // monotonically growing count of successful writes this turn. The
+  // size-based component catches the common case (sibling created /
+  // grew / shrank); writesSoFar covers the contrived case where a
+  // sibling was rewritten with the same byte count but different
+  // contents (e.g. function rename without changing length).
   const signature = objs
     .map((o) => `${o.name}:${o.size}`)
     .sort()
-    .join("|");
+    .join("|") + `|w:${writesSoFar ?? 0}`;
   if (cache && cache.signature === signature && cache.set) return cache.set;
 
   const reads = objs.map(async (o) => {
@@ -705,7 +723,11 @@ async function execAgentTool(name, input, ctx) {
           return { error: `write_file blocked for ${input.path}: ${violation}` };
         }
         const whitelist = await getApiWhitelist(env);
-        const projectDefined = await collectProjectGlobals(env, prefix, input.path, ctx.projectGlobalsCache);
+        const projectDefined = await collectProjectGlobals(
+          env, prefix, input.path,
+          ctx.projectGlobalsCache,
+          changed.size,
+        );
         const apiViolations = lintApiCompliance(input.content, whitelist, { projectDefined });
         if (apiViolations.length > 0) {
           const list = apiViolations
@@ -746,6 +768,8 @@ async function handleAgent(request, env, uid) {
   const { gameId, message, history, provider: providerId, model } = body;
   const byok = body.byok || {};
   if (!gameId || !message) return json(400, { error: "gameId and message required" });
+  const badId = validateGameId(gameId);
+  if (badId) return json(400, { error: badId });
   if (!providerId || !model) return json(400, { error: "provider and model required" });
   if (!byok.apiKey) return json(400, { error: "byok.apiKey required" });
 
@@ -793,7 +817,7 @@ async function handleAgent(request, env, uid) {
     // its size.
     const ctx = { env, uid, gameId, changed: new Map(), projectGlobalsCache: { signature: null, set: null } };
     const usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-    const MAX_ITER = 20;
+    const MAX_ITER = AGENT_MAX_ITER;
 
     try {
       for (let iter = 0; iter < MAX_ITER; iter++) {

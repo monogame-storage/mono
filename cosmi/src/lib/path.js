@@ -10,3 +10,18 @@ export function validateAgentPath(p) {
   if (p.includes("\0")) return "path must not contain NUL";
   return null;
 }
+
+// Reject malformed gameId values before they hit R2 as a key prefix.
+// Client-supplied — without this, `gameId: "../foo"`, `""`, or
+// `"_admin"` would create weird keys, collide with internal admin
+// prefixes, or split a single uid's namespace into hard-to-clean
+// shards. Pattern matches the Firestore auto-id shape (alphanumeric
+// + dash/underscore) without imposing an exact length so legacy ids
+// still validate. Returns null for ok, error string otherwise.
+export function validateGameId(g) {
+  if (typeof g !== "string" || !g) return "gameId required";
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(g)) {
+    return "gameId must match /^[a-zA-Z0-9_-]{1,64}$/";
+  }
+  return null;
+}

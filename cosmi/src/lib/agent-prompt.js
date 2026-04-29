@@ -19,6 +19,11 @@ export const ENGINE_CONSTANTS = [
   "ALIGN_LEFT", "ALIGN_HCENTER", "ALIGN_RIGHT", "ALIGN_VCENTER", "ALIGN_CENTER",
 ];
 
+// Max iterations the agent loop will spend on a single user message
+// before forcibly returning. Caps both the prod Worker and the offline
+// eval harness so they fail in the same place at the same scale.
+export const AGENT_MAX_ITER = 20;
+
 export const AGENT_TOOLS = [
   {
     type: "function",
@@ -125,13 +130,6 @@ export function buildAgentSystemPrompt(apiDoc) {
     "2. Use read_file to inspect files before editing them.",
     "3. Use write_file to create or fully overwrite a file. Always pass the entire file content (no diffs).",
     "4. Keep working until the user's request is done, then send a final plain-text reply explaining what you changed.",
-    "",
-    "## Mono engine essentials",
-    "- Lifecycle: _init (set mode), _start (state init), _ready (after image loads), _update (30fps), _draw.",
-    "- Surface-first drawing: cls(scr,c), pix(scr,x,y,c), line/rect/rectf/circ/circf/text(scr,str,x,y,c,align?).",
-    "- Audio: note(ch,name,dur), tone(ch,a,b,dur), noise(ch,dur,...), wave(ch,type), sfx_stop.",
-    "- Scenes: go(\"scene_name\") loads scene_name.lua. Globals <name>_init / _update / _draw, or return a table.",
-    "- Constants: SCREEN_W=160, SCREEN_H=120, ALIGN_LEFT=0 HCENTER=1 RIGHT=2 VCENTER=4 CENTER=5.",
     "",
     "## Input is POLLING, not callbacks",
     "All input functions return booleans/numbers. You call them INSIDE _update each frame.",

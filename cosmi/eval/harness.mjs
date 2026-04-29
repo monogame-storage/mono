@@ -31,7 +31,7 @@ import {
 } from "../src/lib/api-lint.js";
 import { lintEnginePrimitiveOverwrite } from "../src/lib/lint.js";
 import { validateAgentPath } from "../src/lib/path.js";
-import { AGENT_TOOLS, buildAgentSystemPrompt } from "../src/lib/agent-prompt.js";
+import { AGENT_TOOLS, AGENT_MAX_ITER, buildAgentSystemPrompt } from "../src/lib/agent-prompt.js";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 // cosmi/eval/ → mono/ is two parents up. Override MONO_REPO if you've
@@ -43,7 +43,10 @@ const MONO_RUNNER = path.join(MONO_REPO, "dev/headless/mono-runner.js");
 const KIMI_API_KEY = process.env.KIMI_API_KEY;
 const KIMI_MODEL = process.env.KIMI_MODEL || "kimi-k2.6";
 const KIMI_BASE = process.env.KIMI_BASE || "https://api.moonshot.ai";
-const MAX_ITER = parseInt(process.env.MAX_ITER || "20", 10);
+// Override only when probing model behaviour at extreme depths;
+// default mirrors the prod Worker so harness numbers match what
+// users actually hit.
+const MAX_ITER = parseInt(process.env.MAX_ITER || String(AGENT_MAX_ITER), 10);
 
 class InMemoryR2 {
   constructor() { this.files = new Map(); }
