@@ -5,7 +5,7 @@
 // a structured rejection it can self-correct on the next iteration.
 //
 // Two-step pipeline:
-//   1. extractApiWhitelist(apiMd)  → { functions: Set, constants: Set }
+//   1. extractApiWhitelist(apiMd)  → Set<string>
 //   2. lintApiCompliance(code, wl) → [{ name, line }, ...]  (empty = ok)
 //
 // extractApiWhitelist treats `### name(...)` and bare `### name` headings
@@ -33,19 +33,15 @@ const LUA_BUILTINS = new Set([
   "type", "unpack", "xpcall", "require",
 ]);
 
-// Engine invokes <scene>_init / _start / _ready / _update / _draw on
-// scene transitions. They're defined in OTHER files of the same project
-// (or in this file, in which case they'd already be in `defined`). Don't
-// flag bare references with one of these suffixes.
-const SCENE_CALLBACK_SUFFIXES = ["_init", "_start", "_ready", "_update", "_draw"];
-
-// Lifecycle hooks that don't appear as `###` headings in API.md.
-const LIFECYCLE_HOOKS = ["_init", "_start", "_ready", "_update", "_draw"];
+// Used two ways: the names are seeded into the whitelist verbatim
+// (because API.md describes lifecycle hooks in prose, not headings),
+// AND any identifier that *ends* with one of these is treated as a
+// scene callback (game_update, title_init) defined in another file.
+const SCENE_HOOK_NAMES = ["_init", "_start", "_ready", "_update", "_draw"];
 
 export function extractApiWhitelist(apiMd) {
-  const functions = new Set(LIFECYCLE_HOOKS);
-  const constants = new Set();
-  if (typeof apiMd !== "string") return { functions, constants };
+  const functions = new Set(SCENE_HOOK_NAMES);
+  if (typeof apiMd !== "string") return functions;
 
   // `### name` or `### name(...)` — function reference headings.
   const headingRe = /^### +([a-z_][a-zA-Z0-9_]*)\b/gm;
@@ -53,14 +49,7 @@ export function extractApiWhitelist(apiMd) {
   while ((m = headingRe.exec(apiMd)) !== null) {
     functions.add(m[1]);
   }
-
-  // Constants table rows: `| `NAME` | value | desc |`.
-  const constRe = /\|\s*`([A-Z_][A-Z0-9_]*)`\s*\|/g;
-  while ((m = constRe.exec(apiMd)) !== null) {
-    constants.add(m[1]);
-  }
-
-  return { functions, constants };
+  return functions;
 }
 
 // `opts.projectDefined`: optional Set of identifiers defined in OTHER
@@ -72,7 +61,7 @@ export function lintApiCompliance(code, whitelist, opts = {}) {
   if (typeof code !== "string" || !code) return [];
   // Fail-open: an empty / missing whitelist means we don't have a doc to
   // check against (e.g. API.md fetch failed). Don't block writes.
-  const wl = whitelist?.functions instanceof Set ? whitelist.functions : null;
+  const wl = whitelist instanceof Set ? whitelist : null;
   if (!wl || wl.size === 0) return [];
 
   const stripped = stripCommentsAndStrings(code);
@@ -93,7 +82,7 @@ export function lintApiCompliance(code, whitelist, opts = {}) {
     if (LUA_BUILTINS.has(name)) continue;
     if (defined.has(name)) continue;
     if (wl.has(name)) continue;
-    if (SCENE_CALLBACK_SUFFIXES.some((s) => name.endsWith(s))) continue;
+    if (SCENE_HOOK_NAMES.some((s) => name.endsWith(s))) continue;
     seen.add(name);
     violations.push({ name, line: countNewlines(stripped, m.index) + 1 });
   }

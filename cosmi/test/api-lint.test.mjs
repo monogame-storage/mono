@@ -55,43 +55,35 @@ Draw text.
 
 describe("extractApiWhitelist", () => {
   it("captures function names from typed signatures", () => {
-    const { functions } = extractApiWhitelist(FIXTURE_API_MD);
+    const fns = extractApiWhitelist(FIXTURE_API_MD);
     for (const fn of ["circ", "circf", "cls", "text", "btn", "btnp", "touch_start", "touch_pos"]) {
-      assert.ok(functions.has(fn), `missing function: ${fn}`);
+      assert.ok(fns.has(fn), `missing function: ${fn}`);
     }
   });
 
   it("captures bare-name Misc entries", () => {
-    const { functions } = extractApiWhitelist(FIXTURE_API_MD);
+    const fns = extractApiWhitelist(FIXTURE_API_MD);
     for (const fn of ["axis_x", "axis_y", "screen"]) {
-      assert.ok(functions.has(fn), `missing bare entry: ${fn}`);
+      assert.ok(fns.has(fn), `missing bare entry: ${fn}`);
     }
   });
 
   it("always seeds lifecycle hooks", () => {
-    const { functions } = extractApiWhitelist("");
+    const fns = extractApiWhitelist("");
     for (const fn of ["_init", "_start", "_ready", "_update", "_draw"]) {
-      assert.ok(functions.has(fn), `missing lifecycle: ${fn}`);
-    }
-  });
-
-  it("captures constants from markdown table", () => {
-    const { constants } = extractApiWhitelist(FIXTURE_API_MD);
-    for (const c of ["SCREEN_W", "SCREEN_H", "COLORS"]) {
-      assert.ok(constants.has(c), `missing constant: ${c}`);
+      assert.ok(fns.has(fn), `missing lifecycle: ${fn}`);
     }
   });
 
   it("ignores h2 section headings (## ...)", () => {
-    const { functions } = extractApiWhitelist(FIXTURE_API_MD);
-    assert.ok(!functions.has("Graphics"));
-    assert.ok(!functions.has("Input"));
+    const fns = extractApiWhitelist(FIXTURE_API_MD);
+    assert.ok(!fns.has("Graphics"));
+    assert.ok(!fns.has("Input"));
   });
 
-  it("returns empty sets for non-string input", () => {
-    const out = extractApiWhitelist(null);
-    assert.equal(out.functions.size, 5); // lifecycle hooks
-    assert.equal(out.constants.size, 0);
+  it("returns lifecycle-only set for non-string input", () => {
+    const fns = extractApiWhitelist(null);
+    assert.equal(fns.size, 5); // lifecycle hooks
   });
 });
 

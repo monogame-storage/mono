@@ -58,13 +58,6 @@ class InMemoryR2 {
   delete(p) { this.files.delete(p); }
 }
 
-// Build the agent system prompt. Delegates to the shared lib (used by
-// the prod Worker too) so harness measurements match what the deployed
-// agent actually sees.
-function buildSystemPrompt(apiDoc) {
-  return buildAgentSystemPrompt(apiDoc);
-}
-
 async function execTool(name, input, ctx) {
   const { r2, whitelist, log } = ctx;
   switch (name) {
@@ -235,7 +228,7 @@ export async function runOne(specPath) {
   const spec = await fs.readFile(specPath, "utf8");
   const apiDoc = await fs.readFile(API_MD_PATH, "utf8");
   const whitelist = extractApiWhitelist(apiDoc);
-  const systemPrompt = await buildSystemPrompt(apiDoc);
+  const systemPrompt = buildAgentSystemPrompt(apiDoc);
   const r2 = new InMemoryR2();
   const log = {
     rejections: [],

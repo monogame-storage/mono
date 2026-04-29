@@ -11,8 +11,6 @@
 //   GET    /games/:gameId/published       → get published files (public, no auth)
 //   GET    /games/:gameId/thumbnail       → get published thumbnail (public, no auth)
 
-// headless test moved to browser Web Worker
-
 // Default monogame.cc; override per-environment via env.DOCS_BASE_URL
 // (wrangler.toml [vars] or `wrangler dev --var DOCS_BASE_URL=http://localhost:8090`).
 // Set to a localhost URL so Cosmi reads in-progress docs from a local
@@ -38,10 +36,9 @@ function docUrls(env) {
 const docCache = {};
 const docExpiry = {};
 
-// Cache the parsed API.md whitelist alongside its source string so
-// extractApiWhitelist runs at most once per fetchDoc("api") refresh.
-let apiWhitelistCache = null;
-let apiWhitelistSource = null;
+// Parsed API.md whitelist memoized against its source text — re-parses
+// only when the underlying API.md actually changes.
+const apiWhitelistMemo = { source: null, parsed: null };
 
 export default {
   async fetch(request, env) {
@@ -97,8 +94,6 @@ export default {
       if (url.pathname === "/models" && request.method === "POST") {
         return await handleListModels(request, env, uid);
       }
-
-      // /test removed — headless test runs in browser Web Worker
 
       // ── Publish endpoints ──
       const publishMatch = url.pathname.match(/^\/games\/([^/]+)\/(publish|unpublish)$/);
@@ -618,7 +613,7 @@ async function handleListLintRejects(env, uid, url) {
 // that signature changed since the previous call in the same turn —
 // usually it won't, so multi-write turns drop from O(N writes × N
 // files) R2 GETs to O(N files) once.
-async function collectProjectGlobals(env, prefix, excludePath, cache, writesSoFar) {
+async function collectProjectGlobals(env, prefix, excludePath, cache, mutationsSoFar) {
   // Single pass: list everything, then decide if cache hit applies.
   const objs = [];
   let cursor;
@@ -633,16 +628,16 @@ async function collectProjectGlobals(env, prefix, excludePath, cache, writesSoFa
     cursor = list.truncated ? list.cursor : undefined;
   } while (cursor);
 
-  // Signature mixes (name:size) per file with `writesSoFar` — the
-  // monotonically growing count of successful writes this turn. The
+  // Signature mixes (name:size) per file with `mutationsSoFar` — the
+  // monotonically growing count of writes + deletes this turn. The
   // size-based component catches the common case (sibling created /
-  // grew / shrank); writesSoFar covers the contrived case where a
+  // grew / shrank); mutationsSoFar covers the contrived case where a
   // sibling was rewritten with the same byte count but different
   // contents (e.g. function rename without changing length).
   const signature = objs
     .map((o) => `${o.name}:${o.size}`)
     .sort()
-    .join("|") + `|w:${writesSoFar ?? 0}`;
+    .join("|") + `|m:${mutationsSoFar ?? 0}`;
   if (cache && cache.signature === signature && cache.set) return cache.set;
 
   const reads = objs.map(async (o) => {
@@ -667,11 +662,11 @@ async function collectProjectGlobals(env, prefix, excludePath, cache, writesSoFa
 async function getApiWhitelist(env) {
   const md = await fetchDoc("api", env);
   if (!md) return null;
-  if (apiWhitelistSource !== md) {
-    apiWhitelistSource = md;
-    apiWhitelistCache = extractApiWhitelist(md);
+  if (apiWhitelistMemo.source !== md) {
+    apiWhitelistMemo.source = md;
+    apiWhitelistMemo.parsed = extractApiWhitelist(md);
   }
-  return apiWhitelistCache;
+  return apiWhitelistMemo.parsed;
 }
 
 async function execAgentTool(name, input, ctx) {
@@ -817,10 +812,9 @@ async function handleAgent(request, env, uid) {
     // its size.
     const ctx = { env, uid, gameId, changed: new Map(), projectGlobalsCache: { signature: null, set: null } };
     const usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-    const MAX_ITER = AGENT_MAX_ITER;
 
     try {
-      for (let iter = 0; iter < MAX_ITER; iter++) {
+      for (let iter = 0; iter < AGENT_MAX_ITER; iter++) {
         const res = await fetch(apiUrl, {
           method: "POST",
           headers: {
