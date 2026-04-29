@@ -1,0 +1,69 @@
+rules_version = '2';
+
+// Mono Firestore security rules.
+//
+// Trust model:
+//   - Clients authenticate with Firebase Auth (Google sign-in).
+//   - The cosmi Worker writes via a Google service account, which bypasses
+//     these rules entirely. Server-only fields (status, publishedVersion,
+//     publishedAt, plays) are therefore locked down for client writes here.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // True if the incoming update tries to change any server-managed field.
+    function writesServerFields() {
+      let after = request.resource.data;
+      let before = resource.data;
+      return (("status" in after) && after.status != before.status)
+          || (("publishedVersion" in after) && after.publishedVersion != before.publishedVersion)
+          || (("publishedAt" in after) && after.publishedAt != before.publishedAt)
+          || (("plays" in after) && after.plays != before.plays);
+    }
+
+    // ── BYOK vault ─────────────────────────────────────────────────────
+    // Client-side AES-256-GCM blob keyed to the user's master passphrase.
+    // Only the owner can read or write their own vault.
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+    }
+
+    // ── Games ──────────────────────────────────────────────────────────
+    match /games/{gameId} {
+      // Public can read published games (landing page lists them).
+      // Owner can always read their own draft games.
+      allow read: if resource.data.status == "published"
+                  || (request.auth != null
+                      && request.auth.uid == resource.data.uid);
+
+      // Create: must claim ownership via own uid, must start as draft,
+      // must not pre-set server-managed fields.
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == "draft"
+                    && request.resource.data.plays == 0
+                    && !("publishedVersion" in request.resource.data)
+                    && !("publishedAt" in request.resource.data);
+
+      // Update: owner only. Cannot change uid, cannot touch server-managed
+      // fields (status / publishedVersion / publishedAt / plays). Those
+      // transitions go through the cosmi Worker (service account).
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.uid
+                    && request.resource.data.uid == resource.data.uid
+                    && !writesServerFields();
+
+      // Delete: owner only, and only when not currently published.
+      // (Unpublish first so the published R2 snapshot is cleaned up.)
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.uid
+                    && resource.data.status != "published";
+    }
+
+    // Default: deny everything not explicitly matched above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

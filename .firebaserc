@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "staging": "mono-5b951",
+    "default": "mono-5b951"
+  },
+  "targets": {},
+  "etags": {}
+}
