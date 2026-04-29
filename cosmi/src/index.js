@@ -13,12 +13,28 @@
 
 // headless test moved to browser Web Worker
 
-const DOCS_BASE = "https://monogame.cc";
-const DOC_URLS = {
-  context: `${DOCS_BASE}/editor/templates/mono/CONTEXT.md`,
-  api: `${DOCS_BASE}/docs/API.md`,
-  pitfalls: `${DOCS_BASE}/docs/AI-PITFALLS.md`,
-};
+// Default monogame.cc; override per-environment via env.DOCS_BASE_URL
+// (wrangler.toml [vars] or `wrangler dev --var DOCS_BASE_URL=http://localhost:8090`).
+// Set to a localhost URL so Cosmi reads in-progress docs from a local
+// monogame.cc clone without redeploying. See docsBase().
+const DEFAULT_DOCS_BASE = "https://monogame.cc";
+
+function docsBase(env) {
+  const v = env?.DOCS_BASE_URL;
+  return (typeof v === "string" && v.trim()) ? v.replace(/\/$/, "") : DEFAULT_DOCS_BASE;
+}
+
+function docUrls(env) {
+  const base = docsBase(env);
+  return {
+    context: `${base}/editor/templates/mono/CONTEXT.md`,
+    api: `${base}/docs/API.md`,
+    pitfalls: `${base}/docs/AI-PITFALLS.md`,
+  };
+}
+
+// docCache key is `${base}::${name}` so localhost and prod doc bodies
+// don't collide between requests in the same isolate.
 const docCache = {};
 const docExpiry = {};
 
@@ -220,7 +236,7 @@ async function handleChat(request, env, uid) {
   const docsToLoad = ["context", "api"];
   if (isErrorFix) docsToLoad.push("pitfalls");
 
-  const docContents = await Promise.all(docsToLoad.map(fetchDoc));
+  const docContents = await Promise.all(docsToLoad.map((n) => fetchDoc(n, env)));
   const engineDocs = docContents.join("\n\n---\n\n");
 
   // Build file context from current game files
@@ -455,16 +471,19 @@ Rules:
   return json(200, parsed);
 }
 
-async function fetchDoc(name) {
-  if (docCache[name] && Date.now() < (docExpiry[name] || 0)) return docCache[name];
+async function fetchDoc(name, env) {
+  const url = docUrls(env)[name];
+  if (!url) return "";
+  const key = `${docsBase(env)}::${name}`;
+  if (docCache[key] && Date.now() < (docExpiry[key] || 0)) return docCache[key];
   try {
-    const res = await fetch(DOC_URLS[name]);
+    const res = await fetch(url);
     if (res.ok) {
-      docCache[name] = await res.text();
-      docExpiry[name] = Date.now() + 3600_000;
+      docCache[key] = await res.text();
+      docExpiry[key] = Date.now() + 3600_000;
     }
   } catch {}
-  return docCache[name] || "";
+  return docCache[key] || "";
 }
 
 // ── R2 operations ──
@@ -599,8 +618,8 @@ async function collectProjectGlobals(env, prefix, excludePath) {
 // Returns the parsed API.md whitelist, re-parsing only when the cached
 // API.md text changes. Returns null if the doc fetch failed — callers
 // must fail-open in that case (lintApiCompliance does this internally).
-async function getApiWhitelist() {
-  const md = await fetchDoc("api");
+async function getApiWhitelist(env) {
+  const md = await fetchDoc("api", env);
   if (!md) return null;
   if (apiWhitelistSource !== md) {
     apiWhitelistSource = md;
@@ -709,7 +728,7 @@ async function execAgentTool(name, input, ctx) {
           });
           return { error: `write_file blocked for ${input.path}: ${violation}` };
         }
-        const whitelist = await getApiWhitelist();
+        const whitelist = await getApiWhitelist(env);
         const projectDefined = await collectProjectGlobals(env, prefix, input.path);
         const apiViolations = lintApiCompliance(input.content, whitelist, { projectDefined });
         if (apiViolations.length > 0) {
@@ -771,7 +790,7 @@ async function handleAgent(request, env, uid) {
   // API.md is appended verbatim so the model and the write_file harness
   // share the same source of truth — anything outside this list will be
   // rejected when the model tries to write it.
-  const apiDoc = await fetchDoc("api");
+  const apiDoc = await fetchDoc("api", env);
   const systemPrompt = [
     "You are Mono, an AI game developer for the Mono fantasy console (160x120, 16-color Lua 5.4 via Wasmoon).",
     "You work on the user's current game by calling tools: list_files, read_file, write_file, delete_file.",

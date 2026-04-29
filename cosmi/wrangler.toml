@@ -9,3 +9,8 @@ bucket_name = "mono-dev"
 
 [vars]
 FIREBASE_PROJECT_ID = "mono-5b951"
+# Base URL the Worker fetches CONTEXT.md / API.md / AI-PITFALLS.md from.
+# For local dev (wrangler dev), override with:
+#   wrangler dev --var DOCS_BASE_URL=http://localhost:8090
+# Trailing slash is stripped automatically.
+DOCS_BASE_URL = "https://monogame.cc"
