@@ -396,7 +396,7 @@ async function sendAgent(connection, msg, chat) {
   // navigation, multi-tab edit). Bail with a clear error instead of
   // crashing on `connection.provider`.
   if (!connection?.provider || !connection?.model || !connection?.apiKey) {
-    throw new Error("Connection is invalid — re-pick or re-add it in Settings → AI Assistant.");
+    throw new Error("Connection is invalid — re-pick or re-add it in Settings → Cosmi.");
   }
   const providerId = connection.provider;
   const model = connection.model;
@@ -678,7 +678,7 @@ export async function sendMessage(autoMsg) {
   if (!selectedValue.startsWith("provider:")) {
     const chatEl = document.getElementById("editor-chat");
     chatEl.innerHTML += errorCard(
-      "Register a Connection in Settings → AI Assistant, then pick it from the pill above to enable chat.",
+      "Register a Connection in Settings → Cosmi, then pick it from the pill above to enable chat.",
       "NO CONNECTION",
       false,
     );

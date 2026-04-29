@@ -1654,7 +1654,9 @@
   gap: 10px;
 }
 .devsettings-item-left svg { width: 16px; height: 16px; color: #aaa; }
+.devsettings-item-text { display: flex; flex-direction: column; gap: 2px; }
 .devsettings-item-label { font-size: 12px; }
+.devsettings-item-sub { font-size: 10px; color: #888; }
 .devsettings-item-arrow { color: #555; font-size: 14px; }
 .devsettings-signout {
   width: 100%;
