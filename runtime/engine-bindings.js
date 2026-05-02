@@ -162,8 +162,12 @@
         // serializeBucket runs validation on the candidate bucket; if it
         // throws (bad value, NaN, cycle, depth, quota), `bucket` is unchanged.
         MonoSaveLib.serializeBucket(next);
+        // Commit cache only AFTER disk succeeds — otherwise a failed
+        // backend.write would leave the in-memory cache ahead of storage,
+        // and subsequent data_load would return data that won't survive
+        // a reload.
+        backend.write(cartId, next);
         bucket = next;
-        backend.write(cartId, bucket);
       });
 
       lua.global.set("data_load", (key) => {
@@ -180,8 +184,8 @@
         if (!Object.prototype.hasOwnProperty.call(bucket, key)) return false;
         const next = Object.assign({}, bucket);
         delete next[key];
+        backend.write(cartId, next);
         bucket = next;
-        backend.write(cartId, bucket);
         return true;
       });
 
@@ -197,8 +201,8 @@
       });
 
       lua.global.set("data_clear", () => {
-        bucket = {};
         backend.clear(cartId);
+        bucket = {};
       });
     } else {
       // No save hook installed (legacy boot calls). Stub out the six
