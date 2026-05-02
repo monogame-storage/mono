@@ -141,4 +141,38 @@ describe("serializeBucket — rejection messages", () => {
       /save: quota exceeded \(65537 bytes > 65536\)/
     );
   });
+
+  it("rejects Date instances", () => {
+    assert.throws(
+      () => MonoSave.serializeBucket({ d: new Date(0) }),
+      /save: unserializable Date/
+    );
+  });
+
+  it("rejects Map instances", () => {
+    assert.throws(
+      () => MonoSave.serializeBucket({ m: new Map() }),
+      /save: unserializable Map/
+    );
+  });
+
+  it("rejects Set instances", () => {
+    assert.throws(
+      () => MonoSave.serializeBucket({ s: new Set() }),
+      /save: unserializable Set/
+    );
+  });
+
+  it("rejects RegExp instances", () => {
+    assert.throws(
+      () => MonoSave.serializeBucket({ r: /abc/ }),
+      /save: unserializable RegExp/
+    );
+  });
+
+  it("accepts Object.create(null) (null-proto plain object)", () => {
+    const o = Object.create(null);
+    o.x = 1;
+    assert.doesNotThrow(() => MonoSave.serializeBucket({ root: o }));
+  });
 });

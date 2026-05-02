@@ -63,6 +63,17 @@
     if (t === "undefined") throw new Error("save: unserializable undefined");
     if (t === "bigint") throw new Error("save: unserializable bigint");
     if (t !== "object") throw new Error("save: unserializable " + t);
+    // Plain objects + arrays only. Class instances (Date, Map, Set, RegExp,
+    // WeakRef, user classes) pass typeof === "object" but get silently
+    // mangled by JSON.stringify (Date → string, Map/Set → {}). Reject up
+    // front so the failure mode is loud.
+    if (!Array.isArray(v)) {
+      const proto = Object.getPrototypeOf(v);
+      if (proto !== Object.prototype && proto !== null) {
+        const name = (v.constructor && v.constructor.name) || "object";
+        throw new Error("save: unserializable " + name);
+      }
+    }
     if (depth > MAX_DEPTH) throw new Error("save: too deep");
     if (seen.has(v)) throw new Error("save: cycle detected");
     seen.add(v);
@@ -108,7 +119,11 @@
       const c = s.charCodeAt(i);
       if (c < 0x80) n += 1;
       else if (c < 0x800) n += 2;
-      else if (c >= 0xd800 && c < 0xdc00) { n += 4; i++; }
+      else if (c >= 0xd800 && c < 0xdc00) {
+        const next = (i + 1 < s.length) ? s.charCodeAt(i + 1) : 0;
+        if ((next & 0xfc00) === 0xdc00) { n += 4; i++; }  // valid surrogate pair
+        else n += 3;                                      // lone high surrogate → U+FFFD
+      }
       else n += 3;
     }
     return n;
