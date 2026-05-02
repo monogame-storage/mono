@@ -71,8 +71,8 @@ Save isolation is keyed by `cartId`, set by the runner at boot:
 |---|---|
 | `play.html?id=<gameId>` (R2 published) | `gameId` verbatim |
 | `play.html?game=<demo>` (built-in demo) | `"demo:" + demo` |
-| `dev/index.html` | `"dev:" + cart directory name` |
-| `headless/` | not set; backend is forced to `"memory"` |
+| `dev/` editor (`dev/js/editor-play.js`) | `state.currentGameId` verbatim — same as `play.html?id=` so the same cart preserves save data across dev → publish → play |
+| `dev/headless/mono-runner.js`, `dev/test-worker.js` | not set; backend is forced to `"memory"` |
 | `android/` | `"pkg:" + Android package name` |
 
 The `demo:`/`dev:`/`pkg:` prefixes prevent collision with R2 gameIds, which are bare alphanumeric.
@@ -207,8 +207,9 @@ Two test surfaces (matching existing patterns in this repo):
 | `runtime/engine-bindings.js` | Bind 6 Lua globals; Lua↔JS table marshalling for save values |
 | `runtime/engine.js` | Accept `cartId` and `saveBackend` boot options; instantiate backend; expose accessor for bindings |
 | `play.html` | Compute cartId from `?id=` (R2) or `?game=` (demo) and pass to `Mono.boot` |
-| `dev/js/editor-play.js` | Pass `cartId: "dev:" + currentCart` to the editor's boot call |
-| `dev/headless/mono-runner.js` | Pass `saveBackend: "memory"` (the dev test runner used by Cosmi `/test` endpoint) |
+| `dev/js/editor-play.js` | Pass `cartId: state.currentGameId` to the editor's boot call (same id play.html uses) |
+| `dev/headless/mono-runner.js` | Pass `saveBackend: "memory"` (Node CLI test runner) |
+| `dev/test-worker.js` | Pass `saveBackend: "memory"` (Web Worker pre-publish smoke test) |
 | `android/app/src/main/kotlin/com/mono/game/MonoSaveBridge.kt` (new) | `@JavascriptInterface` over `SharedPreferences` |
 | `android/app/src/main/kotlin/com/mono/game/MonoConsole.kt` | Register bridge on the WebView |
 | `docs/API.md` | Move `save/load` out of "Under Consideration"; document the 6 `data_*` functions in a new `## Data` section. `cosmi/src/lib/api-lint.js` derives its whitelist from these headings — no change needed there. |
