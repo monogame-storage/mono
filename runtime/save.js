@@ -129,10 +129,79 @@
     return n;
   }
 
+  // ── Validate a save key. Throws with the spec's "save: invalid key"
+  // message on any rejection. Whitespace check uses /\s/ (covers ASCII
+  // space, tab, newline, form feed, vertical tab, carriage return).
+  function validateKey(k) {
+    if (typeof k !== "string") throw new Error("save: invalid key");
+    if (k.length === 0 || k.length > MAX_KEY_LEN) throw new Error("save: invalid key");
+    if (/\u0000/.test(k)) throw new Error("save: invalid key");
+    if (/\s/.test(k)) throw new Error("save: invalid key");
+  }
+
+  // ── WebBackend — writes to localStorage by default. If the page has
+  // a `MonoSaveNative` JS interface (injected by Android WebView), all
+  // reads/writes/clears go through that instead so the OS keystore
+  // (SharedPreferences on Android) is the source of truth. The
+  // `bridge` and `storage` constructor options exist so the unit test
+  // can inject fakes without touching real globals.
+  class WebBackend {
+    constructor(opts) {
+      const o = opts || {};
+      this._bridge =
+        ("bridge" in o) ? o.bridge :
+        (typeof globalThis !== "undefined" && globalThis.MonoSaveNative) ? globalThis.MonoSaveNative :
+        null;
+      this._storage =
+        ("storage" in o) ? o.storage :
+        (typeof globalThis !== "undefined" && globalThis.localStorage) ? globalThis.localStorage :
+        null;
+      this._warn = o.warn || ((typeof console !== "undefined") ? (m => console.warn(m)) : (() => {}));
+      this._warnedFor = new Set();   // cartIds we've already warned about
+    }
+    _key(cartId) { return "mono:save:" + cartId; }
+    read(cartId) {
+      const raw = this._bridge ? this._bridge.read(cartId)
+                : this._storage ? this._storage.getItem(this._key(cartId))
+                : null;
+      if (raw == null || raw === "") return {};
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+      } catch {}
+      // Either parse failed or shape was wrong — warn once per cart, then return blank.
+      if (!this._warnedFor.has(cartId)) {
+        this._warnedFor.add(cartId);
+        this._warn("MonoSave: unparseable bucket for cart \"" + cartId + "\" — starting fresh");
+      }
+      return {};
+    }
+    write(cartId, bucket) {
+      const json = JSON.stringify(bucket);
+      if (this._bridge) {
+        const ok = this._bridge.write(cartId, json);
+        if (!ok) throw new Error("save: backend write failed");
+        return;
+      }
+      if (this._storage) {
+        try { this._storage.setItem(this._key(cartId), json); }
+        catch (e) { throw new Error("save: backend write failed"); }
+        return;
+      }
+      throw new Error("save: backend write failed");
+    }
+    clear(cartId) {
+      if (this._bridge) { this._bridge.clear(cartId); return; }
+      if (this._storage) { this._storage.removeItem(this._key(cartId)); return; }
+    }
+  }
+
   return {
     MemoryBackend,
+    WebBackend,
     serializeBucket,
     deserializeBucket,
+    validateKey,
     QUOTA_BYTES,
     MAX_KEY_LEN,
     MAX_DEPTH,

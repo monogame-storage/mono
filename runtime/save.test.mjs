@@ -176,3 +176,131 @@ describe("serializeBucket — rejection messages", () => {
     assert.doesNotThrow(() => MonoSave.serializeBucket({ root: o }));
   });
 });
+
+describe("validateKey", () => {
+  it("accepts simple alphanumerics", () => {
+    assert.doesNotThrow(() => MonoSave.validateKey("hi_score"));
+    assert.doesNotThrow(() => MonoSave.validateKey("a"));
+  });
+
+  it("accepts max-length key", () => {
+    assert.doesNotThrow(() => MonoSave.validateKey("k".repeat(MonoSave.MAX_KEY_LEN)));
+  });
+
+  it("rejects empty string", () => {
+    assert.throws(() => MonoSave.validateKey(""), /save: invalid key/);
+  });
+
+  it("rejects non-string", () => {
+    assert.throws(() => MonoSave.validateKey(42), /save: invalid key/);
+    assert.throws(() => MonoSave.validateKey(null), /save: invalid key/);
+    assert.throws(() => MonoSave.validateKey(undefined), /save: invalid key/);
+  });
+
+  it("rejects > MAX_KEY_LEN", () => {
+    assert.throws(
+      () => MonoSave.validateKey("k".repeat(MonoSave.MAX_KEY_LEN + 1)),
+      /save: invalid key/
+    );
+  });
+
+  it("rejects keys containing NUL", () => {
+    assert.throws(() => MonoSave.validateKey("a\u0000b"), /save: invalid key/);
+  });
+
+  it("rejects keys containing whitespace", () => {
+    assert.throws(() => MonoSave.validateKey("a b"), /save: invalid key/);
+    assert.throws(() => MonoSave.validateKey("a\tb"), /save: invalid key/);
+    assert.throws(() => MonoSave.validateKey("a\nb"), /save: invalid key/);
+  });
+});
+
+describe("WebBackend — localStorage path", () => {
+  // Minimal fake localStorage that Node tests can use.
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      // Expose for assertions only:
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+
+  let storage;
+  beforeEach(() => { storage = makeFakeStorage(); });
+
+  it("read returns {} for a missing entry", () => {
+    const b = new MonoSave.WebBackend({ storage });
+    assert.deepEqual(b.read("g"), {});
+  });
+
+  it("write stores under the spec'd key", () => {
+    const b = new MonoSave.WebBackend({ storage });
+    b.write("g", { v: 1 });
+    assert.deepEqual(storage._entries(), [["mono:save:g", '{"v":1}']]);
+  });
+
+  it("read deserializes a previously-written bucket", () => {
+    const b = new MonoSave.WebBackend({ storage });
+    b.write("g", { score: 7 });
+    assert.deepEqual(b.read("g"), { score: 7 });
+  });
+
+  it("isolates cartIds via key prefix", () => {
+    const b = new MonoSave.WebBackend({ storage });
+    b.write("a", { v: 1 });
+    b.write("b", { v: 2 });
+    assert.deepEqual(b.read("a"), { v: 1 });
+    assert.deepEqual(b.read("b"), { v: 2 });
+  });
+
+  it("clear removes the entry entirely", () => {
+    const b = new MonoSave.WebBackend({ storage });
+    b.write("g", { v: 1 });
+    b.clear("g");
+    assert.deepEqual(storage._entries(), []);
+  });
+
+  it("recovers from a corrupt entry by returning {} and warning once", () => {
+    storage.setItem("mono:save:g", "{not json");
+    let warnings = 0;
+    const warn = () => { warnings++; };
+    const b = new MonoSave.WebBackend({ storage, warn });
+    assert.deepEqual(b.read("g"), {});
+    assert.deepEqual(b.read("g"), {});  // second read does not re-warn
+    assert.equal(warnings, 1);
+  });
+});
+
+describe("WebBackend — native bridge path", () => {
+  function makeFakeBridge() {
+    const map = new Map();
+    return {
+      read: (cartId) => map.get(cartId) || "",
+      write: (cartId, json) => { map.set(cartId, json); return true; },
+      clear: (cartId) => { map.delete(cartId); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+
+  it("uses the bridge when present and ignores storage", () => {
+    const bridge = makeFakeBridge();
+    const storage = { getItem: () => "SHOULD_NOT_BE_READ", setItem: () => {}, removeItem: () => {} };
+    const b = new MonoSave.WebBackend({ storage, bridge });
+    b.write("g", { v: 1 });
+    assert.deepEqual(bridge._entries(), [["g", '{"v":1}']]);
+    assert.deepEqual(b.read("g"), { v: 1 });
+  });
+
+  it("write throws 'backend write failed' when bridge.write returns false", () => {
+    const bridge = {
+      read: () => "",
+      write: () => false,
+      clear: () => {},
+    };
+    const b = new MonoSave.WebBackend({ bridge });
+    assert.throws(() => b.write("g", { v: 1 }), /save: backend write failed/);
+  });
+});
