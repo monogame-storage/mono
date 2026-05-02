@@ -55,6 +55,7 @@ function loadRuntime(name) {
   return require(path.resolve(__dirname, "../../runtime", name));
 }
 const MonoBindings = loadRuntime("engine-bindings.js");
+const MonoSave     = loadRuntime("save.js");
 const MonoDraw     = loadRuntime("engine-draw.js");
 
 // --- Parse arguments ---
@@ -863,6 +864,7 @@ async function main() {
     cam: { getX: () => camX, getY: () => camY },
     scene: sceneRef,
     modules,
+    save: { backend: new MonoSave.MemoryBackend(), cartId: "headless" },
   });
 
   // Run main script
