@@ -303,4 +303,24 @@ describe("WebBackend — native bridge path", () => {
     const b = new MonoSave.WebBackend({ bridge });
     assert.throws(() => b.write("g", { v: 1 }), /save: backend write failed/);
   });
+
+  it("write surfaces the underlying storage error message", () => {
+    const storage = {
+      getItem: () => null,
+      setItem: () => { throw new Error("QuotaExceededError"); },
+      removeItem: () => {},
+    };
+    const b = new MonoSave.WebBackend({ storage, bridge: null });
+    assert.throws(() => b.write("g", { v: 1 }), /save: backend write failed: QuotaExceededError/);
+  });
+
+  it("clear throws when no transport is configured", () => {
+    const b = new MonoSave.WebBackend({ storage: null, bridge: null });
+    assert.throws(() => b.clear("g"), /save: backend write failed/);
+  });
+
+  it("write throws when no transport is configured", () => {
+    const b = new MonoSave.WebBackend({ storage: null, bridge: null });
+    assert.throws(() => b.write("g", { v: 1 }), /save: backend write failed/);
+  });
 });

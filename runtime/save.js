@@ -185,7 +185,7 @@
       }
       if (this._storage) {
         try { this._storage.setItem(this._key(cartId), json); }
-        catch (e) { throw new Error("save: backend write failed"); }
+        catch (e) { throw new Error("save: backend write failed: " + (e && e.message || e)); }
         return;
       }
       throw new Error("save: backend write failed");
@@ -193,6 +193,7 @@
     clear(cartId) {
       if (this._bridge) { this._bridge.clear(cartId); return; }
       if (this._storage) { this._storage.removeItem(this._key(cartId)); return; }
+      throw new Error("save: backend write failed");
     }
   }
 
