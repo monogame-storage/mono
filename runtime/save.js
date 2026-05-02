@@ -6,10 +6,10 @@
  * and `require()` all work without a bundler.
  *
  * Public surface (exported via globalThis.MonoSave or module.exports):
- *   - MemoryBackend     — in-process bucket map, no persistence
- *   - WebBackend        — localStorage (auto-routes to native bridge if present)
- *   - serializeBucket   — validate + JSON.stringify with quota check
- *   - deserializeBucket — JSON.parse with safe fallback
+ *   - MemoryBackend   — in-process bucket map, no persistence
+ *   - WebBackend      — localStorage (auto-routes to native bridge if present)
+ *   - serializeBucket — validate + JSON.stringify with quota check
+ *   - validateKey     — key shape validator (used by bindings)
  *   - QUOTA_BYTES, MAX_KEY_LEN, MAX_DEPTH — limits exposed for tests
  *
  * The bindings layer (engine-bindings.js) owns the in-memory cache and
@@ -97,18 +97,6 @@
       throw new Error("save: quota exceeded (" + bytes + " bytes > " + QUOTA_BYTES + ")");
     }
     return json;
-  }
-
-  // ── Parse a serialized bucket. Returns {} on malformed input — the
-  // caller should `console.warn` once when this happens.
-  function deserializeBucket(json) {
-    if (!json) return {};
-    try {
-      const parsed = JSON.parse(json);
-      return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : {};
-    } catch {
-      return {};
-    }
   }
 
   function utf8ByteLength(s) {
@@ -201,7 +189,6 @@
     MemoryBackend,
     WebBackend,
     serializeBucket,
-    deserializeBucket,
     validateKey,
     QUOTA_BYTES,
     MAX_KEY_LEN,
