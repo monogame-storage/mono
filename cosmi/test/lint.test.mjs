@@ -26,6 +26,14 @@ describe("lintEnginePrimitiveOverwrite — flagged patterns", () => {
     const result = lintEnginePrimitiveOverwrite(code);
     assert.match(result, /touch_start/);
   });
+
+  it("flags shadowing data_save", () => {
+    assert.match(lintEnginePrimitiveOverwrite("function data_save(k, v) end"), /data_save/);
+  });
+
+  it("flags assigning to data_load", () => {
+    assert.match(lintEnginePrimitiveOverwrite("data_load = nil"), /data_load/);
+  });
 });
 
 describe("lintEnginePrimitiveOverwrite — passes legitimate code", () => {
@@ -76,6 +84,12 @@ describe("ENGINE_GLOBALS", () => {
 
   it("includes scene + draw + audio primitives", () => {
     for (const k of ["go", "scene_name", "cls", "rectf", "text", "note", "tone"]) {
+      assert.ok(ENGINE_GLOBALS.includes(k), `missing: ${k}`);
+    }
+  });
+
+  it("includes the data_* persistence primitives", () => {
+    for (const k of ["data_save", "data_load", "data_delete", "data_has", "data_keys", "data_clear"]) {
       assert.ok(ENGINE_GLOBALS.includes(k), `missing: ${k}`);
     }
   });

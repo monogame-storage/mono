@@ -24,6 +24,8 @@ export const ENGINE_GLOBALS = [
   // sensors
   "motion_x", "motion_y", "motion_z",
   "gyro_alpha", "gyro_beta", "gyro_gamma", "motion_enabled",
+  // persistence
+  "data_save", "data_load", "data_delete", "data_has", "data_keys", "data_clear",
 ];
 
 // Scan Lua source for patterns that would overwrite an engine global:
