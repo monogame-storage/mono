@@ -151,6 +151,11 @@
       let bucket = backend.read(cartId);
       if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) bucket = {};
 
+      /**
+       * @lua data_save(key: string, value: any): void
+       * @group Data
+       * @desc Persist a value under a key in this cart's local save bucket. Value can be a number, string, boolean, nil, or table (nested up to 16 levels). Throws on invalid input or quota overflow.
+       */
       lua.global.set("data_save", (key, value) => {
         MonoSaveLib.validateKey(key);
         // Wasmoon presents Lua tables to JS as plain objects; JSON.stringify
@@ -170,6 +175,11 @@
         bucket = next;
       });
 
+      /**
+       * @lua data_load(key: string): any
+       * @group Data
+       * @desc Returns the value previously stored under `key`, or `nil` if missing. Returns a fresh copy — mutating the returned table does not auto-persist.
+       */
       lua.global.set("data_load", (key) => {
         MonoSaveLib.validateKey(key);
         const v = bucket[key];
@@ -179,6 +189,11 @@
         return v;
       });
 
+      /**
+       * @lua data_delete(key: string): boolean
+       * @group Data
+       * @desc Remove `key` from the bucket. Returns `true` if the key existed, `false` otherwise.
+       */
       lua.global.set("data_delete", (key) => {
         MonoSaveLib.validateKey(key);
         if (!Object.prototype.hasOwnProperty.call(bucket, key)) return false;
@@ -189,17 +204,32 @@
         return true;
       });
 
+      /**
+       * @lua data_has(key: string): boolean
+       * @group Data
+       * @desc Returns `true` if `key` is currently stored.
+       */
       lua.global.set("data_has", (key) => {
         MonoSaveLib.validateKey(key);
         return Object.prototype.hasOwnProperty.call(bucket, key);
       });
 
+      /**
+       * @lua data_keys(): table
+       * @group Data
+       * @desc Returns a sorted array of currently-stored keys.
+       */
       lua.global.set("data_keys", () => {
         // Lua tables don't differentiate array/dict — Wasmoon converts a
         // JS array into a 1-indexed Lua sequence. Sort for determinism.
         return Object.keys(bucket).sort();
       });
 
+      /**
+       * @lua data_clear(): void
+       * @group Data
+       * @desc Wipes the entire bucket for the current cart.
+       */
       lua.global.set("data_clear", () => {
         backend.clear(cartId);
         bucket = {};
