@@ -666,12 +666,6 @@ In `runtime/engine-bindings.js`, locate the line right before `// ── Doc stu
       let bucket = backend.read(cartId);
       if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) bucket = {};
 
-      function flush() {
-        const json = MonoSaveLib.serializeBucket(bucket);
-        backend.write(cartId, bucket);
-        return json;
-      }
-
       lua.global.set("data_save", (key, value) => {
         MonoSaveLib.validateKey(key);
         // Wasmoon presents Lua tables to JS as plain objects; JSON.stringify

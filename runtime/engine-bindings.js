@@ -74,6 +74,10 @@
    *   hooks.cam: { getX(), getY() }
    *   hooks.scene: { current: string|null, pending: string|null }   // mutable
    *   hooks.modules: { "path/to.lua": "source", ... }               // optional
+   *   hooks.save: { backend, cartId } | undefined                   // optional
+   *     backend: MonoSave.MemoryBackend | MonoSave.WebBackend instance
+   *     cartId:  non-empty string identifying the cart's save bucket
+   *     If absent, data_* globals are installed as throwing stubs.
    */
   async function bind(lua, hooks) {
     // ── Constants ──
@@ -125,6 +129,88 @@
     const scene = hooks.scene;
     lua.global.set("go",         (name) => { scene.pending = name; });
     lua.global.set("scene_name", () => scene.current || false);
+
+    // ── Persistence (data_save / data_load / data_delete / data_has /
+    // data_keys / data_clear). The runner supplies hooks.save with a
+    // backend (read/write/clear) plus the cartId string. We hold the
+    // bucket in JS-side memory so reads are zero-allocation and writes
+    // are write-through. validateKey + serializeBucket throw on any
+    // policy violation; those throws become Lua errors via Wasmoon.
+    if (hooks.save) {
+      const MonoSaveLib =
+        (typeof globalThis !== "undefined" && globalThis.MonoSave) ? globalThis.MonoSave :
+        (typeof self !== "undefined" && self.MonoSave) ? self.MonoSave :
+        (typeof require === "function" ? require("./save.js") : null);
+      if (!MonoSaveLib) throw new Error("MonoSave library not loaded");
+
+      const backend = hooks.save.backend;
+      const cartId = hooks.save.cartId;
+      if (!backend) throw new Error("hooks.save.backend is required");
+      if (typeof cartId !== "string" || !cartId) throw new Error("hooks.save.cartId must be a non-empty string");
+
+      let bucket = backend.read(cartId);
+      if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) bucket = {};
+
+      lua.global.set("data_save", (key, value) => {
+        MonoSaveLib.validateKey(key);
+        // Wasmoon presents Lua tables to JS as plain objects; JSON.stringify
+        // (called inside serializeBucket) walks them like any other object.
+        // Take a defensive deep copy via JSON round-trip so later mutations
+        // to the Lua table don't reach into our cache.
+        const next = Object.assign({}, bucket);
+        next[key] = (value === undefined) ? null : JSON.parse(JSON.stringify(value));
+        // serializeBucket runs validation on the candidate bucket; if it
+        // throws (bad value, NaN, cycle, depth, quota), `bucket` is unchanged.
+        MonoSaveLib.serializeBucket(next);
+        bucket = next;
+        backend.write(cartId, bucket);
+      });
+
+      lua.global.set("data_load", (key) => {
+        MonoSaveLib.validateKey(key);
+        const v = bucket[key];
+        if (v === undefined) return null;
+        // Return a fresh copy so Lua-side mutations don't reach into the cache.
+        if (v !== null && typeof v === "object") return JSON.parse(JSON.stringify(v));
+        return v;
+      });
+
+      lua.global.set("data_delete", (key) => {
+        MonoSaveLib.validateKey(key);
+        if (!Object.prototype.hasOwnProperty.call(bucket, key)) return false;
+        const next = Object.assign({}, bucket);
+        delete next[key];
+        bucket = next;
+        backend.write(cartId, bucket);
+        return true;
+      });
+
+      lua.global.set("data_has", (key) => {
+        MonoSaveLib.validateKey(key);
+        return Object.prototype.hasOwnProperty.call(bucket, key);
+      });
+
+      lua.global.set("data_keys", () => {
+        // Lua tables don't differentiate array/dict — Wasmoon converts a
+        // JS array into a 1-indexed Lua sequence. Sort for determinism.
+        return Object.keys(bucket).sort();
+      });
+
+      lua.global.set("data_clear", () => {
+        bucket = {};
+        backend.clear(cartId);
+      });
+    } else {
+      // No save hook installed (legacy boot calls). Stub out the six
+      // globals so a game's call surface fails loud instead of silent.
+      const stub = () => { throw new Error("save: backend not configured"); };
+      lua.global.set("data_save",   stub);
+      lua.global.set("data_load",   stub);
+      lua.global.set("data_delete", stub);
+      lua.global.set("data_has",    stub);
+      lua.global.set("data_keys",   stub);
+      lua.global.set("data_clear",  stub);
+    }
 
     // ── Doc stubs for Lua-side wrappers (btn/btnp/btnr live in doString below) ──
     // These stubs are immediately overwritten by the doString Lua definitions.
