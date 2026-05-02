@@ -227,25 +227,13 @@ Logs values to the host console (prefixed with [Lua]). Useful during development
 
 ### data_clear
 
-### data_clear
-
 ### data_delete
-
-### data_delete
-
-### data_has
 
 ### data_has
 
 ### data_keys
 
-### data_keys
-
 ### data_load
-
-### data_load
-
-### data_save
 
 ### data_save
 
