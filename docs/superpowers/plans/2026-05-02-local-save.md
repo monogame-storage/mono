@@ -282,11 +282,12 @@ Replace the `return { MemoryBackend, ... }` block in `runtime/save.js` with the 
 ```js
   // ── Validate a value tree. Throws with the spec's exact messages on
   // any rejection. Walks before serializing so a partially-valid
-  // bucket never lands in storage. Depth counts edges from the bucket
-  // root: a top-level value is depth 1, a value nested one level
-  // deeper is depth 2, etc.
+  // bucket never lands in storage. The depth limit applies to
+  // *object/array nesting only*; primitives (numbers, strings, bools,
+  // null) never trigger "too deep" since they don't add structure.
+  // The bucket itself is depth 0; a value directly in the bucket is
+  // depth 1; a value one level deeper is depth 2; etc.
   function validateValue(v, depth, seen) {
-    if (depth > MAX_DEPTH) throw new Error("save: too deep");
     if (v === null) return;
     const t = typeof v;
     if (t === "boolean" || t === "string") return;
@@ -298,6 +299,7 @@ Replace the `return { MemoryBackend, ... }` block in `runtime/save.js` with the 
     if (t === "undefined") throw new Error("save: unserializable undefined");
     if (t === "bigint") throw new Error("save: unserializable bigint");
     if (t !== "object") throw new Error("save: unserializable " + t);
+    if (depth > MAX_DEPTH) throw new Error("save: too deep");
     if (seen.has(v)) throw new Error("save: cycle detected");
     seen.add(v);
     if (Array.isArray(v)) {
@@ -313,7 +315,7 @@ Replace the `return { MemoryBackend, ... }` block in `runtime/save.js` with the 
   // result, then enforces the quota in bytes (UTF-16 length is fine
   // for ASCII; for the 64KB cap we measure UTF-8 byte length).
   function serializeBucket(bucket) {
-    validateValue(bucket, 1, new WeakSet());
+    validateValue(bucket, 0, new WeakSet());
     const json = JSON.stringify(bucket);
     const bytes = utf8ByteLength(json);
     if (bytes > QUOTA_BYTES) {

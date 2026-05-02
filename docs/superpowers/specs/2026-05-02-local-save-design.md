@@ -170,7 +170,7 @@ Notes:
 | Bucket size (serialized JSON) | 65536 bytes | `error("save: quota exceeded")` |
 | Key | non-empty string, ≤64 chars, no NUL/whitespace | `error("save: invalid key")` |
 | Value type | nil/bool/number/string/table only | `error("save: unserializable <type>")` |
-| Table depth | ≤16 levels | `error("save: too deep")` |
+| Table depth | ≤16 levels of object/array nesting (primitives don't count) | `error("save: too deep")` |
 | Cycles | rejected | `error("save: cycle detected")` |
 
 Quota check: serialize the candidate bucket (current cache plus the proposed change), measure UTF-8 byte length, reject if > 65536. The serialized form is the same one written to the backend, so what's measured is what's stored.
