@@ -1086,24 +1086,26 @@ var Mono = (() => {
     }
     // ── Save backend resolution ──
     // opts.saveBackend ∈ "persistent" | "memory"; default depends on
-    // whether cartId was supplied. A page that forgot to pass either
-    // (e.g. legacy demo runners) gets memory + a generated cartId so
-    // games that call data_save don't crash — saves just don't persist.
-    let saveHook;
-    {
-      const SaveLib = (typeof globalThis !== "undefined" ? globalThis.MonoSave : null);
-      if (SaveLib) {
-        const cartId = opts.cartId || ("anon:" + Math.random().toString(36).slice(2, 10));
-        const requested = opts.saveBackend || (opts.cartId ? "persistent" : "memory");
-        if (requested === "persistent" && !opts.cartId) {
-          throw new Error("Mono.boot: saveBackend=\"persistent\" requires opts.cartId");
-        }
-        const backend = (requested === "memory")
-          ? new SaveLib.MemoryBackend()
-          : new SaveLib.WebBackend();
-        saveHook = { backend, cartId };
-      }
+    // whether cartId was supplied. Boot fails fast if save.js is missing
+    // (matches the MonoDraw / MonoBindings load checks above) so a page
+    // that forgot the script tag doesn't silently install throwing-stub
+    // data_* globals only to surface as a runtime error from inside the
+    // game.
+    const SaveLib = (typeof globalThis !== "undefined" && globalThis.MonoSave)
+                 || (typeof window !== "undefined" && window.MonoSave);
+    if (!SaveLib) {
+      showError("MonoSave not loaded. Include <script src=\"/runtime/save.js\"> before engine.js.");
+      return;
     }
+    const _cartId = opts.cartId || ("anon:" + Math.random().toString(36).slice(2, 10));
+    const _requested = opts.saveBackend || (opts.cartId ? "persistent" : "memory");
+    if (_requested === "persistent" && !opts.cartId) {
+      throw new Error("Mono.boot: saveBackend=\"persistent\" requires opts.cartId");
+    }
+    const saveHook = {
+      backend: (_requested === "memory") ? new SaveLib.MemoryBackend() : new SaveLib.WebBackend(),
+      cartId: _cartId,
+    };
     await Bindings.bind(lua, {
       input: {
         btn:        (k) => !!keys[k],
