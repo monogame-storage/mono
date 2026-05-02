@@ -55,6 +55,7 @@ fun MonoConsole(modifier: Modifier = Modifier) {
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
                 WebView.setWebContentsDebuggingEnabled(true)
+                addJavascriptInterface(MonoSaveBridge(context), "MonoSaveNative")
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = true
