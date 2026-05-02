@@ -82,6 +82,16 @@ data_clear()
 assert_eq("after clear: has", data_has("k"), false)
 assert_eq("after clear: keys empty", #data_keys(), 0)
 
+print("--- data_save(k, nil) deletes the key ---")
+data_save("doomed", 7)
+assert_eq("before nil-save: has", data_has("doomed"), true)
+data_save("doomed", nil)
+assert_eq("after nil-save: has", data_has("doomed"), false)
+assert_eq("after nil-save: load", data_load("doomed"), nil)
+-- nil-save on a missing key is a no-op (no error).
+data_save("never_existed", nil)
+assert_eq("nil-save on missing: has", data_has("never_existed"), false)
+
 print("--- error contract ---")
 assert_throws("invalid empty key", function() data_save("", 1) end, "save: invalid key")
 assert_throws("function rejected", function() data_save("k", function() end) end, "save: unserializable")

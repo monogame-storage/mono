@@ -143,7 +143,7 @@ Returns a sorted array of currently-stored keys.
 Returns the value previously stored under `key`, or `nil` if missing. Returns a fresh copy — mutating the returned table does not auto-persist.
 
 ### data_save(key: string, value: any): void
-Persist a value under a key in this cart's local save bucket. Value can be a number, string, boolean, nil, or table (nested up to 16 levels). Throws on invalid input or quota overflow.
+Persist a value under a key in this cart's local save bucket. Value can be a number, string, boolean, or table (nested up to 16 levels). Passing `nil` deletes the key (matches Lua's `t[k] = nil` semantics — equivalent to `data_delete(key)`). Throws on invalid input or quota overflow.
 
 ## Globals
 

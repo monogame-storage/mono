@@ -43,6 +43,7 @@ data_clear()             -- void; wipes this cart's bucket
 ### Behaviors
 
 - `data_load` returns a **fresh** value reconstructed from the stored JSON. Mutating the returned table does **not** auto-persist; the game must call `data_save` again. This is the explicit-write model.
+- `data_save(key, nil)` deletes the key (mirrors Lua's `t[k] = nil` semantics — equivalent to `data_delete(key)`, but returns void). No-op if the key didn't exist.
 - `data_keys()` returns keys sorted alphabetically (deterministic; eases test snapshots and UI listings).
 - `data_clear()` removes the cart's bucket entirely from the backend (not just the in-memory cache).
 - All six functions are reserved engine globals — overwriting them in user code is rejected by Cosmi's lint (`ENGINE_GLOBALS`).

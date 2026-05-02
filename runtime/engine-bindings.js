@@ -154,16 +154,27 @@
       /**
        * @lua data_save(key: string, value: any): void
        * @group Data
-       * @desc Persist a value under a key in this cart's local save bucket. Value can be a number, string, boolean, nil, or table (nested up to 16 levels). Throws on invalid input or quota overflow.
+       * @desc Persist a value under a key in this cart's local save bucket. Value can be a number, string, boolean, or table (nested up to 16 levels). Passing `nil` deletes the key (matches Lua's `t[k] = nil` semantics — equivalent to `data_delete(key)`). Throws on invalid input or quota overflow.
        */
       lua.global.set("data_save", (key, value) => {
         MonoSaveLib.validateKey(key);
+        // Lua `nil` arrives as JS `undefined` via Wasmoon. Mirror Lua table
+        // semantics: `data_save(k, nil)` deletes the key. No-op if the key
+        // wasn't there to begin with.
+        if (value === undefined) {
+          if (!Object.prototype.hasOwnProperty.call(bucket, key)) return;
+          const next = Object.assign({}, bucket);
+          delete next[key];
+          backend.write(cartId, next);
+          bucket = next;
+          return;
+        }
         // Wasmoon presents Lua tables to JS as plain objects; JSON.stringify
         // (called inside serializeBucket) walks them like any other object.
         // Take a defensive deep copy via JSON round-trip so later mutations
         // to the Lua table don't reach into our cache.
         const next = Object.assign({}, bucket);
-        next[key] = (value === undefined) ? null : JSON.parse(JSON.stringify(value));
+        next[key] = JSON.parse(JSON.stringify(value));
         // serializeBucket runs validation on the candidate bucket; if it
         // throws (bad value, NaN, cycle, depth, quota), `bucket` is unchanged.
         MonoSaveLib.serializeBucket(next);
