@@ -82,8 +82,16 @@ function _start()
 end
 
 function _update()
-  if btnp("up")    then sel = (sel - 2) % TOTAL + 1 end
-  if btnp("down")  then sel = sel % TOTAL + 1 end
+  -- Any navigation clears the last-error overlay so each error message
+  -- is unambiguously tied to the row it was triggered from.
+  if btnp("up") then
+    sel = (sel - 2) % TOTAL + 1
+    err_msg = nil
+  end
+  if btnp("down") then
+    sel = sel % TOTAL + 1
+    err_msg = nil
+  end
 
   -- ← → meaning depends on the selected row's section
   if btnp("left") then
