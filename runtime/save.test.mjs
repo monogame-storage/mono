@@ -480,3 +480,57 @@ describe("CloudBackend — read failure paths", () => {
     assert.equal(b._authDead, true);   // internal flag, exposed for test introspection
   });
 });
+
+describe("CloudBackend — migration on 404 + anonymous mirror", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+
+  it("returns the anonymous bucket on 404 and writes it to the per-uid mirror", async () => {
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:demo:bounce", '{"hi":42}');   // anon mirror
+    let putBody = null;
+    const fetchFn = async (url, init) => {
+      if (init.method === "GET") return new Response(null, { status: 404 });
+      if (init.method === "PUT") { putBody = init.body; return new Response(null, { status: 204 }); }
+      throw new Error("unexpected method");
+    };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage,
+      // Inject setTimeout that runs immediately so the migration push happens synchronously for the test.
+      setTimeout: (fn) => { fn(); return 0; },
+      clearTimeout: () => {},
+    });
+    const out = await b.read("demo:bounce");
+    assert.deepEqual(out, { hi: 42 });
+
+    // Per-uid mirror now has the migrated data.
+    assert.equal(storage.getItem("mono:save:u1:demo:bounce"), '{"hi":42}');
+
+    // Anonymous mirror is preserved.
+    assert.equal(storage.getItem("mono:save:demo:bounce"), '{"hi":42}');
+
+    // Migration push was sent.
+    assert.ok(putBody, "expected a PUT to be issued for migration");
+    assert.deepEqual(JSON.parse(putBody), { bucket: { hi: 42 } });
+  });
+
+  it("returns {} on 404 when anonymous mirror is corrupt", async () => {
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:demo:bounce", "{not json");
+    const fetchFn = async () => new Response(null, { status: 404 });
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, warn: () => {},
+      setTimeout: (fn) => { fn(); return 0; }, clearTimeout: () => {},
+    });
+    assert.deepEqual(await b.read("demo:bounce"), {});
+  });
+});

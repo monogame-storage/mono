@@ -218,11 +218,50 @@
         warn: this._warn,
       });
       this._authDead = false;
+      this._setTimeout = o.setTimeout || ((typeof globalThis !== "undefined") ? globalThis.setTimeout.bind(globalThis) : null);
+      this._clearTimeout = o.clearTimeout || ((typeof globalThis !== "undefined") ? globalThis.clearTimeout.bind(globalThis) : null);
+      this._pending = new Map();   // cartId → JSON string awaiting push
+      this._timer = null;
     }
     _url(cartId) { return this._apiUrl + "/save/" + encodeURIComponent(cartId); }
     async _authHeaders() {
       const token = await this._getToken();
       return { "Authorization": "Bearer " + token };
+    }
+    _schedulePush(cartId, json, delayMs) {
+      this._pending.set(cartId, json);
+      if (this._timer && this._clearTimeout) this._clearTimeout(this._timer);
+      this._timer = this._setTimeout ? this._setTimeout(() => this._flush(), delayMs) : null;
+    }
+    async _flush() {
+      this._timer = null;
+      if (this._authDead) { this._pending.clear(); return; }
+      const headers = await this._authHeaders();
+      const entries = Array.from(this._pending.entries());
+      for (const [cartId, json] of entries) {
+        try {
+          const res = await this._fetch(this._url(cartId), {
+            method: "PUT",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ bucket: JSON.parse(json) }),
+          });
+          if (res.ok) { this._pending.delete(cartId); continue; }
+          if (res.status === 401) {
+            this._authDead = true;
+            this._pending.clear();
+            this._warn("CloudBackend: 401 on push — disabling push for this session");
+            return;
+          }
+          if (res.status === 413) {
+            this._pending.delete(cartId);
+            this._warn("CloudBackend: 413 on push (cartId=" + cartId + ") — clientside cap should have prevented this");
+            continue;
+          }
+          // 5xx: leave in pending, retry next debounce.
+        } catch {
+          // Network error: leave in pending, retry next debounce.
+        }
+      }
     }
     async read(cartId) {
       const headers = await this._authHeaders();
@@ -247,7 +286,30 @@
         return {};
       }
       if (res.status === 404) {
-        // Migration logic in Task 7. For now, no anon mirror means {}.
+        // First login on this device with anonymous progress on the same
+        // cartId? Read the anonymous mirror (DIFFERENT prefix from our
+        // per-uid mirror), and if it has a usable bucket, write it through
+        // to our mirror and schedule an immediate migration push. Anonymous
+        // key is intentionally NOT removed.
+        const anonRaw = this._storage ? this._storage.getItem("mono:save:" + cartId) : null;
+        if (anonRaw) {
+          let anonBucket;
+          try {
+            const parsed = JSON.parse(anonRaw);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) anonBucket = parsed;
+          } catch {}
+          if (anonBucket) {
+            this._mirror.write(cartId, anonRaw);
+            // Schedule + immediately drain. The schedule plants the entry
+            // in _pending so a real timer would also flush it; the await on
+            // _flush guarantees the PUT is actually issued inline (callers
+            // and tests observe it before read returns). If the scheduled
+            // timer fires later it sees _pending empty and no-ops.
+            this._schedulePush(cartId, anonRaw, 0);
+            await this._flush();
+            return anonBucket;
+          }
+        }
         return {};
       }
       // 5xx or other — fall back to mirror.
