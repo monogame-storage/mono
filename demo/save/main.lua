@@ -10,7 +10,7 @@
 --   ← →     FIELD : change value
 --           API   : cycle the target key (shared between has and delete)
 --           ERROR : no-op
---   A       FIELD : data_save all three fields
+--   A       FIELD : data_save just this row's key (per-field save)
 --           API   : data_has(target) or data_delete(target); result inline
 --           ERROR : pcall the bad call; render the captured message
 --   B       FIELD : data_delete just this row's key
@@ -108,8 +108,8 @@ function _update()
 
   if btnp("a") then
     if is_field(sel) then
-      for i = 1, FIELD_COUNT do data_save(KEYS[i], values[i]) end
-      flash_text("SAVED")
+      data_save(KEYS[sel], values[sel])
+      flash_text("SAVED " .. LABELS[sel])
     elseif is_api(sel) then
       local key = TARGETS[target_idx]
       if api_idx(sel) == 1 then
