@@ -663,3 +663,77 @@ describe("CloudBackend — clear", () => {
     assert.equal(b._pending.has("demo:bounce"), false);
   });
 });
+
+describe("CloudBackend — keepalive flush on page leave", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+    };
+  }
+  function makeEventTarget() {
+    const handlers = {};
+    return {
+      addEventListener: (ev, fn) => { (handlers[ev] = handlers[ev] || []).push(fn); },
+      removeEventListener: () => {},
+      dispatchEvent: (ev) => { (handlers[ev.type] || []).forEach(fn => fn(ev)); },
+    };
+  }
+
+  it("registers visibilitychange + beforeunload listeners on construction", () => {
+    const target = makeEventTarget();
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: async () => new Response(null, { status: 204 }),
+      storage: makeFakeStorage(), setTimeout: () => 0, clearTimeout: () => {},
+      eventTarget: target, visibilityState: () => "visible",
+    });
+    // Bookkeeping: handlers were attached. (We don't expose them, but
+    // dispatching now should not throw.)
+    target.dispatchEvent({ type: "visibilitychange" });
+    target.dispatchEvent({ type: "beforeunload" });
+  });
+
+  it("issues a keepalive PUT for each pending entry on visibilitychange to hidden", async () => {
+    const target = makeEventTarget();
+    const calls = [];
+    const fetchFn = async (url, init) => { calls.push(init); return new Response(null, { status: 204 }); };
+    let visState = "visible";
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage: makeFakeStorage(),
+      setTimeout: () => 0, clearTimeout: () => {},
+      eventTarget: target, visibilityState: () => visState,
+    });
+    b.write("a", '{"v":1}');
+    b.write("b", '{"v":2}');
+    visState = "hidden";
+    target.dispatchEvent({ type: "visibilitychange" });
+    // Allow microtasks to drain.
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].keepalive, true);
+    assert.equal(calls[1].keepalive, true);
+  });
+
+  it("issues a keepalive PUT on beforeunload regardless of visibility", async () => {
+    const target = makeEventTarget();
+    const calls = [];
+    const fetchFn = async (url, init) => { calls.push(init); return new Response(null, { status: 204 }); };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage: makeFakeStorage(),
+      setTimeout: () => 0, clearTimeout: () => {},
+      eventTarget: target, visibilityState: () => "visible",
+    });
+    b.write("a", '{"v":1}');
+    target.dispatchEvent({ type: "beforeunload" });
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].keepalive, true);
+  });
+});

@@ -227,8 +227,18 @@
       this._authDead = false;
       this._setTimeout = o.setTimeout || ((typeof globalThis !== "undefined") ? globalThis.setTimeout.bind(globalThis) : null);
       this._clearTimeout = o.clearTimeout || ((typeof globalThis !== "undefined") ? globalThis.clearTimeout.bind(globalThis) : null);
+      this._eventTarget = ("eventTarget" in o) ? o.eventTarget :
+        (typeof globalThis !== "undefined" && globalThis.addEventListener) ? globalThis : null;
+      this._visibilityState = o.visibilityState ||
+        ((typeof document !== "undefined") ? (() => document.visibilityState) : (() => "visible"));
       this._pending = new Map();   // cartId → JSON string awaiting push
       this._timer = null;
+      if (this._eventTarget && this._eventTarget.addEventListener) {
+        this._eventTarget.addEventListener("visibilitychange", () => {
+          if (this._visibilityState() === "hidden") this._flushKeepalive();
+        });
+        this._eventTarget.addEventListener("beforeunload", () => this._flushKeepalive());
+      }
     }
     _url(cartId) { return this._apiUrl + "/save/" + encodeURIComponent(cartId); }
     async _authHeaders() {
@@ -284,6 +294,27 @@
         // succeed once the token provider recovers.
         this._warn("CloudBackend: push aborted — " + (e && e.message || e));
       }
+    }
+    async _flushKeepalive() {
+      if (this._pending.size === 0 || this._authDead) return;
+      const headers = await this._authHeaders();
+      const entries = Array.from(this._pending.entries());
+      // Fire all PUTs synchronously: the page may be unloading any
+      // moment, and keepalive requests must be issued before the
+      // event handler returns to survive teardown. await'ing them
+      // sequentially would let later entries race the unload.
+      const inflight = entries.map(([cartId, json]) => {
+        const p = this._fetch(this._url(cartId), {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ bucket: JSON.parse(json) }),
+          keepalive: true,
+        });
+        return p.then(() => { this._pending.delete(cartId); }, () => {
+          // Page is unloading — best-effort. Mirror is durable, retry on next boot.
+        });
+      });
+      await Promise.all(inflight);
     }
     async read(cartId) {
       const headers = await this._authHeaders();
