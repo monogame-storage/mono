@@ -1085,27 +1085,33 @@ var Mono = (() => {
       return;
     }
     // ── Save backend resolution ──
-    // opts.saveBackend ∈ "persistent" | "memory"; default depends on
-    // whether cartId was supplied. Boot fails fast if save.js is missing
-    // (matches the MonoDraw / MonoBindings load checks above) so a page
-    // that forgot the script tag doesn't silently install throwing-stub
-    // data_* globals only to surface as a runtime error from inside the
-    // game.
-    const SaveLib = (typeof globalThis !== "undefined" && globalThis.MonoSave)
-                 || (typeof window !== "undefined" && window.MonoSave);
-    if (!SaveLib) {
-      showError("MonoSave not loaded. Include <script src=\"/runtime/save.js\"> before engine.js.");
-      return;
+    // Two paths:
+    //   1. Runner supplied a pre-built hook (`opts.save = { backend, cartId }`)
+    //      — we use it verbatim. This is how dev/headless/mono-runner.js
+    //      injects MemoryBackend, and how play.html / editor inject
+    //      CloudBackend when a Firebase user is signed in.
+    //   2. Runner only supplied opts.cartId / opts.saveBackend — engine
+    //      builds a default WebBackend (persistent) or MemoryBackend.
+    let saveHook;
+    if (opts.save && opts.save.backend && typeof opts.save.cartId === "string" && opts.save.cartId) {
+      saveHook = opts.save;
+    } else {
+      const SaveLib = (typeof globalThis !== "undefined" && globalThis.MonoSave)
+                   || (typeof window !== "undefined" && window.MonoSave);
+      if (!SaveLib) {
+        showError("MonoSave not loaded. Include <script src=\"/runtime/save.js\"> before engine.js.");
+        return;
+      }
+      const _cartId = opts.cartId || ("anon:" + Math.random().toString(36).slice(2, 10));
+      const _requested = opts.saveBackend || (opts.cartId ? "persistent" : "memory");
+      if (_requested === "persistent" && !opts.cartId) {
+        throw new Error("Mono.boot: saveBackend=\"persistent\" requires opts.cartId");
+      }
+      saveHook = {
+        backend: (_requested === "memory") ? new SaveLib.MemoryBackend() : new SaveLib.WebBackend(),
+        cartId: _cartId,
+      };
     }
-    const _cartId = opts.cartId || ("anon:" + Math.random().toString(36).slice(2, 10));
-    const _requested = opts.saveBackend || (opts.cartId ? "persistent" : "memory");
-    if (_requested === "persistent" && !opts.cartId) {
-      throw new Error("Mono.boot: saveBackend=\"persistent\" requires opts.cartId");
-    }
-    const saveHook = {
-      backend: (_requested === "memory") ? new SaveLib.MemoryBackend() : new SaveLib.WebBackend(),
-      cartId: _cartId,
-    };
     await Bindings.bind(lua, {
       input: {
         btn:        (k) => !!keys[k],
