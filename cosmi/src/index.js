@@ -549,7 +549,7 @@ async function deleteFile(env, key) {
 // the dev editor can render "📖 read_file main.lua ✓" style cards in
 // real time. File I/O goes straight to R2.
 
-import { lintEnginePrimitiveOverwrite } from "./lib/lint.js";
+import { lintEnginePrimitiveOverwrite, lintDataKeys } from "./lib/lint.js";
 import { validateAgentPath, validateGameId } from "./lib/path.js";
 import { extractApiWhitelist, lintApiCompliance, collectFileDefinedNames } from "./lib/api-lint.js";
 import { AGENT_TOOLS, AGENT_MAX_ITER, buildAgentSystemPrompt } from "./lib/agent-prompt.js";
@@ -716,6 +716,17 @@ async function execAgentTool(name, input, ctx) {
             snippet: input.content.slice(0, 500),
           });
           return { error: `write_file blocked for ${input.path}: ${violation}` };
+        }
+        const keyViolation = lintDataKeys(input.content);
+        if (keyViolation) {
+          await logLintRejection(env, uid, {
+            kind: "data_key",
+            gameId, path: input.path,
+            size: input.content.length,
+            reason: keyViolation,
+            snippet: input.content.slice(0, 500),
+          });
+          return { error: `write_file blocked for ${input.path}: ${keyViolation}` };
         }
         const whitelist = await getApiWhitelist(env);
         const projectDefined = await collectProjectGlobals(

@@ -51,3 +51,39 @@ export function lintEnginePrimitiveOverwrite(code) {
   }
   return null;
 }
+
+// Scan Lua source for `data_save("...", ...)` / `data_load("...")` / etc.
+// where the literal string key contains whitespace, NUL, is empty, or is
+// longer than 64 chars. Mirrors runtime validateKey rejection rules so the
+// agent gets a write-time error instead of a runtime crash from inside the
+// game. Only catches LITERAL string keys — runtime validation still handles
+// dynamic keys.
+const DATA_FNS = ["data_save", "data_load", "data_delete", "data_has"];
+export function lintDataKeys(code) {
+  if (typeof code !== "string" || !code) return null;
+  const stripped = code.replace(/--[^\n]*/g, "");
+  for (const fn of DATA_FNS) {
+    // Match `fn("...")` — captures the literal first argument. Lua double
+    // quotes only (single quotes and [[bracket strings]] skipped — covers
+    // the common case without false-positives from string interpolation).
+    const re = new RegExp(`\\b${fn}\\s*\\(\\s*"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"`, "g");
+    let m;
+    while ((m = re.exec(stripped)) !== null) {
+      const k = m[1];
+      if (k.length === 0) {
+        return `${fn}() called with empty string key — keys must be 1-64 chars, no whitespace.`;
+      }
+      if (k.length > 64) {
+        return `${fn}() called with key longer than 64 chars: "${k.slice(0, 32)}..." — shorten the key.`;
+      }
+      if (/\u0000/.test(k)) {
+        return `${fn}() called with key containing NUL — pick a different key.`;
+      }
+      if (/\s/.test(k)) {
+        const visible = k.replace(/\s/g, "·");
+        return `${fn}() called with key containing whitespace: "${visible}" — use underscore or hyphen instead (e.g. "${k.replace(/\s+/g, "_")}").`;
+      }
+    }
+  }
+  return null;
+}

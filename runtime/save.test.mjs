@@ -16,28 +16,28 @@ describe("MemoryBackend", () => {
 
   it("round-trips a bucket", () => {
     const b = new MonoSave.MemoryBackend();
-    b.write("g", { score: 42, name: "a" });
+    b.write("g", '{"score":42,"name":"a"}');
     assert.deepEqual(b.read("g"), { score: 42, name: "a" });
   });
 
   it("isolates cartIds", () => {
     const b = new MonoSave.MemoryBackend();
-    b.write("a", { v: 1 });
-    b.write("b", { v: 2 });
+    b.write("a", '{"v":1}');
+    b.write("b", '{"v":2}');
     assert.deepEqual(b.read("a"), { v: 1 });
     assert.deepEqual(b.read("b"), { v: 2 });
   });
 
   it("clear removes the bucket", () => {
     const b = new MonoSave.MemoryBackend();
-    b.write("g", { v: 1 });
+    b.write("g", '{"v":1}');
     b.clear("g");
     assert.deepEqual(b.read("g"), {});
   });
 
   it("returns a deep copy on read so callers can't mutate stored state", () => {
     const b = new MonoSave.MemoryBackend();
-    b.write("g", { nested: { x: 1 } });
+    b.write("g", '{"nested":{"x":1}}');
     const out = b.read("g");
     out.nested.x = 999;
     assert.deepEqual(b.read("g"), { nested: { x: 1 } });
@@ -238,27 +238,27 @@ describe("WebBackend — localStorage path", () => {
 
   it("write stores under the spec'd key", () => {
     const b = new MonoSave.WebBackend({ storage });
-    b.write("g", { v: 1 });
+    b.write("g", '{"v":1}');
     assert.deepEqual(storage._entries(), [["mono:save:g", '{"v":1}']]);
   });
 
   it("read deserializes a previously-written bucket", () => {
     const b = new MonoSave.WebBackend({ storage });
-    b.write("g", { score: 7 });
+    b.write("g", '{"score":7}');
     assert.deepEqual(b.read("g"), { score: 7 });
   });
 
   it("isolates cartIds via key prefix", () => {
     const b = new MonoSave.WebBackend({ storage });
-    b.write("a", { v: 1 });
-    b.write("b", { v: 2 });
+    b.write("a", '{"v":1}');
+    b.write("b", '{"v":2}');
     assert.deepEqual(b.read("a"), { v: 1 });
     assert.deepEqual(b.read("b"), { v: 2 });
   });
 
   it("clear removes the entry entirely", () => {
     const b = new MonoSave.WebBackend({ storage });
-    b.write("g", { v: 1 });
+    b.write("g", '{"v":1}');
     b.clear("g");
     assert.deepEqual(storage._entries(), []);
   });
@@ -289,7 +289,7 @@ describe("WebBackend — native bridge path", () => {
     const bridge = makeFakeBridge();
     const storage = { getItem: () => "SHOULD_NOT_BE_READ", setItem: () => {}, removeItem: () => {} };
     const b = new MonoSave.WebBackend({ storage, bridge });
-    b.write("g", { v: 1 });
+    b.write("g", '{"v":1}');
     assert.deepEqual(bridge._entries(), [["g", '{"v":1}']]);
     assert.deepEqual(b.read("g"), { v: 1 });
   });
@@ -301,7 +301,7 @@ describe("WebBackend — native bridge path", () => {
       clear: () => {},
     };
     const b = new MonoSave.WebBackend({ bridge });
-    assert.throws(() => b.write("g", { v: 1 }), /save: backend write failed/);
+    assert.throws(() => b.write("g", '{"v":1}'), /save: backend write failed/);
   });
 
   it("write surfaces the underlying storage error message", () => {
@@ -311,7 +311,7 @@ describe("WebBackend — native bridge path", () => {
       removeItem: () => {},
     };
     const b = new MonoSave.WebBackend({ storage, bridge: null });
-    assert.throws(() => b.write("g", { v: 1 }), /save: backend write failed: QuotaExceededError/);
+    assert.throws(() => b.write("g", '{"v":1}'), /save: backend write failed: QuotaExceededError/);
   });
 
   it("clear throws when no transport is configured", () => {
@@ -321,6 +321,6 @@ describe("WebBackend — native bridge path", () => {
 
   it("write throws when no transport is configured", () => {
     const b = new MonoSave.WebBackend({ storage: null, bridge: null });
-    assert.throws(() => b.write("g", { v: 1 }), /save: backend write failed/);
+    assert.throws(() => b.write("g", '{"v":1}'), /save: backend write failed/);
   });
 });

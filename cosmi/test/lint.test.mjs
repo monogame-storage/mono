@@ -5,7 +5,7 @@
 // the pattern through.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { lintEnginePrimitiveOverwrite, ENGINE_GLOBALS } from "../src/lib/lint.js";
+import { lintEnginePrimitiveOverwrite, lintDataKeys, ENGINE_GLOBALS } from "../src/lib/lint.js";
 
 describe("lintEnginePrimitiveOverwrite — flagged patterns", () => {
   it("flags a global function decl shadowing an engine primitive", () => {
@@ -96,5 +96,71 @@ describe("ENGINE_GLOBALS", () => {
 
   it("has no duplicate entries", () => {
     assert.equal(new Set(ENGINE_GLOBALS).size, ENGINE_GLOBALS.length);
+  });
+});
+
+describe("lintDataKeys — flagged literal keys", () => {
+  it("flags space in data_save key", () => {
+    assert.match(lintDataKeys('data_save("hi score", 1)'), /whitespace/);
+  });
+
+  it("flags literal tab in key", () => {
+    // Actual tab character in the Lua source (not the escape sequence \t).
+    assert.match(lintDataKeys('data_load("a\tb")'), /whitespace/);
+  });
+
+  it("flags newline in key", () => {
+    assert.match(lintDataKeys('data_save("a\nb", 1)'), /whitespace/);
+  });
+
+  it("flags empty key", () => {
+    assert.match(lintDataKeys('data_save("", 1)'), /empty/);
+  });
+
+  it("flags key longer than 64 chars", () => {
+    const long = "k".repeat(65);
+    assert.match(lintDataKeys(`data_has("${long}")`), /longer than 64/);
+  });
+
+  it("flags whitespace in data_delete key", () => {
+    assert.match(lintDataKeys('data_delete("settings v2")'), /whitespace/);
+  });
+
+  it("includes a fixed-key suggestion", () => {
+    const msg = lintDataKeys('data_save("hi score", 1)');
+    assert.match(msg, /hi_score/);
+  });
+});
+
+describe("lintDataKeys — passes legitimate code", () => {
+  it("allows underscore", () => {
+    assert.equal(lintDataKeys('data_save("hi_score", 42)'), null);
+  });
+
+  it("allows hyphen", () => {
+    assert.equal(lintDataKeys('data_load("hi-score")'), null);
+  });
+
+  it("allows alphanumeric", () => {
+    assert.equal(lintDataKeys('data_save("score123", 1)'), null);
+  });
+
+  it("allows max-length key (64 chars)", () => {
+    const k = "k".repeat(64);
+    assert.equal(lintDataKeys(`data_save("${k}", 1)`), null);
+  });
+
+  it("ignores commented-out violations", () => {
+    assert.equal(lintDataKeys('-- data_save("bad key", 1)'), null);
+  });
+
+  it("ignores dynamic keys (variable, not literal)", () => {
+    assert.equal(lintDataKeys('local k = "bad key"\ndata_save(k, 1)'), null);
+  });
+
+  it("returns null for empty / non-string input", () => {
+    assert.equal(lintDataKeys(""), null);
+    assert.equal(lintDataKeys(null), null);
+    assert.equal(lintDataKeys(undefined), null);
   });
 });

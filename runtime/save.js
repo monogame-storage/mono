@@ -27,17 +27,20 @@
   const MAX_KEY_LEN = 64;
   const MAX_DEPTH = 16;
 
-  // ── MemoryBackend — in-process Map keyed by cartId, JSON deep-copied
-  // on every read/write so callers cannot mutate stored state by holding
-  // on to a returned reference.
+  // ── MemoryBackend — in-process Map keyed by cartId. Stores the
+  // serialized JSON string so every read returns a fresh parse; callers
+  // cannot mutate stored state by holding on to a returned reference.
+  // write() expects a pre-stringified JSON string (the bindings layer
+  // computes it once via serializeBucket; passing it through avoids a
+  // redundant stringify per save).
   class MemoryBackend {
     constructor() { this._buckets = new Map(); }
     read(cartId) {
       const stored = this._buckets.get(cartId);
       return stored ? JSON.parse(stored) : {};
     }
-    write(cartId, bucket) {
-      this._buckets.set(cartId, JSON.stringify(bucket));
+    write(cartId, json) {
+      this._buckets.set(cartId, json);
     }
     clear(cartId) {
       this._buckets.delete(cartId);
@@ -164,8 +167,7 @@
       }
       return {};
     }
-    write(cartId, bucket) {
-      const json = JSON.stringify(bucket);
+    write(cartId, json) {
       if (this._bridge) {
         const ok = this._bridge.write(cartId, json);
         if (!ok) throw new Error("save: backend write failed");
