@@ -305,3 +305,5 @@ Use a fake `fetch`, fake `localStorage`, and fake `setTimeout/clearTimeout` to d
 - **Save inspector** in `dev/` (already noted in v1 spec).
 - **Per-user quota cap** (e.g. 100 carts × 64KB) once usage data exists.
 - **Sync timestamp UI** ("last synced 3 minutes ago") for transparency.
+- **Worker body-size streaming inspection.** `handleSavePut` currently buffers the full body via `request.text()` before measuring length — an authenticated client that streams up to CF's 100MB platform cap can burn isolate CPU/memory before the 70KB post-parse check fires. Stream via `request.body.getReader()` and abort once the cap is exceeded. Bounded by `verifyAuth`, so not a public DoS, but worth tightening once we have real auth-misuse signal.
+- **`getToken` deadline.** `_authHeaders()` and `_flushKeepalive()` await `getToken()` with no `Promise.race` against a timeout. If Firebase's token refresh hangs (iOS Safari background, IndexedDB lock), the keepalive PUT misses the unload window. Wrap in a 1-second deadline that falls back to skipping the push (mirror is durable; next boot recovers).

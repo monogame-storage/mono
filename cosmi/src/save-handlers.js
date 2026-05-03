@@ -55,6 +55,14 @@ export async function handleSavePut(env, uid, cartId, request) {
   // Fast-path 413 from Content-Length to avoid buffering oversized requests.
   // Non-numeric / missing headers fall through to the post-parse byte check
   // below — Content-Length alone is spoofable, so it's a hint, not the gate.
+  //
+  // Known limitation: an authenticated client that omits Content-Length and
+  // streams up to 100MB (CF Workers' platform cap) burns isolate CPU/memory
+  // until request.text() resolves. The post-parse check rejects after
+  // buffering. Streaming inspection via request.body.getReader() would
+  // abort earlier — flagged as BETA follow-up. Bounded by verifyAuth, so
+  // not a public DoS vector, but a single bad authenticated client can
+  // chew through Worker time. Acceptable trade-off in ALPHA.
   const lenHeader = request.headers.get("Content-Length");
   const declaredLen = lenHeader ? parseInt(lenHeader, 10) : 0;
   if (declaredLen > MAX_BODY_BYTES) return json(413, { error: "body too large" });

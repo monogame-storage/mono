@@ -538,6 +538,58 @@ describe("CloudBackend — migration on 404 + anonymous mirror", () => {
     });
     assert.deepEqual(await b.read("demo:bounce"), {});
   });
+
+  it("treats 200 with empty bucket as a migration trigger (anon recovery)", async () => {
+    // The worker repairs corrupt R2 records to {bucket: {}} for graceful
+    // UX. Without this guard, that repair would silently overwrite the
+    // anonymous mirror's data. 200 + empty + anon-has-data → migrate.
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:demo:bounce", '{"hi":42}');
+    let putBody = null;
+    const fetchFn = async (url, init) => {
+      if (init.method === "GET") return new Response(JSON.stringify({ bucket: {} }), { status: 200 });
+      if (init.method === "PUT") { putBody = init.body; return new Response(null, { status: 204 }); }
+      throw new Error("unexpected method");
+    };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage,
+      setTimeout: (fn) => { fn(); return 0; }, clearTimeout: () => {},
+    });
+    assert.deepEqual(await b.read("demo:bounce"), { hi: 42 });
+    await b._flushed;
+    assert.equal(storage.getItem("mono:save:u1:demo:bounce"), '{"hi":42}');
+    assert.deepEqual(JSON.parse(putBody), { bucket: { hi: 42 } });
+  });
+
+  it("falls back to mirror when getToken throws", async () => {
+    // Firebase getIdToken can reject on token-refresh blips. The boot
+    // must not die — the mirror has the last-known-good state.
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:u1:demo:bounce", '{"hi":99}');
+    const b = new MonoSave.CloudBackend({
+      uid: "u1",
+      getToken: async () => { throw new Error("token refresh blip"); },
+      apiUrl: "https://x",
+      fetch: async () => new Response(null, { status: 200 }),
+      storage, warn: () => {},
+      setTimeout: () => 0, clearTimeout: () => {},
+    });
+    assert.deepEqual(await b.read("demo:bounce"), { hi: 99 });
+  });
+
+  it("falls back to mirror when 200 body is corrupt JSON", async () => {
+    // res.json() can throw on flaky-proxy truncation. Don't take down boot.
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:u1:demo:bounce", '{"hi":7}');
+    const fetchFn = async () => new Response("{not json", { status: 200, headers: { "Content-Type": "application/json" } });
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, warn: () => {},
+      setTimeout: () => 0, clearTimeout: () => {},
+    });
+    assert.deepEqual(await b.read("demo:bounce"), { hi: 7 });
+  });
 });
 
 describe("CloudBackend — write + debounce", () => {

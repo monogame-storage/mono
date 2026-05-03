@@ -339,6 +339,19 @@
       // session token), every read would be a guaranteed-failure round
       // trip. Skip the network and serve from the mirror.
       if (this._authDead) return this._mirror.read(cartId);
+      // Wrap the entire read in try/catch so any thrown async (getToken
+      // hang, IndexedDB lock, malformed JSON response, transient SDK bug)
+      // falls back to the mirror instead of crashing Mono.boot. The
+      // game's last-known-good state stays playable when the cloud is
+      // unreachable for any reason — that's the offline-first guarantee.
+      try {
+        return await this._readNetwork(cartId);
+      } catch (e) {
+        this._warn("CloudBackend: read failed (" + (e && e.message || e) + ") — serving from mirror");
+        return this._mirror.read(cartId);
+      }
+    }
+    async _readNetwork(cartId) {
       const headers = await this._authHeaders();
       let res;
       try {
@@ -352,6 +365,17 @@
         const body = await res.json();
         const bucket = (body && typeof body.bucket === "object" && body.bucket && !Array.isArray(body.bucket))
           ? body.bucket : {};
+        // Empty bucket on a cart that has anonymous data MUST trigger
+        // migration. Without this, a previously-corrupt R2 record (which
+        // the worker rewrites to {bucket:{}} for graceful UX) silently
+        // hides the user's anonymous progress on first login. Treat
+        // "200 empty" the same as "404" for the migration check —
+        // the cloud authoritatively has nothing for this cart, but the
+        // local anon mirror has data we can recover.
+        if (Object.keys(bucket).length === 0) {
+          const migrated = this._tryMigrateAnon(cartId);
+          if (migrated) return migrated;
+        }
         this._mirror.write(cartId, JSON.stringify(bucket));
         return bucket;
       }
@@ -361,31 +385,34 @@
         return {};
       }
       if (res.status === 404) {
-        // First login on this device with anonymous progress on the same
-        // cartId? Read the anonymous mirror (DIFFERENT prefix from our
-        // per-uid mirror), and if it has a usable bucket, write it through
-        // to our mirror and schedule an immediate migration push. Anonymous
-        // key is intentionally NOT removed. The push is scheduled (delay 0)
-        // — fire-and-forget. CT10's keepalive flush catches it on tab
-        // close; the next debounce cycle catches it if the user keeps
-        // playing. Tests observe it via `await b._flushed`.
-        const anonRaw = this._storage ? this._storage.getItem(DEFAULT_KEY_PREFIX + cartId) : null;
-        if (anonRaw) {
-          let anonBucket;
-          try {
-            const parsed = JSON.parse(anonRaw);
-            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) anonBucket = parsed;
-          } catch {}
-          if (anonBucket) {
-            this._mirror.write(cartId, anonRaw);
-            this._schedulePush(cartId, anonRaw, 0);
-            return anonBucket;
-          }
-        }
+        const migrated = this._tryMigrateAnon(cartId);
+        if (migrated) return migrated;
         return {};
       }
       // 5xx or other — fall back to mirror.
       return this._mirror.read(cartId);
+    }
+    // First login on this device with anonymous progress on the same
+    // cartId? Read the anonymous mirror (DIFFERENT prefix from the
+    // per-uid mirror), and if it has a usable bucket, write it through
+    // to our mirror and schedule an immediate migration push. Anonymous
+    // key is intentionally NOT removed. The push is scheduled (delay 0)
+    // — fire-and-forget. The keepalive flush catches it on tab close;
+    // the next debounce cycle catches it if the user keeps playing.
+    // Tests observe it via `await b._flushed`. Returns the migrated
+    // bucket on success, null when there's nothing to migrate.
+    _tryMigrateAnon(cartId) {
+      const anonRaw = this._storage ? this._storage.getItem(DEFAULT_KEY_PREFIX + cartId) : null;
+      if (!anonRaw) return null;
+      let anonBucket;
+      try {
+        const parsed = JSON.parse(anonRaw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) anonBucket = parsed;
+      } catch {}
+      if (!anonBucket) return null;
+      this._mirror.write(cartId, anonRaw);
+      this._schedulePush(cartId, anonRaw, 0);
+      return anonBucket;
     }
     write(cartId, json) {
       // Mirror is the authoritative local copy. A failed cloud push must
