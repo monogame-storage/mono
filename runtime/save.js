@@ -26,6 +26,13 @@
   const QUOTA_BYTES = 65536;
   const MAX_KEY_LEN = 64;
   const MAX_DEPTH = 16;
+  // Default localStorage namespace. Anonymous saves land at
+  // DEFAULT_KEY_PREFIX + cartId. CloudBackend's per-uid mirror appends
+  // the uid before passing the prefix to its inner WebBackend, but it
+  // also reads anonymous saves directly from this namespace during
+  // first-login migration — keeping a single source of truth here
+  // prevents the two sites from drifting.
+  const DEFAULT_KEY_PREFIX = "mono:save:";
 
   // ── MemoryBackend — in-process Map keyed by cartId. Stores the
   // serialized JSON string so every read returns a fresh parse; callers
@@ -151,7 +158,7 @@
       this._warnedFor = new Set();   // cartIds we've already warned about
       // keyPrefix lets CloudBackend reuse this class as a per-uid mirror
       // without colliding with anonymous saves under the default prefix.
-      this._keyPrefix = (typeof o.keyPrefix === "string") ? o.keyPrefix : "mono:save:";
+      this._keyPrefix = (typeof o.keyPrefix === "string") ? o.keyPrefix : DEFAULT_KEY_PREFIX;
     }
     _key(cartId) { return this._keyPrefix + cartId; }
     read(cartId) {
@@ -214,7 +221,7 @@
       this._mirror = new WebBackend({
         storage: this._storage,
         bridge: null,                                        // mirror is localStorage-only
-        keyPrefix: "mono:save:" + this._uid + ":",
+        keyPrefix: DEFAULT_KEY_PREFIX + this._uid + ":",
         warn: this._warn,
       });
       this._authDead = false;
@@ -231,36 +238,51 @@
     _schedulePush(cartId, json, delayMs) {
       this._pending.set(cartId, json);
       if (this._timer && this._clearTimeout) this._clearTimeout(this._timer);
-      this._timer = this._setTimeout ? this._setTimeout(() => this._flush(), delayMs) : null;
+      // Track the in-flight flush as a Promise on the instance so callers
+      // and tests can `await b._flushed` to drain pending work without
+      // racing on microtasks. The setTimeout-driven invocation can't be
+      // awaited externally since the timer discards its return; the
+      // Promise we attach here closes that observability gap.
+      this._timer = this._setTimeout
+        ? this._setTimeout(() => { this._flushed = this._flush(); }, delayMs)
+        : null;
     }
     async _flush() {
       this._timer = null;
       if (this._authDead) { this._pending.clear(); return; }
-      const headers = await this._authHeaders();
-      const entries = Array.from(this._pending.entries());
-      for (const [cartId, json] of entries) {
-        try {
-          const res = await this._fetch(this._url(cartId), {
-            method: "PUT",
-            headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify({ bucket: JSON.parse(json) }),
-          });
-          if (res.ok) { this._pending.delete(cartId); continue; }
-          if (res.status === 401) {
-            this._authDead = true;
-            this._pending.clear();
-            this._warn("CloudBackend: 401 on push — disabling push for this session");
-            return;
+      try {
+        const headers = await this._authHeaders();
+        const entries = Array.from(this._pending.entries());
+        for (const [cartId, json] of entries) {
+          try {
+            const res = await this._fetch(this._url(cartId), {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ bucket: JSON.parse(json) }),
+            });
+            if (res.ok) { this._pending.delete(cartId); continue; }
+            if (res.status === 401) {
+              this._authDead = true;
+              this._pending.clear();
+              this._warn("CloudBackend: 401 on push — disabling push for this session");
+              return;
+            }
+            if (res.status === 413) {
+              this._pending.delete(cartId);
+              this._warn("CloudBackend: 413 on push (cartId=" + cartId + ") — clientside cap should have prevented this");
+              continue;
+            }
+            // 5xx: leave in pending, retry next debounce.
+          } catch {
+            // Network error: leave in pending, retry next debounce.
           }
-          if (res.status === 413) {
-            this._pending.delete(cartId);
-            this._warn("CloudBackend: 413 on push (cartId=" + cartId + ") — clientside cap should have prevented this");
-            continue;
-          }
-          // 5xx: leave in pending, retry next debounce.
-        } catch {
-          // Network error: leave in pending, retry next debounce.
         }
+      } catch (e) {
+        // getToken (or anything else outside the per-entry try) threw.
+        // Surfacing as warn so we don't leak unhandled rejections through
+        // the timer-driven invocation. Pending stays — next attempt may
+        // succeed once the token provider recovers.
+        this._warn("CloudBackend: push aborted — " + (e && e.message || e));
       }
     }
     async read(cartId) {
@@ -290,8 +312,11 @@
         // cartId? Read the anonymous mirror (DIFFERENT prefix from our
         // per-uid mirror), and if it has a usable bucket, write it through
         // to our mirror and schedule an immediate migration push. Anonymous
-        // key is intentionally NOT removed.
-        const anonRaw = this._storage ? this._storage.getItem("mono:save:" + cartId) : null;
+        // key is intentionally NOT removed. The push is scheduled (delay 0)
+        // — fire-and-forget. CT10's keepalive flush catches it on tab
+        // close; the next debounce cycle catches it if the user keeps
+        // playing. Tests observe it via `await b._flushed`.
+        const anonRaw = this._storage ? this._storage.getItem(DEFAULT_KEY_PREFIX + cartId) : null;
         if (anonRaw) {
           let anonBucket;
           try {
@@ -300,13 +325,7 @@
           } catch {}
           if (anonBucket) {
             this._mirror.write(cartId, anonRaw);
-            // Schedule + immediately drain. The schedule plants the entry
-            // in _pending so a real timer would also flush it; the await on
-            // _flush guarantees the PUT is actually issued inline (callers
-            // and tests observe it before read returns). If the scheduled
-            // timer fires later it sees _pending empty and no-ops.
             this._schedulePush(cartId, anonRaw, 0);
-            await this._flush();
             return anonBucket;
           }
         }

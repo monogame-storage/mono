@@ -511,6 +511,11 @@ describe("CloudBackend — migration on 404 + anonymous mirror", () => {
     const out = await b.read("demo:bounce");
     assert.deepEqual(out, { hi: 42 });
 
+    // The migration push is fire-and-forget; the synchronous setTimeout
+    // fixture invokes _flush() but discards the returned Promise. Drain
+    // it via _flushed so the PUT lands before we assert on it.
+    await b._flushed;
+
     // Per-uid mirror now has the migrated data.
     assert.equal(storage.getItem("mono:save:u1:demo:bounce"), '{"hi":42}');
 
