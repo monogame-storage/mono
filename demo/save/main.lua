@@ -43,6 +43,8 @@ local err_tests = {
   { label = "NaN value",      fn = function() data_save("k", 0/0) end },
 }
 local err_msg = nil
+local err_scroll = 0          -- ticker scroll position for long messages
+local TICKER_CHARS = 26       -- visible char window in the bottom strip
 
 -- ── Menu navigation (flat index across all three sections) ──────────────
 -- Indices: 1..3 = fields, 4..5 = api (has, delete), 6..10 = errors.
@@ -54,9 +56,20 @@ local sel = 1
 
 local function is_field(i) return i >= 1 and i <= FIELD_COUNT end
 local function is_api(i)   return i > FIELD_COUNT and i <= FIELD_COUNT + API_COUNT end
-local function is_error(i) return i > FIELD_COUNT + API_COUNT end
+local function is_error(i) return i > FIELD_COUNT + API_COUNT and i <= TOTAL end
 local function api_idx(i)  return i - FIELD_COUNT end           -- 1=has, 2=delete
 local function err_idx(i)  return i - FIELD_COUNT - API_COUNT end
+
+-- ── Cached bucket state ─────────────────────────────────────────────────
+-- data_keys() and data_has() touch the binding's bucket cache; cheap, but
+-- calling them on every _draw frame is wasteful and a bad pattern to
+-- copy. Refresh only after a mutation (save / delete / clear).
+local key_count = 0
+local has_cache = { false, false, false }
+local function refresh_state()
+  key_count = #data_keys()
+  for i = 1, FIELD_COUNT do has_cache[i] = data_has(KEYS[i]) end
+end
 
 -- ── Flash ───────────────────────────────────────────────────────────────
 local flash, flash_msg = 0, ""
@@ -79,6 +92,7 @@ function _start()
     -- fallback is the canonical idiom for first-run init.
     values[i] = data_load(KEYS[i]) or DEFAULTS[i]
   end
+  refresh_state()
 end
 
 function _update()
@@ -87,10 +101,12 @@ function _update()
   if btnp("up") then
     sel = (sel - 2) % TOTAL + 1
     err_msg = nil
+    err_scroll = 0
   end
   if btnp("down") then
     sel = sel % TOTAL + 1
     err_msg = nil
+    err_scroll = 0
   end
 
   -- ← → meaning depends on the selected row's section
@@ -117,6 +133,7 @@ function _update()
   if btnp("a") then
     if is_field(sel) then
       data_save(KEYS[sel], values[sel])
+      refresh_state()
       flash_text("SAVED " .. LABELS[sel])
     elseif is_api(sel) then
       local key = TARGETS[target_idx]
@@ -124,14 +141,17 @@ function _update()
         has_result = data_has(key)
       else
         del_result = data_delete(key) and "DEL" or "NO KEY"
+        refresh_state()
       end
     elseif is_error(sel) then
       local test = err_tests[err_idx(sel)]
       local ok, err = pcall(test.fn)
       err_msg = ok and "[" .. test.label .. "] no error?" or tostring(err)
+      err_scroll = 0
     end
   elseif btnp("b") and is_field(sel) then
     if data_delete(KEYS[sel]) then
+      refresh_state()
       flash_text("DEL " .. LABELS[sel])
     else
       flash_text("NO KEY")
@@ -139,6 +159,7 @@ function _update()
   elseif btnp("start") then
     data_clear()
     for i = 1, FIELD_COUNT do values[i] = DEFAULTS[i] end
+    refresh_state()
     has_result = nil
     del_result = nil
     err_msg    = nil
@@ -146,6 +167,11 @@ function _update()
   end
 
   if flash > 0 then flash = flash - 1 end
+  -- Scroll the error ticker once per frame when the message overflows the
+  -- visible width. Reset on new error (above) and on cursor move (also above).
+  if err_msg and #err_msg > TICKER_CHARS then
+    err_scroll = err_scroll + 1
+  end
 end
 
 -- ── Drawing ─────────────────────────────────────────────────────────────
@@ -153,10 +179,27 @@ local function caret(y) text(scr, ">", 2, y, 15) end
 
 local function draw_field(i, y)
   if sel == i then caret(y) end
-  if data_has(KEYS[i]) then circf(scr, 12, y + 2, 2, 14)
-                       else circ (scr, 12, y + 2, 2, 7)  end
+  -- has_cache is refreshed only after mutations; reading it here is O(1).
+  if has_cache[i] then circf(scr, 12, y + 2, 2, 14)
+                  else circ (scr, 12, y + 2, 2, 7)  end
   text(scr, LABELS[i],        18, y, 11)
   text(scr, display_value(i), 78, y, 15)
+end
+
+-- Render `s` in a (TICKER_CHARS * 6)-wide window starting at (x, y).
+-- If the message fits, draw it once. If it doesn't, scroll horizontally:
+-- pad the source with a separator, then take a window slice that wraps.
+local function draw_ticker(s, x, y, color)
+  if #s <= TICKER_CHARS then
+    text(scr, s, x, y, color)
+    return
+  end
+  local pad = "   "
+  local doubled = s .. pad .. s
+  local len = #s + #pad
+  -- Slow the scroll to one char per 4 frames so it's readable.
+  local off = (math.floor(err_scroll / 4) % len) + 1
+  text(scr, doubled:sub(off, off + TICKER_CHARS - 1), x, y, color)
 end
 
 local function draw_api(idx, y)
@@ -184,7 +227,7 @@ function _draw()
   cls(scr, 0)
 
   text(scr, "SAVE DEMO", 2, 2, 15)
-  text(scr, "keys " .. tostring(#data_keys()) .. "/3", 110, 2, 8)
+  text(scr, "keys " .. tostring(key_count) .. "/3", 110, 2, 8)
 
   draw_field(1, 12)
   draw_field(2, 20)
@@ -199,10 +242,11 @@ function _draw()
     draw_err(i, 72 + (i - 1) * 8)
   end
 
-  -- Last captured error from A on an error row
+  -- Last captured error from A on an error row. Long messages scroll
+  -- left-to-right via draw_ticker; short ones render in place.
   if err_msg then
     rectf(scr, 0, 112, SCREEN_W, 8, 0)
-    text(scr, err_msg:sub(1, 26), 2, 113, 12)
+    draw_ticker(err_msg, 2, 113, 12)
   end
 
   if flash > 0 then
