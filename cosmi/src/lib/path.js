@@ -25,3 +25,17 @@ export function validateGameId(g) {
   }
   return null;
 }
+
+// Reject malformed cartId values before they hit R2 as a save key. cartId
+// is a richer namespace than gameId — it carries scheme prefixes like
+// "demo:bounce" or "pkg:com.foo.bar" — but path-traversal characters
+// (slash, backslash, dot, NUL, whitespace) must be rejected. The colon
+// is allowed because the only place cartIds appear is *inside* a path
+// segment, never as a delimiter on the worker side.
+export function validateCartId(s) {
+  if (typeof s !== "string" || !s) return "cartId required";
+  if (!/^[a-zA-Z0-9:_-]{1,80}$/.test(s)) {
+    return "must match /^[a-zA-Z0-9:_-]{1,80}$/";
+  }
+  return null;
+}

@@ -2,7 +2,7 @@
 // untrusted — these vectors must never reach R2 key concatenation.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { validateAgentPath, validateGameId } from "../src/lib/path.js";
+import { validateAgentPath, validateGameId, validateCartId } from "../src/lib/path.js";
 
 describe("validateAgentPath", () => {
   it("accepts a plain filename", () => {
@@ -88,5 +88,46 @@ describe("validateGameId", () => {
 
   it("accepts a 64-char id at the boundary", () => {
     assert.equal(validateGameId("a".repeat(64)), null);
+  });
+});
+
+describe("validateCartId", () => {
+  it("accepts plain alphanumerics", () => {
+    assert.equal(validateCartId("game42"), null);
+  });
+
+  it("accepts colons and underscores and hyphens", () => {
+    assert.equal(validateCartId("demo:bounce"), null);
+    assert.equal(validateCartId("pkg:com.foo"), "must match /^[a-zA-Z0-9:_-]{1,80}$/"); // dot rejected
+    assert.equal(validateCartId("pkg:com_foo"), null);
+    assert.equal(validateCartId("hi-score_v2"), null);
+  });
+
+  it("accepts boundary length 80", () => {
+    assert.equal(validateCartId("a".repeat(80)), null);
+  });
+
+  it("rejects empty / null / non-string", () => {
+    assert.match(validateCartId(""), /required/);
+    assert.match(validateCartId(null), /required/);
+    assert.match(validateCartId(undefined), /required/);
+    assert.match(validateCartId(42), /required/);
+  });
+
+  it("rejects > 80 chars", () => {
+    assert.match(validateCartId("a".repeat(81)), /must match/);
+  });
+
+  it("rejects path traversal vectors", () => {
+    assert.match(validateCartId("../foo"), /must match/);
+    assert.match(validateCartId("foo/bar"), /must match/);
+    assert.match(validateCartId("foo\\bar"), /must match/);
+    assert.match(validateCartId(".."), /must match/);
+  });
+
+  it("rejects whitespace and control chars", () => {
+    assert.match(validateCartId("foo bar"), /must match/);
+    assert.match(validateCartId("foo\tbar"), /must match/);
+    assert.match(validateCartId("foo\0bar"), /must match/);
   });
 });
