@@ -210,11 +210,32 @@
           bucket = next;
           return;
         }
+        // Pre-validate the top-level value for types that JSON.stringify
+        // silently corrupts: NaN/±Infinity → "null", functions → undefined
+        // (causing JSON.parse to choke on the literal "undefined"). The
+        // round-trip below is what normalizes Wasmoon-Lua-table proxies
+        // into plain JS objects, so we can't reorder it without
+        // rewriting the proxy walk. Top-level checks here cover the
+        // common cases the demo and tests exercise; nested invalid values
+        // (e.g. NaN inside a table) are still silently coerced — fix
+        // by walking the proxy if that becomes a real concern.
+        if (typeof value === "function") {
+          throw new Error("save: unserializable function");
+        }
+        if (typeof value === "number" && !isFinite(value)) {
+          throw new Error("save: unserializable NaN/Inf");
+        }
         // Wasmoon presents Lua tables to JS as plain objects. Take a
         // defensive deep copy via JSON round-trip so later mutations to
-        // the Lua table don't reach into our cache.
+        // the Lua table don't reach into our cache. Wrap in try/catch
+        // so any remaining JSON failure surfaces a spec'd error message
+        // instead of a raw SyntaxError.
         const next = Object.assign({}, bucket);
-        next[key] = JSON.parse(JSON.stringify(value));
+        try {
+          next[key] = JSON.parse(JSON.stringify(value));
+        } catch (e) {
+          throw new Error("save: unserializable " + typeof value);
+        }
         // serializeBucket validates AND returns the canonical JSON. If it
         // throws (bad value, NaN, cycle, depth, quota), `bucket` is
         // unchanged. Pass the returned json straight to backend.write so
