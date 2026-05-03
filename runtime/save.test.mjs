@@ -423,3 +423,60 @@ describe("CloudBackend — constructor + read happy path", () => {
     assert.deepEqual(JSON.parse(entries[0][1]), { hi: 7 });
   });
 });
+
+describe("CloudBackend — read failure paths", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+
+  it("returns {} on 404 when no anonymous mirror exists", async () => {
+    const fetchFn = async () => new Response(null, { status: 404 });
+    const storage = makeFakeStorage();
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage,
+    });
+    assert.deepEqual(await b.read("demo:bounce"), {});
+  });
+
+  it("falls back to per-uid mirror on network error", async () => {
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:u1:demo:bounce", '{"hi":99}');
+    const fetchFn = async () => { throw new Error("offline"); };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage,
+    });
+    assert.deepEqual(await b.read("demo:bounce"), { hi: 99 });
+  });
+
+  it("returns {} and warns once on 401", async () => {
+    const fetchFn = async () => new Response(null, { status: 401 });
+    const storage = makeFakeStorage();
+    const warnings = [];
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, warn: (m) => warnings.push(m),
+    });
+    assert.deepEqual(await b.read("demo:bounce"), {});
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /401/);
+  });
+
+  it("after 401 the backend is auth-dead (writes/clears no-op)", async () => {
+    // We won't fully exercise write yet (Task 8) — just verify the flag.
+    const fetchFn = async () => new Response(null, { status: 401 });
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage: makeFakeStorage(), warn: () => {},
+    });
+    await b.read("demo:bounce");
+    assert.equal(b._authDead, true);   // internal flag, exposed for test introspection
+  });
+});

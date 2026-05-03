@@ -217,6 +217,7 @@
         keyPrefix: "mono:save:" + this._uid + ":",
         warn: this._warn,
       });
+      this._authDead = false;
     }
     _url(cartId) { return this._apiUrl + "/save/" + encodeURIComponent(cartId); }
     async _authHeaders() {
@@ -225,7 +226,14 @@
     }
     async read(cartId) {
       const headers = await this._authHeaders();
-      const res = await this._fetch(this._url(cartId), { method: "GET", headers });
+      let res;
+      try {
+        res = await this._fetch(this._url(cartId), { method: "GET", headers });
+      } catch (e) {
+        // Network failure — fall back to mirror, leave push enabled
+        // so subsequent writes can recover when connectivity returns.
+        return this._mirror.read(cartId);
+      }
       if (res.status === 200) {
         const body = await res.json();
         const bucket = (body && typeof body.bucket === "object" && body.bucket && !Array.isArray(body.bucket))
@@ -233,7 +241,16 @@
         this._mirror.write(cartId, JSON.stringify(bucket));
         return bucket;
       }
-      // Other paths land in later tasks. For now, fall back to mirror.
+      if (res.status === 401) {
+        this._authDead = true;
+        this._warn("CloudBackend: 401 from cloud — disabling push for this session");
+        return {};
+      }
+      if (res.status === 404) {
+        // Migration logic in Task 7. For now, no anon mirror means {}.
+        return {};
+      }
+      // 5xx or other — fall back to mirror.
       return this._mirror.read(cartId);
     }
     write(cartId, json) { /* Task 8 */ }
