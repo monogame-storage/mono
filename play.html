@@ -93,6 +93,7 @@
 
 <script src="/runtime/engine-draw.js"></script>
 <script src="/runtime/engine-bindings.js"></script>
+<script src="/runtime/save.js"></script>
 <script src="/runtime/engine.js"></script>
 <script src="/runtime/shader.js"></script>
 <script src="/runtime/shaders/tint.js"></script>
@@ -117,7 +118,8 @@
     synth:       { path: "/demo/synth/main.lua",       colors: 4 },
     clock:       { path: "/demo/clock/main.lua",       colors: 4 },
     "engine-test": { path: "/demo/engine-test/main.lua", colors: 4 },
-    motion:      { path: "/demo/motion/main.lua",      colors: 4 }
+    motion:      { path: "/demo/motion/main.lua",      colors: 4 },
+    save:        { path: "/demo/save/main.lua",        colors: 4 }
   };
 
   var API_URL = "https://api.monogame.cc";
@@ -173,6 +175,7 @@
             readFile: function(name) {
               return modules[name] || textFiles[name] || null;
             },
+            cartId: gameId,
           });
         } finally {
           // Engine has already fetched each blob into a wasm-side image.
@@ -196,7 +199,11 @@
     document.getElementById("console").style.display = "none";
   } else {
     document.title = "Mono \u2014 " + gameName.charAt(0).toUpperCase() + gameName.slice(1);
-    Mono.boot("screen", { game: entry.path, colors: entry.colors }).then(function() {
+    Mono.boot("screen", {
+      game: entry.path,
+      colors: entry.colors,
+      cartId: "demo:" + gameName,
+    }).then(function() {
       Mono.shader.preset();
     }).catch(function(e) {
       console.error("Boot failed:", e);

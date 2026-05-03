@@ -10,6 +10,9 @@
 </head>
 <body>
 <canvas id="screen"></canvas>
+<script src="../runtime/engine-draw.js"></script>
+<script src="../runtime/engine-bindings.js"></script>
+<script src="../runtime/save.js"></script>
 <script src="../runtime/engine.js"></script>
 <script>
   var test = new URLSearchParams(location.search).get("test") || "pixel";
@@ -44,7 +47,12 @@
   };
 
   var gameFile = isSuite ? "suite.lua" : "test-" + test + ".lua";
-  Mono.boot("screen", { game: gameFile, colors: colors })
+  Mono.boot("screen", {
+    game: gameFile,
+    colors: colors,
+    cartId: "test:" + test,
+    saveBackend: "memory",
+  })
     .then(function() {
       window.getVdump = Mono.vdump;
 

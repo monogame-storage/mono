@@ -10,6 +10,7 @@
 
 importScripts("https://cdn.jsdelivr.net/npm/wasmoon@1.16.0/dist/index.js");
 importScripts("/runtime/engine-bindings.js");
+importScripts("/runtime/save.js");
 importScripts("/runtime/engine-draw.js");
 
 const W = 160, H = 120;
@@ -85,6 +86,7 @@ onmessage = async (e) => {
       cam: { getX: () => camX, getY: () => camY },
       scene: sceneRef,
       modules,
+      save: { backend: new self.MonoSave.MemoryBackend(), cartId: "smoke" },
     });
 
     // Non-shared environment: runtime-only constants + stubs for drawing,

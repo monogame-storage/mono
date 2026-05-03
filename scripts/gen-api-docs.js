@@ -83,7 +83,18 @@ function parseFile(src) {
 function parseAll() {
   const all = [];
   for (const src of SOURCES) all.push(...parseFile(src));
-  return all;
+  // Dedupe by name. A name can be registered more than once (e.g. fallback
+  // stubs paired with a real implementation in an if/else branch). Keep
+  // whichever entry carries JSDoc; if none has it, keep the first.
+  const byName = new Map();
+  for (const api of all) {
+    const prev = byName.get(api.name);
+    if (!prev) { byName.set(api.name, api); continue; }
+    const prevHasDoc = prev.sig || prev.group || prev.desc;
+    const curHasDoc  = api.sig  || api.group  || api.desc;
+    if (!prevHasDoc && curHasDoc) byName.set(api.name, api);
+  }
+  return Array.from(byName.values());
 }
 
 function compose(body) {

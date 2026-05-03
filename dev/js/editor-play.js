@@ -120,6 +120,8 @@ export async function runGame() {
     readFile: async (name) => fileMap[name] || "",
     modules: moduleMap,
     assets: state.currentAssets,
+    cartId: state.currentGameId || "scratch",
+    saveBackend: state.currentGameId ? "persistent" : "memory",
   }).then(() => {
     // Apply shader config after engine is ready
     applyShaderConfig();

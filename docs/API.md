@@ -125,6 +125,26 @@ Press number keys during gameplay to toggle overlays:
 ### cam_get(): number, number
 Returns the current camera offset (x, y) set by cam().
 
+## Data
+
+### data_clear(): void
+Wipes the entire bucket for the current cart.
+
+### data_delete(key: string): boolean
+Remove `key` from the bucket. Returns `true` if the key existed, `false` otherwise.
+
+### data_has(key: string): boolean
+Returns `true` if `key` is currently stored.
+
+### data_keys(): table
+Returns a sorted array of currently-stored keys.
+
+### data_load(key: string): any
+Returns the value previously stored under `key`, or `nil` if missing. Returns a fresh copy — mutating the returned table does not auto-persist.
+
+### data_save(key: string, value: any): void
+Persist a value under a key in this cart's local save bucket. Value can be a number, string, boolean, or table (nested up to 16 levels). Passing `nil` deletes the key (matches Lua's `t[k] = nil` semantics — equivalent to `data_delete(key)`). Throws on invalid input or quota overflow.
+
 ## Globals
 
 ### frame(): number
@@ -280,4 +300,3 @@ Logs values to the host console (prefixed with [Lua]). Useful during development
 - `cam(x, y)` — camera offset (for scrolling games)
 - `overlap(x1,y1,w1,h1, x2,y2,w2,h2)` — AABB collision helper
 - Transparency handling (color 0 transparent? separate transparent index?)
-- `save(key, value)` / `load(key)` — local data storage

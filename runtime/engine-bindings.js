@@ -74,6 +74,10 @@
    *   hooks.cam: { getX(), getY() }
    *   hooks.scene: { current: string|null, pending: string|null }   // mutable
    *   hooks.modules: { "path/to.lua": "source", ... }               // optional
+   *   hooks.save: { backend, cartId } | undefined                   // optional
+   *     backend: MonoSave.MemoryBackend | MonoSave.WebBackend instance
+   *     cartId:  non-empty string identifying the cart's save bucket
+   *     If absent, data_* globals are installed as throwing stubs.
    */
   async function bind(lua, hooks) {
     // ── Constants ──
@@ -125,6 +129,164 @@
     const scene = hooks.scene;
     lua.global.set("go",         (name) => { scene.pending = name; });
     lua.global.set("scene_name", () => scene.current || false);
+
+    // ── Persistence doc stubs (always run) ──
+    // JSDoc here is what scripts/gen-api-docs.js renders into docs/API.md.
+    // The doc-gen dedupe rule keeps the documented entries over plain ones,
+    // so these stubs always supply the public API docs even if the real
+    // registrations below are later refactored. The stubs also serve as
+    // the no-backend fallback: if hooks.save is absent, calling any
+    // data_* function from Lua throws with a clear "not configured" error.
+    const _saveStub = () => { throw new Error("save: backend not configured"); };
+    /**
+     * @lua data_save(key: string, value: any): void
+     * @group Data
+     * @desc Persist a value under a key in this cart's local save bucket. Value can be a number, string, boolean, or table (nested up to 16 levels). Passing `nil` deletes the key (matches Lua's `t[k] = nil` semantics — equivalent to `data_delete(key)`). Throws on invalid input or quota overflow.
+     */
+    lua.global.set("data_save", _saveStub);
+    /**
+     * @lua data_load(key: string): any
+     * @group Data
+     * @desc Returns the value previously stored under `key`, or `nil` if missing. Returns a fresh copy — mutating the returned table does not auto-persist.
+     */
+    lua.global.set("data_load", _saveStub);
+    /**
+     * @lua data_delete(key: string): boolean
+     * @group Data
+     * @desc Remove `key` from the bucket. Returns `true` if the key existed, `false` otherwise.
+     */
+    lua.global.set("data_delete", _saveStub);
+    /**
+     * @lua data_has(key: string): boolean
+     * @group Data
+     * @desc Returns `true` if `key` is currently stored.
+     */
+    lua.global.set("data_has", _saveStub);
+    /**
+     * @lua data_keys(): table
+     * @group Data
+     * @desc Returns a sorted array of currently-stored keys.
+     */
+    lua.global.set("data_keys", _saveStub);
+    /**
+     * @lua data_clear(): void
+     * @group Data
+     * @desc Wipes the entire bucket for the current cart.
+     */
+    lua.global.set("data_clear", _saveStub);
+
+    // ── Persistence (real impls overwrite the stubs above) ──
+    // The runner supplies hooks.save with a backend (read/write/clear)
+    // plus the cartId string. We hold the bucket in JS-side memory so
+    // reads are zero-allocation and writes are write-through. validateKey
+    // + serializeBucket throw on any policy violation; those throws
+    // become Lua errors via Wasmoon. backend.write takes pre-serialized
+    // JSON to avoid stringifying the bucket twice on every save.
+    if (hooks.save) {
+      const MonoSaveLib =
+        (typeof globalThis !== "undefined" && globalThis.MonoSave) ? globalThis.MonoSave :
+        (typeof self !== "undefined" && self.MonoSave) ? self.MonoSave :
+        (typeof require === "function" ? require("./save.js") : null);
+      if (!MonoSaveLib) throw new Error("MonoSave library not loaded");
+
+      const backend = hooks.save.backend;
+      const cartId = hooks.save.cartId;
+      if (!backend) throw new Error("hooks.save.backend is required");
+      if (typeof cartId !== "string" || !cartId) throw new Error("hooks.save.cartId must be a non-empty string");
+
+      let bucket = backend.read(cartId);
+      if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) bucket = {};
+
+      lua.global.set("data_save", (key, value) => {
+        MonoSaveLib.validateKey(key);
+        // Lua `nil` arrives as JS `undefined` via Wasmoon. Mirror Lua table
+        // semantics: `data_save(k, nil)` deletes the key. No-op if the key
+        // wasn't there to begin with.
+        if (value === undefined) {
+          if (!Object.prototype.hasOwnProperty.call(bucket, key)) return;
+          const next = Object.assign({}, bucket);
+          delete next[key];
+          backend.write(cartId, JSON.stringify(next));
+          bucket = next;
+          return;
+        }
+        // Pre-validate the top-level value for types that JSON.stringify
+        // silently corrupts: NaN/±Infinity → "null", functions → undefined
+        // (causing JSON.parse to choke on the literal "undefined"). The
+        // round-trip below is what normalizes Wasmoon-Lua-table proxies
+        // into plain JS objects, so we can't reorder it without
+        // rewriting the proxy walk. Top-level checks here cover the
+        // common cases the demo and tests exercise; nested invalid values
+        // (e.g. NaN inside a table) are still silently coerced — fix
+        // by walking the proxy if that becomes a real concern.
+        if (typeof value === "function") {
+          throw new Error("save: unserializable function");
+        }
+        if (typeof value === "number" && !isFinite(value)) {
+          throw new Error("save: unserializable NaN/Inf");
+        }
+        // Wasmoon presents Lua tables to JS as plain objects. Take a
+        // defensive deep copy via JSON round-trip so later mutations to
+        // the Lua table don't reach into our cache. Wrap in try/catch
+        // so any remaining JSON failure surfaces a spec'd error message
+        // instead of a raw SyntaxError.
+        const next = Object.assign({}, bucket);
+        try {
+          next[key] = JSON.parse(JSON.stringify(value));
+        } catch (e) {
+          throw new Error("save: unserializable " + typeof value);
+        }
+        // serializeBucket validates AND returns the canonical JSON. If it
+        // throws (bad value, NaN, cycle, depth, quota), `bucket` is
+        // unchanged. Pass the returned json straight to backend.write so
+        // the bucket is never stringified twice.
+        const json = MonoSaveLib.serializeBucket(next);
+        // Commit cache only AFTER disk succeeds — otherwise a failed
+        // backend.write would leave the in-memory cache ahead of storage,
+        // and subsequent data_load would return data that won't survive
+        // a reload.
+        backend.write(cartId, json);
+        bucket = next;
+      });
+
+      lua.global.set("data_load", (key) => {
+        MonoSaveLib.validateKey(key);
+        const v = bucket[key];
+        // Return undefined (→ Lua nil) for missing keys. Returning JS null
+        // here trips a Wasmoon bug where `typeof null === "object"` makes
+        // its proxy-decoration logic call `null.then` and crash.
+        if (v === undefined || v === null) return undefined;
+        // Return a fresh copy so Lua-side mutations don't reach into the cache.
+        if (typeof v === "object") return JSON.parse(JSON.stringify(v));
+        return v;
+      });
+
+      lua.global.set("data_delete", (key) => {
+        MonoSaveLib.validateKey(key);
+        if (!Object.prototype.hasOwnProperty.call(bucket, key)) return false;
+        const next = Object.assign({}, bucket);
+        delete next[key];
+        backend.write(cartId, JSON.stringify(next));
+        bucket = next;
+        return true;
+      });
+
+      lua.global.set("data_has", (key) => {
+        MonoSaveLib.validateKey(key);
+        return Object.prototype.hasOwnProperty.call(bucket, key);
+      });
+
+      lua.global.set("data_keys", () => {
+        // Lua tables don't differentiate array/dict — Wasmoon converts a
+        // JS array into a 1-indexed Lua sequence. Sort for determinism.
+        return Object.keys(bucket).sort();
+      });
+
+      lua.global.set("data_clear", () => {
+        backend.clear(cartId);
+        bucket = {};
+      });
+    }
 
     // ── Doc stubs for Lua-side wrappers (btn/btnp/btnr live in doString below) ──
     // These stubs are immediately overwritten by the doString Lua definitions.

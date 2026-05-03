@@ -2,8 +2,12 @@
  * Mono Runtime Engine
  * 160x120, grayscale (1/2/4-bit), Lua 5.4 via Wasmoon.
  *
- * Mono.boot("screen", { game: "main.lua", colors: 1 })
+ * Mono.boot("screen", { game: "main.lua", colors: 1, cartId: "myGame" })
  *   colors: 1 (2色), 2 (4色), 4 (16色). Default: 1
+ *   cartId: string — required if saveBackend is "persistent" (the default
+ *           when cartId is supplied). Used to scope data_save/data_load.
+ *   saveBackend: "persistent" | "memory" — defaults to "persistent" when
+ *           cartId is provided, "memory" otherwise.
  */
 var Mono = (() => {
   "use strict";
@@ -1080,6 +1084,28 @@ var Mono = (() => {
       showError("MonoBindings not loaded. Include <script src=\"/runtime/engine-bindings.js\"> before engine.js.");
       return;
     }
+    // ── Save backend resolution ──
+    // opts.saveBackend ∈ "persistent" | "memory"; default depends on
+    // whether cartId was supplied. Boot fails fast if save.js is missing
+    // (matches the MonoDraw / MonoBindings load checks above) so a page
+    // that forgot the script tag doesn't silently install throwing-stub
+    // data_* globals only to surface as a runtime error from inside the
+    // game.
+    const SaveLib = (typeof globalThis !== "undefined" && globalThis.MonoSave)
+                 || (typeof window !== "undefined" && window.MonoSave);
+    if (!SaveLib) {
+      showError("MonoSave not loaded. Include <script src=\"/runtime/save.js\"> before engine.js.");
+      return;
+    }
+    const _cartId = opts.cartId || ("anon:" + Math.random().toString(36).slice(2, 10));
+    const _requested = opts.saveBackend || (opts.cartId ? "persistent" : "memory");
+    if (_requested === "persistent" && !opts.cartId) {
+      throw new Error("Mono.boot: saveBackend=\"persistent\" requires opts.cartId");
+    }
+    const saveHook = {
+      backend: (_requested === "memory") ? new SaveLib.MemoryBackend() : new SaveLib.WebBackend(),
+      cartId: _cartId,
+    };
     await Bindings.bind(lua, {
       input: {
         btn:        (k) => !!keys[k],
@@ -1107,6 +1133,7 @@ var Mono = (() => {
       cam: { getX: () => camX, getY: () => camY },
       scene: sceneRef,
       modules: opts.modules || {},
+      save: saveHook,
     });
 
     // Run game script
