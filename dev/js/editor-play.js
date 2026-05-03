@@ -113,6 +113,19 @@ export async function runGame() {
     if (f.name.endsWith(".lua")) moduleMap[f.name] = f.content;
   }
 
+  const user = state.auth && state.auth.currentUser;
+  const cartId = state.currentGameId || "scratch";
+  const saveHook = (user && state.currentGameId)
+    ? {
+        backend: new window.MonoSave.CloudBackend({
+          uid: user.uid,
+          getToken: () => user.getIdToken(),
+          apiUrl: "https://api.monogame.cc",
+        }),
+        cartId,
+      }
+    : undefined;
+
   Mono.boot("editor-screen", {
     source: mainFile.content,
     colors: 4,
@@ -120,10 +133,10 @@ export async function runGame() {
     readFile: async (name) => fileMap[name] || "",
     modules: moduleMap,
     assets: state.currentAssets,
-    cartId: state.currentGameId || "scratch",
+    cartId,
     saveBackend: state.currentGameId ? "persistent" : "memory",
+    save: saveHook,
   }).then(() => {
-    // Apply shader config after engine is ready
     applyShaderConfig();
   }).catch((e) => {
     showEngineError(e.message || String(e));
