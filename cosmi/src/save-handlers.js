@@ -52,11 +52,21 @@ export async function handleSaveGet(env, uid, cartId) {
 }
 
 export async function handleSavePut(env, uid, cartId, request) {
+  // Fast-path 413 from Content-Length to avoid buffering oversized requests.
+  // Non-numeric / missing headers fall through to the post-parse byte check
+  // below — Content-Length alone is spoofable, so it's a hint, not the gate.
   const lenHeader = request.headers.get("Content-Length");
-  const len = lenHeader ? parseInt(lenHeader, 10) : 0;
-  if (len > MAX_BODY_BYTES) return json(413, { error: "body too large" });
+  const declaredLen = lenHeader ? parseInt(lenHeader, 10) : 0;
+  if (declaredLen > MAX_BODY_BYTES) return json(413, { error: "body too large" });
+  // Read the body as text first so we can measure actual bytes before
+  // JSON.parse runs — a 5MB body with `Content-Length: 0` shouldn't slip
+  // through. text() respects CF Workers' global 100MB request cap.
+  let raw;
+  try { raw = await request.text(); }
+  catch { return json(400, { error: "invalid body" }); }
+  if (raw.length > MAX_BODY_BYTES) return json(413, { error: "body too large" });
   let body;
-  try { body = await request.json(); }
+  try { body = JSON.parse(raw); }
   catch { return json(400, { error: "invalid JSON" }); }
   if (!body || typeof body !== "object") return json(400, { error: "body must be an object" });
   const bucket = body.bucket;

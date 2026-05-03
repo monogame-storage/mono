@@ -107,6 +107,27 @@ describe("handleSavePut", () => {
     const res = await handleSavePut(env, "user1", "demo:bounce", req);
     assert.equal(res.status, 400);
   });
+
+  it("returns 400 when bucket is a scalar (number / string / null)", async () => {
+    for (const bad of [5, "hi", null, true]) {
+      const req = jsonBodyRequest("PUT", { bucket: bad });
+      const res = await handleSavePut(env, "user1", "demo:bounce", req);
+      assert.equal(res.status, 400, `bucket=${JSON.stringify(bad)} should be 400`);
+    }
+  });
+
+  it("returns 413 when actual body bytes exceed cap even with Content-Length spoofed to 0", async () => {
+    // Build a real oversize JSON body but lie in the header. The post-parse
+    // byte check should still reject — Content-Length is a hint, not the gate.
+    const big = "x".repeat(70_001);
+    const req = new Request("https://x/save/test", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Content-Length": "0" },
+      body: JSON.stringify({ bucket: { k: big } }),
+    });
+    const res = await handleSavePut(env, "user1", "demo:bounce", req);
+    assert.equal(res.status, 413);
+  });
 });
 
 describe("handleSaveDelete", () => {
