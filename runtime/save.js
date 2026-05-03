@@ -190,9 +190,60 @@
     }
   }
 
+  // ── CloudBackend — per-uid R2-backed save with a localStorage mirror.
+  // Composes a prefixed WebBackend as the durable mirror so any read in
+  // offline or post-throw conditions falls back to the last known bucket
+  // without a network round-trip. All transports (fetch, storage, timing)
+  // are injectable so unit tests drive the timeline deterministically.
+  class CloudBackend {
+    constructor(opts) {
+      const o = opts || {};
+      if (typeof o.uid !== "string" || !o.uid) throw new Error("CloudBackend: uid required");
+      if (typeof o.getToken !== "function")    throw new Error("CloudBackend: getToken required");
+      if (typeof o.apiUrl !== "string" || !o.apiUrl) throw new Error("CloudBackend: apiUrl required");
+      this._uid = o.uid;
+      this._getToken = o.getToken;
+      this._apiUrl = o.apiUrl.replace(/\/+$/, "");
+      this._fetch = o.fetch || ((typeof globalThis !== "undefined" && globalThis.fetch) ? globalThis.fetch.bind(globalThis) : null);
+      if (!this._fetch) throw new Error("CloudBackend: fetch unavailable");
+      this._storage = ("storage" in o) ? o.storage :
+        (typeof globalThis !== "undefined" && globalThis.localStorage) ? globalThis.localStorage : null;
+      this._warn = o.warn || ((typeof console !== "undefined") ? (m => console.warn(m)) : (() => {}));
+      // Mirror = WebBackend at "mono:save:<uid>:" prefix. Reuses parse +
+      // warn-once + JSON shape checks without re-implementing them.
+      this._mirror = new WebBackend({
+        storage: this._storage,
+        bridge: null,                                        // mirror is localStorage-only
+        keyPrefix: "mono:save:" + this._uid + ":",
+        warn: this._warn,
+      });
+    }
+    _url(cartId) { return this._apiUrl + "/save/" + encodeURIComponent(cartId); }
+    async _authHeaders() {
+      const token = await this._getToken();
+      return { "Authorization": "Bearer " + token };
+    }
+    async read(cartId) {
+      const headers = await this._authHeaders();
+      const res = await this._fetch(this._url(cartId), { method: "GET", headers });
+      if (res.status === 200) {
+        const body = await res.json();
+        const bucket = (body && typeof body.bucket === "object" && body.bucket && !Array.isArray(body.bucket))
+          ? body.bucket : {};
+        this._mirror.write(cartId, JSON.stringify(bucket));
+        return bucket;
+      }
+      // Other paths land in later tasks. For now, fall back to mirror.
+      return this._mirror.read(cartId);
+    }
+    write(cartId, json) { /* Task 8 */ }
+    clear(cartId)       { /* Task 9 */ }
+  }
+
   return {
     MemoryBackend,
     WebBackend,
+    CloudBackend,
     serializeBucket,
     validateKey,
     QUOTA_BYTES,

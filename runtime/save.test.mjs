@@ -371,3 +371,55 @@ describe("WebBackend — keyPrefix option", () => {
     assert.deepEqual(u.read("hi"), {});          // user1 cleared
   });
 });
+
+describe("CloudBackend — constructor + read happy path", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+
+  it("calls GET <apiUrl>/save/<cartId> with the bearer token", async () => {
+    const calls = [];
+    const fetchFn = async (url, init) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({ bucket: { hi: 7 } }), { status: 200 });
+    };
+    const storage = makeFakeStorage();
+    const b = new MonoSave.CloudBackend({
+      uid: "user1",
+      getToken: async () => "TOKEN",
+      apiUrl: "https://api.example.com",
+      fetch: fetchFn,
+      storage,
+    });
+    const out = await b.read("demo:bounce");
+    assert.deepEqual(out, { hi: 7 });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "https://api.example.com/save/demo%3Abounce");
+    assert.equal(calls[0].init.method, "GET");
+    assert.equal(calls[0].init.headers.Authorization, "Bearer TOKEN");
+  });
+
+  it("writes the returned bucket to the per-uid mirror", async () => {
+    const fetchFn = async () =>
+      new Response(JSON.stringify({ bucket: { hi: 7 } }), { status: 200 });
+    const storage = makeFakeStorage();
+    const b = new MonoSave.CloudBackend({
+      uid: "user1",
+      getToken: async () => "TOKEN",
+      apiUrl: "https://api.example.com",
+      fetch: fetchFn,
+      storage,
+    });
+    await b.read("demo:bounce");
+    const entries = storage._entries();
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0][0], "mono:save:user1:demo:bounce");
+    assert.deepEqual(JSON.parse(entries[0][1]), { hi: 7 });
+  });
+});
