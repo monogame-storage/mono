@@ -42,6 +42,7 @@ export const state = {
 
   // Engine
   lastEngineError: null,
+  cloudBackend: null,    // CloudBackend instance for the current Play session — disposed on next runGame()
 
   // Realtime listener cleanup
   unsubGames: null,

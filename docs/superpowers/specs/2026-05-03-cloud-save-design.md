@@ -145,8 +145,8 @@ DELETE /save/:cartId       → 204 (idempotent — 204 even if entry was missing
 
 **cartId validation**: new `validateCartId(s)` in `cosmi/src/lib/path.js`. Rules:
 - 1..80 characters
-- Charset `[a-zA-Z0-9:_-]` only (covers `demo:bounce`, `pkg:com.foo.bar`, plain R2 gameIds)
-- No path traversal (no `/`, no `..`, no leading `.`)
+- Charset `[a-zA-Z0-9:_-]` only (covers `demo:bounce`, `pkg:com_mono_game`, plain R2 gameIds — dots are intentionally rejected since cartIds end up in R2 keys)
+- No path traversal (no `/`, no `..`, no `.`)
 
 400 with `{ error: "invalid cartId" }` on violation.
 

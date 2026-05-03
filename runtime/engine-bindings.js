@@ -194,7 +194,13 @@
       if (!backend) throw new Error("hooks.save.backend is required");
       if (typeof cartId !== "string" || !cartId) throw new Error("hooks.save.cartId must be a non-empty string");
 
-      let bucket = backend.read(cartId);
+      // backend.read may be sync (MemoryBackend, WebBackend) or async
+      // (CloudBackend — fetches the cloud bucket). bind() is already async
+      // and engine.js awaits it, so awaiting here is safe and required —
+      // without it, async backends return a Promise that defeats every
+      // subsequent `bucket[key]` lookup and silently wipes saved data on
+      // the first write.
+      let bucket = await backend.read(cartId);
       if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) bucket = {};
 
       lua.global.set("data_save", (key, value) => {

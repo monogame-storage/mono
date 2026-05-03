@@ -115,16 +115,22 @@ export async function runGame() {
 
   const user = state.auth && state.auth.currentUser;
   const cartId = state.currentGameId || "scratch";
-  const saveHook = (user && state.currentGameId)
-    ? {
-        backend: new window.MonoSave.CloudBackend({
-          uid: user.uid,
-          getToken: () => user.getIdToken(),
-          apiUrl: "https://api.monogame.cc",
-        }),
-        cartId,
-      }
-    : undefined;
+  // Dispose the previous CloudBackend before constructing a new one —
+  // each instance attaches visibilitychange + beforeunload listeners
+  // that would otherwise accumulate across editor resets.
+  if (state.cloudBackend && typeof state.cloudBackend.dispose === "function") {
+    state.cloudBackend.dispose();
+    state.cloudBackend = null;
+  }
+  let saveHook;
+  if (user && state.currentGameId) {
+    state.cloudBackend = new window.MonoSave.CloudBackend({
+      uid: user.uid,
+      getToken: () => user.getIdToken(),
+      apiUrl: "https://api.monogame.cc",
+    });
+    saveHook = { backend: state.cloudBackend, cartId };
+  }
 
   Mono.boot("editor-screen", {
     source: mainFile.content,

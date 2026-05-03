@@ -233,12 +233,30 @@
         ((typeof document !== "undefined") ? (() => document.visibilityState) : (() => "visible"));
       this._pending = new Map();   // cartId → JSON string awaiting push
       this._timer = null;
+      // Bind listener fns so dispose() can remove the exact same references.
+      // Without this, every CloudBackend constructed in a long-lived page
+      // (editor reset, hot reload) leaks one pair of listeners that fire
+      // a redundant keepalive PUT on every tab blur for the rest of the
+      // session.
+      this._onVisibility = () => {
+        if (this._visibilityState() === "hidden") this._flushKeepalive();
+      };
+      this._onBeforeUnload = () => this._flushKeepalive();
       if (this._eventTarget && this._eventTarget.addEventListener) {
-        this._eventTarget.addEventListener("visibilitychange", () => {
-          if (this._visibilityState() === "hidden") this._flushKeepalive();
-        });
-        this._eventTarget.addEventListener("beforeunload", () => this._flushKeepalive());
+        this._eventTarget.addEventListener("visibilitychange", this._onVisibility);
+        this._eventTarget.addEventListener("beforeunload",   this._onBeforeUnload);
       }
+    }
+    // Detach the page-leave listeners so this backend can be garbage-collected
+    // without leaking handlers across editor resets / hot reloads.
+    dispose() {
+      if (this._eventTarget && this._eventTarget.removeEventListener) {
+        this._eventTarget.removeEventListener("visibilitychange", this._onVisibility);
+        this._eventTarget.removeEventListener("beforeunload",   this._onBeforeUnload);
+      }
+      if (this._timer && this._clearTimeout) this._clearTimeout(this._timer);
+      this._timer = null;
+      this._pending.clear();
     }
     _url(cartId) { return this._apiUrl + "/save/" + encodeURIComponent(cartId); }
     async _authHeaders() {
@@ -317,6 +335,10 @@
       await Promise.all(inflight);
     }
     async read(cartId) {
+      // Once the session is auth-dead (a 401 has poisoned getToken or the
+      // session token), every read would be a guaranteed-failure round
+      // trip. Skip the network and serve from the mirror.
+      if (this._authDead) return this._mirror.read(cartId);
       const headers = await this._authHeaders();
       let res;
       try {
