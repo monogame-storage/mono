@@ -612,3 +612,54 @@ describe("CloudBackend — write + debounce", () => {
     assert.equal(b._pending.get("demo:bounce"), '{"hi":1}');
   });
 });
+
+describe("CloudBackend — clear", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+  function makeFakeTimer() {
+    let pendingFn = null;
+    return {
+      setTimeout: (fn) => { pendingFn = fn; return 1; },
+      clearTimeout: () => { pendingFn = null; },
+      get hasPending() { return pendingFn !== null; },
+    };
+  }
+
+  it("issues DELETE immediately and clears the per-uid mirror", async () => {
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:u1:demo:bounce", '{"hi":1}');
+    const calls = [];
+    const fetchFn = async (url, init) => { calls.push({ url, method: init.method }); return new Response(null, { status: 204 }); };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, setTimeout: () => 0, clearTimeout: () => {},
+    });
+    await b.clear("demo:bounce");
+    assert.equal(storage.getItem("mono:save:u1:demo:bounce"), null);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, "DELETE");
+    assert.equal(calls[0].url, "https://x/save/demo%3Abounce");
+  });
+
+  it("cancels a pending push for the same cartId", async () => {
+    const storage = makeFakeStorage();
+    const timer = makeFakeTimer();
+    const fetchFn = async () => new Response(null, { status: 204 });
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, setTimeout: timer.setTimeout, clearTimeout: timer.clearTimeout,
+    });
+    b.write("demo:bounce", '{"hi":1}');
+    assert.ok(timer.hasPending);
+    await b.clear("demo:bounce");
+    // Pending push for this cartId must be gone.
+    assert.equal(b._pending.has("demo:bounce"), false);
+  });
+});

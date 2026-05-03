@@ -341,7 +341,19 @@
       if (this._authDead) return;
       this._schedulePush(cartId, json, 1000);
     }
-    clear(cartId)       { /* Task 9 */ }
+    async clear(cartId) {
+      this._mirror.clear(cartId);
+      this._pending.delete(cartId);
+      if (this._authDead) return;
+      try {
+        const headers = await this._authHeaders();
+        await this._fetch(this._url(cartId), { method: "DELETE", headers });
+      } catch {
+        // Network failure — local cleared, cloud will be cleared on next
+        // successful clear or overwritten on next save. Acceptable: a
+        // clear that doesn't reach the server is rare and not catastrophic.
+      }
+    }
   }
 
   return {
