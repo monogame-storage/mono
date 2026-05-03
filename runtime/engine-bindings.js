@@ -231,9 +231,12 @@
       lua.global.set("data_load", (key) => {
         MonoSaveLib.validateKey(key);
         const v = bucket[key];
-        if (v === undefined) return null;
+        // Return undefined (→ Lua nil) for missing keys. Returning JS null
+        // here trips a Wasmoon bug where `typeof null === "object"` makes
+        // its proxy-decoration logic call `null.then` and crash.
+        if (v === undefined || v === null) return undefined;
         // Return a fresh copy so Lua-side mutations don't reach into the cache.
-        if (v !== null && typeof v === "object") return JSON.parse(JSON.stringify(v));
+        if (typeof v === "object") return JSON.parse(JSON.stringify(v));
         return v;
       });
 
