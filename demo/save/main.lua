@@ -1,161 +1,178 @@
--- Save Demo — exercises all six data_* functions.
+-- Save Demo — exercises all six data_* functions plus the error contract.
 --
--- Three fields persisted under their own keys:
---   name      ← cycles through preset names  (key: "name_idx")
---   age       ← 0..120                       (key: "age")
---   gender    ← M / F / X                    (key: "gender_idx")
+-- One vertical menu, two sections:
+--   FIELDS   3 persisted values (name / age / gender)
+--   ERRORS   5 intentionally-bad calls that should throw
 --
--- Each row shows a dot indicating data_has(key): filled = persisted,
--- hollow = unsaved edit. The footer shows #data_keys() — how many keys
--- are currently in the bucket.
+-- Controls (context-sensitive on the highlighted row):
+--   ↑ ↓     navigate the menu
+--   ← →     change the FIELD value (no-op on error rows)
+--   A       FIELD row : data_save all 3 fields   ("SAVED")
+--           ERROR row : trigger the bad call via pcall, show the message
+--   B       FIELD row : data_delete just this key
+--   START   data_clear the entire bucket; resets fields to defaults
 --
--- Controls:
---   ↑ ↓     pick a field
---   ← →     change the value of the selected field
---   A       data_save the current values for all three fields
---   B       data_delete just the selected field's key
---   START   data_clear the entire bucket; resets values to defaults
---   SELECT  trigger an error on purpose (e.g. invalid key) and display
---          the message — shows that data_* functions throw and can be
---          caught with pcall
+-- After START or a save, reload the page to see persistence in action.
 
 local scr = screen()
 
-local NAMES   = { "Alice", "Bob", "Carol", "Dave", "Erin" }
-local GENDERS = { "M", "F", "X" }
-local KEYS    = { "name_idx", "age", "gender_idx" }
-local LABELS  = { "name", "age", "gender" }
+-- ── Field state ─────────────────────────────────────────────────────────
+local NAMES    = { "Alice", "Bob", "Carol", "Dave", "Erin" }
+local GENDERS  = { "M", "F", "X" }
+local KEYS     = { "name_idx", "age", "gender_idx" }
+local LABELS   = { "name", "age", "gender" }
 local DEFAULTS = { 1, 20, 1 }
 
 local values = { 1, 20, 1 }   -- in-memory editable copy
-local field = 1
-local flash, flash_msg = 0, ""
-local err_msg = nil           -- last captured pcall error, drawn at the bottom
 
--- A small catalog of intentionally-bad calls that exercise different
--- branches of the error contract. SELECT cycles through them so you
--- can see each thrown message verbatim.
+-- ── Error tests (each entry is a menu item) ─────────────────────────────
+-- Each fn deliberately violates the data_* contract. Selecting an
+-- error item with A wraps fn in pcall and renders the captured message.
 local err_tests = {
   { label = "empty key",      fn = function() data_load("") end },
-  { label = "key w/ space",   fn = function() data_save("hi score", 1) end },
-  { label = "key 65 chars",   fn = function() data_save(string.rep("k", 65), 1) end },
+  { label = "whitespace key", fn = function() data_save("hi score", 1) end },
+  { label = "long key",       fn = function() data_save(string.rep("k", 65), 1) end },
   { label = "function value", fn = function() data_save("k", function() end) end },
   { label = "NaN value",      fn = function() data_save("k", 0/0) end },
 }
-local err_idx = 1
 
-local function flash_text(msg)
-  flash, flash_msg = 30, msg
-end
+-- ── Menu navigation ─────────────────────────────────────────────────────
+-- One flat selection index covers FIELDS (1..3) and ERRORS (4..8).
+local FIELD_COUNT = 3
+local ERR_COUNT   = #err_tests
+local TOTAL       = FIELD_COUNT + ERR_COUNT
+local sel = 1
 
+local function is_field(i) return i >= 1 and i <= FIELD_COUNT end
+local function is_error(i) return i > FIELD_COUNT and i <= TOTAL end
+local function err_index(i) return i - FIELD_COUNT end
+
+-- ── Flash + error overlay ───────────────────────────────────────────────
+local flash, flash_msg = 0, ""
+local function flash_text(msg) flash, flash_msg = 30, msg end
+local err_msg = nil
+
+-- ── Display helpers ─────────────────────────────────────────────────────
 local function display_value(i)
   if     i == 1 then return NAMES[values[1]]
-  elseif i == 2 then return values[2]
+  elseif i == 2 then return tostring(values[2])
   elseif i == 3 then return GENDERS[values[3]]
   end
 end
 
+-- ── Lifecycle ───────────────────────────────────────────────────────────
 function _init() mode(4) end
 
 function _start()
-  for i = 1, 3 do
-    -- data_load on a missing key returns nil (no throw) — the `or
-    -- DEFAULTS[i]` fallback is the canonical idiom for first-run init.
+  for i = 1, FIELD_COUNT do
+    -- data_load on a missing key returns nil; the `or DEFAULTS[i]`
+    -- fallback is the canonical idiom for first-run init.
     values[i] = data_load(KEYS[i]) or DEFAULTS[i]
   end
 end
 
 function _update()
-  if btnp("up")    then field = (field - 2) % 3 + 1 end
-  if btnp("down")  then field = field % 3 + 1 end
+  if btnp("up")    then sel = (sel - 2) % TOTAL + 1 end
+  if btnp("down")  then sel = sel % TOTAL + 1 end
 
-  if btnp("left") then
-    if     field == 1 then values[1] = (values[1] - 2) % #NAMES   + 1
-    elseif field == 2 then values[2] = math.max(0, values[2] - 1)
-    elseif field == 3 then values[3] = (values[3] - 2) % #GENDERS + 1
-    end
-  elseif btnp("right") then
-    if     field == 1 then values[1] = values[1] % #NAMES + 1
-    elseif field == 2 then values[2] = math.min(120, values[2] + 1)
-    elseif field == 3 then values[3] = values[3] % #GENDERS + 1
+  if is_field(sel) then
+    if btnp("left") then
+      if     sel == 1 then values[1] = (values[1] - 2) % #NAMES   + 1
+      elseif sel == 2 then values[2] = math.max(0, values[2] - 1)
+      elseif sel == 3 then values[3] = (values[3] - 2) % #GENDERS + 1
+      end
+    elseif btnp("right") then
+      if     sel == 1 then values[1] = values[1] % #NAMES + 1
+      elseif sel == 2 then values[2] = math.min(120, values[2] + 1)
+      elseif sel == 3 then values[3] = values[3] % #GENDERS + 1
+      end
     end
   end
 
   if btnp("a") then
-    for i = 1, 3 do data_save(KEYS[i], values[i]) end
-    flash_text("SAVED")
-  elseif btnp("b") then
-    -- Delete only the selected field's key; in-memory value stays so
-    -- the user can re-save it. data_delete returns true if the key
-    -- existed — message reflects which case happened.
-    if data_delete(KEYS[field]) then
-      flash_text("DEL " .. LABELS[field])
+    if is_field(sel) then
+      for i = 1, FIELD_COUNT do data_save(KEYS[i], values[i]) end
+      flash_text("SAVED")
+    elseif is_error(sel) then
+      local test = err_tests[err_index(sel)]
+      local ok, err = pcall(test.fn)
+      if ok then
+        err_msg = "[" .. test.label .. "] no error?"
+      else
+        err_msg = tostring(err)
+      end
+    end
+  elseif btnp("b") and is_field(sel) then
+    if data_delete(KEYS[sel]) then
+      flash_text("DEL " .. LABELS[sel])
     else
       flash_text("NO KEY")
     end
   elseif btnp("start") then
     data_clear()
-    for i = 1, 3 do values[i] = DEFAULTS[i] end
+    for i = 1, FIELD_COUNT do values[i] = DEFAULTS[i] end
+    err_msg = nil
     flash_text("CLEARED")
-  elseif btnp("select") then
-    -- Run the next bad call through pcall and capture the message.
-    -- The bucket is unchanged after the throw (atomic validation).
-    local test = err_tests[err_idx]
-    local ok, err = pcall(test.fn)
-    if ok then
-      err_msg = "[" .. test.label .. "] no error?"
-    else
-      err_msg = "[" .. test.label .. "] " .. tostring(err)
-    end
-    err_idx = err_idx % #err_tests + 1
   end
 
   if flash > 0 then flash = flash - 1 end
 end
 
-local function row(i, y)
-  -- Selection caret
-  if field == i then text(scr, ">", 6, y, 15) end
-  -- data_has indicator: filled circle = persisted, hollow = unsaved
-  if data_has(KEYS[i]) then circf(scr, 16, y + 2, 2, 14)
-                       else circ (scr, 16, y + 2, 2, 7)  end
-  text(scr, LABELS[i],          22, y, 11)
-  text(scr, tostring(display_value(i)), 78, y, 15)
+-- ── Drawing ─────────────────────────────────────────────────────────────
+local function draw_caret(y)
+  text(scr, ">", 2, y, 15)
+end
+
+local function draw_field_row(i, y)
+  if sel == i then draw_caret(y) end
+  -- data_has indicator: filled = persisted, hollow = unsaved edit
+  if data_has(KEYS[i]) then circf(scr, 12, y + 2, 2, 14)
+                       else circ (scr, 12, y + 2, 2, 7)  end
+  text(scr, LABELS[i],            18, y, 11)
+  text(scr, display_value(i),     78, y, 15)
+end
+
+local function draw_err_row(idx, y)
+  local i = FIELD_COUNT + idx
+  if sel == i then draw_caret(y) end
+  -- Bullet to distinguish from field rows' has-dot
+  text(scr, ".", 12, y, 12)
+  text(scr, err_tests[idx].label, 18, y, 12)
 end
 
 function _draw()
   cls(scr, 0)
-  text(scr, "SAVE DEMO", 6, 4, 15)
-  line(scr, 6, 12, 100, 12, 8)
 
-  row(1, 24)
-  row(2, 38)
-  row(3, 52)
+  text(scr, "SAVE DEMO", 2, 2, 15)
+  text(scr, "keys " .. tostring(#data_keys()) .. "/3", 110, 2, 8)
 
-  -- data_keys() count — drops to 0 after START, climbs back as you save.
-  text(scr, "keys: " .. tostring(#data_keys()) .. "/3", 6, 70, 8)
+  draw_field_row(1, 12)
+  draw_field_row(2, 20)
+  draw_field_row(3, 28)
 
-  text(scr, "A SAVE  B DEL",     6, 78,  8)
-  text(scr, "START CLR  SEL ERR", 6, 88,  8)
+  -- Section divider + label
+  line(scr, 2, 38, 158, 38, 6)
+  text(scr, "ERRORS", 2, 40, 8)
 
-  -- Last captured error from SELECT. Renders in red-ish (color 12) so
-  -- it's clearly distinct from the normal UI. Wraps to two lines if long.
+  for i = 1, ERR_COUNT do
+    draw_err_row(i, 48 + (i - 1) * 8)
+  end
+
+  text(scr, "A=ACT B=DEL START=CLR", 2, 100, 7)
+
+  -- Last captured error from A on an error row.
   if err_msg then
-    local s = err_msg
-    rectf(scr, 0, 100, SCREEN_W, 20, 0)
-    line (scr, 0, 100, SCREEN_W - 1, 100, 12)
-    text (scr, s:sub(1, 26),       2, 102, 12)
-    text (scr, s:sub(27, 26 + 26), 2, 110, 12)
-  else
-    text(scr, "SEL: trigger error",   6, 102, 7)
-    text(scr, "(reload to verify)",   6, 110, 7)
+    rectf(scr, 0, 108, SCREEN_W, 12, 0)
+    line (scr, 0, 108, SCREEN_W - 1, 108, 12)
+    text (scr, err_msg:sub(1, 26), 2, 110, 12)
   end
 
   if flash > 0 then
     local w = math.max(48, #flash_msg * 6 + 12)
     local x = math.floor((SCREEN_W - w) / 2)
-    rectf(scr, x, 76, w, 14, 0)
-    rect (scr, x, 76, w, 14, 15)
-    text(scr, flash_msg, x + 6, 81, 15)
+    local y = 60
+    rectf(scr, x, y, w, 14, 0)
+    rect (scr, x, y, w, 14, 15)
+    text(scr, flash_msg, x + 6, y + 5, 15)
   end
 end
