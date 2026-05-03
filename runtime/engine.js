@@ -75,42 +75,6 @@ var Mono = (() => {
     return audioCtx;
   }
 
-  // One-shot audio unlock. Mobile WebViews and Mobile Safari keep
-  // AudioContext suspended until creation+resume happens inside a real
-  // user-gesture event, even when mediaPlaybackRequiresUserGesture=false.
-  // We attach capture-phase listeners on the document so the very first
-  // touch/mouse/key event primes the context — earlier than any in-game
-  // sfx call would. The listener removes itself once the context is
-  // running so it's free after the first interaction.
-  let _audioUnlocked = false;
-  function _unlockAudio() {
-    if (_audioUnlocked) return;
-    try {
-      ensureAudio();
-      // Some browsers report state === "running" only after resume() resolves.
-      if (audioCtx && audioCtx.state !== "running" && audioCtx.resume) {
-        audioCtx.resume().catch(() => {});
-      }
-      _audioUnlocked = true;
-    } catch (e) { /* ignore — retry on next gesture */ }
-  }
-  if (typeof document !== "undefined") {
-    const opts = { capture: true, passive: true };
-    const fn = () => {
-      _unlockAudio();
-      if (_audioUnlocked) {
-        document.removeEventListener("touchstart", fn, opts);
-        document.removeEventListener("mousedown",  fn, opts);
-        document.removeEventListener("keydown",     fn, opts);
-        document.removeEventListener("pointerdown", fn, opts);
-      }
-    };
-    document.addEventListener("touchstart", fn, opts);
-    document.addEventListener("mousedown",  fn, opts);
-    document.addEventListener("keydown",     fn, opts);
-    document.addEventListener("pointerdown", fn, opts);
-  }
-
   let _noiseBuf = null; // shared noise buffer (lazy init)
   function getNoiseBuf() {
     const ctx = audioCtx;
