@@ -334,7 +334,13 @@
       // 5xx or other — fall back to mirror.
       return this._mirror.read(cartId);
     }
-    write(cartId, json) { /* Task 8 */ }
+    write(cartId, json) {
+      // Mirror is the authoritative local copy. A failed cloud push must
+      // not leave the mirror behind — so write to mirror first, push next.
+      this._mirror.write(cartId, json);
+      if (this._authDead) return;
+      this._schedulePush(cartId, json, 1000);
+    }
     clear(cartId)       { /* Task 9 */ }
   }
 

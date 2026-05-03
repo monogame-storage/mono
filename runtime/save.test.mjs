@@ -539,3 +539,76 @@ describe("CloudBackend — migration on 404 + anonymous mirror", () => {
     assert.deepEqual(await b.read("demo:bounce"), {});
   });
 });
+
+describe("CloudBackend — write + debounce", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+  function makeFakeTimer() {
+    let pendingFn = null;
+    let pendingDelay = -1;
+    return {
+      setTimeout: (fn, ms) => { pendingFn = fn; pendingDelay = ms; return 1; },
+      clearTimeout: () => { pendingFn = null; pendingDelay = -1; },
+      run: async () => {
+        const fn = pendingFn;
+        pendingFn = null; pendingDelay = -1;
+        if (fn) await fn();
+      },
+      get pendingDelay() { return pendingDelay; },
+      get hasPending() { return pendingFn !== null; },
+    };
+  }
+
+  it("writes to mirror immediately and schedules a 1000ms push", async () => {
+    const storage = makeFakeStorage();
+    const timer = makeFakeTimer();
+    const fetchFn = async () => new Response(null, { status: 204 });
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, setTimeout: timer.setTimeout, clearTimeout: timer.clearTimeout,
+    });
+    b.write("demo:bounce", '{"hi":42}');
+    assert.equal(storage.getItem("mono:save:u1:demo:bounce"), '{"hi":42}');
+    assert.equal(timer.pendingDelay, 1000);
+  });
+
+  it("multiple writes within debounce collapse into one PUT", async () => {
+    const storage = makeFakeStorage();
+    const timer = makeFakeTimer();
+    const calls = [];
+    const fetchFn = async (url, init) => { calls.push(init); return new Response(null, { status: 204 }); };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, setTimeout: timer.setTimeout, clearTimeout: timer.clearTimeout,
+    });
+    b.write("demo:bounce", '{"hi":1}');
+    b.write("demo:bounce", '{"hi":2}');
+    b.write("demo:bounce", '{"hi":3}');
+    assert.ok(timer.hasPending);
+    await timer.run();
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].body), { bucket: { hi: 3 } });
+  });
+
+  it("network error on push leaves entry in pending for retry", async () => {
+    const storage = makeFakeStorage();
+    const timer = makeFakeTimer();
+    let attempts = 0;
+    const fetchFn = async () => { attempts++; throw new Error("offline"); };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, setTimeout: timer.setTimeout, clearTimeout: timer.clearTimeout,
+    });
+    b.write("demo:bounce", '{"hi":1}');
+    await timer.run();
+    assert.equal(attempts, 1);
+    assert.equal(b._pending.get("demo:bounce"), '{"hi":1}');
+  });
+});
