@@ -149,8 +149,11 @@
         null;
       this._warn = o.warn || ((typeof console !== "undefined") ? (m => console.warn(m)) : (() => {}));
       this._warnedFor = new Set();   // cartIds we've already warned about
+      // keyPrefix lets CloudBackend reuse this class as a per-uid mirror
+      // without colliding with anonymous saves under the default prefix.
+      this._keyPrefix = (typeof o.keyPrefix === "string") ? o.keyPrefix : "mono:save:";
     }
-    _key(cartId) { return "mono:save:" + cartId; }
+    _key(cartId) { return this._keyPrefix + cartId; }
     read(cartId) {
       const raw = this._bridge ? this._bridge.read(cartId)
                 : this._storage ? this._storage.getItem(this._key(cartId))

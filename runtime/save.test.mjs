@@ -324,3 +324,50 @@ describe("WebBackend — native bridge path", () => {
     assert.throws(() => b.write("g", '{"v":1}'), /save: backend write failed/);
   });
 });
+
+describe("WebBackend — keyPrefix option", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+
+  it("defaults to 'mono:save:' when no keyPrefix is provided", () => {
+    const storage = makeFakeStorage();
+    const b = new MonoSave.WebBackend({ storage });
+    b.write("g", '{"v":1}');
+    assert.deepEqual(storage._entries(), [["mono:save:g", '{"v":1}']]);
+  });
+
+  it("uses a custom keyPrefix when supplied", () => {
+    const storage = makeFakeStorage();
+    const b = new MonoSave.WebBackend({ storage, keyPrefix: "mono:save:abc:" });
+    b.write("g", '{"v":1}');
+    assert.deepEqual(storage._entries(), [["mono:save:abc:g", '{"v":1}']]);
+  });
+
+  it("two backends with different prefixes do not collide", () => {
+    const storage = makeFakeStorage();
+    const a = new MonoSave.WebBackend({ storage, keyPrefix: "mono:save:" });
+    const u = new MonoSave.WebBackend({ storage, keyPrefix: "mono:save:user1:" });
+    a.write("hi", '{"a":1}');
+    u.write("hi", '{"a":2}');
+    assert.deepEqual(a.read("hi"), { a: 1 });
+    assert.deepEqual(u.read("hi"), { a: 2 });
+  });
+
+  it("clear respects the prefix", () => {
+    const storage = makeFakeStorage();
+    const a = new MonoSave.WebBackend({ storage, keyPrefix: "mono:save:" });
+    const u = new MonoSave.WebBackend({ storage, keyPrefix: "mono:save:user1:" });
+    a.write("hi", '{"a":1}');
+    u.write("hi", '{"a":2}');
+    u.clear("hi");
+    assert.deepEqual(a.read("hi"), { a: 1 });    // anon untouched
+    assert.deepEqual(u.read("hi"), {});          // user1 cleared
+  });
+});
