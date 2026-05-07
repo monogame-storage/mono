@@ -26,6 +26,13 @@
   const QUOTA_BYTES = 65536;
   const MAX_KEY_LEN = 64;
   const MAX_DEPTH = 16;
+  // Default localStorage namespace. Anonymous saves land at
+  // DEFAULT_KEY_PREFIX + cartId. CloudBackend's per-uid mirror appends
+  // the uid before passing the prefix to its inner WebBackend, but it
+  // also reads anonymous saves directly from this namespace during
+  // first-login migration — keeping a single source of truth here
+  // prevents the two sites from drifting.
+  const DEFAULT_KEY_PREFIX = "mono:save:";
 
   // ── MemoryBackend — in-process Map keyed by cartId. Stores the
   // serialized JSON string so every read returns a fresh parse; callers
@@ -149,8 +156,11 @@
         null;
       this._warn = o.warn || ((typeof console !== "undefined") ? (m => console.warn(m)) : (() => {}));
       this._warnedFor = new Set();   // cartIds we've already warned about
+      // keyPrefix lets CloudBackend reuse this class as a per-uid mirror
+      // without colliding with anonymous saves under the default prefix.
+      this._keyPrefix = (typeof o.keyPrefix === "string") ? o.keyPrefix : DEFAULT_KEY_PREFIX;
     }
-    _key(cartId) { return "mono:save:" + cartId; }
+    _key(cartId) { return this._keyPrefix + cartId; }
     read(cartId) {
       const raw = this._bridge ? this._bridge.read(cartId)
                 : this._storage ? this._storage.getItem(this._key(cartId))
@@ -187,9 +197,249 @@
     }
   }
 
+  // ── CloudBackend — per-uid R2-backed save with a localStorage mirror.
+  // Composes a prefixed WebBackend as the durable mirror so any read in
+  // offline or post-throw conditions falls back to the last known bucket
+  // without a network round-trip. All transports (fetch, storage, timing)
+  // are injectable so unit tests drive the timeline deterministically.
+  class CloudBackend {
+    constructor(opts) {
+      const o = opts || {};
+      if (typeof o.uid !== "string" || !o.uid) throw new Error("CloudBackend: uid required");
+      if (typeof o.getToken !== "function")    throw new Error("CloudBackend: getToken required");
+      if (typeof o.apiUrl !== "string" || !o.apiUrl) throw new Error("CloudBackend: apiUrl required");
+      this._uid = o.uid;
+      this._getToken = o.getToken;
+      this._apiUrl = o.apiUrl.replace(/\/+$/, "");
+      this._fetch = o.fetch || ((typeof globalThis !== "undefined" && globalThis.fetch) ? globalThis.fetch.bind(globalThis) : null);
+      if (!this._fetch) throw new Error("CloudBackend: fetch unavailable");
+      this._storage = ("storage" in o) ? o.storage :
+        (typeof globalThis !== "undefined" && globalThis.localStorage) ? globalThis.localStorage : null;
+      this._warn = o.warn || ((typeof console !== "undefined") ? (m => console.warn(m)) : (() => {}));
+      // Mirror = WebBackend at "mono:save:<uid>:" prefix. Reuses parse +
+      // warn-once + JSON shape checks without re-implementing them.
+      this._mirror = new WebBackend({
+        storage: this._storage,
+        bridge: null,                                        // mirror is localStorage-only
+        keyPrefix: DEFAULT_KEY_PREFIX + this._uid + ":",
+        warn: this._warn,
+      });
+      this._authDead = false;
+      this._setTimeout = o.setTimeout || ((typeof globalThis !== "undefined") ? globalThis.setTimeout.bind(globalThis) : null);
+      this._clearTimeout = o.clearTimeout || ((typeof globalThis !== "undefined") ? globalThis.clearTimeout.bind(globalThis) : null);
+      this._eventTarget = ("eventTarget" in o) ? o.eventTarget :
+        (typeof globalThis !== "undefined" && globalThis.addEventListener) ? globalThis : null;
+      this._visibilityState = o.visibilityState ||
+        ((typeof document !== "undefined") ? (() => document.visibilityState) : (() => "visible"));
+      this._pending = new Map();   // cartId → JSON string awaiting push
+      this._timer = null;
+      // Bind listener fns so dispose() can remove the exact same references.
+      // Without this, every CloudBackend constructed in a long-lived page
+      // (editor reset, hot reload) leaks one pair of listeners that fire
+      // a redundant keepalive PUT on every tab blur for the rest of the
+      // session.
+      this._onVisibility = () => {
+        if (this._visibilityState() === "hidden") this._flushKeepalive();
+      };
+      this._onBeforeUnload = () => this._flushKeepalive();
+      if (this._eventTarget && this._eventTarget.addEventListener) {
+        this._eventTarget.addEventListener("visibilitychange", this._onVisibility);
+        this._eventTarget.addEventListener("beforeunload",   this._onBeforeUnload);
+      }
+    }
+    // Detach the page-leave listeners so this backend can be garbage-collected
+    // without leaking handlers across editor resets / hot reloads.
+    dispose() {
+      if (this._eventTarget && this._eventTarget.removeEventListener) {
+        this._eventTarget.removeEventListener("visibilitychange", this._onVisibility);
+        this._eventTarget.removeEventListener("beforeunload",   this._onBeforeUnload);
+      }
+      if (this._timer && this._clearTimeout) this._clearTimeout(this._timer);
+      this._timer = null;
+      this._pending.clear();
+    }
+    _url(cartId) { return this._apiUrl + "/save/" + encodeURIComponent(cartId); }
+    async _authHeaders() {
+      const token = await this._getToken();
+      return { "Authorization": "Bearer " + token };
+    }
+    _schedulePush(cartId, json, delayMs) {
+      this._pending.set(cartId, json);
+      if (this._timer && this._clearTimeout) this._clearTimeout(this._timer);
+      // Track the in-flight flush as a Promise on the instance so callers
+      // and tests can `await b._flushed` to drain pending work without
+      // racing on microtasks. The setTimeout-driven invocation can't be
+      // awaited externally since the timer discards its return; the
+      // Promise we attach here closes that observability gap.
+      this._timer = this._setTimeout
+        ? this._setTimeout(() => { this._flushed = this._flush(); }, delayMs)
+        : null;
+    }
+    async _flush() {
+      this._timer = null;
+      if (this._authDead) { this._pending.clear(); return; }
+      try {
+        const headers = await this._authHeaders();
+        const entries = Array.from(this._pending.entries());
+        for (const [cartId, json] of entries) {
+          try {
+            const res = await this._fetch(this._url(cartId), {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ bucket: JSON.parse(json) }),
+            });
+            if (res.ok) { this._pending.delete(cartId); continue; }
+            if (res.status === 401) {
+              this._authDead = true;
+              this._pending.clear();
+              this._warn("CloudBackend: 401 on push — disabling push for this session");
+              return;
+            }
+            if (res.status === 413) {
+              this._pending.delete(cartId);
+              this._warn("CloudBackend: 413 on push (cartId=" + cartId + ") — clientside cap should have prevented this");
+              continue;
+            }
+            // 5xx: leave in pending, retry next debounce.
+          } catch {
+            // Network error: leave in pending, retry next debounce.
+          }
+        }
+      } catch (e) {
+        // getToken (or anything else outside the per-entry try) threw.
+        // Surfacing as warn so we don't leak unhandled rejections through
+        // the timer-driven invocation. Pending stays — next attempt may
+        // succeed once the token provider recovers.
+        this._warn("CloudBackend: push aborted — " + (e && e.message || e));
+      }
+    }
+    async _flushKeepalive() {
+      if (this._pending.size === 0 || this._authDead) return;
+      const headers = await this._authHeaders();
+      const entries = Array.from(this._pending.entries());
+      // Fire all PUTs synchronously: the page may be unloading any
+      // moment, and keepalive requests must be issued before the
+      // event handler returns to survive teardown. await'ing them
+      // sequentially would let later entries race the unload.
+      const inflight = entries.map(([cartId, json]) => {
+        const p = this._fetch(this._url(cartId), {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ bucket: JSON.parse(json) }),
+          keepalive: true,
+        });
+        return p.then(() => { this._pending.delete(cartId); }, () => {
+          // Page is unloading — best-effort. Mirror is durable, retry on next boot.
+        });
+      });
+      await Promise.all(inflight);
+    }
+    async read(cartId) {
+      // Once the session is auth-dead (a 401 has poisoned getToken or the
+      // session token), every read would be a guaranteed-failure round
+      // trip. Skip the network and serve from the mirror.
+      if (this._authDead) return this._mirror.read(cartId);
+      // Wrap the entire read in try/catch so any thrown async (getToken
+      // hang, IndexedDB lock, malformed JSON response, transient SDK bug)
+      // falls back to the mirror instead of crashing Mono.boot. The
+      // game's last-known-good state stays playable when the cloud is
+      // unreachable for any reason — that's the offline-first guarantee.
+      try {
+        return await this._readNetwork(cartId);
+      } catch (e) {
+        this._warn("CloudBackend: read failed (" + (e && e.message || e) + ") — serving from mirror");
+        return this._mirror.read(cartId);
+      }
+    }
+    async _readNetwork(cartId) {
+      const headers = await this._authHeaders();
+      let res;
+      try {
+        res = await this._fetch(this._url(cartId), { method: "GET", headers });
+      } catch (e) {
+        // Network failure — fall back to mirror, leave push enabled
+        // so subsequent writes can recover when connectivity returns.
+        return this._mirror.read(cartId);
+      }
+      if (res.status === 200) {
+        const body = await res.json();
+        const bucket = (body && typeof body.bucket === "object" && body.bucket && !Array.isArray(body.bucket))
+          ? body.bucket : {};
+        // Empty bucket on a cart that has anonymous data MUST trigger
+        // migration. Without this, a previously-corrupt R2 record (which
+        // the worker rewrites to {bucket:{}} for graceful UX) silently
+        // hides the user's anonymous progress on first login. Treat
+        // "200 empty" the same as "404" for the migration check —
+        // the cloud authoritatively has nothing for this cart, but the
+        // local anon mirror has data we can recover.
+        if (Object.keys(bucket).length === 0) {
+          const migrated = this._tryMigrateAnon(cartId);
+          if (migrated) return migrated;
+        }
+        this._mirror.write(cartId, JSON.stringify(bucket));
+        return bucket;
+      }
+      if (res.status === 401) {
+        this._authDead = true;
+        this._warn("CloudBackend: 401 from cloud — disabling push for this session");
+        return {};
+      }
+      if (res.status === 404) {
+        const migrated = this._tryMigrateAnon(cartId);
+        if (migrated) return migrated;
+        return {};
+      }
+      // 5xx or other — fall back to mirror.
+      return this._mirror.read(cartId);
+    }
+    // First login on this device with anonymous progress on the same
+    // cartId? Read the anonymous mirror (DIFFERENT prefix from the
+    // per-uid mirror), and if it has a usable bucket, write it through
+    // to our mirror and schedule an immediate migration push. Anonymous
+    // key is intentionally NOT removed. The push is scheduled (delay 0)
+    // — fire-and-forget. The keepalive flush catches it on tab close;
+    // the next debounce cycle catches it if the user keeps playing.
+    // Tests observe it via `await b._flushed`. Returns the migrated
+    // bucket on success, null when there's nothing to migrate.
+    _tryMigrateAnon(cartId) {
+      const anonRaw = this._storage ? this._storage.getItem(DEFAULT_KEY_PREFIX + cartId) : null;
+      if (!anonRaw) return null;
+      let anonBucket;
+      try {
+        const parsed = JSON.parse(anonRaw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) anonBucket = parsed;
+      } catch {}
+      if (!anonBucket) return null;
+      this._mirror.write(cartId, anonRaw);
+      this._schedulePush(cartId, anonRaw, 0);
+      return anonBucket;
+    }
+    write(cartId, json) {
+      // Mirror is the authoritative local copy. A failed cloud push must
+      // not leave the mirror behind — so write to mirror first, push next.
+      this._mirror.write(cartId, json);
+      if (this._authDead) return;
+      this._schedulePush(cartId, json, 1000);
+    }
+    async clear(cartId) {
+      this._mirror.clear(cartId);
+      this._pending.delete(cartId);
+      if (this._authDead) return;
+      try {
+        const headers = await this._authHeaders();
+        await this._fetch(this._url(cartId), { method: "DELETE", headers });
+      } catch {
+        // Network failure — local cleared, cloud will be cleared on next
+        // successful clear or overwritten on next save. Acceptable: a
+        // clear that doesn't reach the server is rare and not catastrophic.
+      }
+    }
+  }
+
   return {
     MemoryBackend,
     WebBackend,
+    CloudBackend,
     serializeBucket,
     validateKey,
     QUOTA_BYTES,

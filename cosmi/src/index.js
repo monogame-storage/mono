@@ -110,6 +110,18 @@ export default {
         return await handleListLintRejects(env, uid, url);
       }
 
+      // ── Save endpoints (cloud-save / data_*) ──
+      const saveMatch = url.pathname.match(/^\/save\/([^/]+)$/);
+      if (saveMatch) {
+        const cartId = decodeURIComponent(saveMatch[1]);
+        const badCart = validateCartId(cartId);
+        if (badCart) return json(400, { error: badCart });
+        if (request.method === "GET")    return await handleSaveGet(env, uid, cartId);
+        if (request.method === "PUT")    return await handleSavePut(env, uid, cartId, request);
+        if (request.method === "DELETE") return await handleSaveDelete(env, uid, cartId);
+        return json(405, { error: "Method not allowed" });
+      }
+
       // ── File endpoints ──
       const match = url.pathname.match(/^\/games\/([^/]+)\/files(?:\/(.+))?$/);
       if (!match) return json(404, { error: "Not found" });
@@ -550,7 +562,8 @@ async function deleteFile(env, key) {
 // real time. File I/O goes straight to R2.
 
 import { lintEnginePrimitiveOverwrite, lintDataKeys } from "./lib/lint.js";
-import { validateAgentPath, validateGameId } from "./lib/path.js";
+import { validateAgentPath, validateGameId, validateCartId } from "./lib/path.js";
+import { handleSaveGet, handleSavePut, handleSaveDelete } from "./save-handlers.js";
 import { extractApiWhitelist, lintApiCompliance, collectFileDefinedNames } from "./lib/api-lint.js";
 import { AGENT_TOOLS, AGENT_MAX_ITER, buildAgentSystemPrompt } from "./lib/agent-prompt.js";
 

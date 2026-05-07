@@ -324,3 +324,468 @@ describe("WebBackend — native bridge path", () => {
     assert.throws(() => b.write("g", '{"v":1}'), /save: backend write failed/);
   });
 });
+
+describe("WebBackend — keyPrefix option", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+
+  it("defaults to 'mono:save:' when no keyPrefix is provided", () => {
+    const storage = makeFakeStorage();
+    const b = new MonoSave.WebBackend({ storage });
+    b.write("g", '{"v":1}');
+    assert.deepEqual(storage._entries(), [["mono:save:g", '{"v":1}']]);
+  });
+
+  it("uses a custom keyPrefix when supplied", () => {
+    const storage = makeFakeStorage();
+    const b = new MonoSave.WebBackend({ storage, keyPrefix: "mono:save:abc:" });
+    b.write("g", '{"v":1}');
+    assert.deepEqual(storage._entries(), [["mono:save:abc:g", '{"v":1}']]);
+  });
+
+  it("two backends with different prefixes do not collide", () => {
+    const storage = makeFakeStorage();
+    const a = new MonoSave.WebBackend({ storage, keyPrefix: "mono:save:" });
+    const u = new MonoSave.WebBackend({ storage, keyPrefix: "mono:save:user1:" });
+    a.write("hi", '{"a":1}');
+    u.write("hi", '{"a":2}');
+    assert.deepEqual(a.read("hi"), { a: 1 });
+    assert.deepEqual(u.read("hi"), { a: 2 });
+  });
+
+  it("clear respects the prefix", () => {
+    const storage = makeFakeStorage();
+    const a = new MonoSave.WebBackend({ storage, keyPrefix: "mono:save:" });
+    const u = new MonoSave.WebBackend({ storage, keyPrefix: "mono:save:user1:" });
+    a.write("hi", '{"a":1}');
+    u.write("hi", '{"a":2}');
+    u.clear("hi");
+    assert.deepEqual(a.read("hi"), { a: 1 });    // anon untouched
+    assert.deepEqual(u.read("hi"), {});          // user1 cleared
+  });
+});
+
+describe("CloudBackend — constructor + read happy path", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+
+  it("calls GET <apiUrl>/save/<cartId> with the bearer token", async () => {
+    const calls = [];
+    const fetchFn = async (url, init) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({ bucket: { hi: 7 } }), { status: 200 });
+    };
+    const storage = makeFakeStorage();
+    const b = new MonoSave.CloudBackend({
+      uid: "user1",
+      getToken: async () => "TOKEN",
+      apiUrl: "https://api.example.com",
+      fetch: fetchFn,
+      storage,
+    });
+    const out = await b.read("demo:bounce");
+    assert.deepEqual(out, { hi: 7 });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "https://api.example.com/save/demo%3Abounce");
+    assert.equal(calls[0].init.method, "GET");
+    assert.equal(calls[0].init.headers.Authorization, "Bearer TOKEN");
+  });
+
+  it("writes the returned bucket to the per-uid mirror", async () => {
+    const fetchFn = async () =>
+      new Response(JSON.stringify({ bucket: { hi: 7 } }), { status: 200 });
+    const storage = makeFakeStorage();
+    const b = new MonoSave.CloudBackend({
+      uid: "user1",
+      getToken: async () => "TOKEN",
+      apiUrl: "https://api.example.com",
+      fetch: fetchFn,
+      storage,
+    });
+    await b.read("demo:bounce");
+    const entries = storage._entries();
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0][0], "mono:save:user1:demo:bounce");
+    assert.deepEqual(JSON.parse(entries[0][1]), { hi: 7 });
+  });
+});
+
+describe("CloudBackend — read failure paths", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+
+  it("returns {} on 404 when no anonymous mirror exists", async () => {
+    const fetchFn = async () => new Response(null, { status: 404 });
+    const storage = makeFakeStorage();
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage,
+    });
+    assert.deepEqual(await b.read("demo:bounce"), {});
+  });
+
+  it("falls back to per-uid mirror on network error", async () => {
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:u1:demo:bounce", '{"hi":99}');
+    const fetchFn = async () => { throw new Error("offline"); };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage,
+    });
+    assert.deepEqual(await b.read("demo:bounce"), { hi: 99 });
+  });
+
+  it("returns {} and warns once on 401", async () => {
+    const fetchFn = async () => new Response(null, { status: 401 });
+    const storage = makeFakeStorage();
+    const warnings = [];
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, warn: (m) => warnings.push(m),
+    });
+    assert.deepEqual(await b.read("demo:bounce"), {});
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /401/);
+  });
+
+  it("after 401 the backend is auth-dead (writes/clears no-op)", async () => {
+    // We won't fully exercise write yet (Task 8) — just verify the flag.
+    const fetchFn = async () => new Response(null, { status: 401 });
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage: makeFakeStorage(), warn: () => {},
+    });
+    await b.read("demo:bounce");
+    assert.equal(b._authDead, true);   // internal flag, exposed for test introspection
+  });
+});
+
+describe("CloudBackend — migration on 404 + anonymous mirror", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+
+  it("returns the anonymous bucket on 404 and writes it to the per-uid mirror", async () => {
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:demo:bounce", '{"hi":42}');   // anon mirror
+    let putBody = null;
+    const fetchFn = async (url, init) => {
+      if (init.method === "GET") return new Response(null, { status: 404 });
+      if (init.method === "PUT") { putBody = init.body; return new Response(null, { status: 204 }); }
+      throw new Error("unexpected method");
+    };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage,
+      // Inject setTimeout that runs immediately so the migration push happens synchronously for the test.
+      setTimeout: (fn) => { fn(); return 0; },
+      clearTimeout: () => {},
+    });
+    const out = await b.read("demo:bounce");
+    assert.deepEqual(out, { hi: 42 });
+
+    // The migration push is fire-and-forget; the synchronous setTimeout
+    // fixture invokes _flush() but discards the returned Promise. Drain
+    // it via _flushed so the PUT lands before we assert on it.
+    await b._flushed;
+
+    // Per-uid mirror now has the migrated data.
+    assert.equal(storage.getItem("mono:save:u1:demo:bounce"), '{"hi":42}');
+
+    // Anonymous mirror is preserved.
+    assert.equal(storage.getItem("mono:save:demo:bounce"), '{"hi":42}');
+
+    // Migration push was sent.
+    assert.ok(putBody, "expected a PUT to be issued for migration");
+    assert.deepEqual(JSON.parse(putBody), { bucket: { hi: 42 } });
+  });
+
+  it("returns {} on 404 when anonymous mirror is corrupt", async () => {
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:demo:bounce", "{not json");
+    const fetchFn = async () => new Response(null, { status: 404 });
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, warn: () => {},
+      setTimeout: (fn) => { fn(); return 0; }, clearTimeout: () => {},
+    });
+    assert.deepEqual(await b.read("demo:bounce"), {});
+  });
+
+  it("treats 200 with empty bucket as a migration trigger (anon recovery)", async () => {
+    // The worker repairs corrupt R2 records to {bucket: {}} for graceful
+    // UX. Without this guard, that repair would silently overwrite the
+    // anonymous mirror's data. 200 + empty + anon-has-data → migrate.
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:demo:bounce", '{"hi":42}');
+    let putBody = null;
+    const fetchFn = async (url, init) => {
+      if (init.method === "GET") return new Response(JSON.stringify({ bucket: {} }), { status: 200 });
+      if (init.method === "PUT") { putBody = init.body; return new Response(null, { status: 204 }); }
+      throw new Error("unexpected method");
+    };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage,
+      setTimeout: (fn) => { fn(); return 0; }, clearTimeout: () => {},
+    });
+    assert.deepEqual(await b.read("demo:bounce"), { hi: 42 });
+    await b._flushed;
+    assert.equal(storage.getItem("mono:save:u1:demo:bounce"), '{"hi":42}');
+    assert.deepEqual(JSON.parse(putBody), { bucket: { hi: 42 } });
+  });
+
+  it("falls back to mirror when getToken throws", async () => {
+    // Firebase getIdToken can reject on token-refresh blips. The boot
+    // must not die — the mirror has the last-known-good state.
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:u1:demo:bounce", '{"hi":99}');
+    const b = new MonoSave.CloudBackend({
+      uid: "u1",
+      getToken: async () => { throw new Error("token refresh blip"); },
+      apiUrl: "https://x",
+      fetch: async () => new Response(null, { status: 200 }),
+      storage, warn: () => {},
+      setTimeout: () => 0, clearTimeout: () => {},
+    });
+    assert.deepEqual(await b.read("demo:bounce"), { hi: 99 });
+  });
+
+  it("falls back to mirror when 200 body is corrupt JSON", async () => {
+    // res.json() can throw on flaky-proxy truncation. Don't take down boot.
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:u1:demo:bounce", '{"hi":7}');
+    const fetchFn = async () => new Response("{not json", { status: 200, headers: { "Content-Type": "application/json" } });
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, warn: () => {},
+      setTimeout: () => 0, clearTimeout: () => {},
+    });
+    assert.deepEqual(await b.read("demo:bounce"), { hi: 7 });
+  });
+});
+
+describe("CloudBackend — write + debounce", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+  function makeFakeTimer() {
+    let pendingFn = null;
+    let pendingDelay = -1;
+    return {
+      setTimeout: (fn, ms) => { pendingFn = fn; pendingDelay = ms; return 1; },
+      clearTimeout: () => { pendingFn = null; pendingDelay = -1; },
+      run: async () => {
+        const fn = pendingFn;
+        pendingFn = null; pendingDelay = -1;
+        if (fn) await fn();
+      },
+      get pendingDelay() { return pendingDelay; },
+      get hasPending() { return pendingFn !== null; },
+    };
+  }
+
+  it("writes to mirror immediately and schedules a 1000ms push", async () => {
+    const storage = makeFakeStorage();
+    const timer = makeFakeTimer();
+    const fetchFn = async () => new Response(null, { status: 204 });
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, setTimeout: timer.setTimeout, clearTimeout: timer.clearTimeout,
+    });
+    b.write("demo:bounce", '{"hi":42}');
+    assert.equal(storage.getItem("mono:save:u1:demo:bounce"), '{"hi":42}');
+    assert.equal(timer.pendingDelay, 1000);
+  });
+
+  it("multiple writes within debounce collapse into one PUT", async () => {
+    const storage = makeFakeStorage();
+    const timer = makeFakeTimer();
+    const calls = [];
+    const fetchFn = async (url, init) => { calls.push(init); return new Response(null, { status: 204 }); };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, setTimeout: timer.setTimeout, clearTimeout: timer.clearTimeout,
+    });
+    b.write("demo:bounce", '{"hi":1}');
+    b.write("demo:bounce", '{"hi":2}');
+    b.write("demo:bounce", '{"hi":3}');
+    assert.ok(timer.hasPending);
+    await timer.run();
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].body), { bucket: { hi: 3 } });
+  });
+
+  it("network error on push leaves entry in pending for retry", async () => {
+    const storage = makeFakeStorage();
+    const timer = makeFakeTimer();
+    let attempts = 0;
+    const fetchFn = async () => { attempts++; throw new Error("offline"); };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, setTimeout: timer.setTimeout, clearTimeout: timer.clearTimeout,
+    });
+    b.write("demo:bounce", '{"hi":1}');
+    await timer.run();
+    assert.equal(attempts, 1);
+    assert.equal(b._pending.get("demo:bounce"), '{"hi":1}');
+  });
+});
+
+describe("CloudBackend — clear", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+      _entries: () => Array.from(map.entries()),
+    };
+  }
+  function makeFakeTimer() {
+    let pendingFn = null;
+    return {
+      setTimeout: (fn) => { pendingFn = fn; return 1; },
+      clearTimeout: () => { pendingFn = null; },
+      get hasPending() { return pendingFn !== null; },
+    };
+  }
+
+  it("issues DELETE immediately and clears the per-uid mirror", async () => {
+    const storage = makeFakeStorage();
+    storage.setItem("mono:save:u1:demo:bounce", '{"hi":1}');
+    const calls = [];
+    const fetchFn = async (url, init) => { calls.push({ url, method: init.method }); return new Response(null, { status: 204 }); };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, setTimeout: () => 0, clearTimeout: () => {},
+    });
+    await b.clear("demo:bounce");
+    assert.equal(storage.getItem("mono:save:u1:demo:bounce"), null);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, "DELETE");
+    assert.equal(calls[0].url, "https://x/save/demo%3Abounce");
+  });
+
+  it("cancels a pending push for the same cartId", async () => {
+    const storage = makeFakeStorage();
+    const timer = makeFakeTimer();
+    const fetchFn = async () => new Response(null, { status: 204 });
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage, setTimeout: timer.setTimeout, clearTimeout: timer.clearTimeout,
+    });
+    b.write("demo:bounce", '{"hi":1}');
+    assert.ok(timer.hasPending);
+    await b.clear("demo:bounce");
+    // Pending push for this cartId must be gone.
+    assert.equal(b._pending.has("demo:bounce"), false);
+  });
+});
+
+describe("CloudBackend — keepalive flush on page leave", () => {
+  function makeFakeStorage() {
+    const map = new Map();
+    return {
+      getItem: (k) => map.has(k) ? map.get(k) : null,
+      setItem: (k, v) => { map.set(k, String(v)); },
+      removeItem: (k) => { map.delete(k); },
+    };
+  }
+  function makeEventTarget() {
+    const handlers = {};
+    return {
+      addEventListener: (ev, fn) => { (handlers[ev] = handlers[ev] || []).push(fn); },
+      removeEventListener: () => {},
+      dispatchEvent: (ev) => { (handlers[ev.type] || []).forEach(fn => fn(ev)); },
+    };
+  }
+
+  it("registers visibilitychange + beforeunload listeners on construction", () => {
+    const target = makeEventTarget();
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: async () => new Response(null, { status: 204 }),
+      storage: makeFakeStorage(), setTimeout: () => 0, clearTimeout: () => {},
+      eventTarget: target, visibilityState: () => "visible",
+    });
+    // Bookkeeping: handlers were attached. (We don't expose them, but
+    // dispatching now should not throw.)
+    target.dispatchEvent({ type: "visibilitychange" });
+    target.dispatchEvent({ type: "beforeunload" });
+  });
+
+  it("issues a keepalive PUT for each pending entry on visibilitychange to hidden", async () => {
+    const target = makeEventTarget();
+    const calls = [];
+    const fetchFn = async (url, init) => { calls.push(init); return new Response(null, { status: 204 }); };
+    let visState = "visible";
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage: makeFakeStorage(),
+      setTimeout: () => 0, clearTimeout: () => {},
+      eventTarget: target, visibilityState: () => visState,
+    });
+    b.write("a", '{"v":1}');
+    b.write("b", '{"v":2}');
+    visState = "hidden";
+    target.dispatchEvent({ type: "visibilitychange" });
+    // Allow microtasks to drain.
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].keepalive, true);
+    assert.equal(calls[1].keepalive, true);
+  });
+
+  it("issues a keepalive PUT on beforeunload regardless of visibility", async () => {
+    const target = makeEventTarget();
+    const calls = [];
+    const fetchFn = async (url, init) => { calls.push(init); return new Response(null, { status: 204 }); };
+    const b = new MonoSave.CloudBackend({
+      uid: "u1", getToken: async () => "T", apiUrl: "https://x",
+      fetch: fetchFn, storage: makeFakeStorage(),
+      setTimeout: () => 0, clearTimeout: () => {},
+      eventTarget: target, visibilityState: () => "visible",
+    });
+    b.write("a", '{"v":1}');
+    target.dispatchEvent({ type: "beforeunload" });
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].keepalive, true);
+  });
+});

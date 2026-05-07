@@ -121,76 +121,97 @@
     motion:      { path: "/demo/motion/main.lua",      colors: 4 },
     save:        { path: "/demo/save/main.lua",        colors: 4 }
   };
-
   var API_URL = "https://api.monogame.cc";
-  var params = new URLSearchParams(location.search);
-  var gameName = params.get("game");
-  var gameId = params.get("id");
-  var entry = gameName && GAMES[gameName];
+</script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+
+  const app = initializeApp({
+    apiKey: "AIzaSyAyTiJx_JkVdQoh8b5bDo-ttvp175vy8PM",
+    authDomain: "mono-5b951.firebaseapp.com",
+    projectId: "mono-5b951",
+    storageBucket: "mono-5b951.firebasestorage.app",
+    messagingSenderId: "850069827366",
+    appId: "1:850069827366:web:a196c04bbf4c93bd061be7"
+  });
+  const auth = getAuth(app);
+
+  // Wait for the first auth state callback so we know whether we have a
+  // signed-in user before booting Mono. Resolves to the user (or null).
+  const user = await new Promise((resolve) => {
+    const unsub = onAuthStateChanged(auth, (u) => { unsub(); resolve(u); });
+  });
+
+  // Build the save backend if we're logged in; otherwise leave it for
+  // Mono.boot to default to WebBackend (anonymous).
+  const MonoSave = window.MonoSave;
+  function makeSaveHook(cartId) {
+    if (!user) return undefined;
+    return {
+      backend: new MonoSave.CloudBackend({
+        uid: user.uid,
+        getToken: () => user.getIdToken(),
+        apiUrl: API_URL,
+      }),
+      cartId,
+    };
+  }
+
+  const params = new URLSearchParams(location.search);
+  const gameName = params.get("game");
+  const gameId = params.get("id");
+  const entry = gameName && GAMES[gameName];
 
   if (gameId) {
-    // Published game: load files from R2
-    (async function() {
-      try {
-        var res = await fetch(API_URL + "/games/" + gameId + "/published");
-        if (!res.ok) throw new Error("Game not found");
-        var data = await res.json();
-        document.title = "Mono \u2014 " + (data.title || "Game");
-        document.getElementById("back-btn").href = "/";
+    try {
+      const res = await fetch(API_URL + "/games/" + gameId + "/published");
+      if (!res.ok) throw new Error("Game not found");
+      const data = await res.json();
+      document.title = "Mono \u2014 " + (data.title || "Game");
+      document.getElementById("back-btn").href = "/";
 
-        var mainSrc = "";
-        var modules = {};
-        var assets = {};   // { "images/bg1.png": blobURL } — for loadImage
-        var textFiles = {}; // non-.lua text (cart.json, shader.json) — for readFile
-        var mimeByExt = {
-          png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
-          gif: "image/gif", webp: "image/webp", bmp: "image/bmp",
-        };
-        for (let f of data.files) {
-          try {
-            if (f.encoding === "base64") {
-              // Binary asset — decode to Blob URL for engine's loadImage()
-              const bin = Uint8Array.from(atob(f.content), function(c) { return c.charCodeAt(0); });
-              const ext = f.name.split(".").pop().toLowerCase();
-              const mime = mimeByExt[ext] || "application/octet-stream";
-              assets[f.name] = URL.createObjectURL(new Blob([bin], { type: mime }));
-            } else if (f.name === "main.lua") {
-              mainSrc = f.content;
-            } else if (f.name.endsWith(".lua")) {
-              modules[f.name] = f.content;
-            } else {
-              textFiles[f.name] = f.content;
-            }
-          } catch (e) {
-            throw new Error(f.name + ": " + (e.message || e));
-          }
+      let mainSrc = "";
+      const modules = {};
+      const assets = {};
+      const textFiles = {};
+      const mimeByExt = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", bmp: "image/bmp" };
+      for (const f of data.files) {
+        if (f.encoding === "base64") {
+          const bin = Uint8Array.from(atob(f.content), (c) => c.charCodeAt(0));
+          const ext = f.name.split(".").pop().toLowerCase();
+          const mime = mimeByExt[ext] || "application/octet-stream";
+          assets[f.name] = URL.createObjectURL(new Blob([bin], { type: mime }));
+        } else if (f.name === "main.lua") {
+          mainSrc = f.content;
+        } else if (f.name.endsWith(".lua")) {
+          modules[f.name] = f.content;
+        } else {
+          textFiles[f.name] = f.content;
         }
-        if (!mainSrc) throw new Error("No main.lua in published files");
-        try {
-          await Mono.boot("screen", {
-            source: mainSrc,
-            modules: modules,
-            assets: assets,
-            colors: 4,
-            readFile: function(name) {
-              return modules[name] || textFiles[name] || null;
-            },
-            cartId: gameId,
-          });
-        } finally {
-          // Engine has already fetched each blob into a wasm-side image.
-          // Release the URLs so the Blob bytes can be GC'd — safe whether
-          // boot succeeded or threw.
-          for (const k in assets) URL.revokeObjectURL(assets[k]);
-        }
-        Mono.shader.preset();
-      } catch(e) {
-        console.error("Boot failed:", e);
-        document.getElementById("error").style.display = "block";
-        document.getElementById("error").textContent = "Failed to load game: " + e.message;
-        document.getElementById("console").style.display = "none";
       }
-    })();
+      if (!mainSrc) throw new Error("No main.lua in published files");
+      try {
+        await Mono.boot("screen", {
+          source: mainSrc,
+          modules: modules,
+          assets: assets,
+          colors: 4,
+          readFile: (name) => modules[name] || textFiles[name] || null,
+          cartId: gameId,
+          save: makeSaveHook(gameId),
+        });
+      } finally {
+        for (const k in assets) URL.revokeObjectURL(assets[k]);
+      }
+      Mono.shader.preset();
+    } catch (e) {
+      console.error("Boot failed:", e);
+      document.getElementById("error").style.display = "block";
+      document.getElementById("error").textContent = "Failed to load game: " + e.message;
+      document.getElementById("console").style.display = "none";
+    }
   } else if (!entry) {
     document.getElementById("error").style.display = "block";
     document.getElementById("error").textContent = gameName
@@ -199,13 +220,15 @@
     document.getElementById("console").style.display = "none";
   } else {
     document.title = "Mono \u2014 " + gameName.charAt(0).toUpperCase() + gameName.slice(1);
+    const cartId = "demo:" + gameName;
     Mono.boot("screen", {
       game: entry.path,
       colors: entry.colors,
-      cartId: "demo:" + gameName,
-    }).then(function() {
+      cartId,
+      save: makeSaveHook(cartId),
+    }).then(() => {
       Mono.shader.preset();
-    }).catch(function(e) {
+    }).catch((e) => {
       console.error("Boot failed:", e);
       document.getElementById("error").style.display = "block";
       document.getElementById("error").textContent = "Boot failed: " + e.message;

@@ -220,6 +220,6 @@ Two test surfaces (matching existing patterns in this repo):
 
 ## Future Work
 
-- **Cloud sync for published games on logged-in users.** Add a `CloudBackend` that mirrors locally for offline + speed and pushes debounced writes to a new Cosmi Worker endpoint (`GET/PUT/DELETE /save/<cartId>`) keyed by `<uid>:<cartId>` in R2. Last-write-wins for conflicts. The backend interface is already shaped to accommodate this — the runner's auth-detection branch picks `CloudBackend` when a Firebase user is signed in and the cart is a published R2 cart.
+- **Cloud sync for logged-in users.** Implemented in `docs/superpowers/specs/2026-05-03-cloud-save-design.md`. CloudBackend composes a per-uid WebBackend mirror, debounce-pushes to `GET/PUT/DELETE /save/:cartId` in cosmi, persists to R2 under `save/<uid>/<cartId>`. Cloud-wins on first login (anonymous local preserved, never deleted). All authenticated boots with a cartId go through CloudBackend.
 - **Save inspector** in `dev/`: list keys, show JSON, manual edit/delete during development.
 - **Per-cart quota raise** if a real game hits the 64KB limit. The cap is intentionally low to start; raising it is a one-line change once warranted.
