@@ -105,6 +105,15 @@
     return "setKey";
   }
 
+  function detectAxis(el) {
+    let node = el;
+    while (node) {
+      if (node.dataset && node.dataset.gamepadAxis) return node.dataset.gamepadAxis;
+      node = node.parentElement;
+    }
+    return "8way";
+  }
+
   function getKeyName(key) {
     return (typeof Mono !== "undefined" && Mono.keyMap && Mono.keyMap[key]) || key;
   }
@@ -126,6 +135,7 @@
 
   function setupDpad(dpad) {
     const mode = detectMode(dpad);
+    const axis = detectAxis(dpad);
     let anchor = null;
     // Cell-based detection — set on each startInput from actual dpad rect.
     // cellHalf = half of one grid cell (3x3 grid → rect.width / 6).
@@ -139,6 +149,11 @@
     function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
     function updateFromDelta(dx, dy) {
+      // 4way: snap to dominant axis so diagonal touches resolve to one cardinal.
+      if (axis === "4way") {
+        if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+        else dx = 0;
+      }
       const dist = Math.sqrt(dx * dx + dy * dy);
       let ax = 0, ay = 0;
       if (dist > DEADZONE_PX) {
