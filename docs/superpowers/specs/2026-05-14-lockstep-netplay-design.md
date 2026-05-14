@@ -1,10 +1,10 @@
 # Lockstep Netplay — Design
 
 **Date:** 2026-05-14
-**Status:** Shipped (v1, local-tab via BroadcastChannel)
+**Status:** Shipped (v1, WebRTC DataChannel + manual SDP paste)
 **Related:** `docs/CLI-RUNNER.md` (determinism harness), PR #101 (engine determinism prerequisite)
 
-**Implementation note:** v1 ships with the `BroadcastChannel` transport for same-origin two-tab pairing (anonymous, no server, no SDP). The WebRTC + manual-SDP path described in the original design is deferred to v2 — same `Transport` interface, swappable.
+**Implementation note:** v1 ships with `WebRTCTransport` for real cross-machine play (DataChannel, STUN-only, no signaling server). The host generates a base64 offer code that the joiner pastes back as an answer code — paste happens out-of-band (Discord, SMS, etc.). The `BroadcastChannel` same-tab transport was briefly built and removed: it isolates per-browser-instance and cannot cross devices, which is exactly what netplay needs to do.
 
 ## Problem
 
@@ -31,14 +31,16 @@ Mono carts run a deterministic 30 FPS Lua loop, but there is no way for two play
 
 | # | Question | v1 decision |
 |---|---|---|
-| 1 | Transport | `BroadcastChannel` (same-origin, multi-tab). No server, no SDP, anonymous. WebRTC DataChannel is the v2 path — same `Transport` interface in `runtime/netplay/transports.js`. |
-| 2 | Pairing | Automatic via hello-timestamp exchange. Two tabs on the same origin running the same cart auto-pair. Lower ts = host (player 0), higher = joiner. |
-| 3 | Input delay | Fixed 3 frames (≈100 ms at 30 FPS). Queue is pre-filled with zeros for the first `delay` frames so frame 0 can run immediately. |
-| 4 | Tick model | Engine advances logical frame only when `canAdvance()` (peer input available). Stalled frames render an overlay. _draw runs **inside** the fixed-timestep loop so the VRAM-hash exchange captures the correct logical frame. |
-| 5 | RNG | `setEngineSeed(session.seed)` is called once on `matching → playing` transition. Both peers compute the same seed by mixing their 32-bit ts halves. Carts seed `math.random` themselves via `net.seed()`. |
-| 6 | Cart hash | `cartHash = opts.cartId` (passed to BroadcastChannel name + handshake check). Mismatch → `"closed"` with reason. SHA256 of cart source is v2. |
-| 7 | Desync detection | Every `HASH_INTERVAL = 30` frames each peer fnv1a-hashes `scr.colorBuf` (160×120 bytes) and posts the result. Mismatch → `status = "desync"` + `DESYNC` overlay. |
-| 8 | API surface | `net.start()`, `net.status()`, `net.local_player()`, `net.seed()`, `net.error()`, `net.close()`. `btn(k)` / `btnp(k)` / `btnr(k)` accept an optional second arg `player` (0 or 1; defaults to local). |
+| 1 | Transport | `WebRTCTransport` — `RTCPeerConnection` + ordered `DataChannel`. STUN-only (`stun:stun.l.google.com:19302`), no TURN, no signaling server. ICE gathering completes before SDP is returned so the pasted blob is self-contained ("non-trickle"). `InProcessTransport` ships alongside for headless tests. |
+| 2 | Pairing | Manual SDP code paste. Host calls `Mono.net.host()` → base64 offer (~1 KB). Joiner calls `Mono.net.join(offer)` → base64 answer. Host calls `Mono.net.accept(answer)` → DataChannel opens. Host = player 0, joiner = player 1. |
+| 3 | Init / seed | Host generates a 32-bit random seed and sends it as the first DataChannel message (`{type: "init", seed, cartHash, proto, delay}`). Joiner validates `cartHash` and `proto`, adopts seed, ACKs. Both transition to `"playing"`. |
+| 4 | Input delay | Fixed 3 frames (≈100 ms at 30 FPS). Queue is pre-filled with zeros for the first `delay` frames so frame 0 can run immediately. |
+| 5 | Tick model | Engine advances logical frame only when `canAdvance()` (peer input available). Stalled frames render an overlay. `_draw` runs **inside** the fixed-timestep loop so the VRAM-hash exchange captures the correct logical frame. |
+| 6 | RNG | `setEngineSeed(session.seed)` is called once on `matching → playing` transition. Carts seed `math.random` themselves via `net.seed()`. |
+| 7 | Cart hash | `cartHash = opts.cartId` is included in the host's init message and validated by the joiner. Mismatch → `"closed"` with reason. SHA256 of cart source is a v2 hardening. |
+| 8 | Desync detection | Every `HASH_INTERVAL = 30` frames each peer fnv1a-hashes `scr.colorBuf` (160×120 bytes) and posts the result. Mismatch → `status = "desync"` + `DESYNC` overlay. |
+| 9 | Cart-facing API | `net.start()` (opt-in flag), `net.status()`, `net.local_player()`, `net.seed()`, `net.error()`, `net.close()`. `btn(k)` / `btnp(k)` / `btnr(k)` accept an optional second arg `player` (0 or 1; defaults to local). |
+| 10 | Runner-facing API | `Mono.net.host()` / `Mono.net.join(offer)` / `Mono.net.accept(answer)` / `Mono.net.cancel()`. The runner shell (`play.html`) drives a Host/Join modal that calls these — carts never see SDP. |
 
 ## Architecture
 
@@ -137,13 +139,15 @@ A separate small PR can do the determinism work first so it can be reviewed inde
 
 ## Lessons learned (v1 implementation)
 
-- **32-bit truncation bug**: `msg.ts | 0` silently truncated `Date.now()` (~1.78e12) into the signed-int range, collapsing both peers to `localPlayer = 1`. Fixed by storing the full Number and a separate regression test now covers realistic timestamps.
-- **Hash timing**: original engine ran `_draw` once per RAF tick (outside the fixed-timestep loop). With multiple logic frames per tick, the VRAM hash captured a stale render. v1 moves `_draw` inside the loop so each logical frame's hash matches its render. Slight CPU overhead when a tick catches up multiple frames; acceptable in ALPHA.
-- **Cart-side asymmetric rendering breaks lockstep**: showing a "you are player N" marker via cart Lua diverges VRAM between peers and trips the desync detector. Carts must render an identical screen on both peers; "which side am I" must come from the engine HUD, not the cart, or be omitted.
+- **BroadcastChannel was the wrong primitive.** v1 was briefly built on `BroadcastChannel` to skip the SDP UX. That made local same-browser two-tab testing trivially work — but BroadcastChannel is browser-instance-scoped and cannot reach a different device, defeating the goal of network play. Removed before merge; the lesson is to validate the transport against the actual user scenario (two devices on a network) before optimizing for the convenient one (two tabs on a machine).
+- **Hash timing**: the original engine ran `_draw` once per RAF tick (outside the fixed-timestep loop). With multiple logic frames per tick, the VRAM hash captured a stale render. v1 moves `_draw` inside the loop so each logical frame's hash matches its render. Slight CPU overhead when a tick catches up multiple frames; acceptable in ALPHA.
+- **Cart-side asymmetric rendering breaks lockstep.** Showing a "you are player N" marker from cart Lua diverges VRAM between peers and trips the desync detector. Carts must render an identical screen on both peers; "which side am I" must come from the engine HUD, not the cart, or be omitted.
+- **Async Lua is awkward.** WebRTC offer/answer generation is async (~1-2s ICE gathering). Lua 5.4 has no native async/await, so the SDP exchange UX lives in the runner shell (`play.html`), not in the cart. Cart just calls `net.start()` and reads `net.status()`.
 
 ## Future work (v2+)
 
-- WebRTC DataChannel + manual SDP paste (or signaling worker at `api.monogame.cc`) for cross-machine play. Same `Transport` interface; only the constructor changes.
+- Signaling worker on `api.monogame.cc` so room codes replace the long base64 paste (still anonymous, still STUN-only between peers).
+- TURN relay fallback for users behind symmetric NAT (currently STUN-only, which fails for some mobile carriers / corporate networks).
 - 3-4P (protocol generalises by indexing inputs by peer id rather than 0/1).
 - Rollback prediction layer on top of the same input queue.
 - Hosted lobby + matchmaking.

@@ -72,11 +72,12 @@ var Mono = (() => {
   }
 
   // --- Netplay (lockstep) state ---
-  // Carts opt in via Lua `net.start()`. Two browser tabs on the same origin
-  // running the same cart pair via BroadcastChannel — no server, no SDP,
-  // anonymous. Players see synchronized inputs; engine stalls a frame if
-  // peer input hasn't arrived. Requires deterministic engine (seeded RNG)
-  // and is gated behind `globalThis.MonoLockstep` being present.
+  // Carts opt in via Lua `net.start()`. The runner shell (e.g., play.html)
+  // surfaces a Host/Join UI that calls Mono.net.host() / join() / accept()
+  // to drive a manual SDP paste handshake over WebRTC. Once paired, the
+  // engine synchronizes inputs via the lockstep protocol and stalls a
+  // frame if peer input hasn't arrived. Requires deterministic engine
+  // (seeded RNG) and is gated behind `globalThis.MonoLockstep` being present.
   const KEYS_LIST = ["up", "down", "left", "right", "a", "b", "start", "select"];
   const KEY_BITS = { up: 0x01, down: 0x02, left: 0x04, right: 0x08, a: 0x10, b: 0x20, start: 0x40, select: 0x80 };
   function packKeys(src) {
@@ -98,6 +99,7 @@ var Mono = (() => {
     return h;
   }
   let netSession = null;
+  let netPending = false;
   let netPrevStatus = "idle";
   const playerKeys     = [Object.fromEntries(KEYS_LIST.map(k => [k, false])), Object.fromEntries(KEYS_LIST.map(k => [k, false]))];
   const playerKeysPrev = [Object.fromEntries(KEYS_LIST.map(k => [k, false])), Object.fromEntries(KEYS_LIST.map(k => [k, false]))];
@@ -676,7 +678,10 @@ var Mono = (() => {
     // Reset netplay session — a new boot is always a fresh, idle netplay
     // state. Carts opt back in via net.start().
     if (netSession) { try { netSession.close(); } catch {} netSession = null; }
+    if (_webrtcTransport) { try { _webrtcTransport.close(); } catch {} _webrtcTransport = null; }
+    netPending = false;
     netPrevStatus = "idle";
+    _currentCartId = opts.cartId || null;
     for (let p = 0; p < 2; p++)
       for (const k of KEYS_LIST) { playerKeys[p][k] = false; playerKeysPrev[p][k] = false; }
     // Detach any listeners from a prior boot — new boot re-attaches via
@@ -1211,24 +1216,16 @@ var Mono = (() => {
       modules: opts.modules || {},
       save: saveHook,
       net: {
-        start: () => {
-          if (netSession) return;
-          const Lockstep = globalThis.MonoLockstep;
-          const Transports = globalThis.MonoNetTransports;
-          if (!Lockstep || !Transports) {
-            showError("net.start: lockstep/transport modules not loaded. Include runtime/netplay/lockstep.js and transports.js.");
-            return;
-          }
-          const channel = "mono-netplay-" + (opts.cartId || "anon");
-          const transport = new Transports.BroadcastChannelTransport(channel);
-          netSession = new Lockstep.LockstepSession({ transport, cartHash: opts.cartId || "anon" });
-          netSession.start();
-        },
-        status:      () => netSession ? netSession.status : "idle",
+        // Cart-side opt-in. Just flips the "wants netplay" flag; the
+        // runner shell (play.html) surfaces a Host/Join UI and calls
+        // Mono.net.host() / join() / accept() to perform the WebRTC
+        // SDP exchange. Cart only reads net.status() afterwards.
+        start: () => { netPending = true; },
+        status:      () => netSession ? netSession.status : (netPending ? "matching" : "idle"),
         localPlayer: () => netSession ? netSession.localPlayer : -1,
         seed:        () => netSession ? netSession.seed : 0,
         error:       () => netSession && netSession.error ? netSession.error : false,
-        close: () => { if (netSession) { netSession.close(); netSession = null; } },
+        close: () => { if (netSession) { netSession.close(); netSession = null; } netPending = false; },
       },
     });
 
@@ -1314,7 +1311,6 @@ var Mono = (() => {
         // the cart's title screen and the engine's overlay remain visible.
         let runLogic = true;
         if (netSession) {
-          netSession.poll();
           if (netSession.status === "playing" && netPrevStatus !== "playing") {
             // Re-seed engineRandom from the shared session seed exactly
             // once when pairing completes, so cam_shake (and any future
@@ -1333,6 +1329,11 @@ var Mono = (() => {
             unpackKeys(b0, playerKeys[0]);
             unpackKeys(b1, playerKeys[1]);
           }
+        } else if (netPending) {
+          // Cart opted in but the runner's UI hasn't completed pairing yet
+          // (host/join button not clicked, SDP not exchanged). Hold the
+          // simulation here; the runner shell renders its own modal.
+          runLogic = false;
         }
 
         if (runLogic && !paused) {
@@ -1508,6 +1509,69 @@ var Mono = (() => {
   API._internal = null;  // set during boot
   API._setFlush = (fn) => { flushFn = fn; };
   API._getFrame = () => frame;
+
+  // --- Netplay control surface (called by the runner shell, not the cart) ---
+  // The cart calls Lua `net.start()` to opt in; the runner shell then drives
+  // this API to perform the manual SDP exchange over WebRTC.
+  //
+  //   const offer  = await Mono.net.host();           // host → share offer
+  //   const answer = await Mono.net.join(offer);      // joiner → share answer
+  //   await Mono.net.accept(answer);                  // host → finishes pairing
+  //
+  // After accept() resolves, both peers transition to status="playing".
+  function _ensureNetModules() {
+    const Lockstep = globalThis.MonoLockstep;
+    const Transports = globalThis.MonoNetTransports;
+    if (!Lockstep || !Transports) {
+      throw new Error("Netplay modules missing — include runtime/netplay/lockstep.js and transports.js before engine.js.");
+    }
+    return { Lockstep, Transports };
+  }
+  function _cartHash() {
+    // Stable per-cart identifier so peers running different carts can't
+    // accidentally pair. Falls back to "anon" before boot.
+    return (_currentCartId || "anon");
+  }
+  let _webrtcTransport = null;
+  let _currentCartId = null;
+  API.net = {
+    async host() {
+      const { Lockstep, Transports } = _ensureNetModules();
+      if (netSession) throw new Error("net.host: session already exists");
+      _webrtcTransport = new Transports.WebRTCTransport();
+      const offer = await _webrtcTransport.createOffer();
+      netSession = new Lockstep.LockstepSession({ transport: _webrtcTransport, cartHash: _cartHash() });
+      netSession.startAsHost();
+      return offer;
+    },
+    async accept(answerCode) {
+      if (!_webrtcTransport || !netSession || netSession.localPlayer !== 0) {
+        throw new Error("net.accept: call net.host() first");
+      }
+      await _webrtcTransport.acceptAnswer(answerCode);
+      // Pairing completes when the joiner's init_ack arrives over the open
+      // DataChannel; nothing else for the caller to await here.
+    },
+    async join(offerCode) {
+      const { Lockstep, Transports } = _ensureNetModules();
+      if (netSession) throw new Error("net.join: session already exists");
+      _webrtcTransport = new Transports.WebRTCTransport();
+      const answer = await _webrtcTransport.createAnswer(offerCode);
+      netSession = new Lockstep.LockstepSession({ transport: _webrtcTransport, cartHash: _cartHash() });
+      netSession.startAsJoiner();
+      return answer;
+    },
+    cancel() {
+      if (netSession) { try { netSession.close(); } catch {} netSession = null; }
+      if (_webrtcTransport) { try { _webrtcTransport.close(); } catch {} _webrtcTransport = null; }
+      netPending = false;
+      netPrevStatus = "idle";
+    },
+    status:      () => netSession ? netSession.status : (netPending ? "matching" : "idle"),
+    isEnabled:   () => netPending || !!netSession,
+    localPlayer: () => netSession ? netSession.localPlayer : -1,
+    error:       () => (netSession && netSession.error) || null,
+  };
 
   return API;
 })();
