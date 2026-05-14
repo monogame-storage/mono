@@ -71,6 +71,37 @@ var Mono = (() => {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
+  // --- Netplay (lockstep) state ---
+  // Carts opt in via Lua `net.start()`. Two browser tabs on the same origin
+  // running the same cart pair via BroadcastChannel — no server, no SDP,
+  // anonymous. Players see synchronized inputs; engine stalls a frame if
+  // peer input hasn't arrived. Requires deterministic engine (seeded RNG)
+  // and is gated behind `globalThis.MonoLockstep` being present.
+  const KEYS_LIST = ["up", "down", "left", "right", "a", "b", "start", "select"];
+  const KEY_BITS = { up: 0x01, down: 0x02, left: 0x04, right: 0x08, a: 0x10, b: 0x20, start: 0x40, select: 0x80 };
+  function packKeys(src) {
+    let b = 0;
+    for (const k of KEYS_LIST) if (src[k]) b |= KEY_BITS[k];
+    return b;
+  }
+  function unpackKeys(bits, dst) {
+    for (const k of KEYS_LIST) dst[k] = !!(bits & KEY_BITS[k]);
+    return dst;
+  }
+  function vramHash32(colorBuf) {
+    // fnv1a-32 over the visible surface bytes.
+    let h = 0x811c9dc5 >>> 0;
+    for (let i = 0, n = colorBuf.length; i < n; i++) {
+      h ^= colorBuf[i];
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h;
+  }
+  let netSession = null;
+  let netPrevStatus = "idle";
+  const playerKeys     = [Object.fromEntries(KEYS_LIST.map(k => [k, false])), Object.fromEntries(KEYS_LIST.map(k => [k, false]))];
+  const playerKeysPrev = [Object.fromEntries(KEYS_LIST.map(k => [k, false])), Object.fromEntries(KEYS_LIST.map(k => [k, false]))];
+
   // --- Audio (2-channel synth: square/sawtooth/triangle/sine + noise) ---
   let audioCtx = null;
   const channels = [null, null]; // { src, gain }
@@ -642,6 +673,12 @@ var Mono = (() => {
     // Stop previous run if any
     if (_loopId) { cancelAnimationFrame(_loopId); _loopId = null; }
     if (_lua) { _lua.global.close(); _lua = null; }
+    // Reset netplay session — a new boot is always a fresh, idle netplay
+    // state. Carts opt back in via net.start().
+    if (netSession) { try { netSession.close(); } catch {} netSession = null; }
+    netPrevStatus = "idle";
+    for (let p = 0; p < 2; p++)
+      for (const k of KEYS_LIST) { playerKeys[p][k] = false; playerKeysPrev[p][k] = false; }
     // Detach any listeners from a prior boot — new boot re-attaches via
     // _attachListeners() below.
     detachListeners();
@@ -1129,9 +1166,27 @@ var Mono = (() => {
     }
     await Bindings.bind(lua, {
       input: {
-        btn:        (k) => !!keys[k],
-        btnp:       (k) => !!(keys[k] && !keysPrev[k]),
-        btnr:       (k) => !!(!keys[k] && keysPrev[k]),
+        btn:  (k, p) => {
+          if (netSession && netSession.status === "playing") {
+            const pl = (p === undefined || p === null) ? netSession.localPlayer : (p | 0);
+            return !!playerKeys[pl] && !!playerKeys[pl][k];
+          }
+          return !!keys[k];
+        },
+        btnp: (k, p) => {
+          if (netSession && netSession.status === "playing") {
+            const pl = (p === undefined || p === null) ? netSession.localPlayer : (p | 0);
+            return !!(playerKeys[pl][k] && !playerKeysPrev[pl][k]);
+          }
+          return !!(keys[k] && !keysPrev[k]);
+        },
+        btnr: (k, p) => {
+          if (netSession && netSession.status === "playing") {
+            const pl = (p === undefined || p === null) ? netSession.localPlayer : (p | 0);
+            return !!(!playerKeys[pl][k] && playerKeysPrev[pl][k]);
+          }
+          return !!(!keys[k] && keysPrev[k]);
+        },
         touch:      () => touches.length > 0,
         // touch_start/touch_end are edge-triggered: true for exactly one update
         // frame, beginning on the frame the event was dispatched. The previous
@@ -1155,6 +1210,26 @@ var Mono = (() => {
       scene: sceneRef,
       modules: opts.modules || {},
       save: saveHook,
+      net: {
+        start: () => {
+          if (netSession) return;
+          const Lockstep = globalThis.MonoLockstep;
+          const Transports = globalThis.MonoNetTransports;
+          if (!Lockstep || !Transports) {
+            showError("net.start: lockstep/transport modules not loaded. Include runtime/netplay/lockstep.js and transports.js.");
+            return;
+          }
+          const channel = "mono-netplay-" + (opts.cartId || "anon");
+          const transport = new Transports.BroadcastChannelTransport(channel);
+          netSession = new Lockstep.LockstepSession({ transport, cartHash: opts.cartId || "anon" });
+          netSession.start();
+        },
+        status:      () => netSession ? netSession.status : "idle",
+        localPlayer: () => netSession ? netSession.localPlayer : -1,
+        seed:        () => netSession ? netSession.seed : 0,
+        error:       () => netSession && netSession.error ? netSession.error : false,
+        close: () => { if (netSession) { netSession.close(); netSession = null; } },
+      },
     });
 
     // Run game script
@@ -1172,7 +1247,12 @@ var Mono = (() => {
     }
 
     // Expose internals for plugins (after _init so palette may have changed)
-    API._internal = { canvas, ctx, palette, imgData, W, H, surfaces };
+    API._internal = {
+      canvas, ctx, palette, imgData, W, H, surfaces,
+      // Netplay accessor — returns the live session (or null when idle).
+      // Tests read .status / .localPlayer / .frame to verify pairing.
+      get netSession() { return netSession; },
+    };
 
     const startFn = lua.global.get("_start");
     if (startFn) {
@@ -1218,32 +1298,86 @@ var Mono = (() => {
         await activateScene(name);
       }
 
-      // Fixed timestep update (30fps logic)
+      // Fixed timestep update (30fps logic).
+      // Render runs ONCE PER LOGIC FRAME (inside the loop) so that the
+      // VRAM-hash exchange in netplay captures the screen that corresponds
+      // to the logical frame we just advanced. The pre-netplay design ran
+      // _draw once per RAF tick (outside the loop), which misaligned the
+      // hash with the rendered frame when a tick consumed multiple logic
+      // frames (tab-resume catch-up, slow RAF).
       let updated = false;
       while (accumulator >= FRAME_MS) {
         accumulator -= FRAME_MS;
-        if (!paused) {
+
+        // Netplay: drive matching heartbeat and decide whether to advance
+        // simulation this iteration. We still render even when stalled, so
+        // the cart's title screen and the engine's overlay remain visible.
+        let runLogic = true;
+        if (netSession) {
+          netSession.poll();
+          if (netSession.status === "playing" && netPrevStatus !== "playing") {
+            // Re-seed engineRandom from the shared session seed exactly
+            // once when pairing completes, so cam_shake (and any future
+            // RNG-driven engine internals) match across peers.
+            setEngineSeed(netSession.seed);
+          }
+          netPrevStatus = netSession.status;
+          if (netSession.status !== "playing" || !netSession.canAdvance()) {
+            runLogic = false;
+          } else {
+            // Both peers have input for this frame — snapshot into
+            // playerKeys so btn(k, p) sees the canonical per-player state.
+            for (let p = 0; p < 2; p++)
+              for (const k of KEYS_LIST) playerKeysPrev[p][k] = playerKeys[p][k];
+            const [b0, b1] = netSession.inputsForFrame(netSession.frame);
+            unpackKeys(b0, playerKeys[0]);
+            unpackKeys(b1, playerKeys[1]);
+          }
+        }
+
+        if (runLogic && !paused) {
           const uf = sceneObj ? sceneObj.update : lua.global.get(sceneRef.current ? (sceneRef.current.includes("/") ? sceneRef.current.split("/").pop() : sceneRef.current) + "_update" : "_update");
           if (uf) try { uf(); } catch (e) { stopWithError((sceneRef.current || "") + " update: " + (e.message || e)); return; }
         }
-        frame++;
-        inputUpdate();
-        updated = true;
-      }
 
-      // Render every frame (uncapped)
-      // Apply camera shake (save/restore so cam_get() stays clean)
-      if (shakeAmount > 0.5) {
-        shakeX = Math.floor((engineRandom() - 0.5) * shakeAmount * 2);
-        shakeY = Math.floor((engineRandom() - 0.5) * shakeAmount * 2);
-        shakeAmount *= 0.9;
-      } else { shakeAmount = 0; shakeX = 0; shakeY = 0; }
-      camX += shakeX; camY += shakeY;
-      {
-        const df = sceneObj ? sceneObj.draw : lua.global.get(sceneRef.current ? (sceneRef.current.includes("/") ? sceneRef.current.split("/").pop() : sceneRef.current) + "_draw" : "_draw");
-        if (df) try { df(); } catch (e) { camX -= shakeX; camY -= shakeY; stopWithError((sceneRef.current || "") + " draw: " + (e.message || e)); return; }
+        // Render this logic frame. Apply camera shake (save/restore so
+        // cam_get() stays clean).
+        if (shakeAmount > 0.5) {
+          shakeX = Math.floor((engineRandom() - 0.5) * shakeAmount * 2);
+          shakeY = Math.floor((engineRandom() - 0.5) * shakeAmount * 2);
+          shakeAmount *= 0.9;
+        } else { shakeAmount = 0; shakeX = 0; shakeY = 0; }
+        camX += shakeX; camY += shakeY;
+        {
+          const df = sceneObj ? sceneObj.draw : lua.global.get(sceneRef.current ? (sceneRef.current.includes("/") ? sceneRef.current.split("/").pop() : sceneRef.current) + "_draw" : "_draw");
+          if (df) try { df(); } catch (e) { camX -= shakeX; camY -= shakeY; stopWithError((sceneRef.current || "") + " draw: " + (e.message || e)); return; }
+        }
+        camX -= shakeX; camY -= shakeY;
+
+        if (runLogic) {
+          frame++;
+          inputUpdate();
+
+          // Netplay: ship our hardware bits to peer (at frame+delay) and
+          // periodically exchange VRAM hashes — hash captures the screen
+          // we just drew for this logical frame, so peers compare apples
+          // to apples.
+          if (netSession && netSession.status === "playing") {
+            netSession.submitLocalInput(packKeys(keys));
+            if (netSession.frame % globalThis.MonoLockstep.HASH_INTERVAL === 0) {
+              const scr = surfaces[0];
+              if (scr) netSession.submitLocalHash(vramHash32(scr.colorBuf));
+            }
+            netSession.advance();
+          }
+        }
+
+        updated = true;
+
+        // When stalled in netplay, don't keep spinning the loop — accumulator
+        // already consumed FRAME_MS so we just leave for the next tick.
+        if (!runLogic) break;
       }
-      camX -= shakeX; camY -= shakeY;
       if (paused) {
         const scr = surfaces[0];
         const maxC = palette.length - 1;
@@ -1259,6 +1393,27 @@ var Mono = (() => {
           drawText(scr, label, px + pad, py + pad, maxC);
         }
         camX = savedCamX; camY = savedCamY;
+      }
+      // Netplay overlay — surface matching/desync/closed states so the
+      // player isn't staring at a frozen screen with no explanation.
+      if (netSession && netSession.status !== "playing") {
+        const scr = surfaces[0];
+        const maxC = palette.length - 1;
+        let label = null;
+        if (netSession.status === "matching") label = "WAITING FOR PEER";
+        else if (netSession.status === "desync") label = "DESYNC";
+        else if (netSession.status === "closed") label = "DISCONNECTED";
+        if (label) {
+          const tw = label.length * (FONT_W + 1) - 1;
+          const pad = 6;
+          const pw = tw + pad * 2, ph = FONT_H + pad * 2;
+          const px = Math.floor((W - pw) / 2), py = Math.floor((H - ph) / 2);
+          const savedCamX = camX, savedCamY = camY; camX = 0; camY = 0;
+          rectf(scr, px, py, pw, ph, 0);
+          rect(scr, px, py, pw, ph, maxC);
+          drawText(scr, label, px + pad, py + pad, maxC);
+          camX = savedCamX; camY = savedCamY;
+        }
       }
       flushFn();
       _loopId = requestAnimationFrame(tick);
