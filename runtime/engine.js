@@ -57,6 +57,20 @@ var Mono = (() => {
   let camX = 0, camY = 0;
   let shakeAmount = 0, shakeX = 0, shakeY = 0;
 
+  // --- Engine-internal deterministic RNG (mulberry32) ---
+  // Seeded per-boot via Mono.boot({ seed }). Used by cam_shake and any
+  // future engine internals that must reproduce identically across peers
+  // in lockstep netplay. Independent of Lua's math.random — games seed
+  // that themselves.
+  let _rngState = 1 >>> 0;
+  function setEngineSeed(s) { _rngState = (s >>> 0) || 1; }
+  function engineRandom() {
+    let t = _rngState = (_rngState + 0x6D2B79F5) >>> 0;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
   // --- Audio (2-channel synth: square/sawtooth/triangle/sine + noise) ---
   let audioCtx = null;
   const channels = [null, null]; // { src, gain }
@@ -636,6 +650,7 @@ var Mono = (() => {
     _fitCanvas = null;
     images = []; imageIdCounter = 0; pendingLoads = [];
     camX = 0; camY = 0; shakeAmount = 0; shakeX = 0; shakeY = 0; sfxStop(); surfaces = [];
+    setEngineSeed(typeof opts.seed === "number" ? opts.seed : (Date.now() >>> 0));
     // Reset bootTime at each boot so time() starts near 0 on the very
     // first boot too (not just after an API.stop()). The module-level
     // initializer captures `performance.now()` at script parse time,
@@ -1219,8 +1234,8 @@ var Mono = (() => {
       // Render every frame (uncapped)
       // Apply camera shake (save/restore so cam_get() stays clean)
       if (shakeAmount > 0.5) {
-        shakeX = Math.floor((Math.random() - 0.5) * shakeAmount * 2);
-        shakeY = Math.floor((Math.random() - 0.5) * shakeAmount * 2);
+        shakeX = Math.floor((engineRandom() - 0.5) * shakeAmount * 2);
+        shakeY = Math.floor((engineRandom() - 0.5) * shakeAmount * 2);
         shakeAmount *= 0.9;
       } else { shakeAmount = 0; shakeX = 0; shakeY = 0; }
       camX += shakeX; camY += shakeY;
@@ -1240,7 +1255,7 @@ var Mono = (() => {
         const savedCamX = camX, savedCamY = camY; camX = 0; camY = 0;
         rectf(scr, px, py, pw, ph, 0);
         rect(scr, px, py, pw, ph, maxC);
-        if (Math.floor(Date.now() / 500) % 2 === 0) {
+        if (Math.floor(frame / 15) % 2 === 0) {
           drawText(scr, label, px + pad, py + pad, maxC);
         }
         camX = savedCamX; camY = savedCamY;
