@@ -125,6 +125,13 @@
       this.frame++;
       this._trim(this.queue[0], f - 1);
       this._trim(this.queue[1], f - 1);
+      // Hashes accumulate one entry per peer every HASH_INTERVAL frames;
+      // keep ~2 intervals of history so a slightly-delayed peer hash still
+      // finds a local match, then drop the rest. Without this, a 1-hour
+      // session leaks ~400 KB of dead Map entries.
+      const keep = this.frame - HASH_INTERVAL * 2;
+      this._trim(this.localHashes, keep);
+      this._trim(this.peerHashes,  keep);
     }
 
     close() {
