@@ -113,12 +113,10 @@ end
 function _draw()
   cls(scr, 0)
 
-  -- Pre-match: gameplay-area status indicator. The engine also draws a
-  -- centered "WAITING FOR PEER" badge over everything; this just keeps the
-  -- screen non-blank.
+  -- Pre-match: title underneath the engine's status overlay (CONNECTING /
+  -- WAITING FOR PEER / DISCONNECTED) so the screen isn't blank.
   if not game_started then
-    text(scr, "PONG 2P", 80, 50, 12, ALIGN_HCENTER)
-    text(scr, "open in 2 tabs", 80, 66, 6, ALIGN_HCENTER)
+    text(scr, "PONG 2P", 80, 30, 12, ALIGN_HCENTER)
     return
   end
 

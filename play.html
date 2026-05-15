@@ -75,45 +75,6 @@
     padding: 20px;
     text-align: center;
   }
-  /* Netplay modal — shown while the cart has opted in (net.start) but the
-     session is not yet paired. play.html drives the SDP paste UX so carts
-     don't have to know about WebRTC. */
-  #netplay-modal {
-    position: fixed; inset: 0;
-    background: rgba(0, 0, 0, 0.75);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 100;
-    font-family: monospace;
-  }
-  #netplay-modal.hidden { display: none; }
-  #netplay-modal .box {
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 8px;
-    padding: 20px;
-    max-width: 560px;
-    width: 90%;
-    color: #e8e8e8;
-    font-size: 13px;
-  }
-  #netplay-modal h3 { font-size: 14px; margin-bottom: 14px; color: #fff; }
-  #netplay-modal p { margin: 10px 0 6px; color: #bbb; font-size: 12px; }
-  #netplay-modal textarea {
-    width: 100%; min-height: 70px;
-    background: #111; color: #9fe; border: 1px solid #444;
-    border-radius: 4px; padding: 8px; font-family: monospace; font-size: 11px;
-    resize: vertical; word-break: break-all;
-  }
-  #netplay-modal button {
-    background: #444; color: #fff; border: 0; border-radius: 4px;
-    padding: 7px 14px; margin: 8px 6px 0 0; cursor: pointer; font-family: monospace;
-  }
-  #netplay-modal button:hover { background: #555; }
-  #netplay-modal button.primary { background: #3a6; }
-  #netplay-modal button.primary:hover { background: #4b7; }
-  #netplay-modal .status { margin-top: 12px; color: #f88; font-size: 11px; min-height: 14px; }
-  #netplay-modal .view { display: none; }
-  #netplay-modal .view.active { display: block; }
 </style>
 </head>
 <body>
@@ -129,58 +90,6 @@
   <div id="accel-panel"></div>
 </div>
 <div id="error"></div>
-
-<div id="netplay-modal" class="hidden">
-  <div class="box">
-    <h3>2-player netplay</h3>
-
-    <div class="view active" data-view="choose">
-      <p>Find or create a match for this cart.</p>
-      <button class="primary" data-action="auto">Find game</button>
-      <button data-action="show-manual">Manual SDP</button>
-      <button data-action="cancel">Cancel</button>
-    </div>
-
-    <div class="view" data-view="auto-pairing">
-      <p data-field="auto-status">Looking for a room…</p>
-      <button data-action="cancel">Cancel</button>
-    </div>
-
-    <div class="view" data-view="manual-choose">
-      <p>Manual SDP exchange (advanced).</p>
-      <button class="primary" data-action="host">Host</button>
-      <button class="primary" data-action="join">Join</button>
-      <button data-action="back-to-auto">&larr; back</button>
-    </div>
-
-    <div class="view" data-view="host-share">
-      <p>1. Send this code to your friend:</p>
-      <textarea data-field="host-offer" readonly></textarea>
-      <button data-action="copy-offer">Copy</button>
-      <p>2. Paste their reply here:</p>
-      <textarea data-field="host-answer" placeholder="paste answer code..."></textarea>
-      <button class="primary" data-action="accept">Connect</button>
-      <button data-action="cancel">Cancel</button>
-    </div>
-
-    <div class="view" data-view="join-offer">
-      <p>1. Paste host's code here:</p>
-      <textarea data-field="join-offer" placeholder="paste offer code..."></textarea>
-      <button class="primary" data-action="generate-answer">Generate reply</button>
-      <button data-action="cancel">Cancel</button>
-    </div>
-
-    <div class="view" data-view="join-share">
-      <p>2. Send this back to the host:</p>
-      <textarea data-field="join-answer" readonly></textarea>
-      <button data-action="copy-answer">Copy</button>
-      <p>Waiting for host to connect…</p>
-      <button data-action="cancel">Cancel</button>
-    </div>
-
-    <div class="status"></div>
-  </div>
-</div>
 
 <script src="/runtime/engine-draw.js"></script>
 <script src="/runtime/engine-bindings.js"></script>
@@ -219,112 +128,29 @@
 </script>
 
 <script>
-  // ── Netplay HUD ────────────────────────────────────────────────────────
-  // Drives Mono.net.host/join/accept based on user clicks. The cart only
-  // calls `net.start()` to opt in; this code owns the UX.
-  //
-  // Default flow: "Find game" → window.MonoFirebaseSignal.autoMatch() uses
-  // Firestore as a signaling layer (room per cart, host creates, joiner
-  // attaches, host deletes the doc once the DataChannel is open).
-  //
-  // Fallback: "Manual SDP" reveals the original copy/paste flow for
-  // environments without Firebase (local dev, LAN play, offline).
+  // ── Netplay auto-trigger ───────────────────────────────────────────────
+  // When the cart opts in via Lua `net.start()`, the engine sets
+  // Mono.net.isEnabled() → true. We watch for that and fire the Firestore
+  // autoMatch automatically — no UI, no buttons. The engine draws its own
+  // "WAITING FOR PEER" / "DISCONNECTED" / "DESYNC" overlays on the canvas
+  // so we don't need an HTML modal for status either.
   (() => {
-    const modal = document.getElementById("netplay-modal");
-    if (!modal) return;
-    const statusEl = modal.querySelector(".status");
-    const $ = (sel) => modal.querySelector(sel);
-    const $$ = (sel) => modal.querySelectorAll(sel);
-    function showView(name) {
-      $$(".view").forEach(v => v.classList.toggle("active", v.dataset.view === name));
-    }
-    function setStatus(msg) { statusEl.textContent = msg || ""; }
-    function setAutoStatus(msg) { const el = $("[data-field=auto-status]"); if (el) el.textContent = msg; }
-    function open() { modal.classList.remove("hidden"); }
-    function close() { modal.classList.add("hidden"); }
-    window.__monoNetplayUI = { showView, setStatus, setAutoStatus, open, close };
-
-    modal.addEventListener("click", async (ev) => {
-      const action = ev.target.dataset.action;
-      if (!action) return;
-      try {
-        if (action === "auto") {
-          showView("auto-pairing");
-          setAutoStatus("Looking for a room…");
-          if (!window.MonoFirebaseSignal) {
-            setStatus("Firebase signaling not ready — try Manual SDP");
-            return;
-          }
-          const result = await window.MonoFirebaseSignal.autoMatch({
-            cartId: window.__monoCartId,
-            onStatus: setAutoStatus,
-          });
-          setAutoStatus(result.role === "host" ? "Connected as host" : "Connected as joiner");
-        } else if (action === "show-manual") {
-          showView("manual-choose");
-        } else if (action === "back-to-auto") {
-          showView("choose");
-        } else if (action === "host") {
-          showView("host-share");
-          $("[data-field=host-offer]").value = "generating offer (this may take 1-2s)…";
-          const offer = await Mono.net.host();
-          $("[data-field=host-offer]").value = offer;
-          setStatus("");
-        } else if (action === "join") {
-          showView("join-offer");
-          setStatus("");
-        } else if (action === "generate-answer") {
-          const offer = $("[data-field=join-offer]").value.trim();
-          if (!offer) { setStatus("paste the host's offer first"); return; }
-          showView("join-share");
-          $("[data-field=join-answer]").value = "generating answer (this may take 1-2s)…";
-          const answer = await Mono.net.join(offer);
-          $("[data-field=join-answer]").value = answer;
-          setStatus("");
-        } else if (action === "accept") {
-          const ans = $("[data-field=host-answer]").value.trim();
-          if (!ans) { setStatus("paste the joiner's reply first"); return; }
-          await Mono.net.accept(ans);
-          setStatus("connecting…");
-        } else if (action === "copy-offer") {
-          await navigator.clipboard.writeText($("[data-field=host-offer]").value);
-          setStatus("copied");
-        } else if (action === "copy-answer") {
-          await navigator.clipboard.writeText($("[data-field=join-answer]").value);
-          setStatus("copied");
-        } else if (action === "cancel") {
-          Mono.net.cancel();
-          if (window.MonoFirebaseSignal) window.MonoFirebaseSignal.cancel();
-          close();
-          showView("choose");
-          setStatus("");
-        }
-      } catch (e) {
-        setStatus("error: " + (e && e.message ? e.message : e));
-      }
-    });
-
-    // Poll Mono.net state so the modal opens/closes in response to
-    // net.start() / net.cancel() and to the lockstep state machine
-    // (matching → playing → desync/closed).
-    let lastStatus = null;
+    let busy = false;
     setInterval(() => {
-      if (!window.Mono || !Mono.net) return;
-      const enabled = Mono.net.isEnabled();
-      const status = Mono.net.status();
-      if (status !== lastStatus) {
-        lastStatus = status;
-        if (status === "playing") { close(); }
-        else if (status === "desync") { setStatus("desync detected — game out of sync"); }
-        else if (status === "closed") { setStatus("disconnected"); }
-      }
-      if (!enabled) { close(); return; }
-      if (status === "playing") return;
-      if (modal.classList.contains("hidden")) {
-        showView("choose");
-        open();
-      }
-    }, 200);
+      if (busy) return;
+      if (!window.Mono || !Mono.net || !window.MonoFirebaseSignal) return;
+      if (!Mono.net.isEnabled()) return;
+      // Already has a session (matching/playing/desync/closed) — autoMatch
+      // either ran or shouldn't run.
+      if (Mono._internal && Mono._internal.netSession) return;
+      busy = true;
+      window.MonoFirebaseSignal.autoMatch({
+        cartId: window.__monoCartId,
+        onStatus: (m) => console.log("[netplay]", m),
+      }).catch((e) => {
+        console.error("[netplay] autoMatch failed:", e && e.message ? e.message : e);
+      }).finally(() => { busy = false; });
+    }, 250);
   })();
 </script>
 

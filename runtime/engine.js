@@ -1407,16 +1407,23 @@ var Mono = (() => {
         }
         camX = savedCamX; camY = savedCamY;
       }
-      // Netplay overlay — surface matching/desync/closed states so the
-      // player isn't staring at a frozen screen with no explanation.
-      if (netSession && netSession.status !== "playing") {
-        const scr = surfaces[0];
-        const maxC = palette.length - 1;
+      // Netplay overlay — surface every non-playing state so the player
+      // isn't staring at a frozen screen with no explanation. The runner
+      // shell (play.html) auto-triggers the Firestore match when the cart
+      // opts in via net.start(), so we cover the brief pre-session window
+      // too (netPending && !netSession = "looking for a room").
+      {
         let label = null;
-        if (netSession.status === "matching") label = "WAITING FOR PEER";
-        else if (netSession.status === "desync") label = "DESYNC";
-        else if (netSession.status === "closed") label = "DISCONNECTED";
+        if (netSession && netSession.status !== "playing") {
+          if (netSession.status === "matching") label = "WAITING FOR PEER";
+          else if (netSession.status === "desync") label = "DESYNC";
+          else if (netSession.status === "closed") label = "DISCONNECTED";
+        } else if (netPending && !netSession) {
+          label = "CONNECTING";
+        }
         if (label) {
+          const scr = surfaces[0];
+          const maxC = palette.length - 1;
           const tw = label.length * (FONT_W + 1) - 1;
           const pad = 6;
           const pw = tw + pad * 2, ph = FONT_H + pad * 2;
