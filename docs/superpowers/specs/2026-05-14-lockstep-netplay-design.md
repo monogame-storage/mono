@@ -150,6 +150,10 @@ A separate small PR can do the determinism work first so it can be reviewed inde
 - **Cart-side asymmetric rendering breaks lockstep.** Showing a "you are player N" marker from cart Lua diverges VRAM between peers and trips the desync detector. Carts must render an identical screen on both peers; "which side am I" must come from the engine HUD, not the cart, or be omitted.
 - **Async Lua is awkward.** WebRTC offer/answer generation is async (~1-2s ICE gathering). Lua 5.4 has no native async/await, so the SDP exchange UX lives in the runner shell (`play.html`), not in the cart. Cart just calls `net.start()` and reads `net.status()`.
 
+## Known limitations
+
+- **Same-machine multi-tab dev testing degrades to ~1 fps.** Chrome throttles `requestAnimationFrame` on unfocused tabs to ~1 Hz, and lockstep can only advance as fast as the slower peer — so if one of the two tabs loses focus, the active tab stalls waiting for inputs. **Supported scenario** is two players on two devices, each with a focused tab. For dev testing on a single machine, use two separate browser **windows** (not tabs) side by side, both visible — they get full RAF. A "pause on opponent hidden" coordination protocol would mitigate brief tab switches but adds complexity; deferred until a real user runs into it.
+
 ## Future work (v2+)
 
 - Signaling worker on `api.monogame.cc` so room codes replace the long base64 paste (still anonymous, still STUN-only between peers).
