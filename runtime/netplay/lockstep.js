@@ -56,6 +56,18 @@
       this.error = null;
 
       this.transport.onMessage((m) => this._handleMessage(m));
+      // When the underlying channel drops (peer closed tab, network gone),
+      // flip status to "closed" so the engine's overlay surfaces it. We
+      // preserve "desync" because that's a more specific failure mode.
+      if (typeof this.transport.onClose === "function") {
+        this.transport.onClose(() => this._onTransportClose());
+      }
+    }
+
+    _onTransportClose() {
+      if (this.status === "closed" || this.status === "desync") return;
+      this.status = "closed";
+      this.error = this.error || "peer disconnected";
     }
 
     startAsHost() {
@@ -155,7 +167,10 @@
         this.peerHashes.set(msg.frame | 0, msg.hash >>> 0);
         this._checkHash(msg.frame | 0);
       } else if (msg.type === "bye") {
-        this.status = "closed";
+        if (this.status !== "desync") {
+          this.status = "closed";
+          this.error = this.error || "peer left";
+        }
       }
     }
 

@@ -136,3 +136,38 @@ test("seed is shared via init message (not derived from timestamps)", async () =
   assert.equal(host.seed, 0xcafef00d);
   assert.equal(joiner.seed, 0xcafef00d);
 });
+
+test("transport close flips peer's session to status='closed' (peer disconnect)", async () => {
+  // Pair, run a few frames, then close the host's transport. The joiner's
+  // session should detect the channel drop and transition to "closed" so
+  // the engine's DISCONNECTED overlay can surface it.
+  const [tHost, tJoin] = InProcessTransport.pair();
+  let ts = 1000;
+  const host   = new LockstepSession({ transport: tHost, cartHash: "abc", now: () => ts++, rng: () => 42 });
+  const joiner = new LockstepSession({ transport: tJoin, cartHash: "abc", now: () => ts++ });
+  host.startAsHost();
+  joiner.startAsJoiner();
+  for (let i = 0; i < 5; i++) await drain();
+  assert.equal(host.status,   "playing");
+  assert.equal(joiner.status, "playing");
+
+  tHost.close();
+  for (let i = 0; i < 5; i++) await drain();
+
+  assert.equal(joiner.status, "closed");
+  assert.match(joiner.error, /peer disconnected/);
+});
+
+test("desync status is preserved across transport close", async () => {
+  // If we already flagged desync, a later transport drop shouldn't overwrite
+  // that more specific error.
+  const { host, joiner } = makePair();
+  await pair(host, joiner);
+  // Force desync directly.
+  joiner.status = "desync";
+  joiner.error  = "desync at frame 30: local=abc peer=def";
+  // Close the host's transport — joiner stays "desync".
+  host.transport.close();
+  for (let i = 0; i < 5; i++) await drain();
+  assert.equal(joiner.status, "desync");
+});

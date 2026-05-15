@@ -17,13 +17,17 @@
 
   // ── InProcessTransport ─────────────────────────────────────────────────
   // Two endpoints share a pair of queues. Messages are delivered on a
-  // microtask so callers see realistic async ordering.
+  // microtask so callers see realistic async ordering. Closing one side
+  // notifies the peer's onClose handler so tests can exercise the
+  // peer-disconnect path that WebRTC's DataChannel onclose covers in prod.
   class InProcessTransport {
     constructor(out, inbox) {
       this._out = out;
       this._inbox = inbox;
       this._handler = null;
+      this._onClose = null;
       this._closed = false;
+      this._peer = null;
       this._inbox.subscribe((msg) => {
         if (this._closed) return;
         if (this._handler) this._handler(msg);
@@ -35,12 +39,23 @@
       this._out.push(copy);
     }
     onMessage(cb) { this._handler = cb; }
-    close() { this._closed = true; }
+    onClose(cb)   { this._onClose = cb; }
+    close() {
+      if (this._closed) return;
+      this._closed = true;
+      const peer = this._peer;
+      if (peer && !peer._closed) {
+        queueMicrotask(() => { if (peer._onClose) peer._onClose(); });
+      }
+    }
 
     static pair() {
       const qA = new _Queue();
       const qB = new _Queue();
-      return [new InProcessTransport(qB, qA), new InProcessTransport(qA, qB)];
+      const a = new InProcessTransport(qB, qA);
+      const b = new InProcessTransport(qA, qB);
+      a._peer = b; b._peer = a;
+      return [a, b];
     }
   }
 
