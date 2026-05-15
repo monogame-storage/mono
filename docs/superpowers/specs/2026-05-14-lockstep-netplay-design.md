@@ -1,10 +1,14 @@
 # Lockstep Netplay — Design
 
-**Date:** 2026-05-14
-**Status:** Shipped (v1, WebRTC DataChannel + manual SDP paste)
+**Date:** 2026-05-14 (last revised 2026-05-15)
+**Status:** Shipped (v1, WebRTC DataChannel + Firestore room signaling, with manual SDP paste fallback)
 **Related:** `docs/CLI-RUNNER.md` (determinism harness), PR #101 (engine determinism prerequisite)
 
-**Implementation note:** v1 ships with `WebRTCTransport` for real cross-machine play (DataChannel, STUN-only, no signaling server). The host generates a base64 offer code that the joiner pastes back as an answer code — paste happens out-of-band (Discord, SMS, etc.). The `BroadcastChannel` same-tab transport was briefly built and removed: it isolates per-browser-instance and cannot cross devices, which is exactly what netplay needs to do.
+**Implementation note:** v1 uses Firestore as a signaling layer. One room per cart (`/netplay-rooms/{cartId}`); the first authenticated arrival becomes host, the second becomes joiner. Once the WebRTC DataChannel opens, host deletes the room and the game runs purely peer-to-peer. Manual SDP paste (the previous iteration) remains as an "Advanced" fallback for offline / no-Firebase dev. `BroadcastChannel` was a brief earlier detour — it isolates per-browser-instance and cannot cross devices, which is the exact thing netplay must do.
+
+**Setup prerequisites for the Firestore signaling path:**
+1. Enable **Anonymous Authentication** in Firebase Console (Authentication → Sign-in method → Anonymous → Enable). Unsigned visitors get a uid so Firestore rules can identify them.
+2. Deploy the rules in `firestore.rules` (`firebase deploy --only firestore:rules`). The new `/netplay-rooms/{cartId}` collection allows authenticated read/write — SDP blobs are public-by-design, no sensitive data.
 
 ## Problem
 
@@ -31,8 +35,10 @@ Mono carts run a deterministic 30 FPS Lua loop, but there is no way for two play
 
 | # | Question | v1 decision |
 |---|---|---|
-| 1 | Transport | `WebRTCTransport` — `RTCPeerConnection` + ordered `DataChannel`. STUN-only (`stun:stun.l.google.com:19302`), no TURN, no signaling server. ICE gathering completes before SDP is returned so the pasted blob is self-contained ("non-trickle"). `InProcessTransport` ships alongside for headless tests. |
-| 2 | Pairing | Manual SDP code paste. Host calls `Mono.net.host()` → base64 offer (~1 KB). Joiner calls `Mono.net.join(offer)` → base64 answer. Host calls `Mono.net.accept(answer)` → DataChannel opens. Host = player 0, joiner = player 1. |
+| 1 | Transport | `WebRTCTransport` — `RTCPeerConnection` + ordered `DataChannel`. STUN-only (`stun:stun.l.google.com:19302`), no TURN. ICE gathering completes before SDP is returned so the pasted/stored blob is self-contained ("non-trickle"). `InProcessTransport` ships alongside for headless tests. |
+| 2 | Pairing (default) | **Firestore room signaling.** One doc per cart (`/netplay-rooms/{cartId}`). First arrival → `runTransaction` to create with `state: "signaling"`, `hostUid`, `offer`, `createdAt`. Second arrival → transaction reads offer, writes `state: "paired"`, `joinerUid`, `answer`. Host listens via `onSnapshot` for the answer, calls `acceptAnswer`. Once the DataChannel opens, host deletes the doc — Firestore is signaling-only. The cart sees a single "Find game" button; the SDP exchange is invisible. |
+| 2b | Pairing (fallback) | Manual SDP paste — `Mono.net.host()` returns a base64 offer; the friend pastes it via `Mono.net.join(offer)` to get a base64 answer; the host pastes that into `Mono.net.accept(answer)`. Hidden behind an "Advanced" toggle in the modal. Useful when Firebase is unavailable (LAN dev, offline). |
+| 2c | Stale rooms | If `createdAt` is older than 30 s and no answer has arrived, a new host arrival overwrites the doc. The transaction's atomic read-and-write prevents two hosts from succeeding concurrently. |
 | 3 | Init / seed | Host generates a 32-bit random seed and sends it as the first DataChannel message (`{type: "init", seed, cartHash, proto, delay}`). Joiner validates `cartHash` and `proto`, adopts seed, ACKs. Both transition to `"playing"`. |
 | 4 | Input delay | Fixed 3 frames (≈100 ms at 30 FPS). Queue is pre-filled with zeros for the first `delay` frames so frame 0 can run immediately. |
 | 5 | Tick model | Engine advances logical frame only when `canAdvance()` (peer input available). Stalled frames render an overlay. `_draw` runs **inside** the fixed-timestep loop so the VRAM-hash exchange captures the correct logical frame. |

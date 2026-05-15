@@ -1249,6 +1249,18 @@ var Mono = (() => {
       // Netplay accessor — returns the live session (or null when idle).
       // Tests read .status / .localPlayer / .frame to verify pairing.
       get netSession() { return netSession; },
+      // Install an externally-built session+transport (e.g. from a
+      // Firestore signaling layer that prepared the WebRTC handshake out
+      // of band). Replaces any existing session; flips netPending so the
+      // tick loop gates simulation on the new session.
+      _adoptNetSession(sess, tport) {
+        if (netSession) { try { netSession.close(); } catch {} }
+        if (_webrtcTransport) { try { _webrtcTransport.close(); } catch {} }
+        netSession = sess || null;
+        _webrtcTransport = tport || null;
+        netPending = !!sess;
+        netPrevStatus = "idle";
+      },
     };
 
     const startFn = lua.global.get("_start");

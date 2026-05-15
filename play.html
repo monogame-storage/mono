@@ -135,10 +135,22 @@
     <h3>2-player netplay</h3>
 
     <div class="view active" data-view="choose">
-      <p>Set up a peer-to-peer match.</p>
+      <p>Find or create a match for this cart.</p>
+      <button class="primary" data-action="auto">Find game</button>
+      <button data-action="show-manual">Manual SDP</button>
+      <button data-action="cancel">Cancel</button>
+    </div>
+
+    <div class="view" data-view="auto-pairing">
+      <p data-field="auto-status">Looking for a room…</p>
+      <button data-action="cancel">Cancel</button>
+    </div>
+
+    <div class="view" data-view="manual-choose">
+      <p>Manual SDP exchange (advanced).</p>
       <button class="primary" data-action="host">Host</button>
       <button class="primary" data-action="join">Join</button>
-      <button data-action="cancel">Cancel</button>
+      <button data-action="back-to-auto">&larr; back</button>
     </div>
 
     <div class="view" data-view="host-share">
@@ -208,9 +220,15 @@
 
 <script>
   // ── Netplay HUD ────────────────────────────────────────────────────────
-  // Drives Mono.net.host() / join(answer) / accept(answer) based on user
-  // clicks. The cart only calls `net.start()` to opt in; this code owns
-  // the SDP paste UX so the cart stays simple.
+  // Drives Mono.net.host/join/accept based on user clicks. The cart only
+  // calls `net.start()` to opt in; this code owns the UX.
+  //
+  // Default flow: "Find game" → window.MonoFirebaseSignal.autoMatch() uses
+  // Firestore as a signaling layer (room per cart, host creates, joiner
+  // attaches, host deletes the doc once the DataChannel is open).
+  //
+  // Fallback: "Manual SDP" reveals the original copy/paste flow for
+  // environments without Firebase (local dev, LAN play, offline).
   (() => {
     const modal = document.getElementById("netplay-modal");
     if (!modal) return;
@@ -221,14 +239,32 @@
       $$(".view").forEach(v => v.classList.toggle("active", v.dataset.view === name));
     }
     function setStatus(msg) { statusEl.textContent = msg || ""; }
+    function setAutoStatus(msg) { const el = $("[data-field=auto-status]"); if (el) el.textContent = msg; }
     function open() { modal.classList.remove("hidden"); }
     function close() { modal.classList.add("hidden"); }
+    window.__monoNetplayUI = { showView, setStatus, setAutoStatus, open, close };
 
     modal.addEventListener("click", async (ev) => {
       const action = ev.target.dataset.action;
       if (!action) return;
       try {
-        if (action === "host") {
+        if (action === "auto") {
+          showView("auto-pairing");
+          setAutoStatus("Looking for a room…");
+          if (!window.MonoFirebaseSignal) {
+            setStatus("Firebase signaling not ready — try Manual SDP");
+            return;
+          }
+          const result = await window.MonoFirebaseSignal.autoMatch({
+            cartId: window.__monoCartId,
+            onStatus: setAutoStatus,
+          });
+          setAutoStatus(result.role === "host" ? "Connected as host" : "Connected as joiner");
+        } else if (action === "show-manual") {
+          showView("manual-choose");
+        } else if (action === "back-to-auto") {
+          showView("choose");
+        } else if (action === "host") {
           showView("host-share");
           $("[data-field=host-offer]").value = "generating offer (this may take 1-2s)…";
           const offer = await Mono.net.host();
@@ -258,6 +294,7 @@
           setStatus("copied");
         } else if (action === "cancel") {
           Mono.net.cancel();
+          if (window.MonoFirebaseSignal) window.MonoFirebaseSignal.cancel();
           close();
           showView("choose");
           setStatus("");
@@ -293,7 +330,11 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
+    onSnapshot, runTransaction, serverTimestamp,
+  } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
   const app = initializeApp({
     apiKey: "AIzaSyAyTiJx_JkVdQoh8b5bDo-ttvp175vy8PM",
@@ -304,12 +345,159 @@
     appId: "1:850069827366:web:a196c04bbf4c93bd061be7"
   });
   const auth = getAuth(app);
+  const db   = getFirestore(app);
 
   // Wait for the first auth state callback so we know whether we have a
   // signed-in user before booting Mono. Resolves to the user (or null).
   const user = await new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, (u) => { unsub(); resolve(u); });
   });
+
+  // ── Netplay signaling via Firestore ────────────────────────────────────
+  // Room layout: `/netplay-rooms/{cartId}`
+  //   { state, hostUid, offer, createdAt, joinerUid?, answer? }
+  // Lifecycle:
+  //   1. Host (transaction) creates doc with offer + hostUid.
+  //   2. Joiner (transaction) reads offer, writes answer + joinerUid, flips
+  //      state to "paired".
+  //   3. Host's onSnapshot picks up the answer, calls acceptAnswer.
+  //   4. Once the DataChannel is open, host deletes the doc.
+  // Stale rooms (createdAt > 30s, no answer yet) are overwritten by a new
+  // host. The transaction ensures races are resolved atomically.
+  const ROOM_STALE_MS = 30000;
+  let _activeUnsub = null;
+  let _cancelled = false;
+  async function ensureNetplayAuth() {
+    if (auth.currentUser) return auth.currentUser;
+    const cred = await signInAnonymously(auth);
+    return cred.user;
+  }
+  function _isStale(data) {
+    if (!data) return true;
+    const t = data.createdAt;
+    const ms = t && t.toMillis ? t.toMillis() : (typeof t === "number" ? t : 0);
+    return !ms || ms < Date.now() - ROOM_STALE_MS;
+  }
+  async function autoMatch({ cartId, onStatus }) {
+    _cancelled = false;
+    const status = onStatus || (() => {});
+    if (!cartId) throw new Error("autoMatch: cartId required");
+    const u = await ensureNetplayAuth();
+    const Transports = window.MonoNetTransports;
+    if (!Transports) throw new Error("WebRTC transport not loaded");
+
+    const roomRef = doc(db, "netplay-rooms", cartId);
+
+    // Step 1: peek at the room so we know whether to generate an offer or
+    // an answer. We do the expensive WebRTC work OUTSIDE the transaction
+    // (transactions must complete in seconds; ICE gathering can take ~1-2s).
+    const initialSnap = await getDoc(roomRef);
+    const initialData = initialSnap.exists() ? initialSnap.data() : null;
+    const beHost = !initialData || _isStale(initialData) || (initialData.state === "paired");
+    const transport = new Transports.WebRTCTransport();
+
+    let role, offerCode;
+    if (beHost) {
+      status("Generating offer…");
+      offerCode = await transport.createOffer();
+      role = "host";
+    } else {
+      if (!initialData.offer) throw new Error("room exists but has no offer");
+      status("Generating answer…");
+      const answerCode = await transport.createAnswer(initialData.offer);
+      role = "joiner";
+      // Save answer locally so the transaction can write it.
+      offerCode = initialData.offer; // for the equality check
+      transport._answerCode = answerCode;
+    }
+    if (_cancelled) { transport.close(); return null; }
+
+    // Step 2: commit via transaction. Re-validates the state we observed
+    // and aborts if it changed (someone else became host/joiner).
+    status("Writing to room…");
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(roomRef);
+      const data = snap.exists() ? snap.data() : null;
+      if (role === "host") {
+        if (data && !_isStale(data) && data.state !== "paired") {
+          throw new Error("RACE_HOST"); // someone became host first
+        }
+        tx.set(roomRef, {
+          state: "signaling",
+          hostUid: u.uid,
+          offer: offerCode,
+          createdAt: serverTimestamp(),
+        });
+      } else {
+        if (!data || data.offer !== offerCode) {
+          throw new Error("RACE_OFFER_CHANGED");
+        }
+        if (data.answer) {
+          throw new Error("RACE_ANSWERED");
+        }
+        tx.update(roomRef, {
+          state: "paired",
+          joinerUid: u.uid,
+          answer: transport._answerCode,
+        });
+      }
+    });
+    if (_cancelled) { transport.close(); try { await deleteDoc(roomRef); } catch {} return null; }
+
+    // Step 3: build the LockstepSession on top of the prepared transport
+    // and attach to Mono.net. Mono.net.host/join/accept are skipped — we
+    // built the transport directly here.
+    const Lockstep = window.MonoLockstep;
+    const session = new Lockstep.LockstepSession({ transport, cartHash: cartId });
+    if (role === "host") session.startAsHost(); else session.startAsJoiner();
+    Mono._internal._adoptNetSession(session, transport);
+
+    // Step 4: host listens for the joiner's answer; joiner just waits for
+    // the DataChannel to open.
+    if (role === "host") {
+      status("Waiting for joiner…");
+      await new Promise((resolve, reject) => {
+        _activeUnsub = onSnapshot(roomRef, (snap) => {
+          if (_cancelled) { resolve(); return; }
+          if (!snap.exists()) return;
+          const d = snap.data();
+          if (d.answer && d.state === "paired") {
+            const unsub = _activeUnsub; _activeUnsub = null;
+            try { unsub(); } catch {}
+            transport.acceptAnswer(d.answer).then(resolve, reject);
+          }
+        });
+      });
+    }
+
+    // Step 5: wait for the DataChannel to actually open. Once open, host
+    // deletes the doc (joiner cleanup is implicit — host is the only writer
+    // after pairing).
+    status("Opening data channel…");
+    await new Promise((resolve) => {
+      let resolved = false;
+      transport.onOpen(() => { if (!resolved) { resolved = true; resolve(); } });
+      // Also resolve if DC was already open before we registered.
+      setTimeout(() => {
+        if (resolved) return;
+        if (transport._dc && transport._dc.readyState === "open") { resolved = true; resolve(); }
+      }, 100);
+    });
+
+    if (role === "host") {
+      try { await deleteDoc(roomRef); } catch (e) { console.warn("autoMatch: cleanup failed", e); }
+    }
+    status(role === "host" ? "Connected as host" : "Connected as joiner");
+    return { role };
+  }
+
+  window.MonoFirebaseSignal = {
+    autoMatch,
+    cancel: () => {
+      _cancelled = true;
+      if (_activeUnsub) { try { _activeUnsub(); } catch {} _activeUnsub = null; }
+    },
+  };
 
   // Build the save backend if we're logged in; otherwise leave it for
   // Mono.boot to default to WebBackend (anonymous).
@@ -360,6 +548,7 @@
       }
       if (!mainSrc) throw new Error("No main.lua in published files");
       try {
+        window.__monoCartId = gameId;
         await Mono.boot("screen", {
           source: mainSrc,
           modules: modules,
@@ -388,6 +577,7 @@
   } else {
     document.title = "Mono \u2014 " + gameName.charAt(0).toUpperCase() + gameName.slice(1);
     const cartId = "demo:" + gameName;
+    window.__monoCartId = cartId;
     Mono.boot("screen", {
       game: entry.path,
       colors: entry.colors,
