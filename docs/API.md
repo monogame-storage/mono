@@ -181,14 +181,14 @@ Draw text with the built-in 4×7 pixel font (uppercase, digits, basic punctuatio
 
 ## Input
 
-### btn(key: Key): boolean
-Returns true while the given button is held. Key ∈ "up","down","left","right","a","b","start","select".
+### btn(key: Key, player?: number): boolean
+Returns true while the given button is held. Key ∈ "up","down","left","right","a","b","start","select". `player` is 0 or 1, only meaningful in netplay; defaults to the local player. Single-player carts can ignore the second arg.
 
-### btnp(key: Key): boolean
-Returns true on the frame the button was newly pressed (was not down on the previous frame).
+### btnp(key: Key, player?: number): boolean
+Returns true on the frame the button was newly pressed (was not down on the previous frame). `player` semantics match btn().
 
-### btnr(key: Key): boolean
-Returns true on the frame the button was released. Use instead of btnp() for scene transitions and confirmations — acting on release feels more forgiving.
+### btnr(key: Key, player?: number): boolean
+Returns true on the frame the button was released. Use instead of btnp() for scene transitions and confirmations — acting on release feels more forgiving. `player` semantics match btn().
 
 ### touch(): boolean
 Returns true while at least one finger is on the screen.
@@ -204,6 +204,26 @@ Sub-pixel float coordinates (x, y) of touch i (1-based, default 1). Returns fals
 
 ### touch_start(): boolean
 Returns true on the frame a touch began.
+
+## Netplay
+
+### net.close(): void
+Tear down the active session. Sends a "bye" to the peer and frees the BroadcastChannel.
+
+### net.error(): string | false
+Returns a human-readable error message after a "closed" or "desync" status, or false when no error.
+
+### net.local_player(): number
+Returns 0 (host) or 1 (joiner) once paired, or -1 while idle/matching. Roles are assigned by hello-timestamp ordering.
+
+### net.seed(): number
+Shared random seed agreed on during pairing. Both peers see the same value once status() is "playing". Use to seed math.randomseed() so RNG-driven gameplay stays identical across peers.
+
+### net.start(): void
+Open the netplay session and broadcast for a peer on this origin's BroadcastChannel. Once paired, both peers see synchronized inputs via btn(k, player). No-op if already started. Pairing is automatic — open the same cart in two tabs.
+
+### net.status(): string
+Current session state: "idle" (not started), "matching" (waiting for peer), "playing" (paired and simulating), "desync" (VRAM mismatch detected), "closed" (peer disconnected or fatal error).
 
 ## Sound
 

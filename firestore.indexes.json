@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "netplay-rooms",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cartId",    "order": "ASCENDING" },
+        { "fieldPath": "state",     "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
