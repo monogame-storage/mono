@@ -159,8 +159,22 @@ function buildPalette(bits) {
 
 let palette = buildPalette(colorBits);
 let camX = 0, camY = 0;
+let shakeAmount = 0, shakeX = 0, shakeY = 0;
 let debugMode = false;
 let debugShapes = [];
+
+// --- Engine-internal deterministic RNG (mulberry32) ---
+// Mirrors runtime/engine.js so cam_shake produces identical sequences
+// to the browser engine when seeded the same way. Required for the
+// --determinism harness to catch shake-related drift.
+let _rngState = 1 >>> 0;
+function setEngineSeed(s) { _rngState = (s >>> 0) || 1; }
+function engineRandom() {
+  let t = _rngState = (_rngState + 0x6D2B79F5) >>> 0;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
 
 // --- Surfaces ---
 let surfaces = [];
@@ -658,7 +672,7 @@ async function main() {
   lua.global.set("noise", () => {});
   lua.global.set("wave", () => {});
   lua.global.set("sfx_stop", () => {});
-  lua.global.set("cam_shake", () => {});
+  lua.global.set("cam_shake", (amount) => { shakeAmount = +amount || 0; });
   lua.global.set("cam_reset", () => {});
   // Motion sensor (simulated via --motion or --fuzz)
   lua.global.set("motion_x", () => simMotionX);
@@ -813,12 +827,15 @@ async function main() {
   // --- Execute game ---
   let hasError = false;
 
-  // Set random seed
-  if (seedArg !== null) {
-    await lua.doString(`math.randomseed(${parseInt(seedArg)})`);
-  } else if (typeof runSeed !== "undefined" && runSeed) {
-    await lua.doString(`math.randomseed(${runSeed})`);
+  // Set random seed — both Lua's math.random and the engine-internal
+  // mulberry32 (used by cam_shake) need the same seed for reproducible runs.
+  let _engineSeed = null;
+  if (seedArg !== null) _engineSeed = parseInt(seedArg);
+  else if (typeof runSeed !== "undefined" && runSeed) _engineSeed = runSeed;
+  if (_engineSeed !== null) {
+    await lua.doString(`math.randomseed(${_engineSeed})`);
   }
+  setEngineSeed(_engineSeed !== null ? _engineSeed : 1);
 
   // Preload modules for require() support (Wasmoon io.open can't read real filesystem)
   const gameDirAbs = path.resolve(gameDir);
@@ -1028,11 +1045,18 @@ end
       try { uf(); }
       catch (e) { console.error(`${sceneRef.current || ""} update error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
+    if (shakeAmount > 0.5) {
+      shakeX = Math.floor((engineRandom() - 0.5) * shakeAmount * 2);
+      shakeY = Math.floor((engineRandom() - 0.5) * shakeAmount * 2);
+      shakeAmount *= 0.9;
+    } else { shakeAmount = 0; shakeX = 0; shakeY = 0; }
+    camX += shakeX; camY += shakeY;
     const df = sceneObj ? sceneObj.draw : lua.global.get(basename ? basename + "_draw" : "_draw");
     if (df) {
       try { df(); }
-      catch (e) { console.error(`${sceneRef.current || ""} draw error (frame ${f}):`, e.message || e); hasError = true; break; }
+      catch (e) { camX -= shakeX; camY -= shakeY; console.error(`${sceneRef.current || ""} draw error (frame ${f}):`, e.message || e); hasError = true; break; }
     }
+    camX -= shakeX; camY -= shakeY;
     if (benchMode) {
       const elapsedNs = Number(process.hrtime.bigint() - frameStart);
       frameTimesNs.push(elapsedNs);
@@ -1737,6 +1761,7 @@ if (totalRuns > 1) {
       const b32 = new Uint32Array(W * H);
       surfaces = [{ w: W, h: H, buf32: b32, colorBuf: cb }];
       camX = 0; camY = 0;
+      shakeAmount = 0; shakeX = 0; shakeY = 0;
       images = []; imageIdCounter = 0;
       for (const k in keys) keys[k] = false;
       for (const k in keysPrev) keysPrev[k] = false;
