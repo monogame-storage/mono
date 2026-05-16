@@ -101,6 +101,11 @@ var Mono = (() => {
   let netSession = null;
   let netPending = false;
   let netPrevStatus = "idle";
+  // When false, the engine stops submitting VRAM hashes for desync detection.
+  // Carts toggle this during phases that legitimately require per-peer
+  // rendering (e.g. battleship's hidden-ship placement). State sync is
+  // unaffected — inputs are still exchanged every frame.
+  let netHashEnabled = true;
   const playerKeys     = [Object.fromEntries(KEYS_LIST.map(k => [k, false])), Object.fromEntries(KEYS_LIST.map(k => [k, false]))];
   const playerKeysPrev = [Object.fromEntries(KEYS_LIST.map(k => [k, false])), Object.fromEntries(KEYS_LIST.map(k => [k, false]))];
 
@@ -681,6 +686,7 @@ var Mono = (() => {
     if (_webrtcTransport) { try { _webrtcTransport.close(); } catch {} _webrtcTransport = null; }
     netPending = false;
     netPrevStatus = "idle";
+    netHashEnabled = true;
     _currentCartId = opts.cartId || null;
     for (let p = 0; p < 2; p++)
       for (const k of KEYS_LIST) { playerKeys[p][k] = false; playerKeysPrev[p][k] = false; }
@@ -1226,6 +1232,10 @@ var Mono = (() => {
         seed:        () => netSession ? netSession.seed : 0,
         error:       () => netSession && netSession.error ? netSession.error : false,
         close: () => { if (netSession) { netSession.close(); netSession = null; } netPending = false; },
+        // Cart toggle for the desync detector. Pass false during phases
+        // that need per-peer rendering (e.g. hidden-info placement); pass
+        // true to resume hash exchange. State sync via inputs is unaffected.
+        sync: (enabled) => { netHashEnabled = enabled !== false; },
       },
     });
 
@@ -1377,7 +1387,7 @@ var Mono = (() => {
           // to apples.
           if (netSession && netSession.status === "playing") {
             netSession.submitLocalInput(packKeys(keys));
-            if (netSession.frame % globalThis.MonoLockstep.HASH_INTERVAL === 0) {
+            if (netHashEnabled && netSession.frame % globalThis.MonoLockstep.HASH_INTERVAL === 0) {
               const scr = surfaces[0];
               if (scr) netSession.submitLocalHash(vramHash32(scr.colorBuf));
             }

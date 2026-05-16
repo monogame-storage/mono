@@ -225,6 +225,9 @@ Open the netplay session and broadcast for a peer on this origin's BroadcastChan
 ### net.status(): string
 Current session state: "idle" (not started), "matching" (waiting for peer), "playing" (paired and simulating), "desync" (VRAM mismatch detected), "closed" (peer disconnected or fatal error).
 
+### net.sync(enabled: boolean): void
+Toggle the desync detector. Pass false during phases that require per-peer rendering (e.g. battleship's hidden-ship placement), then true again before symmetric gameplay resumes. State sync via input exchange is unaffected — only the VRAM-hash check is suspended.
+
 ## Sound
 
 ### note(channel: 0 | 1, note: string, duration: number): void

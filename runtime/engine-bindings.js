@@ -402,6 +402,7 @@ function cam_get() return _cam_get_x(), _cam_get_y() end
       seed:        () => 0,
       error:       () => false,
       close:       () => {},
+      sync:        () => {},
     };
     {
       lua.global.set("_net_start",        () => net.start());
@@ -410,6 +411,7 @@ function cam_get() return _cam_get_x(), _cam_get_y() end
       lua.global.set("_net_seed",         () => net.seed());
       lua.global.set("_net_error",        () => net.error());
       lua.global.set("_net_close",        () => net.close());
+      lua.global.set("_net_sync",         (b) => net.sync && net.sync(b));
       // Doc anchors — gen-api-docs.js attaches the JSDoc above each
       // lua.global.set() call. These dotted names exist only so the
       // @lua tags render; the real Lua-side `net.*` lives on the table
@@ -450,6 +452,12 @@ function cam_get() return _cam_get_x(), _cam_get_y() end
        * @desc Tear down the active session. Sends a "bye" to the peer and frees the BroadcastChannel.
        */
       lua.global.set("net.close", () => {});
+      /**
+       * @lua net.sync(enabled: boolean): void
+       * @group Netplay
+       * @desc Toggle the desync detector. Pass false during phases that require per-peer rendering (e.g. battleship's hidden-ship placement), then true again before symmetric gameplay resumes. State sync via input exchange is unaffected — only the VRAM-hash check is suspended.
+       */
+      lua.global.set("net.sync", () => {});
       await lua.doString(`
 net = {
   start        = function() _net_start() end,
@@ -458,6 +466,7 @@ net = {
   seed         = function() return _net_seed() end,
   error        = function() return _net_error() end,
   close        = function() _net_close() end,
+  sync         = function(b) _net_sync(b) end,
 }
 `);
     }
