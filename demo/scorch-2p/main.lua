@@ -31,6 +31,10 @@ CAM_SMOOTH        = 0.1
 GROUND_COLOR      = 10
 SKY_COLOR         = 1
 
+-- match-level: best-of-5, first to 3 wins
+WINS_TO_TAKE_MATCH = 3
+ROUND_END_PAUSE    = 90    -- frames between rounds (3 s)
+
 local scr
 
 -- ── runtime state ────────────────────────────────────────────────────
@@ -51,6 +55,15 @@ local winner
 local dmg_text, dmg_timer
 local game_started
 local scouting
+
+-- match-level state (wraps the in-round `state` machine)
+local match_phase        -- "title" | "playing" | "match_over"
+local score              -- { p1_wins, p2_wins }
+local ready              -- { p1_ready, p2_ready } — title / rematch consent
+local current_round      -- 1-based; alternates starting player
+local round_winner       -- set when a round ends (used for round_end overlay)
+local match_winner       -- set when match_phase flips to "match_over"
+local round_pause        -- frames left in state == "round_end"
 
 -- ── camera ───────────────────────────────────────────────────────────
 local function cam_clamp(x) return math.max(0, math.min(TERRAIN_W - SCR_W, x)) end
@@ -144,7 +157,8 @@ end
 
 -- ── match flow ───────────────────────────────────────────────────────
 
-local function init_match()
+-- One round: fresh terrain, full HP, alternating starting player.
+local function init_round()
   gen_terrain()
   wind = (math.random() - 0.5) * WIND_MAX * 2
   local x1 = 20 + math.random(0, 30)
@@ -158,20 +172,55 @@ local function init_match()
     flatten_under(p[i].x, TANK_W)
     p[i].y = terrain[p[i].x] - TANK_H
   end
-  turn          = 1
+  -- Alternate who serves first each round to avoid first-mover advantage
+  -- piling up over a 5-round match.
+  turn          = (current_round % 2 == 1) and 1 or 2
   state         = "aim"
-  winner        = 0
   charging      = false
   aim_frames    = 0
   turn_timer    = TURN_TIMEOUT
   collapse_data = {}
   explode_timer = 0
   turn_accum    = { 0, 0 }
-  cam_x         = cam_clamp(p[1].x - SCR_W / 2)
+  cam_x         = cam_clamp(p[turn].x - SCR_W / 2)
   cam_tx        = cam_x
   dmg_text      = ""
   dmg_timer     = 0
   scouting      = false
+  match_phase   = "playing"
+end
+
+-- Full match: best of 5 (first to 3). Sets score to 0 and shows title.
+local function init_match()
+  score         = { 0, 0 }
+  ready         = { false, false }
+  current_round = 1
+  round_winner  = 0
+  match_winner  = 0
+  round_pause   = 0
+  match_phase   = "title"
+end
+
+-- Title and rematch screens share input: both players press A to confirm.
+local function update_ready_gate()
+  if btnp("a", 0) and not ready[1] then
+    ready[1] = true
+    note(0, "C5", 0.06)
+  end
+  if btnp("a", 1) and not ready[2] then
+    ready[2] = true
+    note(1, "E5", 0.06)
+  end
+  if ready[1] and ready[2] then
+    if match_phase == "match_over" then
+      score         = { 0, 0 }
+      current_round = 1
+      match_winner  = 0
+    end
+    ready = { false, false }
+    init_round()
+    note(0, "C5", 0.1); note(1, "G5", 0.1)
+  end
 end
 
 local function next_turn()
@@ -237,9 +286,11 @@ end
 local function post_explosion()
   for i = 1, 2 do
     if p[i].hp <= 0 or p[i].y > SCR_H then
-      winner = 3 - i
-      state  = "gameover"
-      tone(0, 400, 100, 0.5)
+      round_winner = 3 - i
+      score[round_winner] = score[round_winner] + 1
+      tone(0, 300, 200, 0.3)
+      state       = "round_end"
+      round_pause = ROUND_END_PAUSE
       return
     end
   end
@@ -383,6 +434,30 @@ function _update()
     math.randomseed(net.seed())
     init_match()
     game_started = true
+    return
+  end
+
+  -- Title and match-over share the "press A to begin" gate.
+  if match_phase == "title" or match_phase == "match_over" then
+    update_ready_gate()
+    return
+  end
+
+  -- Round-end pause: hold position, advance to next round or match_over.
+  if state == "round_end" then
+    round_pause = round_pause - 1
+    if round_pause <= 0 then
+      if score[1] >= WINS_TO_TAKE_MATCH or score[2] >= WINS_TO_TAKE_MATCH then
+        match_winner = (score[1] >= WINS_TO_TAKE_MATCH) and 1 or 2
+        match_phase  = "match_over"
+        ready        = { false, false }
+        tone(0, 500, 600, 0.5)
+      else
+        current_round = current_round + 1
+        init_round()
+      end
+    end
+    if dmg_timer > 0 then dmg_timer = dmg_timer - 1 end
     return
   end
 
@@ -588,12 +663,80 @@ local function draw_hud()
   end
 end
 
+local function draw_ready_panel(label_y, sub_y)
+  local cx = math.floor(SCR_W / 2)
+  local lx = math.floor(SCR_W / 2 - 32)
+  local rx = math.floor(SCR_W / 2 + 32)
+  text(scr, "P1", lx, label_y, 15, ALIGN_HCENTER)
+  text(scr, "P2", rx, label_y, 15, ALIGN_HCENTER)
+  local r1 = ready[1] and "READY" or "PRESS A"
+  local r2 = ready[2] and "READY" or "PRESS A"
+  text(scr, r1, lx, sub_y, ready[1] and 11 or 8, ALIGN_HCENTER)
+  text(scr, r2, rx, sub_y, ready[2] and 11 or 8, ALIGN_HCENTER)
+end
+
+local function draw_title()
+  local cx = math.floor(SCR_W / 2)
+  text(scr, "SCORCH 2P",       cx, 22, 12, ALIGN_HCENTER)
+  text(scr, "BEST OF 5",       cx, 38, 7,  ALIGN_HCENTER)
+  text(scr, "FIRST TO 3 WINS", cx, 48, 7,  ALIGN_HCENTER)
+  draw_ready_panel(70, 82)
+  if math.floor(frame() / 30) % 2 == 0 then
+    text(scr, "BOTH PRESS A TO START", cx, 102, 10, ALIGN_HCENTER)
+  end
+end
+
+local function draw_match_over()
+  local cx = math.floor(SCR_W / 2)
+  rectf(scr, 8, 14, SCR_W - 16, SCR_H - 28, 0)
+  rect(scr,  8, 14, SCR_W - 16, SCR_H - 28, 15)
+  text(scr, "MATCH OVER", cx, 22, 15, ALIGN_HCENTER)
+  text(scr, "P" .. match_winner .. " WINS",
+       cx, 34, match_winner == 1 and 15 or 8, ALIGN_HCENTER)
+  text(scr, score[1] .. " - " .. score[2], cx, 46, 12, ALIGN_HCENTER)
+  text(scr, "REMATCH?", cx, 62, 7, ALIGN_HCENTER)
+  draw_ready_panel(76, 88)
+end
+
+-- Score "balls" — 3 slots per side, filled per win. Drawn in the top
+-- HUD bar next to the player label.
+local function draw_score_dots()
+  for i = 0, WINS_TO_TAKE_MATCH - 1 do
+    local lx = 13 + i * 5
+    local rx = SCR_W - 16 - i * 5
+    if i < score[1] then rectf(scr, lx, 3, 3, 3, 11)
+    else                  rect(scr, lx, 3, 3, 3, 4) end
+    if i < score[2] then rectf(scr, rx, 3, 3, 3, 11)
+    else                  rect(scr, rx, 3, 3, 3, 4) end
+  end
+end
+
+local function draw_round_end_overlay()
+  local cx = math.floor(SCR_W / 2)
+  local cy = math.floor(SCR_H / 2)
+  rectf(scr, cx - 50, cy - 14, 100, 28, 0)
+  rect(scr,  cx - 50, cy - 14, 100, 28, 15)
+  text(scr, "ROUND TO P" .. round_winner,
+       cx, cy - 6, round_winner == 1 and 15 or 8, ALIGN_HCENTER)
+  text(scr, score[1] .. " - " .. score[2], cx, cy + 4, 12, ALIGN_HCENTER)
+end
+
 function _draw()
   cls(scr, SKY_COLOR)
 
   if not game_started then
+    -- Engine paints its own CONNECTING / WAITING FOR PEER overlay; draw
+    -- the title text underneath so the screen isn't blank.
     text(scr, "SCORCH 2P", math.floor(SCR_W / 2), 55, 12, ALIGN_HCENTER)
     return
+  end
+
+  if match_phase == "title" then
+    draw_title(); return
+  end
+
+  if match_phase == "match_over" then
+    draw_match_over(); return
   end
 
   draw_terrain()
@@ -642,6 +785,7 @@ function _draw()
   end
 
   draw_hud()
+  draw_score_dots()
 
   if dmg_timer > 0 then
     local dsx = world_to_screen(explode_x)
@@ -652,11 +796,5 @@ function _draw()
     text(scr, "< SCOUT >", math.floor(SCR_W / 2), SCR_H - 8, 10, ALIGN_HCENTER)
   end
 
-  if state == "gameover" then
-    local cx = math.floor(SCR_W / 2)
-    local cy = math.floor(SCR_H / 2)
-    rectf(scr, cx - 50, cy - 14, 100, 28, 0)
-    rect(scr, cx - 50, cy - 14, 100, 28, 15)
-    text(scr, "P" .. winner .. " WINS!", cx, cy - 4, 15, ALIGN_HCENTER)
-  end
+  if state == "round_end" then draw_round_end_overlay() end
 end
