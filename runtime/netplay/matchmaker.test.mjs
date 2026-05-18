@@ -435,6 +435,88 @@ test("FIX: stochastic — 8 peers, random 0-400ms arrivals, all pair", async () 
   }
 });
 
+// ── Solo-matchmaker helpers ──────────────────────────────────────────────
+// runScenario is a multi-peer harness; the regression tests below need
+// a single-peer matchmaker with hand-tuned timings, so build one inline.
+
+function makeSoloMM(opts = {}) {
+  const clock = new FakeClock();
+  const db = new FakeFirestore(clock, { opLatencyMs: opts.opLatencyMs != null ? opts.opLatencyMs : 20 });
+  const fs = makeFsShim(db);
+  const createTransport = makeTransportFactory({ iceDelayMs: opts.iceDelayMs != null ? opts.iceDelayMs : 50 });
+  let uidSeq = 0;
+  const mm = createMatchmaker({
+    db, fs, createTransport,
+    ensureAuth: async () => ({ uid: "u" + (++uidSeq) }),
+    now: () => clock.now(),
+    strategy: "reserve-then-fill",
+    timeouts: Object.assign({
+      hostWaitForAnswerMs: 60000, waitOfferMs: 60000, dcOpenTimeoutMs: 60000,
+      confirmReserveMs: 50, raceRetryJitterMs: 50,
+    }, opts.timeouts || {}),
+  });
+  return { mm, db };
+}
+
+test("REGRESSION: cancel() during host's wait-for-joiner unwinds cleanly", async () => {
+  // Lone host reserves a room and waits for a joiner; user cancels.
+  // autoMatch must resolve null promptly (snapshot listener torn down
+  // via cancel-hook, not left hanging) and delete the orphan room.
+  const { mm, db } = makeSoloMM();
+  const t0 = Date.now();
+  const p = mm.autoMatch({ cartId: "cancel-host", onStatus: () => {} });
+  // Reserve + confirm + ICE + publish ≈ 200 ms — wait long enough to
+  // land in "Waiting for joiner…".
+  await new Promise((r) => setTimeout(r, 400));
+  mm.cancel();
+  const res = await p;
+  const elapsed = Date.now() - t0;
+  assert.equal(res, null, "cancelled autoMatch should resolve null");
+  assert.ok(elapsed < 2000, "cancel should unwind quickly, took " + elapsed + " ms");
+  assert.equal(db._col("netplay-rooms").size, 0, "orphan host room left after cancel");
+});
+
+test("REGRESSION: cancel() during joiner's wait-for-offer unwinds cleanly", async () => {
+  // Pre-seed an orphan signaling room (no offer) so the joiner falls
+  // into the waitOffer path. cancel must reject the snapshot promise
+  // without leaving the listener attached.
+  const { mm, db } = makeSoloMM({
+    timeouts: { hostWaitForAnswerMs: 60000, waitOfferMs: 60000, dcOpenTimeoutMs: 60000, confirmReserveMs: 50, raceRetryJitterMs: 50 },
+  });
+  await db.addDoc("netplay-rooms", {
+    cartId: "cancel-joiner", state: "signaling", hostUid: "ghost", offer: "",
+    createdAt: { __serverTimestamp: true },
+  });
+  const t0 = Date.now();
+  const p = mm.autoMatch({ cartId: "cancel-joiner", onStatus: () => {} });
+  await new Promise((r) => setTimeout(r, 150));  // reach waitOffer
+  mm.cancel();
+  const res = await p;
+  const elapsed = Date.now() - t0;
+  assert.equal(res, null);
+  assert.ok(elapsed < 1500, "cancel during waitOffer too slow: " + elapsed + " ms");
+});
+
+test("REGRESSION: maxAttempts bounds the retry chain", async () => {
+  // Pre-seed a signaling room with a valid offer, then force every
+  // phase-1 tx to throw RACE_TAKEN. The matchmaker should burn its
+  // attempt budget on retries, then surface the limit.
+  const { mm, db } = makeSoloMM({
+    iceDelayMs: 5, opLatencyMs: 5,
+    timeouts: { confirmReserveMs: 0, raceRetryJitterMs: 5, maxAttempts: 3 },
+  });
+  await db.addDoc("netplay-rooms", {
+    cartId: "exhaust", state: "signaling", hostUid: "ghost",
+    offer: "STUB_OFFER", createdAt: { __serverTimestamp: true },
+  });
+  db.runTransaction = async () => { throw new Error("RACE_TAKEN (forced)"); };
+  let err = null;
+  try { await mm.autoMatch({ cartId: "exhaust", onStatus: () => {} }); }
+  catch (e) { err = e; }
+  assert.ok(err, "expected autoMatch to throw after exhausting maxAttempts");
+  assert.match(err.message, /exceeded 3 attempts/, "unexpected error: " + (err && err.message));
+});
+
 test("FIX: 4 peers within ICE window — 2 host/joiner pairs", async () => {
   const { results, events } = await runScenario({
     strategy: "reserve-then-fill",
