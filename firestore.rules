@@ -61,6 +61,20 @@ service cloud.firestore {
                     && resource.data.status != "published";
     }
 
+    // ── Netplay rooms ──────────────────────────────────────────────────
+    // Ephemeral WebRTC signaling. One doc per cart; host writes offer,
+    // joiner answers, host deletes once the DataChannel is open. Anyone
+    // authenticated (incl. anonymous) can read/write — the doc only holds
+    // public-by-design SDP blobs and a uid, no sensitive data.
+    //
+    // Stale-room recovery (a host that left before the joiner answered)
+    // requires overwriting the doc, so create/update/delete are open to
+    // any authenticated client. The client uses runTransaction with a 30s
+    // createdAt TTL to handle races safely.
+    match /netplay-rooms/{cartId} {
+      allow read, write: if request.auth != null;
+    }
+
     // Default: deny everything not explicitly matched above.
     match /{document=**} {
       allow read, write: if false;

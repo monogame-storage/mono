@@ -94,6 +94,8 @@
 <script src="/runtime/engine-draw.js"></script>
 <script src="/runtime/engine-bindings.js"></script>
 <script src="/runtime/save.js"></script>
+<script src="/runtime/netplay/lockstep.js"></script>
+<script src="/runtime/netplay/transports.js"></script>
 <script src="/runtime/engine.js"></script>
 <script src="/runtime/shader.js"></script>
 <script src="/runtime/shaders/tint.js"></script>
@@ -110,6 +112,9 @@
     bounce:      { path: "/demo/bounce/main.lua",      colors: 1 },
     dodge:       { path: "/demo/dodge/main.lua",       colors: 4 },
     pong:        { path: "/demo/pong/main.lua",        colors: 4 },
+    "pong-2p":   { path: "/demo/pong-2p/main.lua",     colors: 4 },
+    "worms-2p":  { path: "/demo/worms-2p/main.lua",    colors: 4 },
+    "battleship-2p": { path: "/demo/battleship-2p/main.lua", colors: 4 },
     invaders:    { path: "/demo/invaders/main.lua",    colors: 1 },
     bubble:      { path: "/demo/bubble/main.lua",      colors: 4 },
     starfighter: { path: "/demo/starfighter/main.lua", colors: 4 },
@@ -124,9 +129,41 @@
   var API_URL = "https://api.monogame.cc";
 </script>
 
+<script>
+  // ── Netplay auto-trigger ───────────────────────────────────────────────
+  // When the cart opts in via Lua `net.start()`, the engine sets
+  // Mono.net.isEnabled() → true. We watch for that and fire the Firestore
+  // autoMatch automatically — no UI, no buttons. The engine draws its own
+  // "WAITING FOR PEER" / "DISCONNECTED" / "DESYNC" overlays on the canvas
+  // so we don't need an HTML modal for status either.
+  (() => {
+    let busy = false;
+    setInterval(() => {
+      if (busy) return;
+      if (!window.Mono || !Mono.net || !window.MonoFirebaseSignal) return;
+      if (!Mono.net.isEnabled()) return;
+      // Already has a session (matching/playing/desync/closed) — autoMatch
+      // either ran or shouldn't run.
+      if (Mono._internal && Mono._internal.netSession) return;
+      busy = true;
+      window.MonoFirebaseSignal.autoMatch({
+        cartId: window.__monoCartId,
+        onStatus: (m) => console.log("[netplay]", m),
+      }).catch((e) => {
+        console.error("[netplay] autoMatch failed:", e && e.message ? e.message : e);
+      }).finally(() => { busy = false; });
+    }, 250);
+  })();
+</script>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+  import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc,
+    collection, query, where, orderBy, limit, getDocs,
+    onSnapshot, runTransaction, serverTimestamp, Timestamp,
+  } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
   const app = initializeApp({
     apiKey: "AIzaSyAyTiJx_JkVdQoh8b5bDo-ttvp175vy8PM",
@@ -137,12 +174,272 @@
     appId: "1:850069827366:web:a196c04bbf4c93bd061be7"
   });
   const auth = getAuth(app);
+  const db   = getFirestore(app);
 
   // Wait for the first auth state callback so we know whether we have a
   // signed-in user before booting Mono. Resolves to the user (or null).
   const user = await new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, (u) => { unsub(); resolve(u); });
   });
+
+  // ── Netplay signaling via Firestore (multi-match per cart) ────────────
+  // Collection: `/netplay-rooms` with auto-IDs. Many rooms can exist for
+  // the same cart concurrently — each pair gets its own ephemeral doc.
+  //   { cartId, state, hostUid, offer, createdAt, joinerUid?, answer? }
+  // Lifecycle:
+  //   1. Visitor queries for the oldest `state == "signaling"` room with
+  //      `createdAt > now - 30 s` for this cart.
+  //      - If one exists → become joiner: transaction reads doc, writes
+  //        answer + joinerUid, flips state to "paired".
+  //      - If none exists → become host: addDoc with offer + hostUid.
+  //   2. Host's onSnapshot picks up the answer, calls acceptAnswer.
+  //   3. Once the DataChannel is open, host deletes the doc.
+  // Stale rooms (no answer within 30 s) are skipped by the query and
+  // cleaned up either by the host's beforeunload handler or by the host's
+  // 60 s timeout.
+  const ROOM_STALE_MS = 30000;
+  const HOST_WAIT_FOR_ANSWER_MS = 60000;
+  const DC_OPEN_TIMEOUT_MS      = 30000;
+  let _activeUnsub = null;
+  let _cancelled = false;
+  // The host's room ref + path, tracked while we're in the signaling
+  // phase. The beforeunload handler reads these to delete the doc when
+  // the user closes the tab before pairing completes.
+  window.__monoNetplayActiveRoom = null;     // DocumentReference for SDK delete
+  window.__monoNetplayActiveRoomPath = null; // "netplay-rooms/<autoId>" for keepalive fetch
+  async function ensureNetplayAuth() {
+    if (auth.currentUser) return auth.currentUser;
+    const cred = await signInAnonymously(auth);
+    return cred.user;
+  }
+  async function _findOpenRoom(cartId) {
+    // Oldest signaling room for this cart that isn't stale. We filter
+    // by createdAt server-side via the composite index — but a server
+    // clock skew or freshly-written room can fail the index range check
+    // briefly, so we also fall back to a more permissive client filter.
+    const cutoff = Timestamp.fromMillis(Date.now() - ROOM_STALE_MS);
+    const q = query(
+      collection(db, "netplay-rooms"),
+      where("cartId", "==", cartId),
+      where("state",  "==", "signaling"),
+      where("createdAt", ">", cutoff),
+      orderBy("createdAt", "asc"),
+      limit(1),
+    );
+    const snap = await getDocs(q);
+    return snap.empty ? null : snap.docs[0];
+  }
+  async function autoMatch({ cartId, onStatus }) {
+    _cancelled = false;
+    const status = onStatus || (() => {});
+    if (!cartId) throw new Error("autoMatch: cartId required");
+    const u = await ensureNetplayAuth();
+    const Transports = window.MonoNetTransports;
+    if (!Transports) throw new Error("WebRTC transport not loaded");
+
+    // Step 1: look for a room to join.
+    status("Looking for an open room…");
+    const existing = await _findOpenRoom(cartId);
+    const transport = new Transports.WebRTCTransport();
+
+    let role, roomRef;
+    if (!existing) {
+      // No open room → become host. Generate offer outside the addDoc so
+      // ICE gathering doesn't block other writers.
+      role = "host";
+      status("Generating offer…");
+      const offerCode = await transport.createOffer();
+      if (_cancelled) { transport.close(); return null; }
+      status("Creating room…");
+      roomRef = await addDoc(collection(db, "netplay-rooms"), {
+        cartId,
+        state: "signaling",
+        hostUid: u.uid,
+        offer: offerCode,
+        createdAt: serverTimestamp(),
+      });
+    } else {
+      // Found a candidate → become joiner. Generate answer, then claim
+      // the room atomically. If we lose the race (someone answered first
+      // or host left), retry the whole flow as if no room existed.
+      role = "joiner";
+      const offerCode = existing.data().offer;
+      if (!offerCode) throw new Error("room missing offer");
+      status("Generating answer…");
+      const answerCode = await transport.createAnswer(offerCode);
+      if (_cancelled) { transport.close(); return null; }
+      status("Claiming room…");
+      roomRef = existing.ref;
+      try {
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(roomRef);
+          const data = snap.exists() ? snap.data() : null;
+          if (!data || data.state !== "signaling" || data.answer) {
+            throw new Error("RACE_TAKEN");
+          }
+          tx.update(roomRef, {
+            state: "paired",
+            joinerUid: u.uid,
+            answer: answerCode,
+          });
+        });
+      } catch (e) {
+        try { transport.close(); } catch {}
+        if (String(e.message).includes("RACE_TAKEN")) {
+          // Recurse once with a fresh pass; the next loop will likely
+          // either find a different open room or fall through to host.
+          return autoMatch({ cartId, onStatus });
+        }
+        throw e;
+      }
+    }
+    if (_cancelled) {
+      try { transport.close(); } catch {}
+      if (role === "host") { try { await deleteDoc(roomRef); } catch {} }
+      return null;
+    }
+
+    // Step 3: build the LockstepSession on top of the prepared transport
+    // and attach to Mono.net. Mono.net.host/join/accept are skipped — we
+    // built the transport directly here.
+    const Lockstep = window.MonoLockstep;
+    const session = new Lockstep.LockstepSession({ transport, cartHash: cartId });
+    if (role === "host") session.startAsHost(); else session.startAsJoiner();
+    Mono._internal._adoptNetSession(session, transport);
+
+    // Track the room for beforeunload cleanup (host-only — joiner doesn't
+    // own the room). Store both the SDK ref (for normal deleteDoc paths)
+    // and the REST path (for keepalive fetch on tab close, which needs a
+    // raw URL because the Firestore SDK doesn't honor keepalive).
+    if (role === "host") {
+      window.__monoNetplayActiveRoom = roomRef;
+      window.__monoNetplayActiveRoomPath = "netplay-rooms/" + roomRef.id;
+    }
+
+    // Step 4: host listens for the joiner's answer; joiner just waits for
+    // the DataChannel to open.
+    if (role === "host") {
+      status("Waiting for joiner…");
+      try {
+        await _withTimeout(new Promise((resolve, reject) => {
+          _activeUnsub = onSnapshot(roomRef, (snap) => {
+            if (_cancelled) { resolve(); return; }
+            if (!snap.exists()) return;
+            const d = snap.data();
+            if (d.answer && d.state === "paired") {
+              const unsub = _activeUnsub; _activeUnsub = null;
+              try { unsub(); } catch {}
+              transport.acceptAnswer(d.answer).then(resolve, reject);
+            }
+          });
+        }), HOST_WAIT_FOR_ANSWER_MS, "no joiner within 60 s");
+      } catch (e) {
+        // Clean up our orphaned room so the next visitor doesn't see it.
+        if (_activeUnsub) { try { _activeUnsub(); } catch {} _activeUnsub = null; }
+        try { transport.close(); } catch {}
+        try { await deleteDoc(roomRef); } catch {}
+        window.__monoNetplayActiveRoom = null;
+        window.__monoNetplayActiveRoomPath = null;
+        Mono._internal._adoptNetSession(null, null);
+        throw e;
+      }
+    }
+
+    // Step 5: wait for the DataChannel to actually open. Once open, host
+    // deletes the doc (joiner cleanup is implicit — host is the only writer
+    // after pairing).
+    status("Opening data channel…");
+    try {
+      await _withTimeout(new Promise((resolve) => {
+        let resolved = false;
+        transport.onOpen(() => { if (!resolved) { resolved = true; resolve(); } });
+        // Also resolve if DC was already open before we registered.
+        setTimeout(() => {
+          if (resolved) return;
+          if (transport._dc && transport._dc.readyState === "open") { resolved = true; resolve(); }
+        }, 100);
+      }), DC_OPEN_TIMEOUT_MS, "data channel did not open within 30 s");
+    } catch (e) {
+      try { transport.close(); } catch {}
+      if (role === "host") {
+        try { await deleteDoc(roomRef); } catch {}
+      }
+      window.__monoNetplayActiveRoom = null;
+      window.__monoNetplayActiveRoomPath = null;
+      Mono._internal._adoptNetSession(null, null);
+      throw e;
+    }
+
+    if (role === "host") {
+      try { await deleteDoc(roomRef); } catch (e) { console.warn("autoMatch: cleanup failed", e); }
+    }
+    window.__monoNetplayActiveRoom = null;
+    window.__monoNetplayActiveRoomPath = null;
+    status(role === "host" ? "Connected as host" : "Connected as joiner");
+    return { role };
+  }
+  function _withTimeout(promise, ms, msg) {
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error(msg)), ms);
+      promise.then(
+        (v) => { clearTimeout(t); resolve(v); },
+        (e) => { clearTimeout(t); reject(e); },
+      );
+    });
+  }
+
+  window.MonoFirebaseSignal = {
+    autoMatch,
+    cancel: () => {
+      _cancelled = true;
+      if (_activeUnsub) { try { _activeUnsub(); } catch {} _activeUnsub = null; }
+    },
+  };
+
+  // Best-effort cleanup when the tab is closed mid-session.
+  //   • Pre-pairing host: delete our orphaned room doc so a joiner
+  //     arriving 0.5 s later doesn't waste 60 s waiting on a dead host.
+  //   • Post-pairing: close the LockstepSession (sends {type:"bye"} over
+  //     the DataChannel, and the peer's WebRTC onclose fires too — both
+  //     paths route to the peer's session.status = "closed").
+  //
+  // We use raw `fetch` with `keepalive: true` for the Firestore delete
+  // because the Firestore SDK doesn't reliably ship its delete request
+  // during beforeunload (the tab tears down before the XHR flushes).
+  // `fetch keepalive` is the documented browser primitive for this —
+  // the request continues even after the page is gone. If it still
+  // misses (mobile lifecycle, crashes), the 30 s stale-TTL on the next
+  // visitor cleans it up.
+  async function _firestoreDeleteRoomKeepalive(docPath) {
+    try {
+      const u = auth.currentUser;
+      if (!u) return;
+      const token = await u.getIdToken();
+      const projectId = "mono-5b951";
+      // docPath looks like "netplay-rooms/<autoId>" — encode segments separately.
+      const segs = docPath.split("/").map(encodeURIComponent).join("/");
+      const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${segs}`;
+      await fetch(url, {
+        method: "DELETE",
+        keepalive: true,
+        headers: { Authorization: "Bearer " + token },
+      });
+    } catch {}
+  }
+  function _netplayCleanupOnUnload() {
+    try {
+      const path = window.__monoNetplayActiveRoomPath;
+      if (path) {
+        _firestoreDeleteRoomKeepalive(path);
+        window.__monoNetplayActiveRoom = null;
+        window.__monoNetplayActiveRoomPath = null;
+      }
+      const sess = window.Mono && Mono._internal && Mono._internal.netSession;
+      if (sess && sess.status === "playing") sess.close();
+    } catch {}
+  }
+  window.addEventListener("beforeunload", _netplayCleanupOnUnload);
+  window.addEventListener("pagehide",     _netplayCleanupOnUnload);
 
   // Build the save backend if we're logged in; otherwise leave it for
   // Mono.boot to default to WebBackend (anonymous).
@@ -193,6 +490,7 @@
       }
       if (!mainSrc) throw new Error("No main.lua in published files");
       try {
+        window.__monoCartId = gameId;
         await Mono.boot("screen", {
           source: mainSrc,
           modules: modules,
@@ -221,6 +519,7 @@
   } else {
     document.title = "Mono \u2014 " + gameName.charAt(0).toUpperCase() + gameName.slice(1);
     const cartId = "demo:" + gameName;
+    window.__monoCartId = cartId;
     Mono.boot("screen", {
       game: entry.path,
       colors: entry.colors,

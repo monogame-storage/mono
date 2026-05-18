@@ -89,9 +89,12 @@
 
     // ── Input primitives ──
     const input = hooks.input;
-    lua.global.set("_btn",  (k) => { validateKey("btn",  k); return input.btn(k)  ? 1 : 0; });
-    lua.global.set("_btnp", (k) => { validateKey("btnp", k); return input.btnp(k) ? 1 : 0; });
-    lua.global.set("_btnr", (k) => { validateKey("btnr", k); return input.btnr(k) ? 1 : 0; });
+    // Second arg `p` is the player index (0 or 1) — only meaningful in
+    // netplay; ignored when single-player. Single-arg calls keep existing
+    // semantics (local player's input).
+    lua.global.set("_btn",  (k, p) => { validateKey("btn",  k); return input.btn(k, p)  ? 1 : 0; });
+    lua.global.set("_btnp", (k, p) => { validateKey("btnp", k); return input.btnp(k, p) ? 1 : 0; });
+    lua.global.set("_btnr", (k, p) => { validateKey("btnr", k); return input.btnr(k, p) ? 1 : 0; });
 
     lua.global.set("_touch",       () => input.touch()       ? 1 : 0);
     lua.global.set("_touch_start", () => input.touchStart()  ? 1 : 0);
@@ -298,23 +301,23 @@
     // These stubs are immediately overwritten by the doString Lua definitions.
     // They exist only so the JSDoc parser can pick up the @lua annotations.
     /**
-     * @lua btn(key: Key): boolean
+     * @lua btn(key: Key, player?: number): boolean
      * @group Input
-     * @desc Returns true while the given button is held. Key ∈ "up","down","left","right","a","b","start","select".
+     * @desc Returns true while the given button is held. Key ∈ "up","down","left","right","a","b","start","select". `player` is 0 or 1, only meaningful in netplay; defaults to the local player. Single-player carts can ignore the second arg.
      */
     lua.global.set("btn", () => false);
 
     /**
-     * @lua btnp(key: Key): boolean
+     * @lua btnp(key: Key, player?: number): boolean
      * @group Input
-     * @desc Returns true on the frame the button was newly pressed (was not down on the previous frame).
+     * @desc Returns true on the frame the button was newly pressed (was not down on the previous frame). `player` semantics match btn().
      */
     lua.global.set("btnp", () => false);
 
     /**
-     * @lua btnr(key: Key): boolean
+     * @lua btnr(key: Key, player?: number): boolean
      * @group Input
-     * @desc Returns true on the frame the button was released. Use instead of btnp() for scene transitions and confirmations — acting on release feels more forgiving.
+     * @desc Returns true on the frame the button was released. Use instead of btnp() for scene transitions and confirmations — acting on release feels more forgiving. `player` semantics match btn().
      */
     lua.global.set("btnr", () => false);
 
@@ -364,9 +367,9 @@
     // Wasmoon returns `false` for JS `false` but `nil` feels more natural
     // for the primitives that can return false — wrappers normalize.
     await lua.doString(`
-function btn(k)          return _btn(k) == 1 end
-function btnp(k)         return _btnp(k) == 1 end
-function btnr(k)         return _btnr(k) == 1 end
+function btn(k, p)       return _btn(k, p) == 1 end
+function btnp(k, p)      return _btnp(k, p) == 1 end
+function btnr(k, p)      return _btnr(k, p) == 1 end
 function touch()         return _touch() == 1 end
 function touch_start()   return _touch_start() == 1 end
 function touch_end()     return _touch_end() == 1 end
@@ -384,6 +387,89 @@ function touch_posf(i)
 end
 function cam_get() return _cam_get_x(), _cam_get_y() end
 `);
+
+    // ── Netplay (lockstep) ──
+    // Opt-in: call net.start() to pair with another tab via BroadcastChannel.
+    // While matching/desync/disconnected, the engine pauses simulation and
+    // draws a status overlay. btn(k, p) reads per-player inputs.
+    // hooks.net is optional — runners without netplay (e.g. mono-runner.js)
+    // pass nothing here and `net` becomes a stubbed table that returns
+    // "idle" forever. Carts can guard with `net.status() == "playing"`.
+    const net = hooks.net || {
+      start:       () => {},
+      status:      () => "idle",
+      localPlayer: () => -1,
+      seed:        () => 0,
+      error:       () => false,
+      close:       () => {},
+      sync:        () => {},
+    };
+    {
+      lua.global.set("_net_start",        () => net.start());
+      lua.global.set("_net_status",       () => net.status());
+      lua.global.set("_net_local_player", () => net.localPlayer());
+      lua.global.set("_net_seed",         () => net.seed());
+      lua.global.set("_net_error",        () => net.error());
+      lua.global.set("_net_close",        () => net.close());
+      lua.global.set("_net_sync",         (b) => net.sync && net.sync(b));
+      // Doc anchors — gen-api-docs.js attaches the JSDoc above each
+      // lua.global.set() call. These dotted names exist only so the
+      // @lua tags render; the real Lua-side `net.*` lives on the table
+      // installed via doString below.
+      /**
+       * @lua net.start(): void
+       * @group Netplay
+       * @desc Open the netplay session and broadcast for a peer on this origin's BroadcastChannel. Once paired, both peers see synchronized inputs via btn(k, player). No-op if already started. Pairing is automatic — open the same cart in two tabs.
+       */
+      lua.global.set("net.start", () => {});
+      /**
+       * @lua net.status(): string
+       * @group Netplay
+       * @desc Current session state: "idle" (not started), "matching" (waiting for peer), "playing" (paired and simulating), "desync" (VRAM mismatch detected), "closed" (peer disconnected or fatal error).
+       */
+      lua.global.set("net.status", () => "idle");
+      /**
+       * @lua net.local_player(): number
+       * @group Netplay
+       * @desc Returns 0 (host) or 1 (joiner) once paired, or -1 while idle/matching. Roles are assigned by hello-timestamp ordering.
+       */
+      lua.global.set("net.local_player", () => -1);
+      /**
+       * @lua net.seed(): number
+       * @group Netplay
+       * @desc Shared random seed agreed on during pairing. Both peers see the same value once status() is "playing". Use to seed math.randomseed() so RNG-driven gameplay stays identical across peers.
+       */
+      lua.global.set("net.seed", () => 0);
+      /**
+       * @lua net.error(): string | false
+       * @group Netplay
+       * @desc Returns a human-readable error message after a "closed" or "desync" status, or false when no error.
+       */
+      lua.global.set("net.error", () => false);
+      /**
+       * @lua net.close(): void
+       * @group Netplay
+       * @desc Tear down the active session. Sends a "bye" to the peer and frees the BroadcastChannel.
+       */
+      lua.global.set("net.close", () => {});
+      /**
+       * @lua net.sync(enabled: boolean): void
+       * @group Netplay
+       * @desc Toggle the desync detector. Pass false during phases that require per-peer rendering (e.g. battleship's hidden-ship placement), then true again before symmetric gameplay resumes. State sync via input exchange is unaffected — only the VRAM-hash check is suspended.
+       */
+      lua.global.set("net.sync", () => {});
+      await lua.doString(`
+net = {
+  start        = function() _net_start() end,
+  status       = function() return _net_status() end,
+  local_player = function() return _net_local_player() end,
+  seed         = function() return _net_seed() end,
+  error        = function() return _net_error() end,
+  close        = function() _net_close() end,
+  sync         = function(b) _net_sync(b) end,
+}
+`);
+    }
   }
 
   return {
