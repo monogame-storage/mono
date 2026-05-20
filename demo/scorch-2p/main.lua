@@ -65,6 +65,19 @@ local round_winner       -- set when a round ends (used for round_end overlay)
 local match_winner       -- set when match_phase flips to "match_over"
 local round_pause        -- frames left in state == "round_end"
 
+-- aim-input hold counters (per-button) — for accel after 30 frames held
+local aim_up_held, aim_dn_held = 0, 0
+
+-- trajectory preview: list of {x,y} sample points generated while charging
+local preview_pts = {}
+
+-- wind audio: play once per turn when |wind| > 0.02
+local wind_played_this_turn = false
+
+-- apex tracking: highest point of last shot (used by round-end overlay)
+local last_apex_x, last_apex_y
+local last_shot_dmg        -- max damage dealt by the final shot
+
 -- ── camera ───────────────────────────────────────────────────────────
 local function cam_clamp(x) return math.max(0, math.min(TERRAIN_W - SCR_W, x)) end
 local function cam_focus(wx) cam_tx = cam_clamp(wx - SCR_W / 2) end
@@ -164,9 +177,11 @@ local function init_round()
   local x1 = 20 + math.random(0, 30)
   local x2 = TERRAIN_W - 20 - math.random(0, 30)
   p = {}
-  p[1] = { x = x1, y = 0, angle = 45,  power = 0, hp = 100, color = 15,
+  -- P1 → color 12 (light), P2 → color 6 (mid-grey) for better contrast
+  -- against the explosion/dirt frames.
+  p[1] = { x = x1, y = 0, angle = 45,  power = 0, hp = 100, color = 12,
            fuel = FUEL_MAX, last_power = -1, moved = 0 }
-  p[2] = { x = x2, y = 0, angle = 135, power = 0, hp = 100, color = 8,
+  p[2] = { x = x2, y = 0, angle = 135, power = 0, hp = 100, color = 6,
            fuel = FUEL_MAX, last_power = -1, moved = 0 }
   for i = 1, 2 do
     flatten_under(p[i].x, TANK_W)
@@ -188,6 +203,12 @@ local function init_round()
   dmg_timer     = 0
   scouting      = false
   match_phase   = "playing"
+  aim_up_held   = 0
+  aim_dn_held   = 0
+  wind_played_this_turn = false
+  last_apex_x   = nil
+  last_apex_y   = nil
+  last_shot_dmg = 0
 end
 
 -- Full match: best of 5 (first to 3). Sets score to 0 and shows title.
@@ -239,6 +260,9 @@ local function next_turn()
   if wind >  WIND_MAX then wind =  WIND_MAX end
   if wind < -WIND_MAX then wind = -WIND_MAX end
   state = "aim"
+  aim_up_held = 0
+  aim_dn_held = 0
+  wind_played_this_turn = false
 end
 
 local function fire()
@@ -265,6 +289,7 @@ local function start_explosion(ex, ey)
   carve_crater(explode_x, explode_y, EXPLOSION_R)
   local power_bonus = 1.0
   if proj.power > 50 then power_bonus = 1.0 + (proj.power - 50) / 50 * 0.3 end
+  local max_dmg = 0
   for i = 1, 2 do
     local t = p[i]
     local dx = t.x - explode_x
@@ -273,6 +298,7 @@ local function start_explosion(ex, ey)
     if dist < EXPLOSION_R + 5 then
       local dmg = math.floor(math.max(0, (1 - dist / (EXPLOSION_R + 8)) * 38) * power_bonus)
       t.hp = math.max(0, t.hp - dmg)
+      if dmg > max_dmg then max_dmg = dmg end
       if dmg > 0 then
         dmg_text  = "-" .. dmg
         dmg_timer = 40
@@ -281,6 +307,12 @@ local function start_explosion(ex, ey)
       end
     end
   end
+  -- remember this shot's apex + max damage for the round-end overlay
+  if proj and proj.apex_x then
+    last_apex_x = proj.apex_x
+    last_apex_y = proj.apex_y
+  end
+  last_shot_dmg = max_dmg
 end
 
 local function post_explosion()
@@ -321,8 +353,27 @@ local function update_aim()
   local t  = p[turn]
   cam_focus(t.x)
 
-  if btn("up", pi)   then t.angle = math.min(170, t.angle + 1) end
-  if btn("down", pi) then t.angle = math.max(10,  t.angle - 1) end
+  -- one-shot wind audio when this turn begins (any active wind)
+  if not wind_played_this_turn and math.abs(wind) > 0.02 then
+    noise(1, 0.08, "highpass", 200 + math.abs(wind) * 5000)
+    wind_played_this_turn = true
+  end
+
+  -- aim accel: holding up/down for >30 frames doubles the rate.
+  if btn("up", pi) then
+    aim_up_held = aim_up_held + 1
+    local step = aim_up_held > 30 and 2 or 1
+    t.angle = math.min(170, t.angle + step)
+  else
+    aim_up_held = 0
+  end
+  if btn("down", pi) then
+    aim_dn_held = aim_dn_held + 1
+    local step = aim_dn_held > 30 and 2 or 1
+    t.angle = math.max(10, t.angle - step)
+  else
+    aim_dn_held = 0
+  end
 
   if not charging and t.fuel > 0 then
     local moved = false
@@ -348,15 +399,40 @@ local function update_aim()
     if t.power >= 100 then
       t.power = 100
       charging = false
+      preview_pts = {}
       fire(); return
     end
     if frame() % 3 == 0 then
       local hz = 100 + t.power * 4
       tone(0, hz, hz + 20, 0.05)
     end
+
+    -- trajectory preview: simulate ~30 ticks forward, sample every 3rd
+    -- tick (draw-only — no terrain check, no state mutation).
+    preview_pts = {}
+    local rad = t.angle * math.pi / 180
+    local speed = t.power * 0.06
+    local sx = t.x
+    local sy = t.y - 1
+    local svx = math.cos(rad) * speed
+    local svy = -math.sin(rad) * speed
+    for tick = 1, 30 do
+      svy = svy + GRAVITY
+      svx = svx + wind
+      sx  = sx + svx
+      sy  = sy + svy
+      if sy > SCR_H or sx < -20 or sx > TERRAIN_W + 20 then break end
+      if tick % 3 == 0 then
+        preview_pts[#preview_pts + 1] = { x = sx, y = sy }
+      end
+    end
+  else
+    -- not holding A → no preview
+    preview_pts = {}
   end
   if btnr("a", pi) and charging then
     charging = false
+    preview_pts = {}
     fire()
   end
 end
@@ -370,6 +446,12 @@ local function update_fire()
   proj.vx = proj.vx + wind
   proj.x  = proj.x + proj.vx
   proj.y  = proj.y + proj.vy
+
+  -- track apex (highest point reached → smallest y)
+  if not proj.apex_y or proj.y < proj.apex_y then
+    proj.apex_x = proj.x
+    proj.apex_y = proj.y
+  end
 
   local px = math.floor(proj.x)
   local py = math.floor(proj.y)
@@ -523,18 +605,20 @@ local function draw_terrain()
       end
     end
   end
-  -- falling dirt particles during collapse — both peers consume the
-  -- shared math.random sequence in lockstep, so particles match.
+  -- falling dirt particles during collapse — offsets derived from
+  -- position+frame so both peers render identically without touching RNG.
   if next(collapse_data) then
+    local f = frame()
     for x, target_y in pairs(collapse_data) do
       local cur = terrain[x]
       if cur < target_y then
         local sx = x - cx
         if sx >= 0 and sx < SCR_W then
           for dy = 1, math.min(5, target_y - cur) do
-            local py = cur + dy + math.random(0, 2)
+            local py = cur + dy + ((x * 7 + dy * 3 + f) % 3)
             if py < SCR_H then
-              pix(scr, sx, py, GROUND_COLOR + math.random(-1, 1))
+              local tint = ((x + dy + f) % 3) - 1
+              pix(scr, sx, py, GROUND_COLOR + tint)
             end
           end
         end
@@ -712,13 +796,27 @@ local function draw_score_dots()
 end
 
 local function draw_round_end_overlay()
+  -- apex marker for the last shot (world-space, in-camera)
+  if last_apex_x and last_apex_y then
+    local ax = world_to_screen(math.floor(last_apex_x))
+    local ay = math.floor(last_apex_y)
+    if ax > -3 and ax < SCR_W + 3 then
+      circ(scr, ax, ay, 2, 12)
+      pix(scr, ax, ay, 15)
+    end
+  end
+
   local cx = math.floor(SCR_W / 2)
   local cy = math.floor(SCR_H / 2)
-  rectf(scr, cx - 50, cy - 14, 100, 28, 0)
-  rect(scr,  cx - 50, cy - 14, 100, 28, 15)
+  rectf(scr, cx - 50, cy - 18, 100, 36, 0)
+  rect(scr,  cx - 50, cy - 18, 100, 36, 15)
   text(scr, "ROUND TO P" .. round_winner,
-       cx, cy - 6, round_winner == 1 and 15 or 8, ALIGN_HCENTER)
-  text(scr, score[1] .. " - " .. score[2], cx, cy + 4, 12, ALIGN_HCENTER)
+       cx, cy - 10, round_winner == 1 and 15 or 8, ALIGN_HCENTER)
+  -- badge: DIRECT HIT if final shot > 35 dmg, else KO
+  local badge = (last_shot_dmg and last_shot_dmg > 35) and "DIRECT HIT" or "KO"
+  local badge_c = (last_shot_dmg and last_shot_dmg > 35) and 15 or 10
+  text(scr, badge, cx, cy, badge_c, ALIGN_HCENTER)
+  text(scr, score[1] .. " - " .. score[2], cx, cy + 10, 12, ALIGN_HCENTER)
 end
 
 function _draw()
@@ -747,6 +845,17 @@ function _draw()
     local sx = world_to_screen(t.x)
     if sx > -TANK_W and sx < SCR_W + TANK_W then
       draw_tank(t, i, sx)
+    end
+  end
+
+  -- trajectory preview (while charging)
+  if state == "aim" and charging and #preview_pts > 0 then
+    for _, pt in ipairs(preview_pts) do
+      local psx = world_to_screen(math.floor(pt.x))
+      local psy = math.floor(pt.y)
+      if psx >= 0 and psx < SCR_W and psy >= 0 and psy < SCR_H then
+        pix(scr, psx, psy, 7)
+      end
     end
   end
 

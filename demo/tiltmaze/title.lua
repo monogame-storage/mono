@@ -10,6 +10,12 @@ function title_init()
   preview_y = 76
 end
 
+local function any_button_press()
+  return btnp("a") or btnp("b") or btnp("start") or btnp("select")
+      or btnp("up") or btnp("down") or btnp("left") or btnp("right")
+      or touch_start()
+end
+
 function title_update()
   title_t = title_t + 1
 
@@ -23,7 +29,8 @@ function title_update()
   if preview_y < 71 then preview_y = 71 end
   if preview_y > SCREEN_H - 15 then preview_y = SCREEN_H - 15 end
 
-  if btnr("a") or btnr("start") or title_t >= 30 then
+  -- Player input advances immediately. Auto-advance after 10s of idle.
+  if any_button_press() or title_t >= 300 then
     go("level1")
   end
 end
@@ -38,6 +45,10 @@ function title_draw()
   rect(scr, SCREEN_W / 2 - 30, 66, 60, 20, 8)
   circf(scr, math.floor(preview_x), math.floor(preview_y), 2, 14)
 
-  text(scr, "PRESS A", 0, 96, 14, ALIGN_HCENTER)
+  -- Blinking "PRESS START" pulse
+  if math.floor(title_t / 15) % 2 == 0 then
+    text(scr, "PRESS START", 0, 96, 14, ALIGN_HCENTER)
+  end
+
   text(scr, scene_name(), 2, SCREEN_H - 10, 6)
 end

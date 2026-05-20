@@ -7,73 +7,368 @@
 <link rel="icon" href="/favicon.png" type="image/png">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     background: #1a1a1a;
     color: #e8e8e8;
-    font-family: monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.45;
+    /* faint scanline texture — pure CSS, fixed so it doesn't scroll-jitter */
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        rgba(255,255,255,0.012) 0px,
+        rgba(255,255,255,0.012) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 20px 64px;
+  }
+
+  /* ── Masthead ── */
+  .masthead {
     display: flex;
-    flex-direction: column;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    margin-bottom: 32px;
+    border-bottom: 1px solid #2a2a2a;
+  }
+  .brand {
+    font-size: 13px;
+    letter-spacing: 4px;
+    color: #e8e8e8;
+    text-transform: uppercase;
+  }
+  .brand .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: #e8e8e8;
+    margin-right: 8px;
+    vertical-align: 2px;
+  }
+  .crumb { font-size: 11px; color: #666; letter-spacing: 1px; }
+  .crumb a { color: #888; text-decoration: none; }
+  .crumb a:hover { color: #e8e8e8; }
+
+  /* ── Section headers ── */
+  .section { margin-bottom: 36px; }
+  .section-head {
+    display: flex;
     align-items: center;
-    padding: 40px 20px;
+    gap: 12px;
+    margin-bottom: 14px;
   }
-  h1 { font-size: 16px; margin-bottom: 24px; color: #999; font-weight: normal; }
-  .list {
-    width: 100%;
-    max-width: 320px;
-    display: flex;
-    flex-direction: column;
+  .section-head h2 {
+    font-size: 11px;
+    font-weight: normal;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 3px;
   }
-  .list a {
+  .section-head .rule {
+    flex: 1;
+    height: 1px;
+    background: #2a2a2a;
+  }
+  .section-head .count {
+    font-size: 10px;
+    color: #555;
+    letter-spacing: 1px;
+  }
+
+  /* ── Grid ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  @media (max-width: 720px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 460px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── Card ── */
+  .card {
+    position: relative;
+    display: block;
+    padding: 14px 14px 12px;
+    background: #1f1f1f;
+    border: 1px solid #2e2e2e;
     color: #e8e8e8;
     text-decoration: none;
-    padding: 10px 12px;
-    font-size: 14px;
-    border-bottom: 1px solid #333;
+    transition: border-color 120ms linear, background 120ms linear;
+  }
+  .card::before {
+    /* corner tick — tiny console-y detail */
+    content: "";
+    position: absolute;
+    top: 0; right: 0;
+    width: 6px; height: 6px;
+    border-top: 1px solid #444;
+    border-right: 1px solid #444;
+    transition: border-color 120ms linear;
+  }
+  .card:hover {
+    border-color: #555;
+    background: #232323;
+  }
+  .card:hover::before { border-color: #888; }
+  .card:focus-visible {
+    outline: none;
+    border-color: #888;
+  }
+
+  .card-row {
     display: flex;
+    align-items: baseline;
     justify-content: space-between;
-    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
   }
-  .list a:first-child { border-top: 1px solid #333; }
-  .list a:hover { background: #2a2a2a; }
-  .list a .tag {
-    font-size: 10px;
-    color: #666;
-    padding: 2px 6px;
-    border: 1px solid #444;
-    border-radius: 3px;
+  .card-title {
+    font-size: 13px;
+    color: #e8e8e8;
+    font-weight: normal;
+    letter-spacing: 0.2px;
   }
-  .back {
-    margin-top: 24px;
-    font-size: 12px;
+  .card-title .prompt {
     color: #555;
-    text-decoration: none;
+    margin-right: 6px;
   }
-  .back:hover { color: #999; }
+  .card:hover .card-title .prompt { color: #999; }
+
+  .tag {
+    font-size: 9px;
+    color: #888;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 2px 5px;
+    border: 1px solid #3a3a3a;
+    background: #1a1a1a;
+    flex-shrink: 0;
+  }
+  .desc {
+    font-size: 11px;
+    color: #777;
+    margin-top: 2px;
+  }
+
+  /* ── Footer ── */
+  .foot {
+    margin-top: 48px;
+    padding-top: 18px;
+    border-top: 1px solid #2a2a2a;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .foot a {
+    font-size: 12px;
+    color: #666;
+    text-decoration: none;
+    letter-spacing: 0.5px;
+  }
+  .foot a:hover { color: #e8e8e8; }
+  .foot .arrow { color: #444; }
+  .foot a:hover .arrow { color: #888; }
 </style>
 </head>
 <body>
-  <h1>Mono Demo</h1>
-  <div class="list">
-    <a href="/play.html?game=bubble">bubble <span class="tag">touch</span></a>
-    <a href="/play.html?game=bounce">bounce</a>
-    <a href="/play.html?game=pong">pong</a>
-    <a href="/play.html?game=pong-2p">pong-2p <span class="tag">netplay</span></a>
-    <a href="/play.html?game=scorch-2p">scorch-2p <span class="tag">netplay</span></a>
-    <a href="/play.html?game=battleship-2p">battleship-2p <span class="tag">netplay</span></a>
-    <a href="/play.html?game=dodge">dodge</a>
-    <a href="/play.html?game=invaders">invaders</a>
-    <a href="/play.html?game=starfighter">starfighter <span class="tag">sprite</span></a>
-    <a href="/play.html?game=paint">paint <span class="tag">touch</span></a>
-    <a href="/play.html?game=tiltmaze">tiltmaze <span class="tag">scene</span></a>
-    <a href="/play.html?game=synth">synth <span class="tag">audio</span></a>
-    <a href="/play.html?game=clock">clock <span class="tag">time</span></a>
-    <a href="/play.html?game=motion">motion <span class="tag">sensor</span></a>
-    <a href="/play.html?game=save">save <span class="tag">data</span></a>
-    <a href="/play.html?game=engine-test">engine-test <span class="tag">api</span></a>
-    <a href="/demo/scene-test/">scene-test</a>
-    <a href="/demo/shader-test/">shader-test</a>
-  </div>
-  <a class="back" href="/candidates/">candidates (64 games) &rarr;</a>
-  <a class="back" href="/" style="margin-top:8px">&larr; home</a>
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="brand"><span class="dot"></span>MONO / DEMO</div>
+    <div class="crumb"><a href="/">&larr; HOME</a></div>
+  </header>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Featured</h2>
+      <div class="rule"></div>
+      <div class="count">03</div>
+    </div>
+    <div class="grid">
+      <a class="card" href="/play.html?game=scorch-2p">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>scorch-2p</span>
+          <span class="tag">netplay</span>
+        </div>
+        <div class="desc">lob shells, win the duel</div>
+      </a>
+      <a class="card" href="/play.html?game=bubble">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>bubble</span>
+          <span class="tag">touch</span>
+        </div>
+        <div class="desc">pop them before they drift away</div>
+      </a>
+      <a class="card" href="/play.html?game=invaders">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>invaders</span>
+          <span class="tag">arcade</span>
+        </div>
+        <div class="desc">the wave is coming</div>
+      </a>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Single Player</h2>
+      <div class="rule"></div>
+      <div class="count">05</div>
+    </div>
+    <div class="grid">
+      <a class="card" href="/play.html?game=bounce">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>bounce</span>
+        </div>
+        <div class="desc">bouncing ball, classic physics</div>
+      </a>
+      <a class="card" href="/play.html?game=pong">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>pong</span>
+        </div>
+        <div class="desc">the original, against the wall</div>
+      </a>
+      <a class="card" href="/play.html?game=dodge">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>dodge</span>
+        </div>
+        <div class="desc">slip past the falling debris</div>
+      </a>
+      <a class="card" href="/play.html?game=starfighter">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>starfighter</span>
+          <span class="tag">sprite</span>
+        </div>
+        <div class="desc">scroll through enemy space</div>
+      </a>
+      <a class="card" href="/play.html?game=tiltmaze">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>tiltmaze</span>
+          <span class="tag">scene</span>
+        </div>
+        <div class="desc">tilt the world, roll the ball</div>
+      </a>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Netplay 2P</h2>
+      <div class="rule"></div>
+      <div class="count">02</div>
+    </div>
+    <div class="grid">
+      <a class="card" href="/play.html?game=pong-2p">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>pong-2p</span>
+          <span class="tag">netplay</span>
+        </div>
+        <div class="desc">pong, with a real opponent</div>
+      </a>
+      <a class="card" href="/play.html?game=battleship-2p">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>battleship-2p</span>
+          <span class="tag">netplay</span>
+        </div>
+        <div class="desc">call out the grid, sink the ship</div>
+      </a>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Touch</h2>
+      <div class="rule"></div>
+      <div class="count">01</div>
+    </div>
+    <div class="grid">
+      <a class="card" href="/play.html?game=paint">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>paint</span>
+          <span class="tag">touch</span>
+        </div>
+        <div class="desc">finger on the canvas, sixteen shades</div>
+      </a>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Tech Demos</h2>
+      <div class="rule"></div>
+      <div class="count">07</div>
+    </div>
+    <div class="grid">
+      <a class="card" href="/play.html?game=synth">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>synth</span>
+          <span class="tag">audio</span>
+        </div>
+        <div class="desc">square waves and chiptune envelopes</div>
+      </a>
+      <a class="card" href="/play.html?game=clock">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>clock</span>
+          <span class="tag">time</span>
+        </div>
+        <div class="desc">wall time, drawn pixel by pixel</div>
+      </a>
+      <a class="card" href="/play.html?game=motion">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>motion</span>
+          <span class="tag">sensor</span>
+        </div>
+        <div class="desc">accelerometer, live read-out</div>
+      </a>
+      <a class="card" href="/play.html?game=save">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>save</span>
+          <span class="tag">data</span>
+        </div>
+        <div class="desc">persistent storage, slot by slot</div>
+      </a>
+      <a class="card" href="/play.html?game=engine-test">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>engine-test</span>
+          <span class="tag">api</span>
+        </div>
+        <div class="desc">every API surface, exercised</div>
+      </a>
+      <a class="card" href="/demo/scene-test/">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>scene-test</span>
+          <span class="tag">scene</span>
+        </div>
+        <div class="desc">scene graph, layered transforms</div>
+      </a>
+      <a class="card" href="/demo/shader-test/">
+        <div class="card-row">
+          <span class="card-title"><span class="prompt">&gt;</span>shader-test</span>
+          <span class="tag">shader</span>
+        </div>
+        <div class="desc">post-process passes on the framebuffer</div>
+      </a>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <a href="/candidates/">candidates (64 games) <span class="arrow">&rarr;</span></a>
+    <a href="/"><span class="arrow">&larr;</span> home</a>
+  </footer>
+
+</div>
 </body>
 </html>

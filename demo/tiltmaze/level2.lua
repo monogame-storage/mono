@@ -5,6 +5,8 @@ local bg_canvas
 local ball_x, ball_y
 local ball_vx, ball_vy
 local frames
+local level2_t       -- per-level timer (frames)
+local goal_x, goal_y -- goal center for arrow indicator
 
 function level2_init()
   -- Prerender a simple spiral pattern
@@ -22,10 +24,15 @@ function level2_init()
   ball_vx = 0
   ball_vy = 0
   frames = 0
+  level2_t = 0
+  -- Goal zone is the 16x16 square at bottom-right; center is its midpoint.
+  goal_x = SCREEN_W - 8
+  goal_y = SCREEN_H - 8
 end
 
 function level2_update()
   frames = frames + 1
+  level2_t = level2_t + 1
 
   -- SELECT = skip
   if btnp("select") then
@@ -48,13 +55,31 @@ function level2_update()
 
   ball_x = ball_x + ball_vx
   ball_y = ball_y + ball_vy
-  if ball_x < 2 then ball_x = 2; ball_vx = 0 end
-  if ball_y < 2 then ball_y = 2; ball_vy = 0 end
-  if ball_x > SCREEN_W - 2 then ball_x = SCREEN_W - 2; ball_vx = 0 end
-  if ball_y > SCREEN_H - 2 then ball_y = SCREEN_H - 2; ball_vy = 0 end
+
+  -- Edge collisions with bounce sound when impact was real
+  local prev_vx = ball_vx
+  local prev_vy = ball_vy
+  if ball_x < 2 then
+    ball_x = 2; ball_vx = 0
+    if math.abs(prev_vx) > 0.5 then note(0, "C4", 0.02) end
+  end
+  if ball_x > SCREEN_W - 2 then
+    ball_x = SCREEN_W - 2; ball_vx = 0
+    if math.abs(prev_vx) > 0.5 then note(0, "C4", 0.02) end
+  end
+  if ball_y < 2 then
+    ball_y = 2; ball_vy = 0
+    if math.abs(prev_vy) > 0.5 then note(0, "C4", 0.02) end
+  end
+  if ball_y > SCREEN_H - 2 then
+    ball_y = SCREEN_H - 2; ball_vy = 0
+    if math.abs(prev_vy) > 0.5 then note(0, "C4", 0.02) end
+  end
 
   -- Goal check
   if ball_x > SCREEN_W - 16 and ball_y > SCREEN_H - 16 then
+    data_save("tiltmaze_level2_t", level2_t)
+    tone(0, 600, 1200, 0.3)
     canvas_del(bg_canvas)
     go("clear")
   end
@@ -63,6 +88,15 @@ end
 function level2_draw()
   cls(scr, 0)
   blit(bg_canvas, scr, 0, 0)
+
+  -- Goal arrow indicator (pulses every 30 frames)
+  if math.floor(frame() / 15) % 2 == 0 then
+    text(scr, "->", goal_x - 6, goal_y - 3, 12)
+  end
+
   circf(scr, math.floor(ball_x), math.floor(ball_y), 2, 15)
+
   text(scr, scene_name(), 2, 2, 14)
+  text(scr, string.format("TIME %.1f", level2_t / 30),
+       SCREEN_W - 2, 2, 14, ALIGN_RIGHT)
 end

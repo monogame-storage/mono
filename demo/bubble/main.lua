@@ -20,8 +20,12 @@ local MOB_FISH = 1
 local MOB_CRAB = 2
 local MOB_BIRD = 3
 local MOB_SKULL = 4
+local MOB_GOLD  = 5
 
-local MOB_POINTS = { 10, 20, 30, 0 }
+local MOB_POINTS = { 10, 20, 30, 0, 100 }
+
+-- ascending combo notes (pop SFX)
+local COMBO_NOTES = { "C5", "E5", "G5", "B5", "C6", "E6", "G6", "B6" }
 
 -- state machine
 local STATE_TITLE = 0
@@ -32,9 +36,12 @@ local state
 local bubbles, particles, freed_mobs
 local score, best, lives
 local spawn_timer, spawn_rate, bubble_speed
-local combo_text, combo_timer
+local combo_text, combo_timer, combo_count
 local title_bubbles
 local over_cooldown
+local cursor                 -- {x,y} keyboard crosshair
+local keyboard_mode          -- becomes true once an arrow key has been pressed
+local kb_virtual_touch       -- transient flag: when true, treat A press as a touch at cursor
 
 -- pixel art mob sprites (scaled up ~7x7)
 
@@ -130,13 +137,25 @@ local function draw_skull(x, y, c)
   pix(scr, x, y + 3, 0)
 end
 
-local mob_drawers = { draw_fish, draw_crab, draw_bird, draw_skull }
+local function draw_gold(x, y, c)
+  -- bright golden body
+  circf(scr, x, y, 4, 14)
+  -- 4 cross sparkle pixels around it
+  pix(scr, x - 6, y, 15)
+  pix(scr, x + 6, y, 15)
+  pix(scr, x, y - 6, 15)
+  pix(scr, x, y + 6, 15)
+  -- inner glint
+  pix(scr, x - 1, y - 1, 15)
+end
+
+local mob_drawers = { draw_fish, draw_crab, draw_bird, draw_skull, draw_gold }
 
 -- init
 
 function _init()
   mode(4)
-  best = 0
+  best = data_load("bubble_best") or 0
   state = STATE_TITLE
   title_bubbles = {}
   for i = 1, 5 do
@@ -148,6 +167,9 @@ function _init()
       wobble = math.random() * 6.283,
     })
   end
+  cursor = { x = math.floor(SCREEN_W / 2), y = math.floor(SCREEN_H / 2) }
+  keyboard_mode = false
+  kb_virtual_touch = false
 end
 
 local function start_game()
@@ -161,18 +183,35 @@ local function start_game()
   bubble_speed = SPEED_INIT
   combo_text = nil
   combo_timer = 0
+  combo_count = 0
   state = STATE_PLAY
 end
 
 local function spawn_bubble()
   local mob = MOB_FISH
   local roll = math.random(1, 100)
-  if roll <= 15 then
-    mob = MOB_SKULL
-  elseif roll <= 35 then
-    mob = MOB_BIRD
-  elseif roll <= 60 then
-    mob = MOB_CRAB
+  -- difficulty ramp: at score > 100, skulls become more common and
+  -- golden bubbles (rare +100pt) start appearing.
+  local hard = score and score > 100
+  if hard then
+    -- skull 25%, gold 5%, bird 20%, crab 25%, else fish
+    if roll <= 25 then
+      mob = MOB_SKULL
+    elseif roll <= 30 then
+      mob = MOB_GOLD
+    elseif roll <= 50 then
+      mob = MOB_BIRD
+    elseif roll <= 75 then
+      mob = MOB_CRAB
+    end
+  else
+    if roll <= 15 then
+      mob = MOB_SKULL
+    elseif roll <= 35 then
+      mob = MOB_BIRD
+    elseif roll <= 60 then
+      mob = MOB_CRAB
+    end
   end
   table.insert(bubbles, {
     x = math.random(BUBBLE_R + 4, SCREEN_W - BUBBLE_R - 4),
@@ -250,7 +289,11 @@ local function update_title()
       b.mob = math.random(1, 3)
     end
   end
-  if touch_end() or btnr("start") then
+  -- detect keyboard input for cursor fallback
+  if btnp("up") or btnp("down") or btnp("left") or btnp("right") then
+    keyboard_mode = true
+  end
+  if touch_end() or btnr("start") or btnr("a") then
     start_game()
   end
 end
@@ -263,6 +306,17 @@ local function update_play()
     spawn_bubble()
   end
 
+  -- keyboard cursor: arrow keys move at 2 px/frame, A pops at cursor
+  local kb_arrow_held = btn("up") or btn("down") or btn("left") or btn("right")
+  if kb_arrow_held or btnp("a") then
+    keyboard_mode = true
+  end
+  if btn("left")  then cursor.x = math.max(0, cursor.x - 2) end
+  if btn("right") then cursor.x = math.min(SCREEN_W - 1, cursor.x + 2) end
+  if btn("up")    then cursor.y = math.max(0, cursor.y - 2) end
+  if btn("down")  then cursor.y = math.min(SCREEN_H - 1, cursor.y + 2) end
+  kb_virtual_touch = btnp("a")
+
   -- move bubbles
   for i = #bubbles, 1, -1 do
     local b = bubbles[i]
@@ -270,9 +324,13 @@ local function update_play()
     b.wobble = b.wobble + 0.06
     if b.y + BUBBLE_R < -4 then
       if b.mob ~= MOB_SKULL then
+        tone(0, 400, 80, 0.5)  -- life-lost SFX
         lives = lives - 1
         if lives <= 0 then
-          if score > best then best = score end
+          if score > best then
+            best = score
+            data_save("bubble_best", best)
+          end
           state = STATE_OVER
           over_cooldown = 30
           return
@@ -282,54 +340,71 @@ local function update_play()
     end
   end
 
-  -- touch → pop (only on touch start, not drag)
+  -- touch → pop (only on touch start, not drag). Keyboard A press is
+  -- treated as a virtual touch at cursor position.
   local popped = 0
   local popped_pts = 0
   local hit_skull = false
-  if not touch_start() then goto skip_pop end
-  for i = 1, touch_count() do
-    local tx, ty = touch_pos(i)
-    local best_b = nil
-    local best_y = 99999
-    for _, b in ipairs(bubbles) do
-      if b.alive then
-        local dx = tx - b.x
-        local dy = ty - b.y
-        if dx * dx + dy * dy <= HIT_R * HIT_R then
-          if b.y < best_y then
-            best_y = b.y
-            best_b = b
+  local any_pop_input = touch_start() or kb_virtual_touch
+  if not any_pop_input then goto skip_pop end
+
+  -- collect all input points (real touches + virtual cursor) into one list
+  do
+    local pts = {}
+    if touch_start() then
+      for i = 1, touch_count() do
+        local tx, ty = touch_pos(i)
+        if tx then pts[#pts + 1] = { x = tx, y = ty } end
+      end
+    end
+    if kb_virtual_touch then
+      pts[#pts + 1] = { x = cursor.x, y = cursor.y }
+    end
+
+    for _, pt in ipairs(pts) do
+      local tx, ty = pt.x, pt.y
+      local best_b = nil
+      local best_y = 99999
+      for _, b in ipairs(bubbles) do
+        if b.alive then
+          local dx = tx - b.x
+          local dy = ty - b.y
+          if dx * dx + dy * dy <= HIT_R * HIT_R then
+            if b.y < best_y then
+              best_y = b.y
+              best_b = b
+            end
           end
         end
       end
-    end
-    if best_b then
-      best_b.alive = false
-      if best_b.mob == MOB_SKULL then
-        hit_skull = true
-        spawn_particles(best_b.x, best_b.y, 5, true)
+      if best_b then
+        best_b.alive = false
+        if best_b.mob == MOB_SKULL then
+          hit_skull = true
+          spawn_particles(best_b.x, best_b.y, 5, true)
+        else
+          popped = popped + 1
+          popped_pts = popped_pts + MOB_POINTS[best_b.mob]
+          spawn_particles(best_b.x, best_b.y, 12, false)
+          spawn_freed_mob(best_b.x, best_b.y, best_b.mob)
+        end
       else
-        popped = popped + 1
-        popped_pts = popped_pts + MOB_POINTS[best_b.mob]
-        spawn_particles(best_b.x, best_b.y, 12, false)
-        spawn_freed_mob(best_b.x, best_b.y, best_b.mob)
-      end
-    else
-      -- empty tap: small splash particles
-      local SPLASH_N = 6
-      local SPLASH_SPD_MIN = 0.4
-      local SPLASH_SPD_RNG = 0.6
-      for j = 1, SPLASH_N do
-        local angle = math.random() * 6.283
-        local spd = SPLASH_SPD_MIN + math.random() * SPLASH_SPD_RNG
-        table.insert(particles, {
-          x = tx, y = ty,
-          dx = math.cos(angle) * spd,
-          dy = math.sin(angle) * spd,
-          life = math.random(6, 12),
-          color = 5,
-          kind = "spark",
-        })
+        -- empty tap: small splash particles
+        local SPLASH_N = 6
+        local SPLASH_SPD_MIN = 0.4
+        local SPLASH_SPD_RNG = 0.6
+        for j = 1, SPLASH_N do
+          local angle = math.random() * 6.283
+          local spd = SPLASH_SPD_MIN + math.random() * SPLASH_SPD_RNG
+          table.insert(particles, {
+            x = tx, y = ty,
+            dx = math.cos(angle) * spd,
+            dy = math.sin(angle) * spd,
+            life = math.random(6, 12),
+            color = 5,
+            kind = "spark",
+          })
+        end
       end
     end
   end
@@ -345,17 +420,26 @@ local function update_play()
   -- skull penalty
   if hit_skull then
     cam_shake(6)
+    noise(1, 0.3, "low", 200)
     lives = lives - 1
+    combo_count = 0
     if lives <= 0 then
-      if score > best then best = score end
+      if score > best then
+        best = score
+        data_save("bubble_best", best)
+      end
       state = STATE_OVER
       over_cooldown = 30
       return
     end
   end
 
-  -- scoring
+  -- scoring + pop SFX (ascending by combo chain length)
   if popped > 0 then
+    combo_count = combo_count + popped
+    local note_idx = math.min(combo_count, 8)
+    note(0, COMBO_NOTES[note_idx], 0.05)
+
     local pts = popped_pts
     if popped >= 2 then
       pts = pts * popped
@@ -363,6 +447,9 @@ local function update_play()
       combo_timer = 24
     end
     score = score + pts
+  else
+    -- no pop this frame → reset combo chain
+    combo_count = 0
   end
 
   -- combo text fade
@@ -420,7 +507,7 @@ local function update_over()
   end
   if over_cooldown > 0 then
     over_cooldown = over_cooldown - 1
-  elseif touch_end() or btnr("start") then
+  elseif touch_end() or btnr("start") or btnr("a") then
     start_game()
   end
 end
@@ -483,16 +570,21 @@ end
 
 local function draw_title()
   cls(scr, 0)
+  -- bubbles drawn first → they drift BEHIND the title card
   for _, b in ipairs(title_bubbles) do
     draw_bubble(b.x, b.y, b.mob, b.wobble)
   end
-  rectf(scr, 20, 24, 120, 38, 0)
-  rect(scr, 20, 24, 120, 38, 8)
-  text(scr, "BUBBLE BOBBLE", CX, 32, 15, ALIGN_HCENTER)
-  text(scr, "Pop to rescue!", CX, 44, 10, ALIGN_HCENTER)
-  text(scr, "Avoid skull!", CX, 52, 8, ALIGN_HCENTER)
+  -- title card sits at y=44, leaving the upper screen free for bubbles
+  rectf(scr, 20, 44, 120, 38, 0)
+  rect(scr, 20, 44, 120, 38, 8)
+  text(scr, "BUBBLE BOBBLE", CX, 52, 15, ALIGN_HCENTER)
+  text(scr, "Pop to rescue!", CX, 64, 10, ALIGN_HCENTER)
+  text(scr, "Avoid skull!", CX, 72, 8, ALIGN_HCENTER)
   if math.floor(frame() / 15) % 2 == 0 then
-    text(scr, "TOUCH TO START", CX, 82, 12, ALIGN_HCENTER)
+    text(scr, "TOUCH OR PRESS A", CX, 92, 12, ALIGN_HCENTER)
+  end
+  if best and best > 0 then
+    text(scr, "BEST " .. best, CX, 102, 6, ALIGN_HCENTER)
   end
   text(scr, "A MONO DEMO", CX, SCREEN_H - 8, 4, ALIGN_HCENTER)
 end
@@ -529,6 +621,14 @@ local function draw_play()
   if combo_text and combo_timer then
     local cc = combo_timer > 12 and 15 or 10
     text(scr, combo_text, CX, CY, cc, ALIGN_CENTER)
+  end
+
+  -- keyboard crosshair cursor (only when keyboard input was detected)
+  if keyboard_mode then
+    local kx = cursor.x
+    local ky = cursor.y
+    circ(scr, kx, ky, 4, 15)
+    pix(scr, kx, ky, 15)
   end
   cam(cx, cy)
 end

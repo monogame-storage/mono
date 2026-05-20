@@ -8,13 +8,19 @@ local PW = 4    -- paddle width
 local PH = 24   -- paddle height
 local BS = 3    -- ball size (radius)
 local SPEED = 2.5
-local AI_SPEED = 1.8
 local MAX_SCORE = 9
 local MIN_ANGLE = 0.18  -- ~10 degrees from vertical (tan(10°))
 local OBS_BOOST = 1.3   -- speed multiplier on obstacle hit
 local RALLY_ACCEL = 0.02 -- speed increase per rally hit
 
+-- difficulty
+local DIFFICULTIES = { "EASY", "NORM", "HARD" }
+local AI_SPEEDS    = { 1.2,    1.8,    2.4 }
+local difficulty_idx = 2  -- NORM default
+local AI_SPEED = AI_SPEEDS[difficulty_idx]
+
 -- state
+local state -- "title" | "play" | "over"
 local p1, p2, ball
 local score1, score2
 local obstacles
@@ -22,12 +28,13 @@ local serve_dir
 local paused
 local winner
 local rally_speed  -- current ball speed (increases during rally)
-local shake_frames  -- counts down for cam_reset after cam_shake
+local rally_hits   -- count of paddle face hits this rally (for milestone chord)
+local rally_chord_pending -- frame on which to play the second chord note
+local wins_total   -- persisted wins count
 
 local function sfx_paddle()
   note(0, "C5", 0.05)
   cam_shake(1)
-  shake_frames = 4
 end
 
 local function sfx_wall()
@@ -37,13 +44,22 @@ end
 local function sfx_obstacle()
   note(0, "C6", 0.06)
   cam_shake(2)
-  shake_frames = 6
 end
 
 local function sfx_score()
   -- sfx_stop() cuts any lingering audio before the victory chime
   sfx_stop()
   note(0, "C3", 0.15)
+end
+
+local function sfx_victory()
+  sfx_stop()
+  tone(0, 400, 1200, 0.3)
+end
+
+local function sfx_loss()
+  sfx_stop()
+  tone(0, 1200, 200, 0.4)
 end
 
 -- enforce minimum angle from vertical
@@ -57,6 +73,8 @@ end
 
 local function reset_ball(dir)
   rally_speed = SPEED
+  rally_hits = 0
+  rally_chord_pending = nil
   local angle = math.random(1, 2) == 1 and 1.5 or -1.5
   angle = angle + (math.random() - 0.5) * 0.8
   ball = {
@@ -67,13 +85,14 @@ local function reset_ball(dir)
   ball.dx, ball.dy = enforce_min_angle(ball.dx, ball.dy)
 end
 
-local circle_obs  -- circle obstacles
+local circle_obs  -- circle obstacles (orbit their anchor)
 
 local function init_obstacles()
   obstacles = {}
+  -- Anchors at the original positions; phase π apart so they oscillate opposite.
   circle_obs = {
-    { cx = 80, cy = 30, r = 6 },
-    { cx = 80, cy = 90, r = 6 },
+    { anchor_y = 30, cx = 80, cy = 30, r = 6, phase = 0 },
+    { anchor_y = 90, cx = 80, cy = 90, r = 6, phase = math.pi },
   }
 end
 
@@ -81,7 +100,7 @@ function _init()
   mode(4)
 end
 
-function _start()
+local function begin_match()
   p1 = { x = 6, y = 48 }
   p2 = { x = 150, y = 48 }
   score1 = 0
@@ -89,9 +108,17 @@ function _start()
   serve_dir = 1
   winner = nil
   paused = false
-  shake_frames = 0
   init_obstacles()
   reset_ball(serve_dir)
+  state = "play"
+end
+
+function _start()
+  wins_total = data_load("pong_wins") or 0
+  state = "title"
+  paused = false
+  -- Initialise obstacle table so the title screen can preview them if desired.
+  init_obstacles()
 end
 
 -- AI for left paddle
@@ -148,7 +175,6 @@ local function paddle_hit(paddle, bounce_dir)
 
   -- determine if ball hit the face (front) or the edge (top/bottom)
   local prev_x = ball.x - ball.dx
-  local paddle_front = bounce_dir > 0 and (paddle.x + PW) or paddle.x
   local hit_face
 
   if bounce_dir > 0 then
@@ -179,19 +205,45 @@ local function paddle_hit(paddle, bounce_dir)
   ball.dy = hit * 3.0
   ball.dx, ball.dy = enforce_min_angle(ball.dx, ball.dy)
   sfx_paddle()
+
+  -- Rally milestone: every 5 face hits play C5 then E5 next frame.
+  rally_hits = rally_hits + 1
+  if rally_hits % 5 == 0 then
+    note(0, "C5", 0.05)
+    rally_chord_pending = frame() + 1
+  end
+
   return true
 end
 
-function _update()
-  -- shake decay: call cam_reset() once the shake wears off
-  if shake_frames > 0 then
-    shake_frames = shake_frames - 1
-    if shake_frames == 0 then cam_reset() end
+local function title_update()
+  if btnp("left") then
+    difficulty_idx = difficulty_idx - 1
+    if difficulty_idx < 1 then difficulty_idx = #DIFFICULTIES end
+    AI_SPEED = AI_SPEEDS[difficulty_idx]
+    note(0, "E4", 0.03)
+  end
+  if btnp("right") then
+    difficulty_idx = difficulty_idx + 1
+    if difficulty_idx > #DIFFICULTIES then difficulty_idx = 1 end
+    AI_SPEED = AI_SPEEDS[difficulty_idx]
+    note(0, "E4", 0.03)
+  end
+  if btnr("start") or touch_end() then
+    begin_match()
+  end
+end
+
+local function play_update()
+  -- Deferred rally chord second note
+  if rally_chord_pending and frame() >= rally_chord_pending then
+    note(0, "E5", 0.05)
+    rally_chord_pending = nil
   end
 
   if winner then
     if btnr("start") or touch_end() then
-      _start()
+      state = "title"
     end
     return
   end
@@ -201,6 +253,11 @@ function _update()
     paused = not paused
   end
   if paused then return end
+
+  -- Animate orbiting circle obstacles around their anchor.
+  for _, ob in ipairs(circle_obs) do
+    ob.cy = ob.anchor_y + math.sin(frame() * 0.02 + ob.phase) * 25
+  end
 
   -- player 2 input (right paddle)
   local dy = 0
@@ -250,7 +307,6 @@ function _update()
   for _, ob in ipairs(obstacles) do
     if ball_rect_collide(ball.x, ball.y, BS, ob.x, ob.y, ob.w, ob.h) then
       local prev_x = ball.x - ball.dx
-      local prev_y = ball.y - ball.dy
       local from_side = (prev_x < ob.x or prev_x > ob.x + ob.w)
       if from_side then
         ball.dx = -ball.dx * OBS_BOOST
@@ -288,31 +344,68 @@ function _update()
   -- scoring
   if ball.x < 0 then
     score2 = score2 + 1
-    print("SCORE " .. score1 .. "-" .. score2)
     serve_dir = -1
     sfx_score()
     if score2 >= MAX_SCORE then
       winner = "P2"
-      print("WINNER: P2 " .. score1 .. "-" .. score2)
+      wins_total = wins_total + 1
+      data_save("pong_wins", wins_total)
+      sfx_victory()
     else
       reset_ball(serve_dir)
     end
   end
   if ball.x > SCREEN_W then
     score1 = score1 + 1
-    print("SCORE " .. score1 .. "-" .. score2)
     serve_dir = 1
     sfx_score()
     if score1 >= MAX_SCORE then
       winner = "CPU"
-      print("WINNER: CPU " .. score1 .. "-" .. score2)
+      sfx_loss()
     else
       reset_ball(serve_dir)
     end
   end
 end
 
-function _draw()
+function _update()
+  if state == "title" then
+    title_update()
+  else
+    play_update()
+  end
+end
+
+local function title_draw()
+  cls(scr, 0)
+  -- Title
+  text(scr, "PONG", 80, 20, 15, ALIGN_HCENTER)
+  text(scr, "PONG", 81, 20, 8, ALIGN_HCENTER)  -- subtle drop shadow
+
+  text(scr, "DIFFICULTY", 80, 50, 10, ALIGN_HCENTER)
+
+  -- Difficulty options (highlight selected)
+  local labels = { "EASY", "NORM", "HARD" }
+  local xs = { 40, 80, 120 }
+  for i = 1, 3 do
+    local col = (i == difficulty_idx) and 15 or 6
+    text(scr, labels[i], xs[i], 64, col, ALIGN_HCENTER)
+  end
+  -- Selection brackets
+  local bx = xs[difficulty_idx]
+  text(scr, "<", bx - 14, 64, 12, ALIGN_HCENTER)
+  text(scr, ">", bx + 14, 64, 12, ALIGN_HCENTER)
+
+  -- Press start (blink)
+  if math.floor(frame() / 15) % 2 == 0 then
+    text(scr, "PRESS START", 80, 88, 14, ALIGN_HCENTER)
+  end
+
+  -- Wins counter
+  text(scr, "WINS: " .. wins_total, 80, 102, 8, ALIGN_HCENTER)
+end
+
+local function play_draw()
   cls(scr, 0)
 
   -- center line (dashed)
@@ -352,19 +445,20 @@ function _draw()
     text(scr, "PAUSED", 80, 56, 10, ALIGN_HCENTER)
   end
 
-  -- debug probe: gpix samples the screen where the ball is, draws a tiny
-  -- confirmation marker in the corner. Exercises gpix() and proves that
-  -- drawing above landed on the expected pixel.
-  local sampled = gpix(scr, math.floor(ball.x), math.floor(ball.y))
-  if sampled >= 0 then
-    rectf(scr, SCREEN_W - 4, SCREEN_H - 4, 3, 3, 6)
-  end
-
   -- winner screen
   if winner then
-    rectf(scr, 30, 40, 100, 40, 0)
-    rect(scr, 30, 40, 100, 40, 15)
-    text(scr, winner .. " WINS!", 80, 50, 15, ALIGN_HCENTER)
-    text(scr, "PRESS START", 80, 66, 8, ALIGN_HCENTER)
+    rectf(scr, 30, 36, 100, 50, 0)
+    rect(scr, 30, 36, 100, 50, 15)
+    text(scr, winner .. " WINS!", 80, 44, 15, ALIGN_HCENTER)
+    text(scr, "PRESS START", 80, 60, 8, ALIGN_HCENTER)
+    text(scr, "WINS: " .. wins_total, 80, 74, 12, ALIGN_HCENTER)
+  end
+end
+
+function _draw()
+  if state == "title" then
+    title_draw()
+  else
+    play_draw()
   end
 end
