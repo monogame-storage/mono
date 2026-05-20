@@ -150,6 +150,19 @@ local pbullet  -- {x, y} or nil
 local pscore
 local phiscore = 0
 
+-- Wave / progression
+local wave = 1
+local wave_intermission = 0   -- frames remaining showing "WAVE N"
+
+-- Bass loop (invaders signature)
+local bass_notes = {"E2","D2","C2","B1"}
+local bass_step = 1
+
+-- UFO score pool (random per spawn)
+local ufo_scores = {50, 100, 150, 300}
+local last_ufo_score = 0
+local last_ufo_score_timer = 0
+
 -- Aliens
 local aliens = {}      -- {x, y, type, alive}
 local alien_dir        -- 1 or -1
@@ -168,7 +181,13 @@ local ufo_timer
 local shield_hp = {}  -- shield_hp[i][row][col] = true/false
 
 -- Explosion
-local explosions = {} -- {x, y, timer}
+local explosions = {} -- {x, y, timer, parts}
+
+local function make_burst(n)
+  local b = {}
+  for i = 1, n do b[i] = { dx = math.random(-5, 5), dy = math.random(-5, 5) } end
+  return b
+end
 
 local function init_shields()
   shield_hp = {}
@@ -185,6 +204,9 @@ end
 
 local function init_aliens()
   aliens = {}
+  -- Each wave drops aliens one row lower, clamped so shields aren't crushed.
+  -- Shields sit at y = H - 32 = 88. Bottom row alien y must stay <= ~64.
+  local row_offset = math.min(wave - 1, 3) * 6
   for row = 0, 4 do
     for col = 0, 10 do
       local atype
@@ -193,7 +215,7 @@ local function init_aliens()
       else atype = 3 end
       aliens[#aliens + 1] = {
         x = 10 + col * 13,
-        y = 20 + row * 12,
+        y = 20 + row_offset + row * 12,
         type = atype,
         alive = true
       }
@@ -202,10 +224,12 @@ local function init_aliens()
   alien_dir = 1
   alien_speed = 1
   alien_move_timer = 0
-  alien_move_interval = 20
+  -- Each wave speeds up: shorter interval (0.9^(wave-1))
+  alien_move_interval = math.max(4, math.floor(20 * (0.9 ^ (wave - 1)) + 0.5))
   alien_frame = 0
   alien_bullets = {}
   alien_shoot_timer = 0
+  bass_step = 1
 end
 
 local function reset_game()
@@ -217,8 +241,27 @@ local function reset_game()
   ufo = nil
   ufo_timer = 0
   explosions = {}
+  wave = 1
+  wave_intermission = 0
+  last_ufo_score = 0
+  last_ufo_score_timer = 0
   init_aliens()
   init_shields()
+  state = STATE_PLAY
+end
+
+-- Advance to next wave: keep score/lives, regenerate aliens lower & faster,
+-- rebuild shields, and show a brief "WAVE N" intermission.
+local function next_wave()
+  wave = wave + 1
+  pbullet = nil
+  alien_bullets = {}
+  ufo = nil
+  ufo_timer = 0
+  explosions = {}
+  init_aliens()
+  init_shields()
+  wave_intermission = 90
   state = STATE_PLAY
 end
 
@@ -242,6 +285,7 @@ local function update_play()
   -- Player shoot
   if btnp("a") and pbullet == nil then
     pbullet = { x = px + 6, y = py - 1 }
+    tone(0, 800, 1500, 0.05)
   end
 
   -- Player bullet
@@ -255,6 +299,11 @@ local function update_play()
   if alien_move_timer >= alien_move_interval then
     alien_move_timer = 0
     alien_frame = 1 - alien_frame
+
+    -- Descending bass loop — THE invaders signature.
+    -- Naturally accelerates as alien_move_interval shrinks.
+    note(0, bass_notes[bass_step], 0.05)
+    bass_step = (bass_step % 4) + 1
 
     -- Check bounds
     local min_x, max_x = 999, -999
@@ -302,10 +351,11 @@ local function update_play()
         if pbullet.x >= a.x and pbullet.x <= a.x + aw
           and pbullet.y >= a.y and pbullet.y <= a.y + 8 then
           a.alive = false
-          explosions[#explosions + 1] = { x = a.x, y = a.y, timer = 10 }
+          explosions[#explosions + 1] = { x = a.x, y = a.y, timer = 10, parts = make_burst(6) }
           if a.type == 1 then pscore = pscore + 30
           elseif a.type == 2 then pscore = pscore + 20
           else pscore = pscore + 10 end
+          noise(1, 0.1, "low", 400)
           pbullet = nil
           break
         end
@@ -340,6 +390,7 @@ local function update_play()
       local s = shooters[math.random(#shooters)]
       local aw = (s.type == 1) and 4 or ((s.type == 2) and 5 or 6)
       alien_bullets[#alien_bullets + 1] = { x = s.x + aw, y = s.y + 8 }
+      noise(1, 0.04, "high", 1500)
     end
   end
 
@@ -353,9 +404,12 @@ local function update_play()
     elseif b.x >= px and b.x <= px + 13 and b.y >= py and b.y <= py + 8 then
       table.remove(alien_bullets, i)
       plives = plives - 1
-      explosions[#explosions + 1] = { x = px, y = py, timer = 20 }
+      explosions[#explosions + 1] = { x = px, y = py, timer = 20, parts = make_burst(6) }
+      tone(0, 400, 80, 0.6)
+      cam_shake(8)
       if plives <= 0 then
         if pscore > phiscore then phiscore = pscore end
+        data_save("invaders_hi", math.max(phiscore, pscore))
         state = STATE_DEAD
       end
     end
@@ -408,10 +462,12 @@ local function update_play()
 
   -- UFO
   ufo_timer = ufo_timer + 1
-  if ufo == nil and ufo_timer > 600 then
+  if ufo == nil and ufo_timer > 350 then
     ufo_timer = 0
     local dir = (math.random(2) == 1) and 1 or -1
-    ufo = { x = (dir == 1) and -16 or W, dir = dir }
+    local pts = ufo_scores[math.random(#ufo_scores)]
+    ufo = { x = (dir == 1) and -16 or W, dir = dir, score = pts }
+    tone(1, 600, 900, 0.4)
   end
   if ufo then
     ufo.x = ufo.x + ufo.dir * 0.8
@@ -420,12 +476,20 @@ local function update_play()
     if pbullet and ufo then
       if pbullet.x >= ufo.x and pbullet.x <= ufo.x + 16
         and pbullet.y >= 10 and pbullet.y <= 17 then
-        pscore = pscore + 100
-        explosions[#explosions + 1] = { x = ufo.x, y = 10, timer = 15 }
+        pscore = pscore + ufo.score
+        last_ufo_score = ufo.score
+        last_ufo_score_timer = 60
+        explosions[#explosions + 1] = { x = ufo.x, y = 10, timer = 15, parts = make_burst(6) }
+        tone(0, 200, 600, 0.5)
         ufo = nil
         pbullet = nil
       end
     end
+  end
+
+  -- UFO score popup timer
+  if last_ufo_score_timer > 0 then
+    last_ufo_score_timer = last_ufo_score_timer - 1
   end
 
   -- Explosions
@@ -438,12 +502,17 @@ local function update_play()
   for i = 1, #aliens do
     if aliens[i].alive and aliens[i].y + 8 >= py then
       if pscore > phiscore then phiscore = pscore end
+      data_save("invaders_hi", math.max(phiscore, pscore))
+      tone(0, 400, 80, 0.6)
+      cam_shake(8)
       state = STATE_DEAD
     end
   end
 
-  -- Win check
+  -- Win check → advance to next wave
   if count_alive() == 0 then
+    if pscore > phiscore then phiscore = pscore end
+    data_save("invaders_hi", math.max(phiscore, pscore))
     state = STATE_WIN
   end
 end
@@ -456,6 +525,12 @@ local function draw_play()
   -- Score
   text(scr, "SCORE " .. pscore, 2, 2, 1)
   text(scr, "HI " .. phiscore, W - 45, 2, 1)
+  text(scr, "WAVE " .. wave, 0, 2, 1, ALIGN_HCENTER)
+
+  -- UFO score popup (briefly after kill)
+  if last_ufo_score_timer > 0 and last_ufo_score > 0 then
+    text(scr, "+" .. last_ufo_score, 0, 18, 1, ALIGN_HCENTER)
+  end
 
   -- Lives
   for i = 1, plives - 1 do
@@ -518,16 +593,21 @@ local function draw_play()
     local e = explosions[i]
     local ex = math.floor(e.x)
     local ey = math.floor(e.y)
-    -- Pixel burst
-    for j = 1, 6 do
-      local dx = math.random(-5, 5)
-      local dy = math.random(-5, 5)
-      pix(scr, ex + 4 + dx, ey + 4 + dy, 1)
+    -- Pixel burst (offsets baked in at creation — stable per explosion)
+    if e.parts then
+      for j = 1, #e.parts do
+        pix(scr, ex + 4 + e.parts[j].dx, ey + 4 + e.parts[j].dy, 1)
+      end
     end
   end
 
   -- Ground line
   line(scr, 0, H - 9, W - 1, H - 9, 1)
+
+  -- Wave intermission overlay
+  if wave_intermission > 0 then
+    text(scr, "WAVE " .. wave, 0, 54, 1, ALIGN_HCENTER)
+  end
 end
 
 -- ===== TITLE / GAME OVER =====
@@ -583,13 +663,30 @@ function _init()
   title_blink = 0
 end
 
+function _start()
+  phiscore = data_load("invaders_hi") or 0
+end
+
+local win_timer = 0
+
 function _update()
-  if state == STATE_TITLE or state == STATE_DEAD or state == STATE_WIN then
+  if state == STATE_TITLE or state == STATE_DEAD then
     if btnp("start") then
       reset_game()
     end
+  elseif state == STATE_WIN then
+    -- Brief win screen, then auto-advance to the next wave.
+    win_timer = win_timer + 1
+    if win_timer >= 90 or btnp("start") then
+      win_timer = 0
+      next_wave()
+    end
   elseif state == STATE_PLAY then
-    update_play()
+    if wave_intermission > 0 then
+      wave_intermission = wave_intermission - 1
+    else
+      update_play()
+    end
   end
 end
 
